@@ -13,6 +13,7 @@ import {
   ProjectPicker,
 } from './pickers'
 import { SelectMenu } from './ui/SelectMenu'
+import { IssueRelations } from './IssueRelations'
 import { subIssueProgress } from '@/lib/selectors'
 import { PRIORITY_LABELS, ESTIMATE_SCALE } from '@/lib/constants'
 import { formatFullDate, timeAgo } from '@/lib/utils'
@@ -150,6 +151,9 @@ export function IssueDetailBody({
               </div>
             )}
           </div>
+
+          {/* Relations */}
+          <IssueRelations issue={issue} onOpenIssue={onOpenIssue} />
 
           {/* Activity + comments */}
           <div className="mt-8">

@@ -138,6 +138,21 @@ export interface Issue {
   canceledAt?: string
 }
 
+/**
+ * Directed relation between two issues, stored canonically once.
+ * - 'blocks':    fromIssue blocks toIssue (toIssue is blocked by fromIssue)
+ * - 'related':   symmetric association
+ * - 'duplicate': fromIssue is a duplicate of toIssue
+ */
+export type RelationType = 'blocks' | 'related' | 'duplicate'
+
+export interface Relation {
+  id: string
+  type: RelationType
+  fromIssueId: string
+  toIssueId: string
+}
+
 export type ViewLayout = 'list' | 'board'
 export type GroupBy =
   | 'status'

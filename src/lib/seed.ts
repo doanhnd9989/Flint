@@ -7,6 +7,7 @@ import type {
   Milestone,
   Notification,
   Project,
+  Relation,
   SavedView,
   Team,
   User,
@@ -25,6 +26,7 @@ export interface WorkspaceData {
   milestones: Milestone[]
   cycles: Cycle[]
   issues: Issue[]
+  relations: Relation[]
   comments: Comment[]
   activities: Activity[]
   notifications: Notification[]
@@ -216,6 +218,13 @@ export function buildSeed(): WorkspaceData {
     }
   })
 
+  const relations: Relation[] = [
+    // CLA-5 (keyboard perf) blocks CLA-7 (board view)
+    { id: 'r_1', type: 'blocks', fromIssueId: 'i_5', toIssueId: 'i_7' },
+    // CLA-6 (command palette) related to CLA-9 (filters)
+    { id: 'r_2', type: 'related', fromIssueId: 'i_6', toIssueId: 'i_9' },
+  ]
+
   const comments: Comment[] = [
     {
       id: 'c_1', issueId: 'i_5', userId: 'u_avery',
@@ -263,6 +272,7 @@ export function buildSeed(): WorkspaceData {
     milestones,
     cycles,
     issues,
+    relations,
     comments,
     activities,
     notifications,

@@ -15,6 +15,8 @@ import type {
   Notification,
   Priority,
   Project,
+  Relation,
+  RelationType,
   ThemeMode,
   WorkflowState,
 } from './types'
@@ -62,6 +64,10 @@ export interface Store extends WorkspaceData, UIState {
   setIssueTitle: (id: string, title: string) => void
   setIssueDescription: (id: string, description: string) => void
   moveIssue: (id: string, stateId: string, sortOrder: number) => void
+
+  // ── relations ────────────────────────────────────────────────
+  addRelation: (fromIssueId: string, toIssueId: string, type: RelationType) => void
+  removeRelation: (id: string) => void
 
   // ── comments ─────────────────────────────────────────────────
   addComment: (issueId: string, body: string, parentId?: string) => void
@@ -187,6 +193,9 @@ export const useStore = create<Store>()(
           issues: s.issues.filter((i) => i.id !== id && i.parentId !== id),
           comments: s.comments.filter((c) => c.issueId !== id),
           activities: s.activities.filter((a) => a.issueId !== id),
+          relations: s.relations.filter(
+            (r) => r.fromIssueId !== id && r.toIssueId !== id,
+          ),
         })),
 
       setIssueStatus: (id, stateId) =>
@@ -332,6 +341,30 @@ export const useStore = create<Store>()(
       deleteComment: (id) =>
         set((s) => ({ comments: s.comments.filter((c) => c.id !== id) })),
 
+      addRelation: (fromIssueId, toIssueId, type) =>
+        set((s) => {
+          if (fromIssueId === toIssueId) return s
+          const exists = s.relations.some(
+            (r) =>
+              r.type === type &&
+              ((r.fromIssueId === fromIssueId && r.toIssueId === toIssueId) ||
+                (type === 'related' &&
+                  r.fromIssueId === toIssueId &&
+                  r.toIssueId === fromIssueId)),
+          )
+          if (exists) return s
+          const relation: Relation = {
+            id: `r_${nanoid(8)}`,
+            type,
+            fromIssueId,
+            toIssueId,
+          }
+          return { relations: [...s.relations, relation] }
+        }),
+
+      removeRelation: (id) =>
+        set((s) => ({ relations: s.relations.filter((r) => r.id !== id) })),
+
       createLabel: (name, color) => {
         const label: Label = { id: `l_${nanoid(8)}`, name, color }
         set((s) => ({ labels: [...s.labels, label] }))
@@ -448,6 +481,9 @@ export const useStore = create<Store>()(
             ),
             comments: s.comments.filter((c) => !set_.has(c.issueId)),
             activities: s.activities.filter((a) => !set_.has(a.issueId)),
+            relations: s.relations.filter(
+              (r) => !set_.has(r.fromIssueId) && !set_.has(r.toIssueId),
+            ),
             selectedIssueIds: [],
           }
         }),

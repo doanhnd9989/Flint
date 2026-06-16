@@ -2,6 +2,25 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-16 — Loop #7: Issue relations
+
+Issues can now reference each other, Linear-style:
+
+- `types.ts`: `Relation { type: 'blocks'|'related'|'duplicate', fromIssueId,
+  toIssueId }`, stored canonically once; inverses (blocked-by, duplicated-by)
+  derived in the UI.
+- Store: `relations` slice + `addRelation` (dedups, ignores self) / `removeRelation`;
+  `deleteIssue` and `bulkDelete` now also prune relations.
+- `seed.ts`: two sample relations (CLA-5 blocks CLA-7, CLA-6 related CLA-9).
+- New `components/IssueRelations.tsx`: groups Blocking / Blocked by / Related /
+  Duplicate of / Duplicated by, each row links to the issue with inline remove;
+  add via four per-kind issue pickers. Rendered in `IssueDetailBody`.
+- Verified: CLA-5 shows "Blocking → CLA-7" and CLA-7 shows the derived
+  "Blocked by → CLA-5"; added a Related relation live. `tsc` ✅ · build ✅ · clean console.
+
+Next: **Rich-text description editor** (markdown shortcuts, headings, checklists, code blocks).
+
+
 ## 2026-06-16 — Loop #6: Cycles (sprints)
 
 Added a Cycles view, Linear's time-boxed sprint planning:
