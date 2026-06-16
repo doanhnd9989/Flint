@@ -7,6 +7,7 @@ import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { IssueBoard } from '@/components/IssueBoard'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { ViewHeader } from '@/components/ViewHeader'
+import { FilterBar, emptyFilters } from '@/components/FilterBar'
 import { cn } from '@/lib/utils'
 
 type Tab = 'active' | 'backlog' | 'all'
@@ -18,6 +19,7 @@ export function IssuesView() {
   const [layout, setLayout] = useState<ViewLayout>('list')
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
   const [orderBy, setOrderBy] = useState<OrderBy>('priority')
+  const [filters, setFilters] = useState(emptyFilters())
 
   const team = data.teams.find((t) => t.key === teamKey) ?? data.teams[0]
 
@@ -32,16 +34,10 @@ export function IssuesView() {
     else if (tab === 'backlog')
       scoped = scoped.filter((i) => statesByType.get(i.stateId) === 'backlog')
 
-    const filtered = filterIssues(scoped, {
-      statusIds: [],
-      assigneeIds: [],
-      priorities: [],
-      labelIds: [],
-      projectIds: [],
-    })
+    const filtered = filterIssues(scoped, filters)
     const sorted = sortIssues(filtered, orderBy, data)
     return groupIssues(sorted, layout === 'board' ? 'status' : groupBy, data)
-  }, [data, team.id, tab, groupBy, orderBy, layout])
+  }, [data, team.id, tab, groupBy, orderBy, layout, filters])
 
   return (
     <div className="flex h-full flex-col">
@@ -76,6 +72,8 @@ export function IssuesView() {
           ))}
         </div>
       </ViewHeader>
+
+      <FilterBar filters={filters} onChange={setFilters} />
 
       {layout === 'board' ? (
         <IssueBoard groups={groups} />

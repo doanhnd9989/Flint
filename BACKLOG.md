@@ -22,7 +22,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 
 ## 🔜 To build (in priority order)
 
-- [ ] 🔴 **Filtering bar** — add/remove filters (status, assignee, priority, label, project) with active filter chips; wire into `IssuesView` (replace the empty filter object). Persist per view.
+- [x] 🔴 **Filtering bar** — add/remove filters (status, assignee, priority, label, project) with active filter chips; wired into `IssuesView`. _(Persist-per-view still TODO.)_
 - [ ] 🔴 **Issue peek panel** — click a row opens issue in a right-side panel (Linear's split view) without leaving the list; Esc closes.
 - [ ] 🔴 **Sub-issue progress rollup** — show `done/total` + progress bar on parent; parent breadcrumb on sub-issue detail.
 - [ ] 🔴 **Bulk selection & actions** — X to select rows, shift-range select, bulk set status/priority/assignee/label/delete via a floating action bar.
