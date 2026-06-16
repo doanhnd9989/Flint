@@ -8,6 +8,7 @@ import {
 import { Sidebar } from '@/components/Sidebar'
 import { CommandMenu } from '@/components/CommandMenu'
 import { CreateIssueModal } from '@/components/CreateIssueModal'
+import { IssuePeek } from '@/components/IssuePeek'
 import { useThemeEffect } from '@/lib/useTheme'
 import { useShortcuts } from '@/lib/useShortcuts'
 import { useStore } from '@/lib/store'
@@ -31,6 +32,7 @@ function Shell() {
       </main>
       <CommandMenu />
       <CreateIssueModal />
+      <IssuePeek />
     </div>
   )
 }

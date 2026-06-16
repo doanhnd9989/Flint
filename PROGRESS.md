@@ -2,6 +2,26 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-16 — Loop #2: Issue peek panel (split view)
+
+Clicking an issue row now opens it in a right-side peek panel without leaving
+the list — Linear's split view.
+
+- Extracted the issue body + property sidebar into a shared
+  `components/IssueDetailBody.tsx` (a `compact` prop tightens padding for the
+  panel). The routed `IssueDetail` keeps its full-page header and reuses it.
+- New `components/IssuePeek.tsx`: a right drawer (760px) with backdrop, header
+  (copy / delete / open-full / close), Esc-to-close; reuses `IssueDetailBody`.
+  Sub-issue clicks re-target the peek; "open full" navigates to the page.
+- Store: transient `peekIssueId` + `setPeek` (excluded from persistence).
+- `IssueRow` click now opens the peek instead of navigating; mounted `IssuePeek`
+  in the app shell.
+- Verified: URL stays on the list, panel shows the issue, Esc closes it, no
+  console errors. `npx tsc -b` ✅ · `npm run build` ✅.
+
+Next: **Sub-issue progress rollup** (done/total + bar on parent; parent breadcrumb).
+
+
 ## 2026-06-16 — Loop #1: Filtering bar
 
 Added a Linear-style filter system to the Issues view:

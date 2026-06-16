@@ -24,6 +24,8 @@ interface UIState {
   sidebarCollapsed: boolean
   commandOpen: boolean
   createOpen: boolean
+  /** Issue currently shown in the right-side peek panel (transient). */
+  peekIssueId: string | null
 }
 
 interface NewIssueInput {
@@ -76,6 +78,7 @@ export interface Store extends WorkspaceData, UIState {
   toggleSidebar: () => void
   setCommandOpen: (open: boolean) => void
   setCreateOpen: (open: boolean) => void
+  setPeek: (id: string | null) => void
   resetWorkspace: () => void
 }
 
@@ -109,6 +112,7 @@ export const useStore = create<Store>()(
       sidebarCollapsed: false,
       commandOpen: false,
       createOpen: false,
+      peekIssueId: null,
 
       createIssue: (input) => {
         const s = get()
@@ -355,6 +359,7 @@ export const useStore = create<Store>()(
         set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setCommandOpen: (commandOpen) => set({ commandOpen }),
       setCreateOpen: (createOpen) => set({ createOpen }),
+      setPeek: (peekIssueId) => set({ peekIssueId }),
 
       resetWorkspace: () => {
         const fresh = buildSeed()
@@ -368,10 +373,12 @@ export const useStore = create<Store>()(
         const {
           commandOpen: _c,
           createOpen: _cr,
+          peekIssueId: _p,
           ...rest
         } = s
         void _c
         void _cr
+        void _p
         return rest as Store
       },
     },

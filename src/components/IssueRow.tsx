@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router-dom'
 import { useStoreShallow } from '@/lib/store'
 import type { Issue } from '@/lib/types'
 import { StatusIcon } from './StatusIcon'
@@ -15,8 +14,7 @@ export function IssueRow({
   issue: Issue
   showStatus?: boolean
 }) {
-  const navigate = useNavigate()
-  const { states, users, labels, setIssueStatus, setIssuePriority, setIssueAssignee } =
+  const { states, users, labels, setIssueStatus, setIssuePriority, setIssueAssignee, setPeek } =
     useStoreShallow((s) => ({
       states: s.states,
       users: s.users,
@@ -24,6 +22,7 @@ export function IssueRow({
       setIssueStatus: s.setIssueStatus,
       setIssuePriority: s.setIssuePriority,
       setIssueAssignee: s.setIssueAssignee,
+      setPeek: s.setPeek,
     }))
 
   const state = states.find((s) => s.id === issue.stateId)
@@ -34,7 +33,7 @@ export function IssueRow({
 
   return (
     <div
-      onClick={() => navigate(`/issue/${issue.identifier}`)}
+      onClick={() => setPeek(issue.id)}
       className="group flex cursor-pointer items-center gap-2 px-4 py-1.5 hover:bg-bg-hover border-b border-border/40"
     >
       <PriorityPicker
