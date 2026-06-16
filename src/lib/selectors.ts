@@ -199,3 +199,21 @@ export function projectProgress(
     percent: scoped.length ? Math.round((done / scoped.length) * 100) : 0,
   }
 }
+
+/** done/total of an issue's direct sub-issues. */
+export function subIssueProgress(
+  parentId: string,
+  issues: Issue[],
+  data: WorkspaceData,
+): { total: number; done: number; percent: number } {
+  const subs = issues.filter((i) => i.parentId === parentId)
+  const completedStateIds = new Set(
+    data.states.filter((s) => s.type === 'completed').map((s) => s.id),
+  )
+  const done = subs.filter((i) => completedStateIds.has(i.stateId)).length
+  return {
+    total: subs.length,
+    done,
+    percent: subs.length ? Math.round((done / subs.length) * 100) : 0,
+  }
+}

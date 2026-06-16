@@ -13,9 +13,10 @@ import {
   ProjectPicker,
 } from './pickers'
 import { SelectMenu } from './ui/SelectMenu'
+import { subIssueProgress } from '@/lib/selectors'
 import { PRIORITY_LABELS, ESTIMATE_SCALE } from '@/lib/constants'
 import { formatFullDate, timeAgo } from '@/lib/utils'
-import { GitBranch } from 'lucide-react'
+import { GitBranch, CornerLeftUp } from 'lucide-react'
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -59,6 +60,10 @@ export function IssueDetailBody({
     .filter((c) => c.issueId === issue.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   const subIssues = store.issues.filter((i) => i.parentId === issue.id)
+  const progress = subIssueProgress(issue.id, store.issues, store)
+  const parent = issue.parentId
+    ? store.issues.find((i) => i.id === issue.parentId)
+    : undefined
   const activities = store.activities
     .filter((a) => a.issueId === issue.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -68,6 +73,16 @@ export function IssueDetailBody({
       {/* Main content */}
       <div className="flex-1 overflow-y-auto">
         <div className={compact ? 'px-6 py-6' : 'mx-auto max-w-3xl px-10 py-8'}>
+          {parent && (
+            <button
+              onClick={() => onOpenIssue(parent.identifier)}
+              className="mb-2 flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-fg"
+            >
+              <CornerLeftUp size={13} className="text-faint" />
+              <span className="font-mono text-faint">{parent.identifier}</span>
+              <span className="truncate">{parent.title}</span>
+            </button>
+          )}
           <input
             value={issue.title}
             onChange={(e) => store.setIssueTitle(issue.id, e.target.value)}
@@ -84,7 +99,22 @@ export function IssueDetailBody({
           {/* Sub-issues */}
           <div className="mt-6">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[12px] font-medium text-faint">Sub-issues</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] font-medium text-faint">Sub-issues</span>
+                {progress.total > 0 && (
+                  <>
+                    <span className="text-[12px] text-muted">
+                      {progress.done}/{progress.total}
+                    </span>
+                    <div className="h-1 w-16 overflow-hidden rounded-full bg-bg-tertiary">
+                      <div
+                        className="h-full rounded-full bg-accent transition-all"
+                        style={{ width: `${progress.percent}%` }}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
               <button
                 onClick={() =>
                   store.createIssue({

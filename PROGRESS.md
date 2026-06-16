@@ -2,6 +2,23 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-16 — Loop #3: Sub-issue progress rollup
+
+Parent ↔ sub-issue relationships are now visible end-to-end:
+
+- `selectors.ts`: added `subIssueProgress(parentId, …)` → `{ total, done, percent }`.
+- `IssueDetailBody`: the Sub-issues header shows `done/total` + a progress bar;
+  a parent breadcrumb (`⌐ PARENT-ID title`) appears above the title on any issue
+  that has a parent, and clicking it opens the parent (re-targets the peek).
+- New `components/ProgressDonut.tsx`: a tiny SVG ring.
+- `IssueRow`: parent issues show a `◔ done/total` donut badge.
+- Verified in browser: added a sub-issue to CLA-1 → header showed `0/1` + bar,
+  the parent row showed the `0/1` donut, and the sub-issue showed the CLA-1
+  breadcrumb. `npx tsc -b` ✅ · `npm run build` ✅ · no console errors.
+
+Next: **Bulk selection & actions** (X to select rows, shift-range, floating action bar).
+
+
 ## 2026-06-16 — Loop #2: Issue peek panel (split view)
 
 Clicking an issue row now opens it in a right-side peek panel without leaving

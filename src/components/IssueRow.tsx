@@ -5,6 +5,7 @@ import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { StatusPicker, PriorityPicker, AssigneePicker } from './pickers'
+import { ProgressDonut } from './ProgressDonut'
 import { cn, formatDate, isOverdue } from '@/lib/utils'
 
 export function IssueRow({
@@ -14,11 +15,12 @@ export function IssueRow({
   issue: Issue
   showStatus?: boolean
 }) {
-  const { states, users, labels, setIssueStatus, setIssuePriority, setIssueAssignee, setPeek } =
+  const { states, users, labels, issues, setIssueStatus, setIssuePriority, setIssueAssignee, setPeek } =
     useStoreShallow((s) => ({
       states: s.states,
       users: s.users,
       labels: s.labels,
+      issues: s.issues,
       setIssueStatus: s.setIssueStatus,
       setIssuePriority: s.setIssuePriority,
       setIssueAssignee: s.setIssueAssignee,
@@ -30,6 +32,14 @@ export function IssueRow({
   const issueLabels = issue.labelIds
     .map((id) => labels.find((l) => l.id === id))
     .filter(Boolean)
+  const children = issues.filter((i) => i.parentId === issue.id)
+  const childDone = children.filter((i) => {
+    const st = states.find((s) => s.id === i.stateId)
+    return st?.type === 'completed'
+  }).length
+  const childPercent = children.length
+    ? Math.round((childDone / children.length) * 100)
+    : 0
 
   return (
     <div
@@ -65,6 +75,15 @@ export function IssueRow({
       <span className="flex-1 truncate text-[13px] text-fg">{issue.title}</span>
 
       <div className="flex items-center gap-1.5 shrink-0">
+        {children.length > 0 && (
+          <span
+            className="flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted"
+            title={`${childDone}/${children.length} sub-issues done`}
+          >
+            <ProgressDonut percent={childPercent} />
+            {childDone}/{children.length}
+          </span>
+        )}
         {issue.dueDate && (
           <span
             className={cn(
