@@ -14,6 +14,7 @@ import {
 } from './pickers'
 import { SelectMenu } from './ui/SelectMenu'
 import { IssueRelations } from './IssueRelations'
+import { MarkdownEditor } from './MarkdownEditor'
 import { subIssueProgress } from '@/lib/selectors'
 import { PRIORITY_LABELS, ESTIMATE_SCALE } from '@/lib/constants'
 import { formatFullDate, timeAgo } from '@/lib/utils'
@@ -90,11 +91,9 @@ export function IssueDetailBody({
             className="w-full bg-transparent text-[22px] font-semibold text-fg outline-none"
             placeholder="Issue title"
           />
-          <textarea
+          <MarkdownEditor
             value={issue.description}
-            onChange={(e) => store.setIssueDescription(issue.id, e.target.value)}
-            placeholder="Add description…"
-            className="mt-3 min-h-32 w-full resize-none bg-transparent text-[14px] leading-relaxed text-muted outline-none"
+            onChange={(v) => store.setIssueDescription(issue.id, v)}
           />
 
           {/* Sub-issues */}

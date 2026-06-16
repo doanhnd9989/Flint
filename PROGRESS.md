@@ -2,6 +2,29 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-16 — Loop #8: Rich-text (Markdown) description editor
+
+The issue description is now a click-to-edit Markdown field:
+
+- New `lib/markdown.tsx`: a dependency-free Markdown renderer returning React
+  nodes (no `dangerouslySetInnerHTML` → no XSS). Supports headings, bold/italic,
+  inline + fenced code, bullet/ordered/task lists, blockquotes, links, hr.
+- New `components/MarkdownEditor.tsx`: renders Markdown, click to edit raw text,
+  save on blur, Esc to cancel; task checkboxes toggle `[ ]`↔`[x]` in place
+  without entering edit mode. Wired into `IssueDetailBody`.
+- `seed.ts`: CLA-1 description showcases the formats.
+- Verified: a description with `## heading`, task list, inline `code` and
+  **bold** renders as h2 + 2 checkboxes (1 checked, struck through) + code + bold,
+  and persists. `tsc` ✅ · `build` ✅ (EXIT=0) · no console errors.
+- Infra note: the dev server's file watcher had silently died (HMR stopped
+  logging after loop #1); restarted it with a cleared `.vite` cache. Future loops
+  should serve fresh. The long "Markdown renders raw" investigation was a test
+  artifact — programmatic `.blur()` doesn't fire React's onBlur, so the raw
+  textarea was being observed, not the rendered output.
+
+Next: **@mentions** in comments and descriptions, with a user autocomplete.
+
+
 ## 2026-06-16 — Loop #7: Issue relations
 
 Issues can now reference each other, Linear-style:

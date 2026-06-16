@@ -127,7 +127,8 @@ export function buildSeed(): WorkspaceData {
   const drafts: Seed[] = [
     {
       title: 'Get familiar with the workspace',
-      description: 'Welcome! Explore the sidebar, create an issue, and try the command menu with ⌘K.',
+      description:
+        '## Welcome 👋\n\nA few things to try:\n\n- [x] Open the **command menu** with `⌘K`\n- [ ] Create an issue with `C`\n- [ ] Switch to the *board* view\n\n> Tip: right-click any issue for quick actions.\n\nSee the [docs](https://linear.app) for more.',
       teamId: 't_cla', stateId: 's_todo', priority: 2, assigneeId: 'u_me',
       labelIds: ['l_docs'], projectId: 'p_mvp', milestoneId: 'm_alpha',
     },

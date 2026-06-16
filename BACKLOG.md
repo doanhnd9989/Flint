@@ -29,7 +29,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🔴 **Right-click context menu** on issue rows — status, priority, assignee, labels (reusing the property pickers as sub-menus), open in peek / full page, copy id, delete.
 - [x] 🔴 **Cycles (sprints)** — cycle view with active/upcoming/past badge, prev/next navigation, scope/started/completed/progress stats + stacked progress bar, and issues-in-cycle grouped by status. Sidebar + ⌘K entry. _(Burndown chart still TODO.)_
 - [x] 🟡 **Issue relations** — blocks / blocked-by / related / duplicate-of, stored canonically and shown (with inverses derived) in the issue detail; add via per-kind issue pickers, remove inline.
-- [ ] 🟡 **Rich-text description editor** — markdown shortcuts, headings, checklists, code blocks, links.
+- [x] 🟡 **Rich-text description editor** — click-to-edit Markdown: headings, bold/italic, inline + fenced code, bullet/ordered/task lists (interactive checkboxes), blockquotes, links, hr. Dependency-free renderer (React nodes, no XSS). _(Full WYSIWYG / slash-commands still TODO.)_
 - [ ] 🟡 **@mentions** in comments and descriptions, with a user autocomplete.
 - [ ] 🟡 **Emoji reactions** on comments.
 - [ ] 🟡 **Due-date picker** (calendar popover) + overdue / due-soon styling everywhere.
