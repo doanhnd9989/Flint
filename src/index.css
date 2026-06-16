@@ -1,0 +1,200 @@
+@import 'tailwindcss';
+
+/* ─────────────────────────────────────────────────────────────
+   Design tokens — modeled on Linear's UI palette.
+   Light is the default; `.dark` on <html> switches to dark.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --bg: #ffffff;
+  --bg-secondary: #fbfbfb;
+  --bg-sidebar: #f7f7f8;
+  --bg-tertiary: #f1f1f2;
+  --bg-hover: #f3f3f4;
+  --bg-selected: #ecedef;
+  --bg-elevated: #ffffff;
+  --bg-overlay: rgba(0, 0, 0, 0.25);
+
+  --text: #282a30;
+  --text-secondary: #6b6f76;
+  --text-tertiary: #8a8f98;
+  --text-inverse: #ffffff;
+
+  --border: #ebebec;
+  --border-strong: #d8d8d9;
+
+  --accent: #5e6ad2;
+  --accent-hover: #525ec4;
+  --accent-text: #ffffff;
+  --accent-subtle: rgba(94, 106, 210, 0.12);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.16);
+
+  /* Status colors */
+  --status-backlog: #bec2c8;
+  --status-unstarted: #8a8f98;
+  --status-started: #f2c94c;
+  --status-review: #4cb782;
+  --status-completed: #5e6ad2;
+  --status-canceled: #95a2b3;
+
+  /* Priority */
+  --priority-urgent: #f06a3a;
+
+  /* Label / project accent palette */
+  --c-gray: #95a2b3;
+  --c-red: #eb5757;
+  --c-orange: #f2994a;
+  --c-yellow: #f2c94c;
+  --c-green: #4cb782;
+  --c-teal: #5e9aa8;
+  --c-blue: #4ea7fc;
+  --c-indigo: #5e6ad2;
+  --c-purple: #9b51e0;
+  --c-pink: #eb5da8;
+  --c-brown: #a17c5b;
+
+  color-scheme: light;
+}
+
+html.dark {
+  --bg: #0d0e10;
+  --bg-secondary: #101113;
+  --bg-sidebar: #0a0a0b;
+  --bg-tertiary: #1a1b1e;
+  --bg-hover: #18191c;
+  --bg-selected: #1f2023;
+  --bg-elevated: #1a1b1e;
+  --bg-overlay: rgba(0, 0, 0, 0.55);
+
+  --text: #f7f8f8;
+  --text-secondary: #b4b8bf;
+  --text-tertiary: #8a8f98;
+  --text-inverse: #08090a;
+
+  --border: #23252a;
+  --border-strong: #34373d;
+
+  --accent: #6e79d6;
+  --accent-hover: #7b85dc;
+  --accent-text: #ffffff;
+  --accent-subtle: rgba(110, 121, 214, 0.18);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.6);
+
+  color-scheme: dark;
+}
+
+/* Map tokens to Tailwind utilities (bg-bg, text-muted, border-border, …) */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-bg-tertiary: var(--bg-tertiary);
+  --color-bg-hover: var(--bg-hover);
+  --color-bg-selected: var(--bg-selected);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-overlay: var(--bg-overlay);
+
+  --color-fg: var(--text);
+  --color-muted: var(--text-secondary);
+  --color-faint: var(--text-tertiary);
+  --color-inverse: var(--text-inverse);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-text: var(--accent-text);
+  --color-accent-subtle: var(--accent-subtle);
+
+  --font-sans: 'Inter var', 'Inter', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'Roboto Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+}
+
+/* Thin scrollbars, Linear-style */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font-family: inherit;
+}
+
+::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Subtle entrance for overlays */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-pop {
+  animation: pop-in 0.12s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade {
+  animation: fade-in 0.1s ease-out;
+}
