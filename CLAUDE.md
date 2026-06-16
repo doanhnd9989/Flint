@@ -72,3 +72,20 @@ src/
 
 See `BACKLOG.md` for the prioritized feature queue and `PROGRESS.md` for the log.
 Each iteration: fix any breakage first, then advance the top backlog item.
+
+### No overlapping runs (IMPORTANT)
+
+The loop fires every 5 minutes, but an iteration may take longer. To guarantee
+only one runs at a time, every iteration MUST:
+
+1. **First action:** `bash scripts/loop-guard.sh acquire`.
+   - If it exits non-zero / prints `BUSY …`, **stop immediately** — do not read
+     files, build, or change anything. Another iteration is in progress.
+   - If it prints `ACQUIRED`, continue.
+2. Do the work (fix bugs / advance backlog / verify / commit).
+3. **Last action, always:** `bash scripts/loop-guard.sh release` — even if you
+   fixed nothing, skipped, or hit an error. Run it on every exit path.
+
+The lock is an atomic `mkdir` on `.loop.lock/`; a lock older than 15 minutes is
+treated as orphaned and auto-reclaimed, so the loop can never deadlock.
+`bash scripts/loop-guard.sh status` reports `IDLE` or `RUNNING`.

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Dev-loop overlap lock (runtime only)
+.loop.lock/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
