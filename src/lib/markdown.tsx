@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
  */
 
 const INLINE_RE =
-  /(\*\*([^*]+)\*\*)|(__([^_]+)__)|(\*([^*]+)\*)|(_([^_]+)_)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)\s]+)\))/g
+  /(@\[([^\]]+)\]\(([^)\s]+)\))|(\*\*([^*]+)\*\*)|(__([^_]+)__)|(\*([^*]+)\*)|(_([^_]+)_)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)\s]+)\))/g
 
 function renderInline(text: string, key: string): ReactNode[] {
   const nodes: ReactNode[] = []
@@ -18,27 +18,36 @@ function renderInline(text: string, key: string): ReactNode[] {
   INLINE_RE.lastIndex = 0
   while ((m = INLINE_RE.exec(text))) {
     if (m.index > last) nodes.push(text.slice(last, m.index))
-    if (m[1]) nodes.push(<strong key={`${key}-${i}`}>{m[2]}</strong>)
-    else if (m[3]) nodes.push(<strong key={`${key}-${i}`}>{m[4]}</strong>)
-    else if (m[5]) nodes.push(<em key={`${key}-${i}`}>{m[6]}</em>)
-    else if (m[7]) nodes.push(<em key={`${key}-${i}`}>{m[8]}</em>)
-    else if (m[9])
+    if (m[1])
+      nodes.push(
+        <span
+          key={`${key}-${i}`}
+          className="rounded bg-accent-subtle px-1 font-medium text-accent"
+        >
+          @{m[2]}
+        </span>,
+      )
+    else if (m[4]) nodes.push(<strong key={`${key}-${i}`}>{m[5]}</strong>)
+    else if (m[6]) nodes.push(<strong key={`${key}-${i}`}>{m[7]}</strong>)
+    else if (m[8]) nodes.push(<em key={`${key}-${i}`}>{m[9]}</em>)
+    else if (m[10]) nodes.push(<em key={`${key}-${i}`}>{m[11]}</em>)
+    else if (m[12])
       nodes.push(
         <code key={`${key}-${i}`} className="rounded bg-bg-tertiary px-1 py-0.5 font-mono text-[12px]">
-          {m[10]}
+          {m[13]}
         </code>,
       )
-    else if (m[11])
+    else if (m[14])
       nodes.push(
         <a
           key={`${key}-${i}`}
-          href={m[13]}
+          href={m[16]}
           target="_blank"
           rel="noreferrer"
           className="text-accent underline"
           onClick={(e) => e.stopPropagation()}
         >
-          {m[12]}
+          {m[15]}
         </a>,
       )
     last = m.index + m[0].length

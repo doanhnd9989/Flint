@@ -234,7 +234,7 @@ export function buildSeed(): WorkspaceData {
     },
     {
       id: 'c_2', issueId: 'i_5', userId: 'u_me',
-      body: 'Agreed — going to use a windowed list.',
+      body: 'Agreed @[Avery Chen](u_avery) — going to use a **windowed list**.',
       createdAt: nowIso(),
     },
   ]

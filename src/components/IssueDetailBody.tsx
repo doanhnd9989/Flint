@@ -15,6 +15,8 @@ import {
 import { SelectMenu } from './ui/SelectMenu'
 import { IssueRelations } from './IssueRelations'
 import { MarkdownEditor } from './MarkdownEditor'
+import { MentionInput } from './MentionInput'
+import { Markdown } from '@/lib/markdown'
 import { subIssueProgress } from '@/lib/selectors'
 import { PRIORITY_LABELS, ESTIMATE_SCALE } from '@/lib/constants'
 import { formatFullDate, timeAgo } from '@/lib/utils'
@@ -179,7 +181,9 @@ export function IssueDetailBody({
                         <span className="font-medium text-fg">{u?.name}</span>
                         <span className="text-faint">{timeAgo(c.createdAt)}</span>
                       </div>
-                      <div className="text-[13px] text-fg whitespace-pre-wrap">{c.body}</div>
+                      <div className="text-[13px] text-fg">
+                        <Markdown source={c.body} />
+                      </div>
                     </div>
                   </div>
                 )
@@ -189,10 +193,17 @@ export function IssueDetailBody({
             <div className="mt-4 flex gap-2">
               <Avatar user={store.users.find((u) => u.isMe)} size={22} />
               <div className="flex-1">
-                <textarea
+                <MentionInput
                   value={commentBody}
-                  onChange={(e) => setCommentBody(e.target.value)}
-                  placeholder="Leave a comment…"
+                  onChange={setCommentBody}
+                  placeholder="Leave a comment… (@ to mention)"
+                  minHeight={64}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && commentBody.trim()) {
+                      store.addComment(issue.id, commentBody.trim())
+                      setCommentBody('')
+                    }
+                  }}
                   className="min-h-16 w-full resize-none rounded-lg border border-border bg-bg px-3 py-2 text-[13px] text-fg outline-none focus:border-border-strong"
                 />
                 <div className="mt-1 flex justify-end">

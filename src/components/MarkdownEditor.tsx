@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Markdown } from '@/lib/markdown'
+import { MentionInput } from './MentionInput'
 
 interface Props {
   value: string
@@ -43,28 +44,34 @@ export function MarkdownEditor({ value, onChange, placeholder = 'Add description
 
   if (editing) {
     return (
-      <textarea
-        ref={ref}
-        value={draft}
-        onChange={(e) => {
-          setDraft(e.target.value)
-          e.target.style.height = 'auto'
-          e.target.style.height = `${e.target.scrollHeight}px`
-        }}
-        onBlur={() => {
-          onChange(draft)
-          setEditing(false)
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            setDraft(value)
+      <div className="mt-3">
+        <MentionInput
+          textareaRef={ref}
+          value={draft}
+          autoFocus
+          minHeight={120}
+          onChange={(v) => {
+            setDraft(v)
+            const el = ref.current
+            if (el) {
+              el.style.height = 'auto'
+              el.style.height = `${el.scrollHeight}px`
+            }
+          }}
+          onBlur={() => {
+            onChange(draft)
             setEditing(false)
-          }
-        }}
-        placeholder={placeholder}
-        className="mt-3 w-full resize-none bg-transparent font-mono text-[13px] leading-relaxed text-fg outline-none"
-        style={{ minHeight: 120 }}
-      />
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setDraft(value)
+              setEditing(false)
+            }
+          }}
+          placeholder={placeholder}
+          className="w-full resize-none bg-transparent font-mono text-[13px] leading-relaxed text-fg outline-none"
+        />
+      </div>
     )
   }
 

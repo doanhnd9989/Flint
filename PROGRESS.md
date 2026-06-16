@@ -2,6 +2,28 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-16 — Loop #9: @mentions
+
+Mention teammates in comments and descriptions:
+
+- New `components/MentionInput.tsx`: a textarea with an inline `@` autocomplete
+  over workspace users — detects `@query` at the caret, shows a filtered user
+  dropdown (↑/↓/Enter/Tab to pick, Esc to dismiss), and inserts a
+  `@[Name](userId)` token at the right spot.
+- `lib/markdown.tsx`: renders the `@[Name](userId)` token as an accent-colored
+  mention chip (added as the first inline rule).
+- `IssueDetailBody`: comment box now uses `MentionInput` (⌘↵ to submit) and
+  comment bodies render through `<Markdown>` (so mentions + markdown show).
+- `MarkdownEditor`: its edit textarea is now a `MentionInput`, so descriptions
+  also get `@` autocomplete.
+- `seed.ts`: a sample comment mentions Avery Chen.
+- Verified live: typing `@av` showed Avery in the dropdown, selecting inserted
+  the token, posting rendered "Thanks @Avery Chen" as a chip. `tsc` ✅ · build ✅ ·
+  clean console.
+
+Next: **Emoji reactions** on comments.
+
+
 ## 2026-06-16 — Loop #8: Rich-text (Markdown) description editor
 
 The issue description is now a click-to-edit Markdown field:
