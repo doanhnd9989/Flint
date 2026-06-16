@@ -26,6 +26,8 @@ interface UIState {
   createOpen: boolean
   /** Issue currently shown in the right-side peek panel (transient). */
   peekIssueId: string | null
+  /** Issues selected for bulk actions (transient). */
+  selectedIssueIds: string[]
 }
 
 interface NewIssueInput {
@@ -79,6 +81,17 @@ export interface Store extends WorkspaceData, UIState {
   setCommandOpen: (open: boolean) => void
   setCreateOpen: (open: boolean) => void
   setPeek: (id: string | null) => void
+
+  // ── bulk selection ───────────────────────────────────────────
+  toggleSelectIssue: (id: string) => void
+  setSelectedIssues: (ids: string[]) => void
+  clearSelection: () => void
+  bulkSetStatus: (ids: string[], stateId: string) => void
+  bulkSetPriority: (ids: string[], priority: Priority) => void
+  bulkSetAssignee: (ids: string[], assigneeId?: string) => void
+  bulkAddLabel: (ids: string[], labelId: string) => void
+  bulkDelete: (ids: string[]) => void
+
   resetWorkspace: () => void
 }
 
@@ -113,6 +126,7 @@ export const useStore = create<Store>()(
       commandOpen: false,
       createOpen: false,
       peekIssueId: null,
+      selectedIssueIds: [],
 
       createIssue: (input) => {
         const s = get()
@@ -361,6 +375,76 @@ export const useStore = create<Store>()(
       setCreateOpen: (createOpen) => set({ createOpen }),
       setPeek: (peekIssueId) => set({ peekIssueId }),
 
+      toggleSelectIssue: (id) =>
+        set((s) => ({
+          selectedIssueIds: s.selectedIssueIds.includes(id)
+            ? s.selectedIssueIds.filter((x) => x !== id)
+            : [...s.selectedIssueIds, id],
+        })),
+      setSelectedIssues: (selectedIssueIds) => set({ selectedIssueIds }),
+      clearSelection: () => set({ selectedIssueIds: [] }),
+
+      bulkSetStatus: (ids, stateId) =>
+        set((s) => {
+          const set_ = new Set(ids)
+          const newState = s.states.find((x) => x.id === stateId)
+          const ts = nowIso()
+          return {
+            issues: s.issues.map((i) =>
+              set_.has(i.id)
+                ? {
+                    ...i,
+                    stateId,
+                    updatedAt: ts,
+                    completedAt: newState?.type === 'completed' ? ts : undefined,
+                    canceledAt: newState?.type === 'canceled' ? ts : undefined,
+                  }
+                : i,
+            ),
+          }
+        }),
+      bulkSetPriority: (ids, priority) =>
+        set((s) => {
+          const set_ = new Set(ids)
+          return {
+            issues: s.issues.map((i) =>
+              set_.has(i.id) ? { ...i, priority, updatedAt: nowIso() } : i,
+            ),
+          }
+        }),
+      bulkSetAssignee: (ids, assigneeId) =>
+        set((s) => {
+          const set_ = new Set(ids)
+          return {
+            issues: s.issues.map((i) =>
+              set_.has(i.id) ? { ...i, assigneeId, updatedAt: nowIso() } : i,
+            ),
+          }
+        }),
+      bulkAddLabel: (ids, labelId) =>
+        set((s) => {
+          const set_ = new Set(ids)
+          return {
+            issues: s.issues.map((i) =>
+              set_.has(i.id) && !i.labelIds.includes(labelId)
+                ? { ...i, labelIds: [...i.labelIds, labelId], updatedAt: nowIso() }
+                : i,
+            ),
+          }
+        }),
+      bulkDelete: (ids) =>
+        set((s) => {
+          const set_ = new Set(ids)
+          return {
+            issues: s.issues.filter(
+              (i) => !set_.has(i.id) && !(i.parentId && set_.has(i.parentId)),
+            ),
+            comments: s.comments.filter((c) => !set_.has(c.issueId)),
+            activities: s.activities.filter((a) => !set_.has(a.issueId)),
+            selectedIssueIds: [],
+          }
+        }),
+
       resetWorkspace: () => {
         const fresh = buildSeed()
         set({ ...fresh })
@@ -374,11 +458,13 @@ export const useStore = create<Store>()(
           commandOpen: _c,
           createOpen: _cr,
           peekIssueId: _p,
+          selectedIssueIds: _sel,
           ...rest
         } = s
         void _c
         void _cr
         void _p
+        void _sel
         return rest as Store
       },
     },

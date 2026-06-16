@@ -25,7 +25,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🔴 **Filtering bar** — add/remove filters (status, assignee, priority, label, project) with active filter chips; wired into `IssuesView`. _(Persist-per-view still TODO.)_
 - [x] 🔴 **Issue peek panel** — click a row opens issue in a right-side panel (Linear's split view) without leaving the list; Esc closes. _(Board cards still navigate full-page — could also peek.)_
 - [x] 🔴 **Sub-issue progress rollup** — `done/total` + bar on the parent's sub-issue header, a progress-donut badge on parent rows, and a parent breadcrumb on sub-issue detail/peek.
-- [ ] 🔴 **Bulk selection & actions** — X to select rows, shift-range select, bulk set status/priority/assignee/label/delete via a floating action bar.
+- [x] 🔴 **Bulk selection & actions** — row + group-header checkboxes, floating action bar (status/priority/assignee/label/delete), Esc/Clear/route-change clears. _(Shift-range select and the `X` hotkey still TODO.)_
 - [ ] 🔴 **Right-click context menu** on issue rows (status, priority, assignee, labels, copy id, delete).
 - [ ] 🔴 **Cycles (sprints)** — cycle list, active/upcoming cycle, issues-in-cycle view, simple velocity/progress.
 - [ ] 🟡 **Issue relations** — blocks / blocked-by / related / duplicate-of, shown in the issue detail.

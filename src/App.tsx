@@ -4,11 +4,14 @@ import {
   Route,
   Navigate,
   Outlet,
+  useLocation,
 } from 'react-router-dom'
+import { useEffect } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { CommandMenu } from '@/components/CommandMenu'
 import { CreateIssueModal } from '@/components/CreateIssueModal'
 import { IssuePeek } from '@/components/IssuePeek'
+import { BulkActionBar } from '@/components/BulkActionBar'
 import { useThemeEffect } from '@/lib/useTheme'
 import { useShortcuts } from '@/lib/useShortcuts'
 import { useStore } from '@/lib/store'
@@ -24,6 +27,11 @@ import { ViewsView } from '@/views/ViewsView'
 function Shell() {
   useThemeEffect()
   useShortcuts()
+  const location = useLocation()
+  // Clear bulk selection when navigating between views.
+  useEffect(() => {
+    useStore.getState().clearSelection()
+  }, [location.pathname])
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg text-fg">
       <Sidebar />
@@ -33,6 +41,7 @@ function Shell() {
       <CommandMenu />
       <CreateIssueModal />
       <IssuePeek />
+      <BulkActionBar />
     </div>
   )
 }

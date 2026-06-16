@@ -2,6 +2,25 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-16 — Loop #4: Bulk selection & actions
+
+Multi-select issues and act on them at once, Linear-style:
+
+- Store: transient `selectedIssueIds` + `toggleSelectIssue` / `setSelectedIssues`
+  / `clearSelection`, and batched `bulkSetStatus` / `bulkSetPriority` /
+  `bulkSetAssignee` / `bulkAddLabel` / `bulkDelete` (excluded from persistence).
+- `IssueRow`: hover-reveal checkbox, selected-row highlight; checkboxes stay
+  visible while any selection is active.
+- `GroupedIssueList`: group-header checkbox selects/clears the whole group.
+- New `components/BulkActionBar.tsx`: floating bottom bar with count + Clear and
+  Status / Priority / Assignee / Label / Delete pickers; Esc clears.
+- `App` shell: mounted the bar; selection auto-clears on route change.
+- Verified: selected 2 issues → bar showed "2 selected" → bulk Status→Done moved
+  both (Todo 5→3, Done 1→3) → Clear hid the bar. `tsc` ✅ · `build` ✅ · clean console.
+
+Next: **Right-click context menu** on issue rows (status/priority/assignee/labels/copy id/delete).
+
+
 ## 2026-06-16 — Loop #3: Sub-issue progress rollup
 
 Parent ↔ sub-issue relationships are now visible end-to-end:

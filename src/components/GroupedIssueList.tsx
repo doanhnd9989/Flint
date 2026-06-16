@@ -41,7 +41,10 @@ export function GroupedIssueList({
   groupBy: GroupBy
 }) {
   const setCreateOpen = useStore((s) => s.setCreateOpen)
+  const selectedIssueIds = useStore((s) => s.selectedIssueIds)
+  const setSelectedIssues = useStore((s) => s.setSelectedIssues)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const anySelected = selectedIssueIds.length > 0
 
   if (groups.every((g) => g.count === 0)) {
     return (
@@ -62,9 +65,36 @@ export function GroupedIssueList({
     <div className="flex-1 overflow-y-auto">
       {groups.map((group) => {
         const isCollapsed = collapsed[group.key]
+        const groupIds = group.issues.map((i) => i.id)
+        const allSelected =
+          group.count > 0 && groupIds.every((id) => selectedIssueIds.includes(id))
+        const toggleGroup = () => {
+          const set = new Set(selectedIssueIds)
+          if (allSelected) groupIds.forEach((id) => set.delete(id))
+          else groupIds.forEach((id) => set.add(id))
+          setSelectedIssues([...set])
+        }
         return (
           <div key={group.key}>
-            <div className="sticky top-0 z-10 flex items-center gap-2 bg-bg-secondary/95 px-4 py-1.5 backdrop-blur border-b border-border">
+            <div className="group sticky top-0 z-10 flex items-center gap-2 bg-bg-secondary/95 px-4 py-1.5 backdrop-blur border-b border-border">
+              <button
+                type="button"
+                onClick={toggleGroup}
+                title="Select all in group"
+                className={cn(
+                  'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-opacity',
+                  allSelected
+                    ? 'border-accent bg-accent text-white opacity-100'
+                    : 'border-border-strong opacity-0 group-hover:opacity-100',
+                  anySelected && 'opacity-100',
+                )}
+              >
+                {allSelected && (
+                  <svg width="11" height="11" viewBox="0 0 16 16">
+                    <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
               <button
                 type="button"
                 onClick={() =>

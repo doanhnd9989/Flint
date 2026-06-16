@@ -15,17 +15,24 @@ export function IssueRow({
   issue: Issue
   showStatus?: boolean
 }) {
-  const { states, users, labels, issues, setIssueStatus, setIssuePriority, setIssueAssignee, setPeek } =
-    useStoreShallow((s) => ({
-      states: s.states,
-      users: s.users,
-      labels: s.labels,
-      issues: s.issues,
-      setIssueStatus: s.setIssueStatus,
-      setIssuePriority: s.setIssuePriority,
-      setIssueAssignee: s.setIssueAssignee,
-      setPeek: s.setPeek,
-    }))
+  const {
+    states, users, labels, issues, selectedIssueIds,
+    setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue,
+  } = useStoreShallow((s) => ({
+    states: s.states,
+    users: s.users,
+    labels: s.labels,
+    issues: s.issues,
+    selectedIssueIds: s.selectedIssueIds,
+    setIssueStatus: s.setIssueStatus,
+    setIssuePriority: s.setIssuePriority,
+    setIssueAssignee: s.setIssueAssignee,
+    setPeek: s.setPeek,
+    toggleSelectIssue: s.toggleSelectIssue,
+  }))
+
+  const selected = selectedIssueIds.includes(issue.id)
+  const anySelected = selectedIssueIds.length > 0
 
   const state = states.find((s) => s.id === issue.stateId)
   const assignee = users.find((u) => u.id === issue.assigneeId)
@@ -44,8 +51,33 @@ export function IssueRow({
   return (
     <div
       onClick={() => setPeek(issue.id)}
-      className="group flex cursor-pointer items-center gap-2 px-4 py-1.5 hover:bg-bg-hover border-b border-border/40"
+      className={cn(
+        'group flex cursor-pointer items-center gap-2 px-4 py-1.5 border-b border-border/40',
+        selected ? 'bg-accent-subtle' : 'hover:bg-bg-hover',
+      )}
     >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          toggleSelectIssue(issue.id)
+        }}
+        className={cn(
+          'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-opacity',
+          selected
+            ? 'border-accent bg-accent text-white opacity-100'
+            : 'border-border-strong opacity-0 group-hover:opacity-100',
+          anySelected && 'opacity-100',
+        )}
+        title="Select"
+      >
+        {selected && (
+          <svg width="11" height="11" viewBox="0 0 16 16">
+            <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </button>
+
       <PriorityPicker
         priority={issue.priority}
         onChange={(p) => setIssuePriority(issue.id, p)}
