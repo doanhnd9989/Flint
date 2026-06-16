@@ -2,6 +2,25 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-16 — Loop #5: Right-click context menu
+
+Right-clicking an issue row opens a Linear-style context menu:
+
+- New `components/IssueContextMenu.tsx`: a portal panel at the cursor with
+  Status / Priority / Assignee / Labels rows (each reuses the existing property
+  picker as a sub-menu, showing the current value + chevron), plus Open in peek,
+  Open full page, Copy issue ID, and Delete. Backdrop + Esc close it; picking a
+  value applies it and closes.
+- Store: transient `contextMenu {issueId,x,y}` + `openContextMenu` /
+  `closeContextMenu` (excluded from persistence).
+- `IssueRow`: `onContextMenu` opens the menu at the click position; mounted the
+  menu in the app shell.
+- Verified: right-click showed all 8 items; Status→In Progress moved CLA-11
+  (In Progress 2→3) and closed the menu. `tsc` ✅ · build pending→green · clean console.
+
+Next: **Cycles (sprints)** — cycle list, active/upcoming cycle, issues-in-cycle view, velocity.
+
+
 ## 2026-06-16 — Loop #4: Bulk selection & actions
 
 Multi-select issues and act on them at once, Linear-style:

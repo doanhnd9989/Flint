@@ -26,7 +26,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🔴 **Issue peek panel** — click a row opens issue in a right-side panel (Linear's split view) without leaving the list; Esc closes. _(Board cards still navigate full-page — could also peek.)_
 - [x] 🔴 **Sub-issue progress rollup** — `done/total` + bar on the parent's sub-issue header, a progress-donut badge on parent rows, and a parent breadcrumb on sub-issue detail/peek.
 - [x] 🔴 **Bulk selection & actions** — row + group-header checkboxes, floating action bar (status/priority/assignee/label/delete), Esc/Clear/route-change clears. _(Shift-range select and the `X` hotkey still TODO.)_
-- [ ] 🔴 **Right-click context menu** on issue rows (status, priority, assignee, labels, copy id, delete).
+- [x] 🔴 **Right-click context menu** on issue rows — status, priority, assignee, labels (reusing the property pickers as sub-menus), open in peek / full page, copy id, delete.
 - [ ] 🔴 **Cycles (sprints)** — cycle list, active/upcoming cycle, issues-in-cycle view, simple velocity/progress.
 - [ ] 🟡 **Issue relations** — blocks / blocked-by / related / duplicate-of, shown in the issue detail.
 - [ ] 🟡 **Rich-text description editor** — markdown shortcuts, headings, checklists, code blocks, links.

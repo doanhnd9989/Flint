@@ -12,6 +12,7 @@ import { CommandMenu } from '@/components/CommandMenu'
 import { CreateIssueModal } from '@/components/CreateIssueModal'
 import { IssuePeek } from '@/components/IssuePeek'
 import { BulkActionBar } from '@/components/BulkActionBar'
+import { IssueContextMenu } from '@/components/IssueContextMenu'
 import { useThemeEffect } from '@/lib/useTheme'
 import { useShortcuts } from '@/lib/useShortcuts'
 import { useStore } from '@/lib/store'
@@ -42,6 +43,7 @@ function Shell() {
       <CreateIssueModal />
       <IssuePeek />
       <BulkActionBar />
+      <IssueContextMenu />
     </div>
   )
 }

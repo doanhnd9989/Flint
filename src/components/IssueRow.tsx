@@ -17,7 +17,7 @@ export function IssueRow({
 }) {
   const {
     states, users, labels, issues, selectedIssueIds,
-    setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue,
+    setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue, openContextMenu,
   } = useStoreShallow((s) => ({
     states: s.states,
     users: s.users,
@@ -29,6 +29,7 @@ export function IssueRow({
     setIssueAssignee: s.setIssueAssignee,
     setPeek: s.setPeek,
     toggleSelectIssue: s.toggleSelectIssue,
+    openContextMenu: s.openContextMenu,
   }))
 
   const selected = selectedIssueIds.includes(issue.id)
@@ -51,6 +52,10 @@ export function IssueRow({
   return (
     <div
       onClick={() => setPeek(issue.id)}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        openContextMenu(issue.id, e.clientX, e.clientY)
+      }}
       className={cn(
         'group flex cursor-pointer items-center gap-2 px-4 py-1.5 border-b border-border/40',
         selected ? 'bg-accent-subtle' : 'hover:bg-bg-hover',

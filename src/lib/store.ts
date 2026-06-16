@@ -28,6 +28,8 @@ interface UIState {
   peekIssueId: string | null
   /** Issues selected for bulk actions (transient). */
   selectedIssueIds: string[]
+  /** Right-click context menu target + position (transient). */
+  contextMenu: { issueId: string; x: number; y: number } | null
 }
 
 interface NewIssueInput {
@@ -92,6 +94,10 @@ export interface Store extends WorkspaceData, UIState {
   bulkAddLabel: (ids: string[], labelId: string) => void
   bulkDelete: (ids: string[]) => void
 
+  // ── context menu ─────────────────────────────────────────────
+  openContextMenu: (issueId: string, x: number, y: number) => void
+  closeContextMenu: () => void
+
   resetWorkspace: () => void
 }
 
@@ -127,6 +133,7 @@ export const useStore = create<Store>()(
       createOpen: false,
       peekIssueId: null,
       selectedIssueIds: [],
+      contextMenu: null,
 
       createIssue: (input) => {
         const s = get()
@@ -445,6 +452,10 @@ export const useStore = create<Store>()(
           }
         }),
 
+      openContextMenu: (issueId, x, y) =>
+        set({ contextMenu: { issueId, x, y } }),
+      closeContextMenu: () => set({ contextMenu: null }),
+
       resetWorkspace: () => {
         const fresh = buildSeed()
         set({ ...fresh })
@@ -459,12 +470,14 @@ export const useStore = create<Store>()(
           createOpen: _cr,
           peekIssueId: _p,
           selectedIssueIds: _sel,
+          contextMenu: _cm,
           ...rest
         } = s
         void _c
         void _cr
         void _p
         void _sel
+        void _cm
         return rest as Store
       },
     },
