@@ -2,6 +2,25 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-16 — Loop #6: Cycles (sprints)
+
+Added a Cycles view, Linear's time-boxed sprint planning:
+
+- New `views/CyclesView.tsx` at `/team/:teamKey/cycles`: a cycle header with an
+  active/upcoming/past badge, date range + days-left, prev/next navigation across
+  the team's cycles, Scope/Started/Completed/Progress stats, and a stacked
+  progress bar (completed / started / remaining). Issues in the cycle are grouped
+  by status (reusing GroupedIssueList).
+- `selectors.ts`: `cycleProgress(cycleId, …)` (total/done/started/percent) and
+  `cycleState(start, end, now)` (status + daysLeft).
+- `seed.ts`: added an upcoming Cycle 2 so prev/next has range.
+- Sidebar: a "Cycles" item under each team; "Go to Cycles" added to ⌘K.
+- Verified: Cycle 1 shows Active, Scope 5 / Started 4 / Completed 1 / 20%, with
+  the stacked bar and grouped issues. `tsc` ✅ · build ✅ · clean console.
+
+Next: **Issue relations** (blocks / blocked-by / related / duplicate-of in the issue detail).
+
+
 ## 2026-06-16 — Loop #5: Right-click context menu
 
 Right-clicking an issue row opens a Linear-style context menu:

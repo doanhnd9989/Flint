@@ -73,6 +73,13 @@ export function CommandMenu() {
         run: () => navigate(`/team/${team.key}/active`),
       },
       {
+        id: 'go-cycles',
+        label: 'Go to Cycles',
+        icon: <StatusIcon type="started" color="var(--status-started)" />,
+        keywords: 'cycles sprints',
+        run: () => navigate(`/team/${team.key}/cycles`),
+      },
+      {
         id: 'go-projects',
         label: 'Go to Projects',
         icon: <Box size={15} />,

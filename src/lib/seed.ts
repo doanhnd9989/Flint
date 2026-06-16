@@ -108,6 +108,13 @@ export function buildSeed(): WorkspaceData {
       startsAt: nowIso(),
       endsAt: new Date(Date.now() + 14 * 86_400_000).toISOString(),
     },
+    {
+      id: 'cy_2',
+      teamId: 't_cla',
+      number: 2,
+      startsAt: new Date(Date.now() + 14 * 86_400_000).toISOString(),
+      endsAt: new Date(Date.now() + 28 * 86_400_000).toISOString(),
+    },
   ]
 
   type Seed = Omit<

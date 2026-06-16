@@ -200,6 +200,43 @@ export function projectProgress(
   }
 }
 
+/** done/total of issues assigned to a cycle, plus started/scope counts. */
+export function cycleProgress(
+  cycleId: string,
+  issues: Issue[],
+  data: WorkspaceData,
+): { total: number; done: number; started: number; percent: number } {
+  const scoped = issues.filter((i) => i.cycleId === cycleId)
+  const completed = new Set(
+    data.states.filter((s) => s.type === 'completed').map((s) => s.id),
+  )
+  const inProgress = new Set(
+    data.states.filter((s) => s.type === 'started').map((s) => s.id),
+  )
+  const done = scoped.filter((i) => completed.has(i.stateId)).length
+  const started = scoped.filter((i) => inProgress.has(i.stateId)).length
+  return {
+    total: scoped.length,
+    done,
+    started,
+    percent: scoped.length ? Math.round((done / scoped.length) * 100) : 0,
+  }
+}
+
+/** Lifecycle of a cycle relative to now, with days remaining. */
+export function cycleState(
+  startsAt: string,
+  endsAt: string,
+  nowMs: number,
+): { status: 'upcoming' | 'active' | 'past'; daysLeft: number } {
+  const start = new Date(startsAt).getTime()
+  const end = new Date(endsAt).getTime()
+  const status =
+    nowMs < start ? 'upcoming' : nowMs > end ? 'past' : 'active'
+  const daysLeft = Math.max(0, Math.ceil((end - nowMs) / 86_400_000))
+  return { status, daysLeft }
+}
+
 /** done/total of an issue's direct sub-issues. */
 export function subIssueProgress(
   parentId: string,

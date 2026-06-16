@@ -10,6 +10,7 @@ import {
   CircleDot,
   FolderKanban,
   Layers3,
+  IterationCw,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useStoreShallow } from '@/lib/store'
@@ -149,6 +150,11 @@ export function Sidebar() {
               to={`/team/${team.key}/active`}
               icon={<Layers3 size={15} />}
               label="Issues"
+            />
+            <Item
+              to={`/team/${team.key}/cycles`}
+              icon={<IterationCw size={15} />}
+              label="Cycles"
             />
             <Item
               to={`/team/${team.key}/projects`}

@@ -17,6 +17,7 @@ import { useThemeEffect } from '@/lib/useTheme'
 import { useShortcuts } from '@/lib/useShortcuts'
 import { useStore } from '@/lib/store'
 import { IssuesView } from '@/views/IssuesView'
+import { CyclesView } from '@/views/CyclesView'
 import { IssueDetail } from '@/views/IssueDetail'
 import { MyIssues } from '@/views/MyIssues'
 import { Inbox } from '@/views/Inbox'
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/project/:id" element={<ProjectDetail />} />
           <Route path="/views" element={<ViewsView />} />
           <Route path="/team/:teamKey/active" element={<IssuesView />} />
+          <Route path="/team/:teamKey/cycles" element={<CyclesView />} />
           <Route path="/team/:teamKey/projects" element={<ProjectsView />} />
           <Route path="/issue/:identifier" element={<IssueDetail />} />
           <Route path="/settings" element={<SettingsView />} />

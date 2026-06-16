@@ -27,7 +27,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🔴 **Sub-issue progress rollup** — `done/total` + bar on the parent's sub-issue header, a progress-donut badge on parent rows, and a parent breadcrumb on sub-issue detail/peek.
 - [x] 🔴 **Bulk selection & actions** — row + group-header checkboxes, floating action bar (status/priority/assignee/label/delete), Esc/Clear/route-change clears. _(Shift-range select and the `X` hotkey still TODO.)_
 - [x] 🔴 **Right-click context menu** on issue rows — status, priority, assignee, labels (reusing the property pickers as sub-menus), open in peek / full page, copy id, delete.
-- [ ] 🔴 **Cycles (sprints)** — cycle list, active/upcoming cycle, issues-in-cycle view, simple velocity/progress.
+- [x] 🔴 **Cycles (sprints)** — cycle view with active/upcoming/past badge, prev/next navigation, scope/started/completed/progress stats + stacked progress bar, and issues-in-cycle grouped by status. Sidebar + ⌘K entry. _(Burndown chart still TODO.)_
 - [ ] 🟡 **Issue relations** — blocks / blocked-by / related / duplicate-of, shown in the issue detail.
 - [ ] 🟡 **Rich-text description editor** — markdown shortcuts, headings, checklists, code blocks, links.
 - [ ] 🟡 **@mentions** in comments and descriptions, with a user autocomplete.
