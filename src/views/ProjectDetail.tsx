@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Flag } from 'lucide-react'
+import { Plus, Trash2, Flag, Goal } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { sortIssues, projectProgress, milestoneProgress } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
 import { Avatar } from '@/components/Avatar'
 import { ProjectUpdates, HealthBadge } from '@/components/ProjectUpdates'
+import { SelectMenu } from '@/components/ui/SelectMenu'
+import type { SelectOption } from '@/components/ui/SelectMenu'
 import { StarButton } from '@/components/StarButton'
 import { formatFullDate, cn } from '@/lib/utils'
 import type { Issue } from '@/lib/types'
@@ -102,6 +104,19 @@ export function ProjectDetail() {
   const lead = data.users.find((u) => u.id === project.leadId)
   const prog = projectProgress(project.id, data.issues, data)
   const noMilestone = scoped.filter((i) => !i.milestoneId)
+  const initiative = data.initiatives.find((x) => x.id === project.initiativeId)
+  const initiativeOptions: SelectOption[] = [
+    { id: '__none', label: 'No initiative', icon: <Goal size={14} />, selected: !project.initiativeId },
+    ...data.initiatives
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((i) => ({
+        id: i.id,
+        label: i.name,
+        icon: <span>{i.icon}</span>,
+        selected: i.id === project.initiativeId,
+      })),
+  ]
 
   return (
     <div className="flex h-full flex-col">
@@ -136,6 +151,27 @@ export function ProjectDetail() {
                 {prog.done}/{prog.total} issues · {prog.percent}%
               </span>
               {latestUpdate && <HealthBadge health={latestUpdate.health} />}
+              <SelectMenu
+                options={initiativeOptions}
+                onSelect={(iid) =>
+                  data.setProjectInitiative(project.id, iid === '__none' ? undefined : iid)
+                }
+                placeholder="Set initiative…"
+                trigger={
+                  <span className="flex items-center gap-1.5 rounded-md border border-border px-1.5 py-0.5 hover:bg-bg-hover">
+                    {initiative ? (
+                      <>
+                        <span>{initiative.icon}</span>
+                        {initiative.name}
+                      </>
+                    ) : (
+                      <>
+                        <Goal size={13} /> No initiative
+                      </>
+                    )}
+                  </span>
+                }
+              />
               <button
                 onClick={() => {
                   const name = prompt('New milestone name…')

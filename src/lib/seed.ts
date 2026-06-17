@@ -10,6 +10,7 @@ import type {
   Notification,
   Project,
   ProjectUpdate,
+  InitiativeUpdate,
   Relation,
   SavedView,
   Team,
@@ -33,6 +34,7 @@ export interface WorkspaceData {
   relations: Relation[]
   templates: IssueTemplate[]
   projectUpdates: ProjectUpdate[]
+  initiativeUpdates: InitiativeUpdate[]
   comments: Comment[]
   activities: Activity[]
   notifications: Notification[]
@@ -324,6 +326,17 @@ export function buildSeed(): WorkspaceData {
     },
   ]
 
+  const initiativeUpdates: InitiativeUpdate[] = [
+    {
+      id: 'iu_1',
+      initiativeId: 'in_h2',
+      userId: 'u_me',
+      health: 'on-track',
+      body: 'Both projects are progressing well. The MVP is in good shape and mobile is staffed — **on track** for the H2 launch.',
+      createdAt: nowIso(),
+    },
+  ]
+
   const relations: Relation[] = [
     // CLA-5 (keyboard perf) blocks CLA-7 (board view)
     { id: 'r_1', type: 'blocks', fromIssueId: 'i_5', toIssueId: 'i_7' },
@@ -400,6 +413,7 @@ export function buildSeed(): WorkspaceData {
     relations,
     templates,
     projectUpdates,
+    initiativeUpdates,
     comments,
     activities,
     notifications,

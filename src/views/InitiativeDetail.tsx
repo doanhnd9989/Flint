@@ -1,14 +1,17 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Plus, Trash2, X } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
+import { HealthBadge } from '@/components/ProjectUpdates'
+import { InitiativeUpdates } from '@/components/InitiativeUpdates'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { initiativeProgress, projectProgress } from '@/lib/selectors'
 import { INITIATIVE_STATUS, INITIATIVE_STATUS_ORDER } from '@/lib/constants'
 import type { InitiativeStatus } from '@/lib/types'
-import { formatFullDate } from '@/lib/utils'
+import { formatFullDate, cn } from '@/lib/utils'
 
 const PROJECT_STATUS_LABEL: Record<string, string> = {
   backlog: 'Backlog',
@@ -22,11 +25,13 @@ const PROJECT_STATUS_LABEL: Record<string, string> = {
 export function InitiativeDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { initiatives, projects, issues, users } = useStoreShallow((s) => ({
+  const [tab, setTab] = useState<'overview' | 'updates'>('overview')
+  const { initiatives, projects, issues, users, initiativeUpdates } = useStoreShallow((s) => ({
     initiatives: s.initiatives,
     projects: s.projects,
     issues: s.issues,
     users: s.users,
+    initiativeUpdates: s.initiativeUpdates,
   }))
   const data = useStore()
   const {
@@ -50,6 +55,9 @@ export function InitiativeDetail() {
 
   const owner = users.find((u) => u.id === initiative.ownerId)
   const prog = initiativeProgress(initiative.id, projects, issues, data)
+  const latestUpdate = initiativeUpdates
+    .filter((u) => u.initiativeId === initiative.id)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
   const inProjects = projects
     .filter((p) => p.initiativeId === initiative.id)
     .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -157,6 +165,7 @@ export function InitiativeDetail() {
                   </span>
                 }
               />
+              {latestUpdate && <HealthBadge health={latestUpdate.health} />}
               {initiative.targetDate && (
                 <span className="rounded-md border border-border px-2 py-1">
                   Target {formatFullDate(initiative.targetDate)}
@@ -174,8 +183,28 @@ export function InitiativeDetail() {
             </div>
           </div>
         </div>
+        <div className="mt-4 flex items-center gap-1">
+          {(['overview', 'updates'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={cn(
+                'rounded-md px-2.5 py-1 text-[12px] capitalize text-muted hover:bg-bg-hover',
+                tab === t && 'bg-bg-selected text-fg font-medium',
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {tab === 'updates' ? (
+        <div className="flex-1 overflow-y-auto">
+          <InitiativeUpdates initiativeId={initiative.id} />
+        </div>
+      ) : (
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[13px] font-semibold text-fg">
@@ -251,6 +280,7 @@ export function InitiativeDetail() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

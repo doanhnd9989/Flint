@@ -25,6 +25,7 @@ import type {
   Project,
   ProjectHealth,
   ProjectUpdate,
+  InitiativeUpdate,
   Relation,
   RelationType,
   SavedView,
@@ -118,6 +119,8 @@ export interface Store extends WorkspaceData, UIState {
   deleteMilestone: (id: string) => void
   createProjectUpdate: (projectId: string, health: ProjectHealth, body: string) => void
   deleteProjectUpdate: (id: string) => void
+  createInitiativeUpdate: (initiativeId: string, health: ProjectHealth, body: string) => void
+  deleteInitiativeUpdate: (id: string) => void
   createView: (v: Omit<SavedView, 'id'>) => SavedView
   updateView: (id: string, patch: Partial<SavedView>) => void
   deleteView: (id: string) => void
@@ -712,6 +715,26 @@ export const useStore = create<Store>()(
           projectUpdates: s.projectUpdates.filter((u) => u.id !== id),
         })),
 
+      createInitiativeUpdate: (initiativeId, health, body) =>
+        set((s) => ({
+          initiativeUpdates: [
+            ...s.initiativeUpdates,
+            {
+              id: `iu_${nanoid(8)}`,
+              initiativeId,
+              userId: s.currentUserId,
+              health,
+              body,
+              createdAt: nowIso(),
+            } satisfies InitiativeUpdate,
+          ],
+        })),
+
+      deleteInitiativeUpdate: (id) =>
+        set((s) => ({
+          initiativeUpdates: s.initiativeUpdates.filter((u) => u.id !== id),
+        })),
+
       createView: (v) => {
         const view: SavedView = { ...v, id: `v_${nanoid(8)}` }
         set((s) => ({ savedViews: [...s.savedViews, view] }))
@@ -1115,6 +1138,10 @@ export const useStore = create<Store>()(
                 : p
             })
           }
+        }
+        // Backfill initiative updates for workspaces persisted before they existed.
+        if (!Array.isArray(merged.initiativeUpdates)) {
+          merged.initiativeUpdates = seed.initiativeUpdates
         }
         // Backfill team.memberIds for workspaces persisted before teams had members.
         if (Array.isArray(merged.teams)) {

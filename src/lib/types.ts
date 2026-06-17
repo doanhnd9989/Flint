@@ -104,6 +104,15 @@ export interface ProjectUpdate {
   createdAt: string
 }
 
+export interface InitiativeUpdate {
+  id: string
+  initiativeId: string
+  userId: string
+  health: ProjectHealth
+  body: string
+  createdAt: string
+}
+
 export interface Milestone {
   id: string
   projectId: string

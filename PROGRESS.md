@@ -2,6 +2,30 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #40: Initiative updates / health + project-side Initiative picker
+
+Closed the two TODOs Loop #39 left on the Initiatives feature, as one coherent
+slice mirroring Linear's project-update pattern at the initiative level.
+
+- **Initiative updates / health timeline**: `InitiativeUpdate` model (`types.ts`,
+  reuses `ProjectHealth`) + `initiativeUpdates` state seeded with one on-track
+  update on H2 Product Launch; `createInitiativeUpdate` / `deleteInitiativeUpdate`
+  store actions; a persist-`merge` backfill so older workspaces gain the array.
+- **`InitiativeUpdates` component**: a 1:1 mirror of `ProjectUpdates` — On track /
+  At risk / Off track health pills, an `@`-mention markdown composer ("Write an
+  initiative update…" → "Post update"), and a reverse-chronological timeline
+  (avatar, `HealthBadge`, `timeAgo`, rendered markdown, hover-delete). Reuses the
+  exported `HEALTH` map + `HealthBadge` from `ProjectUpdates`.
+- **InitiativeDetail**: added **Overview / Updates** tabs (same style as
+  `ProjectDetail`); Overview keeps the Projects rollup, Updates renders the new
+  composer/timeline. The header stats row now shows the **latest health badge**.
+- **Project-side Initiative picker**: a chip in the `ProjectDetail` header
+  (initiative emoji + name, or a Goal icon + "No initiative") backed by a
+  `SelectMenu` listing every initiative + "No initiative", wired to
+  `setProjectInitiative`. Verified live (Chrome) on the initiative detail
+  (badge + tabs + composer + seeded entry) and the MVP project (chip shows "🎯
+  H2 Product Launch") with a clean console. `npx tsc -b` + `npm run build` green.
+
 ## 2026-06-17 — Loop #39: Initiatives
 
 The backlog was fully checked, so I introduced a new flagship Linear feature:
