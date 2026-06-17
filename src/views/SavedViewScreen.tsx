@@ -7,6 +7,7 @@ import { IssueBoard } from '@/components/IssueBoard'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { FilterBar } from '@/components/FilterBar'
 import { ViewHeader } from '@/components/ViewHeader'
+import { StarButton } from '@/components/StarButton'
 
 export function SavedViewScreen() {
   const { id } = useParams()
@@ -34,14 +35,17 @@ export function SavedViewScreen() {
       <ViewHeader
         title={view.name}
         right={
-          <DisplayMenu
-            layout={view.layout}
-            groupBy={view.groupBy}
-            orderBy={view.orderBy}
-            onLayout={(layout) => updateView(view.id, { layout })}
-            onGroupBy={(groupBy) => updateView(view.id, { groupBy })}
-            onOrderBy={(orderBy) => updateView(view.id, { orderBy })}
-          />
+          <div className="flex items-center gap-1">
+            <StarButton type="view" id={view.id} />
+            <DisplayMenu
+              layout={view.layout}
+              groupBy={view.groupBy}
+              orderBy={view.orderBy}
+              onLayout={(layout) => updateView(view.id, { layout })}
+              onGroupBy={(groupBy) => updateView(view.id, { groupBy })}
+              onOrderBy={(orderBy) => updateView(view.id, { orderBy })}
+            />
+          </div>
         }
       />
       <FilterBar

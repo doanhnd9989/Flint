@@ -2,6 +2,22 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #23: Favorites
+
+Star the things you care about, Linear-style:
+
+- `types.ts`: `Favorite { type: 'issue'|'project'|'view', id }`. Store: persisted
+  `favorites` + `toggleFavorite`.
+- New `components/StarButton.tsx`: a fill-on-active star, wired into the
+  IssueDetail, ProjectDetail and SavedViewScreen headers.
+- `Sidebar`: a "Favorites" section (shown when non-empty) resolves each favorite
+  to its label/icon and links to it; dead references are skipped.
+- Verified live: starring MVP Launch filled the header star and added a
+  "Favorites › MVP Launch" entry to the sidebar. `tsc` ✅ · build ✅ · clean console.
+
+Next: **List virtualization** for large lists (fixes the seeded perf issue CLA-5).
+
+
 ## 2026-06-17 — Loop #22: Roadmap / timeline
 
 A bird's-eye timeline of projects, Linear-style:

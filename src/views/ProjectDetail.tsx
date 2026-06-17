@@ -6,6 +6,7 @@ import { sortIssues, projectProgress, milestoneProgress } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
 import { Avatar } from '@/components/Avatar'
 import { ProjectUpdates, HealthBadge } from '@/components/ProjectUpdates'
+import { StarButton } from '@/components/StarButton'
 import { formatFullDate, cn } from '@/lib/utils'
 import type { Issue } from '@/lib/types'
 
@@ -112,6 +113,8 @@ export function ProjectDetail() {
         <span className="font-medium text-fg">
           {project.icon} {project.name}
         </span>
+        <div className="flex-1" />
+        <StarButton type="project" id={project.id} />
       </header>
 
       <div className="border-b border-border px-6 py-5">

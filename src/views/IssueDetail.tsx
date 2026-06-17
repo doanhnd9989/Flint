@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { IssueDetailBody } from '@/components/IssueDetailBody'
+import { StarButton } from '@/components/StarButton'
 import { Trash2, Link2 } from 'lucide-react'
 
 export function IssueDetail() {
@@ -27,6 +28,7 @@ export function IssueDetail() {
         <span className="text-faint">›</span>
         <span className="font-mono text-faint">{issue.identifier}</span>
         <div className="flex-1" />
+        <StarButton type="issue" id={issue.id} />
         <button
           title="Copy link"
           onClick={() => navigator.clipboard?.writeText(issue.identifier)}

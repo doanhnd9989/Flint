@@ -44,7 +44,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟡 **Project milestones** — the project detail groups issues by milestone with per-milestone progress bars (+ "No milestone"); add milestones from the header, delete inline; a Milestone property picker on issues in a milestoned project.
 - [x] 🟡 **Project updates** — post health updates (on-track / at-risk / off-track) with a markdown body from an Updates tab; reverse-chronological timeline with delete; the project header shows the latest health badge.
 - [x] 🟢 **Roadmap / timeline** view (`/roadmap`) — projects as horizontal bars on a month axis, sized/positioned by start→target dates, colored per project with a progress fill and a "today" marker; click a bar to open the project. Sidebar + ⌘K + `G R`.
-- [ ] 🟢 **Favorites** — star issues/projects/views; a Favorites section in the sidebar.
+- [x] 🟢 **Favorites** — a star button on issue / project / saved-view headers toggles a persisted favorite; starred items appear in a "Favorites" section in the sidebar (click to open).
 - [ ] 🟢 **List virtualization** for large lists (fixes the seeded perf issue CLA-5).
 - [ ] 🟢 **Multi-team** polish — team switcher, per-team settings, team membership.
 - [ ] 🟢 **Members & roles** management in settings; invite flow (mock).

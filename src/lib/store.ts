@@ -10,6 +10,8 @@ import type {
   Activity,
   ActivityKind,
   Comment,
+  Favorite,
+  FavoriteType,
   Issue,
   IssueTemplate,
   Label,
@@ -41,6 +43,8 @@ interface UIState {
   contextMenu: { issueId: string; x: number; y: number } | null
   /** Recent search queries (persisted, newest first). */
   recentSearches: string[]
+  /** Starred issues / projects / views (persisted). */
+  favorites: Favorite[]
 }
 
 interface NewIssueInput {
@@ -120,6 +124,7 @@ export interface Store extends WorkspaceData, UIState {
   setPeek: (id: string | null) => void
   addRecentSearch: (q: string) => void
   clearRecentSearches: () => void
+  toggleFavorite: (type: FavoriteType, id: string) => void
 
   // ── bulk selection ───────────────────────────────────────────
   toggleSelectIssue: (id: string) => void
@@ -173,6 +178,7 @@ export const useStore = create<Store>()(
       selectedIssueIds: [],
       contextMenu: null,
       recentSearches: [],
+      favorites: [],
 
       createIssue: (input) => {
         const s = get()
@@ -652,6 +658,16 @@ export const useStore = create<Store>()(
           }
         }),
       clearRecentSearches: () => set({ recentSearches: [] }),
+
+      toggleFavorite: (type, id) =>
+        set((s) => {
+          const exists = s.favorites.some((f) => f.type === type && f.id === id)
+          return {
+            favorites: exists
+              ? s.favorites.filter((f) => !(f.type === type && f.id === id))
+              : [...s.favorites, { type, id }],
+          }
+        }),
 
       toggleSelectIssue: (id) =>
         set((s) => ({

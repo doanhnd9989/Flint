@@ -218,4 +218,11 @@ export interface Notification {
   read: boolean
 }
 
+export type FavoriteType = 'issue' | 'project' | 'view'
+
+export interface Favorite {
+  type: FavoriteType
+  id: string
+}
+
 export type ThemeMode = 'light' | 'dark' | 'system'

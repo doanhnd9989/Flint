@@ -93,14 +93,32 @@ function Section({
 
 export function Sidebar() {
   const navigate = useNavigate()
-  const { workspaceName, teams, notifications, issues, setCreateOpen } =
+  const { workspaceName, teams, notifications, issues, projects, savedViews, favorites, setCreateOpen } =
     useStoreShallow((s) => ({
       workspaceName: s.workspaceName,
       teams: s.teams,
       notifications: s.notifications,
       issues: s.issues,
+      projects: s.projects,
+      savedViews: s.savedViews,
+      favorites: s.favorites,
       setCreateOpen: s.setCreateOpen,
     }))
+
+  const favoriteItems = favorites
+    .map((f) => {
+      if (f.type === 'issue') {
+        const i = issues.find((x) => x.id === f.id)
+        return i ? { to: `/issue/${i.identifier}`, icon: <CircleDot size={15} />, label: i.title } : null
+      }
+      if (f.type === 'project') {
+        const p = projects.find((x) => x.id === f.id)
+        return p ? { to: `/project/${p.id}`, icon: <span className="text-[13px]">{p.icon}</span>, label: p.name } : null
+      }
+      const v = savedViews.find((x) => x.id === f.id)
+      return v ? { to: `/view/${v.id}`, icon: <LayersIcon size={15} />, label: v.name } : null
+    })
+    .filter(Boolean) as { to: string; icon: ReactNode; label: string }[]
   const unread = notifications.filter((n) => !n.read).length
 
   return (
@@ -136,6 +154,14 @@ export function Sidebar() {
           <Item to="/inbox" icon={<Inbox size={15} />} label="Inbox" badge={unread} />
           <Item to="/my-issues" icon={<CircleDot size={15} />} label="My Issues" />
         </div>
+
+        {favoriteItems.length > 0 && (
+          <Section title="Favorites">
+            {favoriteItems.map((f) => (
+              <Item key={f.to} to={f.to} icon={f.icon} label={f.label} />
+            ))}
+          </Section>
+        )}
 
         <Section title="Workspace">
           <Item to="/projects" icon={<Box size={15} />} label="Projects" />
