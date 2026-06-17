@@ -12,6 +12,11 @@ interface Props {
   onLayout: (l: ViewLayout) => void
   onGroupBy: (g: GroupBy) => void
   onOrderBy: (o: OrderBy) => void
+  /** List options — optional; the section only renders when handlers are given. */
+  showSubIssues?: boolean
+  onShowSubIssues?: (v: boolean) => void
+  showEmptyGroups?: boolean
+  onShowEmptyGroups?: (v: boolean) => void
 }
 
 const GROUPS: { id: GroupBy; label: string }[] = [
@@ -42,6 +47,39 @@ function Row({
     <div className="flex items-center justify-between px-2 py-1.5">
       <span className="text-[12px] text-muted">{label}</span>
       <div className="flex items-center gap-1">{children}</div>
+    </div>
+  )
+}
+
+function ToggleRow({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between px-2 py-1.5">
+      <span className="text-[12px] text-fg">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'relative h-4 w-7 rounded-full transition-colors',
+          checked ? 'bg-accent' : 'bg-bg-tertiary',
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform',
+            checked ? 'translate-x-3.5' : 'translate-x-0.5',
+          )}
+        />
+      </button>
     </div>
   )
 }
@@ -77,6 +115,10 @@ export function DisplayMenu({
   onLayout,
   onGroupBy,
   onOrderBy,
+  showSubIssues,
+  onShowSubIssues,
+  showEmptyGroups,
+  onShowEmptyGroups,
 }: Props) {
   const { displayProperties, toggleDisplayProperty } = useStoreShallow((s) => ({
     displayProperties: s.displayProperties,
@@ -123,6 +165,28 @@ export function DisplayMenu({
           <Row label="Ordering">
             <Seg value={orderBy} options={ORDERS} onChange={onOrderBy} />
           </Row>
+
+          {onShowSubIssues && (
+            <ToggleRow
+              label="Show sub-issues"
+              checked={showSubIssues ?? true}
+              onChange={onShowSubIssues}
+            />
+          )}
+
+          {onShowEmptyGroups && (
+            <>
+              <div className="my-1.5 border-t border-border" />
+              <div className="px-2 pt-0.5 pb-0.5 text-[12px] text-muted">
+                List options
+              </div>
+              <ToggleRow
+                label="Show empty groups"
+                checked={showEmptyGroups ?? false}
+                onChange={onShowEmptyGroups}
+              />
+            </>
+          )}
 
           <div className="my-1.5 border-t border-border" />
           <div className="px-2 pt-0.5 pb-1 text-[12px] text-muted">

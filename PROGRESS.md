@@ -2,6 +2,34 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #56: Display options — Show sub-issues / Show empty groups
+
+Soi'd Linear's **Display** popover (Chrome, "Claude Test App"): below Layout /
+Grouping / Sub-grouping / Ordering it carries a **Show sub-issues** toggle, then
+a **List options** header with **Nested sub-issues** + **Show empty groups**.
+Our `DisplayMenu` only had Layout / Grouping / Ordering / Display properties —
+the List-options toggles were missing. Added the two functional, visible ones.
+
+- **`DisplayMenu`** — a reusable `ToggleRow` (Linear-style pill switch, same
+  markup as the Create-more toggle) behind **optional** props
+  (`showSubIssues`/`onShowSubIssues`, `showEmptyGroups`/`onShowEmptyGroups`); the
+  **Show sub-issues** row + the **List options** / **Show empty groups** section
+  only render when their handlers are supplied (so `SavedViewScreen`, which
+  doesn't pass them, is unchanged).
+- **`groupIssues`** (`selectors.ts`) — new `showEmptyGroups = false` param; every
+  `.filter((g) => g.count > 0)` becomes `showEmptyGroups || g.count > 0`, so
+  empty status / assignee / priority / project / label groups render with their
+  icon + "0" count + add button (also surfaces empty board columns).
+- **`IssuesView`** — local `showSubIssues` (default on) / `showEmptyGroups`
+  (default off) state; when Show sub-issues is off the scoped list drops issues
+  with a `parentId`; `showEmptyGroups` flows into `groupIssues`.
+
+Verified live (Chrome, localhost:5173): toggling **Show empty groups** on adds
+**Backlog 0** (top) and **Cancelled 0** (bottom) with status icons + add (+);
+**Show sub-issues** off drops Todo 5→4 (CLA-16 sub-issue hidden). `npx tsc -b` +
+`npm run build` green, console clean. _(Sub-grouping / Nested sub-issues /
+"Order completed by recency" still TODO; saved views don't persist these yet.)_
+
 ## 2026-06-18 — Loop #55: Resolve comment thread
 
 Closed the gap deferred in loops #54 and #55-prior ("Resolve thread / collapse-

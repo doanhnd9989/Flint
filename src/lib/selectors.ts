@@ -82,6 +82,7 @@ export function groupIssues(
   issues: Issue[],
   groupBy: GroupBy,
   data: WorkspaceData,
+  showEmptyGroups = false,
 ): IssueGroup[] {
   if (groupBy === 'none') {
     return [
@@ -113,7 +114,7 @@ export function groupIssues(
           stateId: st.id,
         }
       })
-      .filter((g) => g.count > 0)
+      .filter((g) => showEmptyGroups || g.count > 0)
   }
 
   if (groupBy === 'assignee') {
@@ -130,7 +131,7 @@ export function groupIssues(
       count: 0,
       issues: issues.filter((i) => !i.assigneeId),
     })
-    return groups.map((g) => ({ ...g, count: g.issues.length })).filter((g) => g.count > 0)
+    return groups.map((g) => ({ ...g, count: g.issues.length })).filter((g) => showEmptyGroups || g.count > 0)
   }
 
   if (groupBy === 'priority') {
@@ -145,7 +146,7 @@ export function groupIssues(
           issues: gi,
         }
       })
-      .filter((g) => g.count > 0)
+      .filter((g) => showEmptyGroups || g.count > 0)
   }
 
   if (groupBy === 'project') {
@@ -163,7 +164,7 @@ export function groupIssues(
       count: 0,
       issues: issues.filter((i) => !i.projectId),
     })
-    return groups.map((g) => ({ ...g, count: g.issues.length })).filter((g) => g.count > 0)
+    return groups.map((g) => ({ ...g, count: g.issues.length })).filter((g) => showEmptyGroups || g.count > 0)
   }
 
   // label
@@ -180,7 +181,7 @@ export function groupIssues(
     count: 0,
     issues: issues.filter((i) => i.labelIds.length === 0),
   })
-  return groups.map((g) => ({ ...g, count: g.issues.length })).filter((g) => g.count > 0)
+  return groups.map((g) => ({ ...g, count: g.issues.length })).filter((g) => showEmptyGroups || g.count > 0)
 }
 
 export function projectProgress(

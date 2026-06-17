@@ -21,6 +21,8 @@ export function IssuesView() {
   const [layout, setLayout] = useState<ViewLayout>('list')
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
   const [orderBy, setOrderBy] = useState<OrderBy>('priority')
+  const [showSubIssues, setShowSubIssues] = useState(true)
+  const [showEmptyGroups, setShowEmptyGroups] = useState(false)
   const [filters, setFilters] = useState(emptyFilters())
 
   const team = data.teams.find((t) => t.key === teamKey) ?? data.teams[0]
@@ -36,10 +38,27 @@ export function IssuesView() {
     else if (tab === 'backlog')
       scoped = scoped.filter((i) => statesByType.get(i.stateId) === 'backlog')
 
+    if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
+
     const filtered = filterIssues(scoped, filters)
     const sorted = sortIssues(filtered, orderBy, data)
-    return groupIssues(sorted, layout === 'board' ? 'status' : groupBy, data)
-  }, [data, team.id, tab, groupBy, orderBy, layout, filters])
+    return groupIssues(
+      sorted,
+      layout === 'board' ? 'status' : groupBy,
+      data,
+      showEmptyGroups,
+    )
+  }, [
+    data,
+    team.id,
+    tab,
+    groupBy,
+    orderBy,
+    layout,
+    filters,
+    showSubIssues,
+    showEmptyGroups,
+  ])
 
   return (
     <div className="flex h-full flex-col">
@@ -75,6 +94,10 @@ export function IssuesView() {
               onLayout={setLayout}
               onGroupBy={setGroupBy}
               onOrderBy={setOrderBy}
+              showSubIssues={showSubIssues}
+              onShowSubIssues={setShowSubIssues}
+              showEmptyGroups={showEmptyGroups}
+              onShowEmptyGroups={setShowEmptyGroups}
             />
           </div>
         }
