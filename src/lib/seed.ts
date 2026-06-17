@@ -201,6 +201,18 @@ export function buildSeed(): WorkspaceData {
       teamId: 't_cla', stateId: 's_canceled', priority: 0,
       labelIds: [],
     },
+    {
+      title: 'App crashes when opening Settings on Safari',
+      description: 'Reported via the in-app feedback widget. Needs triage.',
+      teamId: 't_cla', stateId: 's_todo', priority: 0,
+      labelIds: ['l_urgent'], triage: true,
+    },
+    {
+      title: 'Please add a calendar view',
+      description: 'Customer request from support. Evaluate and route.',
+      teamId: 't_cla', stateId: 's_todo', priority: 0,
+      labelIds: [], triage: true,
+    },
   ]
 
   const baseTime = Date.now() - drafts.length * 3_600_000

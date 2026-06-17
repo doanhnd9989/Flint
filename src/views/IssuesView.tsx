@@ -27,7 +27,7 @@ export function IssuesView() {
 
   const groups = useMemo(() => {
     const statesByType = new Map(data.states.map((s) => [s.id, s.type]))
-    let scoped = data.issues.filter((i) => i.teamId === team.id)
+    let scoped = data.issues.filter((i) => i.teamId === team.id && !i.triage)
     if (tab === 'active')
       scoped = scoped.filter((i) => {
         const t = statesByType.get(i.stateId)

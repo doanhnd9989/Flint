@@ -37,7 +37,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟡 **Custom workflow states** in settings — add / rename / recolor / change type / reorder (within type) / delete (reassigns affected issues). Lives in a "Workflow states" Settings card.
 - [x] 🟡 **Issue templates** — a Template picker in the create modal prefills title/description/priority/labels/status; manage templates (create with fields, delete) in a Settings card. Seeded Bug report + Feature request.
 - [x] 🟡 **Saved views** — "Save view" in the Issues header captures layout+group+sort+filters as a named view; views open at `/view/:id` (workspace-wide), are editable (edits persist back to the view), and are listed/deletable under "Views".
-- [ ] 🟡 **Triage** — inbox of unassigned/incoming issues with accept/decline.
+- [x] 🟡 **Triage** — a per-team queue of incoming issues (`triage` flag) with Accept (into the workflow) / Decline (cancel); inline status/priority/assignee/label pickers, a sidebar entry with a count badge, and an empty state. Triage issues are hidden from the normal issue lists.
 - [ ] 🟡 **Full-text search** view (beyond ⌘K), with filters and recent searches.
 - [ ] 🟡 **Manual drag-to-reorder** issues within a list group (sortOrder).
 - [ ] 🟡 **Keyboard shortcuts help overlay** (press `?`), plus row-level shortcuts (assign, status, priority on hovered/selected issue).

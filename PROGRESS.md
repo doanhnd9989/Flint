@@ -2,6 +2,25 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #16: Triage
+
+A queue for incoming issues, Linear-style:
+
+- `types.ts`: `Issue.triage?: boolean`. Store: `acceptTriage(id, stateId?)`
+  (clears the flag, keeps it in the workflow) and `declineTriage(id)` (clears
+  the flag + moves to a canceled status).
+- `seed.ts`: two incoming triage issues for the CLA team.
+- New `views/TriageView.tsx` at `/team/:teamKey/triage`: a card per queued issue
+  with description, inline status/priority/assignee/label pickers, and Accept /
+  Decline buttons; a friendly "Triage is clear" empty state.
+- `Sidebar`: a "Triage" entry per team with a live count badge.
+- `IssuesView`: triage issues are excluded from the normal lists.
+- Verified live: flagged two issues into triage → Accept removed CLA-2 (badge
+  2→1), Decline canceled CLA-3 → "Triage is clear". `tsc` ✅ · build ✅ · clean console.
+
+Next: **Full-text search** view (beyond ⌘K), with filters and recent searches.
+
+
 ## 2026-06-17 — Loop #15: Saved views
 
 Persist a configured issue view, Linear-style:

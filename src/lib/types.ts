@@ -138,6 +138,8 @@ export interface Issue {
   updatedAt: string
   completedAt?: string
   canceledAt?: string
+  /** Awaiting triage (incoming, not yet accepted into the workflow). */
+  triage?: boolean
 }
 
 /**

@@ -66,6 +66,8 @@ export interface Store extends WorkspaceData, UIState {
   setIssueTitle: (id: string, title: string) => void
   setIssueDescription: (id: string, description: string) => void
   moveIssue: (id: string, stateId: string, sortOrder: number) => void
+  acceptTriage: (id: string, stateId?: string) => void
+  declineTriage: (id: string) => void
 
   // ── relations ────────────────────────────────────────────────
   addRelation: (fromIssueId: string, toIssueId: string, type: RelationType) => void
@@ -333,6 +335,39 @@ export const useStore = create<Store>()(
                   logActivity(s, id, 'status', issue.stateId, stateId),
                 ]
               : s.activities,
+          }
+        }),
+
+      acceptTriage: (id, stateId) =>
+        set((s) => ({
+          issues: s.issues.map((i) =>
+            i.id === id
+              ? {
+                  ...i,
+                  triage: false,
+                  stateId: stateId ?? i.stateId,
+                  updatedAt: nowIso(),
+                }
+              : i,
+          ),
+        })),
+
+      declineTriage: (id) =>
+        set((s) => {
+          const canceled = s.states.find((x) => x.type === 'canceled')
+          const ts = nowIso()
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id
+                ? {
+                    ...i,
+                    triage: false,
+                    stateId: canceled?.id ?? i.stateId,
+                    canceledAt: ts,
+                    updatedAt: ts,
+                  }
+                : i,
+            ),
           }
         }),
 

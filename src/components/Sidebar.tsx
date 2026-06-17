@@ -11,6 +11,7 @@ import {
   FolderKanban,
   Layers3,
   IterationCw,
+  Ticket,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useStoreShallow } from '@/lib/store'
@@ -91,11 +92,12 @@ function Section({
 
 export function Sidebar() {
   const navigate = useNavigate()
-  const { workspaceName, teams, notifications, setCommandOpen, setCreateOpen } =
+  const { workspaceName, teams, notifications, issues, setCommandOpen, setCreateOpen } =
     useStoreShallow((s) => ({
       workspaceName: s.workspaceName,
       teams: s.teams,
       notifications: s.notifications,
+      issues: s.issues,
       setCommandOpen: s.setCommandOpen,
       setCreateOpen: s.setCreateOpen,
     }))
@@ -146,6 +148,12 @@ export function Sidebar() {
 
         {teams.map((team) => (
           <Section key={team.id} title={team.name}>
+            <Item
+              to={`/team/${team.key}/triage`}
+              icon={<Ticket size={15} />}
+              label="Triage"
+              badge={issues.filter((i) => i.teamId === team.id && i.triage).length}
+            />
             <Item
               to={`/team/${team.key}/active`}
               icon={<Layers3 size={15} />}
