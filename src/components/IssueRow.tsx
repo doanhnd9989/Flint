@@ -1,4 +1,4 @@
-import { CalendarClock } from 'lucide-react'
+import { CalendarClock, Diamond } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import type { Issue } from '@/lib/types'
 import { StatusIcon } from './StatusIcon'
@@ -17,13 +17,16 @@ export function IssueRow({
   showStatus?: boolean
 }) {
   const {
-    states, users, labels, issues, selectedIssueIds,
+    states, users, labels, issues, projects, milestones, displayProperties, selectedIssueIds,
     setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue, openContextMenu,
   } = useStoreShallow((s) => ({
     states: s.states,
     users: s.users,
     labels: s.labels,
     issues: s.issues,
+    projects: s.projects,
+    milestones: s.milestones,
+    displayProperties: s.displayProperties,
     selectedIssueIds: s.selectedIssueIds,
     setIssueStatus: s.setIssueStatus,
     setIssuePriority: s.setIssuePriority,
@@ -32,12 +35,15 @@ export function IssueRow({
     toggleSelectIssue: s.toggleSelectIssue,
     openContextMenu: s.openContextMenu,
   }))
+  const dp = displayProperties
 
   const selected = selectedIssueIds.includes(issue.id)
   const anySelected = selectedIssueIds.length > 0
 
   const state = states.find((s) => s.id === issue.stateId)
   const assignee = users.find((u) => u.id === issue.assigneeId)
+  const project = projects.find((p) => p.id === issue.projectId)
+  const milestone = milestones.find((m) => m.id === issue.milestoneId)
   const issueLabels = issue.labelIds
     .map((id) => labels.find((l) => l.id === id))
     .filter(Boolean)
@@ -84,21 +90,25 @@ export function IssueRow({
         )}
       </button>
 
-      <PriorityPicker
-        priority={issue.priority}
-        onChange={(p) => setIssuePriority(issue.id, p)}
-        trigger={
-          <span className="flex h-5 w-5 items-center justify-center rounded hover:bg-bg-selected">
-            <PriorityIcon priority={issue.priority} />
-          </span>
-        }
-      />
+      {dp.priority && (
+        <PriorityPicker
+          priority={issue.priority}
+          onChange={(p) => setIssuePriority(issue.id, p)}
+          trigger={
+            <span className="flex h-5 w-5 items-center justify-center rounded hover:bg-bg-selected">
+              <PriorityIcon priority={issue.priority} />
+            </span>
+          }
+        />
+      )}
 
-      <span className="w-14 shrink-0 font-mono text-[12px] text-faint">
-        {issue.identifier}
-      </span>
+      {dp.id && (
+        <span className="w-14 shrink-0 font-mono text-[12px] text-faint">
+          {issue.identifier}
+        </span>
+      )}
 
-      {showStatus && state && (
+      {dp.status && showStatus && state && (
         <StatusPicker
           stateId={issue.stateId}
           onChange={(id) => setIssueStatus(issue.id, id)}
@@ -122,7 +132,7 @@ export function IssueRow({
             {childDone}/{children.length}
           </span>
         )}
-        {issue.dueDate && (
+        {dp.dueDate && issue.dueDate && (
           <span
             className={cn(
               'flex items-center gap-0.5 text-[11px]',
@@ -137,7 +147,19 @@ export function IssueRow({
             {formatDate(issue.dueDate)}
           </span>
         )}
-        {issueLabels.length > 0 && (
+        {dp.project && project && (
+          <span className="flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted">
+            <span className="text-[10px] leading-none">{project.icon}</span>
+            {project.name}
+          </span>
+        )}
+        {dp.milestone && milestone && (
+          <span className="flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted">
+            <Diamond size={9} />
+            {milestone.name}
+          </span>
+        )}
+        {dp.labels && issueLabels.length > 0 && (
           <div className="hidden items-center gap-1 sm:flex">
             {issueLabels.slice(0, 3).map((l) => (
               <span
@@ -150,19 +172,28 @@ export function IssueRow({
             ))}
           </div>
         )}
-        <span className="w-10 text-right text-[11px] text-faint">
-          {formatDate(issue.createdAt)}
-        </span>
-        <AssigneePicker
-          assigneeId={issue.assigneeId}
-          onChange={(id) => setIssueAssignee(issue.id, id)}
-          align="end"
-          trigger={
-            <span className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-bg-selected">
-              <Avatar user={assignee} size={20} />
-            </span>
-          }
-        />
+        {dp.created && (
+          <span className="w-10 text-right text-[11px] text-faint">
+            {formatDate(issue.createdAt)}
+          </span>
+        )}
+        {dp.updated && (
+          <span className="w-10 text-right text-[11px] text-faint">
+            {formatDate(issue.updatedAt)}
+          </span>
+        )}
+        {dp.assignee && (
+          <AssigneePicker
+            assigneeId={issue.assigneeId}
+            onChange={(id) => setIssueAssignee(issue.id, id)}
+            align="end"
+            trigger={
+              <span className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-bg-selected">
+                <Avatar user={assignee} size={20} />
+              </span>
+            }
+          />
+        )}
       </div>
     </div>
   )

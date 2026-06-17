@@ -1,5 +1,7 @@
 import { SlidersHorizontal, LayoutList, Columns3 } from 'lucide-react'
 import { Popover } from './ui/Popover'
+import { useStoreShallow } from '@/lib/store'
+import { DISPLAY_PROPERTIES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type { GroupBy, OrderBy, ViewLayout } from '@/lib/types'
 
@@ -76,9 +78,13 @@ export function DisplayMenu({
   onGroupBy,
   onOrderBy,
 }: Props) {
+  const { displayProperties, toggleDisplayProperty } = useStoreShallow((s) => ({
+    displayProperties: s.displayProperties,
+    toggleDisplayProperty: s.toggleDisplayProperty,
+  }))
   return (
     <Popover
-      width={260}
+      width={272}
       align="end"
       trigger={
         <span className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover">
@@ -117,6 +123,31 @@ export function DisplayMenu({
           <Row label="Ordering">
             <Seg value={orderBy} options={ORDERS} onChange={onOrderBy} />
           </Row>
+
+          <div className="my-1.5 border-t border-border" />
+          <div className="px-2 pt-0.5 pb-1 text-[12px] text-muted">
+            Display properties
+          </div>
+          <div className="flex flex-wrap gap-1.5 px-2 pb-1.5">
+            {DISPLAY_PROPERTIES.map((p) => {
+              const on = displayProperties[p.id]
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => toggleDisplayProperty(p.id)}
+                  className={cn(
+                    'rounded-md px-2 py-1 text-[12px] transition-colors',
+                    on
+                      ? 'bg-bg-selected text-fg'
+                      : 'border border-border text-muted hover:bg-bg-hover',
+                  )}
+                >
+                  {p.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
     </Popover>

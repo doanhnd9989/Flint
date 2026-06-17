@@ -2,6 +2,31 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #42: Display properties (Display options popover)
+
+The backlog was fully checked, so I soi'd Linear's **Display options** popover
+(active-issues view) and found a clear gap: under Layout / Grouping / Ordering,
+Linear has a **Display properties** section of toggle pills controlling which
+properties render on each issue row. Our `DisplayMenu` had only the first three.
+
+- **Pills, 1:1 with Linear**: ID · Status · Assignee · Priority · Project · Due
+  date · Milestone · Labels · Links · Time in status · Created · Updated, in that
+  exact order, active = filled (`bg-bg-selected`), inactive = outlined. Defaults
+  mirror Linear (Milestone / Links / Time-in-status / Updated start hidden).
+- **State**: `DisplayProperty` type + `DISPLAY_PROPERTIES` / `DEFAULT_DISPLAY_PROPERTIES`
+  constants; a persisted `displayProperties` store slice with a
+  `toggleDisplayProperty(prop)` action and a persist-`merge` backfill that fills
+  any missing keys for older workspaces.
+- **`IssueRow`** now honours every toggle — gating priority / id / status /
+  due-date / labels / created / assignee, and **adding** Project (icon + name
+  chip), Milestone (diamond chip) and Updated (date) rendering it lacked before.
+- Verified live (Chrome, localhost:5173): the pills section matches Linear,
+  toggling Project + Created instantly removes those columns from every row and
+  re-enabling restores them, console clean. `npx tsc -b` + `npm run build` green.
+  _(Links / Time-in-status pills are present for visual parity but inert — we
+  don't track external links or per-status durations; board cards still render a
+  fixed property set, a follow-up.)_
+
 ## 2026-06-17 — Loop #41: Issue subscribers
 
 The backlog was fully checked, so I closed a real gap: the `Issue.subscriberIds`

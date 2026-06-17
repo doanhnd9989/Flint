@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid'
 import { buildSeed } from './seed'
 import type { WorkspaceData } from './seed'
 import { nowIso } from './utils'
-import { STORAGE_KEY, STATUS_TYPE_ORDER } from './constants'
+import { STORAGE_KEY, STATUS_TYPE_ORDER, DEFAULT_DISPLAY_PROPERTIES } from './constants'
 import { parsePriority, type ImportRow } from './importExport'
 import type {
   Activity,
@@ -26,6 +26,7 @@ import type {
   ProjectHealth,
   ProjectUpdate,
   InitiativeUpdate,
+  DisplayProperty,
   Relation,
   RelationType,
   SavedView,
@@ -58,6 +59,8 @@ interface UIState {
   notificationPrefs: NotificationPrefs
   /** Dismissed "Try" onboarding step keys (persisted). */
   onboardingDismissed: string[]
+  /** Which properties show on issue rows — Linear's Display options (persisted). */
+  displayProperties: Record<DisplayProperty, boolean>
 }
 
 interface NewIssueInput {
@@ -156,6 +159,7 @@ export interface Store extends WorkspaceData, UIState {
   clearRecentSearches: () => void
   toggleFavorite: (type: FavoriteType, id: string) => void
   dismissOnboardingStep: (key: string) => void
+  toggleDisplayProperty: (prop: DisplayProperty) => void
 
   // ── bulk selection ───────────────────────────────────────────
   toggleSelectIssue: (id: string) => void
@@ -223,6 +227,7 @@ export const useStore = create<Store>()(
         subscribed: true,
       },
       onboardingDismissed: [],
+      displayProperties: { ...DEFAULT_DISPLAY_PROPERTIES },
 
       createIssue: (input) => {
         const s = get()
@@ -958,6 +963,13 @@ export const useStore = create<Store>()(
             ? s
             : { onboardingDismissed: [...s.onboardingDismissed, key] },
         ),
+      toggleDisplayProperty: (prop) =>
+        set((s) => ({
+          displayProperties: {
+            ...s.displayProperties,
+            [prop]: !s.displayProperties[prop],
+          },
+        })),
 
       toggleSelectIssue: (id) =>
         set((s) => ({
@@ -1147,6 +1159,11 @@ export const useStore = create<Store>()(
       },
       merge: (persisted, current) => {
         const merged = { ...current, ...(persisted as Partial<Store>) }
+        // Backfill display properties (added later); fill any missing keys.
+        merged.displayProperties = {
+          ...DEFAULT_DISPLAY_PROPERTIES,
+          ...(merged.displayProperties ?? {}),
+        }
         // Backfill initiatives for workspaces persisted before they existed.
         // Also link the seed projects so the seeded initiative isn't empty.
         if (!Array.isArray(merged.initiatives)) {

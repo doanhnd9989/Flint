@@ -230,6 +230,21 @@ export type GroupBy =
   | 'none'
 export type OrderBy = 'priority' | 'created' | 'updated' | 'manual' | 'title'
 
+/** Properties that can be shown/hidden on issue rows (Linear's Display options). */
+export type DisplayProperty =
+  | 'id'
+  | 'status'
+  | 'assignee'
+  | 'priority'
+  | 'project'
+  | 'dueDate'
+  | 'milestone'
+  | 'labels'
+  | 'links'
+  | 'timeInStatus'
+  | 'created'
+  | 'updated'
+
 export interface FilterState {
   statusIds: string[]
   assigneeIds: string[]
