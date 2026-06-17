@@ -25,6 +25,8 @@ import type {
   RelationType,
   SavedView,
   ThemeMode,
+  User,
+  UserRole,
   WorkflowState,
 } from './types'
 
@@ -107,6 +109,9 @@ export interface Store extends WorkspaceData, UIState {
   createTemplate: (t: Omit<IssueTemplate, 'id'>) => IssueTemplate
   deleteTemplate: (id: string) => void
   toggleTeamMember: (teamId: string, userId: string) => void
+  setUserRole: (id: string, role: UserRole) => void
+  inviteMember: (email: string, role: UserRole) => void
+  removeUser: (id: string) => void
   createState: (s: Omit<WorkflowState, 'id'>) => WorkflowState
   updateState: (id: string, patch: Partial<Pick<WorkflowState, 'name' | 'color' | 'type'>>) => void
   deleteState: (id: string) => void
@@ -593,6 +598,46 @@ export const useStore = create<Store>()(
           ),
         })),
 
+      setUserRole: (id, role) =>
+        set((s) => ({
+          users: s.users.map((u) => (u.id === id ? { ...u, role } : u)),
+        })),
+
+      inviteMember: (email, role) =>
+        set((s) => {
+          const name = email
+            .split('@')[0]
+            .split(/[._-]/)
+            .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+            .join(' ')
+          const colors = ['#9b51e0', '#5e9aa8', '#a17c5b', '#eb5757', '#f2c94c']
+          const user: User = {
+            id: `u_${nanoid(8)}`,
+            name: name || email,
+            email,
+            avatarColor: colors[s.users.length % colors.length],
+            role,
+            pending: true,
+          }
+          return { users: [...s.users, user] }
+        }),
+
+      removeUser: (id) =>
+        set((s) => {
+          const me = s.users.find((u) => u.isMe)
+          if (me?.id === id) return s // never remove yourself
+          return {
+            users: s.users.filter((u) => u.id !== id),
+            issues: s.issues.map((i) =>
+              i.assigneeId === id ? { ...i, assigneeId: undefined } : i,
+            ),
+            teams: s.teams.map((t) => ({
+              ...t,
+              memberIds: (t.memberIds ?? []).filter((m) => m !== id),
+            })),
+          }
+        }),
+
       createState: (st) => {
         const state: WorkflowState = { ...st, id: `s_${nanoid(8)}` }
         set((s) => ({ states: [...s.states, state] }))
@@ -795,6 +840,14 @@ export const useStore = create<Store>()(
             t.memberIds
               ? t
               : { ...t, memberIds: seed.teams.find((x) => x.id === t.id)?.memberIds ?? [] },
+          )
+        }
+        // Backfill user.role for workspaces persisted before roles existed.
+        if (Array.isArray(merged.users)) {
+          merged.users = merged.users.map((u) =>
+            u.role
+              ? u
+              : { ...u, role: seed.users.find((x) => x.id === u.id)?.role ?? (u.isMe ? 'admin' : 'member') },
           )
         }
         return merged

@@ -18,12 +18,16 @@ export interface WorkflowState {
 /** Linear priority scale. 0 = none, 1 = urgent … 4 = low. */
 export type Priority = 0 | 1 | 2 | 3 | 4
 
+export type UserRole = 'admin' | 'member' | 'guest'
+
 export interface User {
   id: string
   name: string
   email: string
   avatarColor: string
+  role: UserRole
   isMe?: boolean
+  pending?: boolean
 }
 
 export interface Label {

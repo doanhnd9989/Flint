@@ -47,7 +47,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟢 **Favorites** — a star button on issue / project / saved-view headers toggles a persisted favorite; starred items appear in a "Favorites" section in the sidebar (click to open).
 - [x] 🟢 **List virtualization** — `GroupedIssueList` switches to a windowed renderer (`VirtualIssueList`) above 50 rows: only the rows in the viewport are mounted (verified: 202 issues → 33 DOM rows). Reorder/collapse drop out at that size by design. _(Closes seed issue CLA-5.)_
 - [x] 🟢 **Multi-team** polish — a workspace/team switcher dropdown (jump between teams), a "Teams" settings card with per-team membership (add/remove via picker), `Team.memberIds` with a persist `merge` that backfills old workspaces, and seeded Engineering issues + correct per-team issue identifiers.
-- [ ] 🟢 **Members & roles** management in settings; invite flow (mock).
+- [x] 🟢 **Members & roles** — the Settings Members card has a per-member role selector (admin/member/guest, your own locked), remove (not yourself), and a mock invite form that derives a name from the email and adds a Pending member. `User.role` backfilled via the persist merge.
 - [ ] 🟢 **Notification detail** — snooze, per-type preferences, mark-read-on-open.
 - [ ] 🟢 **Activity types** — render every change kind (priority/label/project/estimate/due) with diffs.
 - [ ] 🟢 **Git branch name** copy + "Copy issue URL", more issue context actions.

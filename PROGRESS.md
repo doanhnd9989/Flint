@@ -2,6 +2,25 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #26: Members & roles + invite
+
+Manage who's in the workspace, Linear-style:
+
+- `types.ts`: `UserRole` + `User.role` / `User.pending`. Store: `setUserRole`,
+  `inviteMember` (derives a name from the email, marks Pending), `removeUser`
+  (skips yourself; clears the user from assignees and team rosters); the persist
+  `merge` now backfills `role` for older workspaces.
+- `seed.ts`: roles per user (admins / members / a guest).
+- New `components/MembersSettings.tsx`: each member shows a role `<select>`
+  (your own disabled), a hover remove, and an invite row (email + role).
+- `SettingsView`: the Members card now hosts it.
+- Verified live: roles backfilled correctly; inviting dana.scott@acme.io added
+  "Dana Scott · Pending · Member" and bumped the member count to 6.
+  `tsc` ✅ · build ✅ · clean console.
+
+Next: **Notification detail** — snooze, per-type preferences, mark-read-on-open.
+
+
 ## 2026-06-17 — Loop #25: Multi-team polish
 
 Make the second team a first-class citizen, Linear-style:

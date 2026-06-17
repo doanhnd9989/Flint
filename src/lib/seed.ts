@@ -39,11 +39,11 @@ export interface WorkspaceData {
 
 export function buildSeed(): WorkspaceData {
   const users: User[] = [
-    { id: 'u_me', name: 'You', email: 'you@workspace.dev', avatarColor: '#5e6ad2', isMe: true },
-    { id: 'u_avery', name: 'Avery Chen', email: 'avery@workspace.dev', avatarColor: '#4cb782' },
-    { id: 'u_jordan', name: 'Jordan Lee', email: 'jordan@workspace.dev', avatarColor: '#f2994a' },
-    { id: 'u_sam', name: 'Sam Rivera', email: 'sam@workspace.dev', avatarColor: '#eb5da8' },
-    { id: 'u_kai', name: 'Kai Nakamura', email: 'kai@workspace.dev', avatarColor: '#4ea7fc' },
+    { id: 'u_me', name: 'You', email: 'you@workspace.dev', avatarColor: '#5e6ad2', role: 'admin', isMe: true },
+    { id: 'u_avery', name: 'Avery Chen', email: 'avery@workspace.dev', avatarColor: '#4cb782', role: 'admin' },
+    { id: 'u_jordan', name: 'Jordan Lee', email: 'jordan@workspace.dev', avatarColor: '#f2994a', role: 'member' },
+    { id: 'u_sam', name: 'Sam Rivera', email: 'sam@workspace.dev', avatarColor: '#eb5da8', role: 'member' },
+    { id: 'u_kai', name: 'Kai Nakamura', email: 'kai@workspace.dev', avatarColor: '#4ea7fc', role: 'guest' },
   ]
 
   const teams: Team[] = [

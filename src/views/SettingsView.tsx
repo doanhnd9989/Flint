@@ -1,6 +1,6 @@
 import { useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
-import { Avatar } from '@/components/Avatar'
+import { MembersSettings } from '@/components/MembersSettings'
 import { LabelsSettings } from '@/components/LabelsSettings'
 import { StatesSettings } from '@/components/StatesSettings'
 import { TemplatesSettings } from '@/components/TemplatesSettings'
@@ -74,19 +74,7 @@ export function SettingsView() {
           </Card>
 
           <Card title="Members">
-            <div className="space-y-2">
-              {users.map((u) => (
-                <div key={u.id} className="flex items-center gap-2">
-                  <Avatar user={u} size={26} />
-                  <div className="flex-1">
-                    <div className="text-[13px] text-fg">
-                      {u.name} {u.isMe && <span className="text-faint">(you)</span>}
-                    </div>
-                    <div className="text-[11px] text-faint">{u.email}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <MembersSettings />
           </Card>
 
           <Card title="Teams">
