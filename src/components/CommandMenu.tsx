@@ -301,7 +301,7 @@ export function CommandMenu() {
       }
 
       // label
-      return store.labels.map((l) => ({
+      return store.labels.filter((l) => !l.isGroup).map((l) => ({
         id: `lb-${l.id}`,
         label: l.name,
         icon: <LabelDot color={l.color} />,

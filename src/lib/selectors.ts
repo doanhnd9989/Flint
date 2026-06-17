@@ -167,7 +167,7 @@ export function groupIssues(
   }
 
   // label
-  const groups: IssueGroup[] = data.labels.map((l) => ({
+  const groups: IssueGroup[] = data.labels.filter((l) => !l.isGroup).map((l) => ({
     key: l.id,
     label: l.name,
     color: l.color,

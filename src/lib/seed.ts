@@ -67,9 +67,10 @@ export function buildSeed(): WorkspaceData {
   ]
 
   const labels: Label[] = [
-    { id: 'l_bug', name: 'Bug', color: '#eb5757' },
-    { id: 'l_feature', name: 'Feature', color: '#5e6ad2' },
-    { id: 'l_improvement', name: 'Improvement', color: '#4cb782' },
+    { id: 'lg_type', name: 'Type', color: '#95a2b3', isGroup: true },
+    { id: 'l_bug', name: 'Bug', color: '#eb5757', groupId: 'lg_type' },
+    { id: 'l_feature', name: 'Feature', color: '#5e6ad2', groupId: 'lg_type' },
+    { id: 'l_improvement', name: 'Improvement', color: '#4cb782', groupId: 'lg_type' },
     { id: 'l_design', name: 'Design', color: '#eb5da8' },
     { id: 'l_docs', name: 'Documentation', color: '#4ea7fc' },
     { id: 'l_urgent', name: 'Needs triage', color: '#f2994a' },

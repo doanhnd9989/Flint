@@ -34,6 +34,8 @@ export interface Label {
   id: string
   name: string
   color: string
+  isGroup?: boolean // a label group: a container for child labels
+  groupId?: string // when set, this label belongs to the group with this id
 }
 
 export interface Team {

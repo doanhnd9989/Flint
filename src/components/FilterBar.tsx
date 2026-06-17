@@ -51,7 +51,7 @@ function useDimOptions(): Record<Dim, ValueOption[]> {
       label: PRIORITY_LABELS[p],
       icon: <PriorityIcon priority={p} />,
     })),
-    labelIds: labels.map((l) => ({ id: l.id, label: l.name, icon: <LabelDot color={l.color} /> })),
+    labelIds: labels.filter((l) => !l.isGroup).map((l) => ({ id: l.id, label: l.name, icon: <LabelDot color={l.color} /> })),
     projectIds: projects.map((p) => ({ id: p.id, label: p.name, icon: <span>{p.icon}</span> })),
   }
 }

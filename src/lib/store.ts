@@ -101,8 +101,9 @@ export interface Store extends WorkspaceData, UIState {
   toggleReaction: (commentId: string, emoji: string) => void
 
   // ── labels / projects ────────────────────────────────────────
-  createLabel: (name: string, color: string) => Label
-  updateLabel: (id: string, patch: Partial<Pick<Label, 'name' | 'color'>>) => void
+  createLabel: (name: string, color: string, groupId?: string) => Label
+  createLabelGroup: (name: string) => Label
+  updateLabel: (id: string, patch: Partial<Pick<Label, 'name' | 'color' | 'groupId'>>) => void
   deleteLabel: (id: string) => void
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
   updateProject: (id: string, patch: Partial<Project>) => void
@@ -574,10 +575,16 @@ export const useStore = create<Store>()(
       removeRelation: (id) =>
         set((s) => ({ relations: s.relations.filter((r) => r.id !== id) })),
 
-      createLabel: (name, color) => {
-        const label: Label = { id: `l_${nanoid(8)}`, name, color }
+      createLabel: (name, color, groupId) => {
+        const label: Label = { id: `l_${nanoid(8)}`, name, color, groupId }
         set((s) => ({ labels: [...s.labels, label] }))
         return label
+      },
+
+      createLabelGroup: (name) => {
+        const group: Label = { id: `lg_${nanoid(8)}`, name, color: '#95a2b3', isGroup: true }
+        set((s) => ({ labels: [...s.labels, group] }))
+        return group
       },
 
       updateLabel: (id, patch) =>
@@ -585,9 +592,14 @@ export const useStore = create<Store>()(
           labels: s.labels.map((l) => (l.id === id ? { ...l, ...patch } : l)),
         })),
 
+      // Deleting a label removes it from issues. Deleting a group ungroups its
+      // children (they survive as standalone labels) — matches Linear leaving
+      // the labels behind rather than cascading the delete.
       deleteLabel: (id) =>
         set((s) => ({
-          labels: s.labels.filter((l) => l.id !== id),
+          labels: s.labels
+            .filter((l) => l.id !== id)
+            .map((l) => (l.groupId === id ? { ...l, groupId: undefined } : l)),
           issues: s.issues.map((i) =>
             i.labelIds.includes(id)
               ? { ...i, labelIds: i.labelIds.filter((l) => l !== id) }

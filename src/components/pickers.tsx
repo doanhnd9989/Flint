@@ -108,12 +108,14 @@ export function LabelPicker({
   align?: 'start' | 'end'
 }) {
   const labels = useStore((s) => s.labels)
-  const options: SelectOption[] = labels.map((l) => ({
-    id: l.id,
-    label: l.name,
-    icon: <LabelDot color={l.color} />,
-    selected: labelIds.includes(l.id),
-  }))
+  const options: SelectOption[] = labels
+    .filter((l) => !l.isGroup)
+    .map((l) => ({
+      id: l.id,
+      label: l.name,
+      icon: <LabelDot color={l.color} />,
+      selected: labelIds.includes(l.id),
+    }))
   return (
     <SelectMenu
       options={options}

@@ -2,6 +2,44 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #37: Label groups in settings
+
+Built **label groups** (🟢) — the top remaining Discovered item. Soi'd Linear's
+real Settings → Labels page first via Chrome (workspace "Claude Test App"):
+the header has **New group** + **New label** buttons; clicking **New group**
+drops an inline group row (multi-colored cluster glyph + "Group name" input)
+and, on submit, immediately opens an indented "Label name" input nested under
+it (with a tree-connector line). A group row has a collapse chevron and a child
+count; its "…" menu offers Edit name / Add label to group / Archive / Delete.
+Reproduced the structure 1:1 in the compact Labels settings card.
+
+- `types.ts`: `Label` gains `isGroup?` (a container) and `groupId?` (membership).
+- `store.ts`: `createLabelGroup(name)` (id `lg_…`, grey, `isGroup`), extended
+  `createLabel(name, color, groupId?)`, `updateLabel` patch now allows `groupId`.
+  `deleteLabel` on a group **ungroups** its children (sets `groupId: undefined`)
+  rather than cascading the delete — keeps the labels, matches Linear leaving
+  them behind. Labels still get pulled from issues on delete as before.
+- `LabelsSettings.tsx`: rewritten. Renders groups first (chevron-collapsible
+  rows: `LabelGroupIcon` cluster tinted from child colors + inline-rename input
+  + child count + hover "+" to add a label + delete), each with its children
+  nested under a CSS tree connector (`border-b/border-l`), then ungrouped labels,
+  then a toolbar: **New group** (inline "Group name…" input → creates group and
+  auto-opens its first add-label input, à la Linear) and the existing add-label
+  row. Inline color/name editing preserved; per-row usage counts kept.
+- Excluded groups from selectable-label lists: issue `LabelPicker` (pickers.tsx),
+  `FilterBar`, the ⌘K "Add labels" sub-page, and group-by-label in `selectors.ts`.
+- `seed.ts`: wrapped Bug/Feature/Improvement in a seeded **Type** group so the
+  feature is visible out of the box (Design/Documentation/Needs triage stay
+  ungrouped).
+- Verified live (localhost:5173) with Chrome after clearing localStorage:
+  Type group shows the cluster glyph + "3 labels" with nested children; collapse
+  toggles; created a "Priority" group via the toolbar → it opened the nested
+  add-label input → added "Urgent" (0 issues). No console errors.
+  `npx tsc -b` + `npm run build` green.
+
+Next (Discovered later): async / email-style export 🟢. Group "…" context menu
+(Archive) and dragging labels into groups noted as follow-ups.
+
 ## 2026-06-17 — Loop #36: Cycle burndown chart
 
 Built the cycle **burndown chart** (🟡) — the top remaining Discovered item.
