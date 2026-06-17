@@ -10,18 +10,34 @@ const TOAST_MS = 5000
 function ToastItem({ toast }: { toast: Toast }) {
   const dismiss = useToasts((s) => s.dismiss)
   useEffect(() => {
-    const t = setTimeout(() => dismiss(toast.id), TOAST_MS)
+    const t = setTimeout(() => dismiss(toast.id), toast.duration ?? TOAST_MS)
     return () => clearTimeout(t)
-  }, [toast.id, dismiss])
+  }, [toast.id, toast.duration, dismiss])
 
   return (
     <div className="animate-toast flex w-[340px] items-start gap-2.5 rounded-[10px] border border-border bg-bg-elevated py-2.5 pl-3 pr-2 shadow-lg">
       <span className="mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-fg text-[11px] font-semibold leading-none text-bg">
         i
       </span>
-      <span className="flex-1 pt-px text-[13px] leading-snug text-fg">
-        {toast.message}
-      </span>
+      <div className="flex-1 pt-px">
+        {toast.title && (
+          <div className="text-[13px] font-medium leading-snug text-fg">
+            {toast.title}
+          </div>
+        )}
+        <div className="text-[13px] leading-snug text-fg">{toast.message}</div>
+        {toast.action && (
+          <button
+            onClick={() => {
+              toast.action!.onClick()
+              dismiss(toast.id)
+            }}
+            className="mt-1.5 rounded-md border border-border px-2 py-1 text-[12px] font-medium text-fg hover:bg-bg-hover"
+          >
+            {toast.action.label}
+          </button>
+        )}
+      </div>
       <button
         onClick={() => dismiss(toast.id)}
         className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-muted"

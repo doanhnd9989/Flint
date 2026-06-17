@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { toast } from '@/lib/toast'
 import { Popover } from './ui/Popover'
 import {
   toExportRows,
@@ -24,16 +26,53 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 
 const dateStamp = () => new Date().toISOString().slice(0, 10)
 
+/** Mock the time the backend would spend preparing the export file. */
+const EXPORT_PREP_MS = 2500
+
 export function ImportExportSettings() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [result, setResult] = useState<string | null>(null)
+  const [pending, setPending] = useState<'csv' | 'json' | null>(null)
+  const myEmail = useStore(
+    (s) => s.users.find((u) => u.id === s.currentUserId)?.email ?? '',
+  )
 
+  /**
+   * Linear's export is async: clicking Export confirms with a "Check your
+   * email" toast, the backend prepares the file, then it emails a download
+   * link. We have no backend, so we mock the prepare delay and surface the
+   * ready file as a "Download" action on a second toast (our stand-in for the
+   * emailed link).
+   */
   function exportAs(format: 'csv' | 'json') {
-    const rows = toExportRows(useStore.getState())
-    const stamp = dateStamp()
-    if (format === 'csv')
-      downloadFile(`issues-${stamp}.csv`, rowsToCsv(rows), 'text/csv')
-    else downloadFile(`issues-${stamp}.json`, rowsToJson(rows), 'application/json')
+    if (pending) return
+    setPending(format)
+    toast({
+      title: 'Check your email',
+      message: `Once the export is ready, it will be emailed to you${
+        myEmail ? ` (${myEmail})` : ''
+      }.`,
+    })
+
+    setTimeout(() => {
+      const rows = toExportRows(useStore.getState())
+      const stamp = dateStamp()
+      const name = `issues-${stamp}.${format}`
+      const upper = format.toUpperCase()
+      setPending(null)
+      toast({
+        title: 'Export ready',
+        message: `Your ${upper} export is ready to download.`,
+        duration: 30000,
+        action: {
+          label: 'Download',
+          onClick: () =>
+            format === 'csv'
+              ? downloadFile(name, rowsToCsv(rows), 'text/csv')
+              : downloadFile(name, rowsToJson(rows), 'application/json'),
+        },
+      })
+    }, EXPORT_PREP_MS)
   }
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -91,10 +130,20 @@ export function ImportExportSettings() {
       <div>
         <h3 className="text-[13px] font-semibold text-fg">Export</h3>
         <p className="mt-1 text-[12px] text-muted">
-          You can export your issue data in CSV or JSON format.
+          You can export your issue data in CSV or JSON format. Once the export
+          is available, we’ll email you the download link.
         </p>
         <div className="mt-3 rounded-lg border border-border">
-          <Row label="Issue data">
+          <Row
+            label="Issue data"
+            hint={pending ? `Preparing ${pending.toUpperCase()} export…` : undefined}
+          >
+            {pending ? (
+              <span className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[13px] text-muted">
+                <Loader2 size={13} className="animate-spin" />
+                Exporting…
+              </span>
+            ) : (
             <Popover
               align="end"
               width={160}
@@ -129,6 +178,7 @@ export function ImportExportSettings() {
                 </div>
               )}
             </Popover>
+            )}
           </Row>
         </div>
       </div>

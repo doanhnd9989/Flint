@@ -2,6 +2,39 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #38: Async / email-style export
+
+Built the **async / email-style export** flow (🟢, the last unchecked backlog
+item). Soi'd Linear's real Settings → Import & export first via Chrome
+(workspace "Claude Test App"): the Export section reads "You can export your
+issue data in CSV format. Once the export is available, we'll email you the
+download link." and clicking **Export…** fires a bottom-right toast titled
+**"Check your email"** / "Once the export is ready, it will be emailed to you
+(email)." — no immediate download. Reproduced that 1:1, adapted for our
+backend-less app:
+
+- `toast.ts`: extended `Toast` with optional **`title`** (bold first line),
+  **`action`** (`{label, onClick}` inline button), and **`duration`** (ms
+  override). `add` now takes `Omit<Toast,'id'>`; `toast()` accepts a string
+  (back-compat for the copy toasts) **or** an options object.
+- `Toaster.tsx`: renders the title above the message, an optional action button
+  (runs `onClick` then dismisses), and honours per-toast `duration`.
+- `ImportExportSettings.tsx`: choosing CSV/JSON now (1) fires the exact
+  **"Check your email"** toast with the current user's email, (2) puts the
+  Export button into a **spinner + "Exporting…"** pending state (row hint
+  "Preparing CSV export…") for a mocked `EXPORT_PREP_MS` (2.5s) prepare delay,
+  then (3) fires a second **"Export ready"** toast — "Your CSV export is ready
+  to download." — with a **Download** action that performs the real
+  CSV/JSON download (our stand-in for the emailed link). Export description
+  updated to match Linear's "…we'll email you the download link." wording.
+- Verified live (localhost:5173) with Chrome side-by-side vs real Linear:
+  "Check your email" toast + pending state appear on click, then the "Export
+  ready" toast with Download after the delay. No console errors.
+  `npx tsc -b` + `npm run build` green.
+
+Next: BACKLOG is fully checked — append newly-soi'd Linear features as the loop
+notices them (e.g. Initiatives, Pulse, Documents, Customer requests, Asks).
+
 ## 2026-06-17 — Loop #37: Label groups in settings
 
 Built **label groups** (🟢) — the top remaining Discovered item. Soi'd Linear's
