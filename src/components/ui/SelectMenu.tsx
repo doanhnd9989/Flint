@@ -131,6 +131,7 @@ export function SelectMenu({
         createPortal(
           <div
             ref={menuRef}
+            data-overlay
             className="fixed z-50 rounded-lg border border-border bg-bg-elevated shadow-lg animate-pop overflow-hidden"
             style={{ top: pos.top, left: pos.left, width }}
             onKeyDown={onKey}

@@ -35,6 +35,45 @@ export function useShortcuts() {
 
       if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
 
+      // Any open menu / popover / modal owns the keyboard — don't steal keys.
+      const overlayOpen =
+        store.commandOpen ||
+        store.createOpen ||
+        store.createInitiativeOpen ||
+        store.helpOpen ||
+        !!document.querySelector('[data-overlay]')
+
+      // ── Issue-list keyboard navigation (Linear's `j`/`k` row focus) ──
+      if (!overlayOpen && !pendingG.current) {
+        if (key === 'j' || e.key === 'ArrowDown') {
+          e.preventDefault()
+          store.moveFocus(1)
+          return
+        }
+        if (key === 'k' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          store.moveFocus(-1)
+          return
+        }
+        if (store.focusedIssueId) {
+          const focused = store.issues.find(
+            (i) => i.identifier === store.focusedIssueId,
+          )
+          if (focused) {
+            if (key === 'x') {
+              e.preventDefault()
+              store.toggleSelectIssue(focused.id)
+              return
+            }
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              store.setPeek(focused.id)
+              return
+            }
+          }
+        }
+      }
+
       // `G` then <key> — navigation chords
       if (pendingG.current) {
         clearG()

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { CalendarClock, Diamond } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import type { Issue } from '@/lib/types'
@@ -17,8 +18,8 @@ export function IssueRow({
   showStatus?: boolean
 }) {
   const {
-    states, users, labels, issues, projects, milestones, displayProperties, selectedIssueIds,
-    setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue, openContextMenu,
+    states, users, labels, issues, projects, milestones, displayProperties, selectedIssueIds, focusedIssueId,
+    setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue, setFocusedIssue, openContextMenu,
   } = useStoreShallow((s) => ({
     states: s.states,
     users: s.users,
@@ -28,17 +29,26 @@ export function IssueRow({
     milestones: s.milestones,
     displayProperties: s.displayProperties,
     selectedIssueIds: s.selectedIssueIds,
+    focusedIssueId: s.focusedIssueId,
     setIssueStatus: s.setIssueStatus,
     setIssuePriority: s.setIssuePriority,
     setIssueAssignee: s.setIssueAssignee,
     setPeek: s.setPeek,
     toggleSelectIssue: s.toggleSelectIssue,
+    setFocusedIssue: s.setFocusedIssue,
     openContextMenu: s.openContextMenu,
   }))
   const dp = displayProperties
 
   const selected = selectedIssueIds.includes(issue.id)
   const anySelected = selectedIssueIds.length > 0
+  const focused = focusedIssueId === issue.identifier
+
+  // Keep the keyboard-focused row scrolled into view as `j`/`k` walk the list.
+  const rowRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (focused) rowRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [focused])
 
   const state = states.find((s) => s.id === issue.stateId)
   const assignee = users.find((u) => u.id === issue.assigneeId)
@@ -58,14 +68,22 @@ export function IssueRow({
 
   return (
     <div
+      ref={rowRef}
+      data-issue-focus={issue.identifier}
       onClick={() => setPeek(issue.id)}
+      onMouseEnter={() => setFocusedIssue(issue.identifier)}
       onContextMenu={(e) => {
         e.preventDefault()
         openContextMenu(issue.id, e.clientX, e.clientY)
       }}
       className={cn(
         'group flex cursor-pointer items-center gap-2 px-4 py-1.5 border-b border-border/40',
-        selected ? 'bg-accent-subtle' : 'hover:bg-bg-hover',
+        selected
+          ? 'bg-accent-subtle'
+          : focused
+            ? 'bg-bg-hover'
+            : 'hover:bg-bg-hover',
+        focused && 'ring-1 ring-inset ring-border-strong',
       )}
     >
       <button
@@ -79,7 +97,7 @@ export function IssueRow({
           selected
             ? 'border-accent bg-accent text-white opacity-100'
             : 'border-border-strong opacity-0 group-hover:opacity-100',
-          anySelected && 'opacity-100',
+          (anySelected || focused) && 'opacity-100',
         )}
         title="Select"
       >

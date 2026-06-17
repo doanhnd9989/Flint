@@ -55,6 +55,11 @@ interface UIState {
    * Set by whichever list/board is on screen; transient.
    */
   navIssueIds: string[]
+  /**
+   * Keyboard-focused issue *identifier* in the list the user is browsing
+   * (Linear's `j`/`k` row focus). Transient; lives over `navIssueIds`.
+   */
+  focusedIssueId: string | null
   /** Right-click context menu target + position (transient). */
   contextMenu: { issueId: string; x: number; y: number } | null
   /** Recent search queries (persisted, newest first). */
@@ -162,6 +167,10 @@ export interface Store extends WorkspaceData, UIState {
   setHelpOpen: (open: boolean) => void
   setPeek: (id: string | null) => void
   setNavIssueIds: (ids: string[]) => void
+  /** Set (or clear) the keyboard-focused issue by identifier. */
+  setFocusedIssue: (identifier: string | null) => void
+  /** Move keyboard focus by `dir` (+1 next / −1 prev) through `navIssueIds`. */
+  moveFocus: (dir: 1 | -1) => void
   addRecentSearch: (q: string) => void
   clearRecentSearches: () => void
   toggleFavorite: (type: FavoriteType, id: string) => void
@@ -224,6 +233,7 @@ export const useStore = create<Store>()(
       peekIssueId: null,
       selectedIssueIds: [],
       navIssueIds: [],
+      focusedIssueId: null,
       contextMenu: null,
       recentSearches: [],
       favorites: [],
@@ -949,6 +959,21 @@ export const useStore = create<Store>()(
             ? s
             : { navIssueIds },
         ),
+      setFocusedIssue: (focusedIssueId) => set({ focusedIssueId }),
+      moveFocus: (dir) =>
+        set((s) => {
+          const list = s.navIssueIds
+          if (list.length === 0) return s
+          const cur = s.focusedIssueId ? list.indexOf(s.focusedIssueId) : -1
+          let next: number
+          if (cur === -1) {
+            // No focus yet: ↓ focuses the first row, ↑ focuses the last.
+            next = dir === 1 ? 0 : list.length - 1
+          } else {
+            next = Math.min(Math.max(cur + dir, 0), list.length - 1)
+          }
+          return { focusedIssueId: list[next] }
+        }),
 
       addRecentSearch: (q) =>
         set((s) => {
@@ -1162,6 +1187,7 @@ export const useStore = create<Store>()(
           peekIssueId: _p,
           selectedIssueIds: _sel,
           navIssueIds: _nav,
+          focusedIssueId: _foc,
           contextMenu: _cm,
           ...rest
         } = s
@@ -1172,6 +1198,7 @@ export const useStore = create<Store>()(
         void _p
         void _sel
         void _nav
+        void _foc
         void _cm
         return rest as Store
       },

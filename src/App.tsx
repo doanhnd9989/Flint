@@ -39,9 +39,10 @@ function Shell() {
   useThemeEffect()
   useShortcuts()
   const location = useLocation()
-  // Clear bulk selection when navigating between views.
+  // Clear bulk selection + keyboard row focus when navigating between views.
   useEffect(() => {
     useStore.getState().clearSelection()
+    useStore.getState().setFocusedIssue(null)
   }, [location.pathname])
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg text-fg">

@@ -43,6 +43,10 @@ const SECTIONS: { title: string; items: Shortcut[] }[] = [
   {
     title: 'Issues',
     items: [
+      { keys: <><Kbd>↓</Kbd> <Kbd>J</Kbd></>, label: 'Focus next issue' },
+      { keys: <><Kbd>↑</Kbd> <Kbd>K</Kbd></>, label: 'Focus previous issue' },
+      { keys: <Kbd>↵</Kbd>, label: 'Open focused issue' },
+      { keys: <Kbd>X</Kbd>, label: 'Select focused issue' },
       { keys: <Kbd>Click</Kbd>, label: 'Open issue in the peek panel' },
       { keys: <Kbd>Right-click</Kbd>, label: 'Quick actions menu' },
       { keys: <Kbd>Drag</Kbd>, label: 'Reorder within a group' },

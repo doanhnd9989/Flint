@@ -2,6 +2,35 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #44: Issue-list keyboard navigation (j/k row focus)
+
+Several prior loops left "keyboard `j`/`k` navigation" and "row-level hotkeys" as
+TODO. Soi'd Linear's real list (workspace "Claude Test App"): `j`/`k` (and the
+arrow keys) walk a **focused row** — a subtle background plus a thin rounded
+inset outline, with the select checkbox revealed exactly like the hover state;
+`↵` opens the issue, `x` toggles its selection. Reproduced 1:1:
+
+- **State**: a transient `focusedIssueId` (the focused issue's *identifier*,
+  layered over the existing `navIssueIds` list order) + `setFocusedIssue` and
+  `moveFocus(±1)` store actions. No-focus + `↓`/`j` focuses the first row,
+  `↑`/`k` the last. Excluded from `persist`; cleared on route change next to the
+  bulk selection.
+- **Handler** (`useShortcuts`): `↓`/`j`, `↑`/`k`, `↵` (open peek), `x` (toggle
+  select → feeds the bulk-action bar). Bails when typing **or** any open menu /
+  popover / modal owns the keyboard — added a `data-overlay` marker to the
+  shared `Popover` and `SelectMenu` portals and check for it (plus the
+  command/create/help store flags).
+- **`IssueRow`**: renders the focus state (bg + `ring-1 ring-inset
+  ring-border-strong` + visible checkbox), scrolls itself into view
+  (`block:'nearest'`) as focus moves, and focuses on `mouseenter` too (Linear
+  does this). Works in the windowed `VirtualIssueList` since it reuses `IssueRow`.
+- **Help overlay**: added ↓/J focus next, ↑/K focus previous, ↵ open, X select.
+- Verified live (Chrome, localhost:5173): `j j` focuses CLA-2 with the Linear
+  focus ring + checkbox, `x` selects it (accent check + "1 selected" bar), `↵`
+  opens the peek ("2 / 8"); console clean, `npx tsc -b` + `npm run build` green.
+  _(Per-row property hotkeys s/p/a/l still TODO — anchored pickers; j/k while a
+  peek is open don't re-peek the target yet.)_
+
 ## 2026-06-17 — Loop #43: Prev/next issue navigation
 
 The backlog was fully checked, so I soi'd Linear's issue header and found a clear
