@@ -2,6 +2,44 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #49: Slash command menu in the editor
+
+Soi'd Linear's description editor (Chrome, workspace "Claude Test App", issue
+CLA-1): typing **`/`** at the start of a line opens a command menu — the empty
+editor placeholder reads **"Type / for commands…"**. The menu is grouped with
+right-aligned shortcut hints: **Heading 1 / 2 / 3** (⌘⌥1/2/3) · divider ·
+**Bulleted list** (⌘⇧8) / **Numbered list** (⌘⇧9) / **Checklist** (⌘⇧7) ·
+divider · Insert media… / Insert gif… / Attach files… (⌘⇧U) · divider ·
+**Code block** (⌘⇧\) / Diagram / Collapsible section (⌘⇧6) / **Blockquote**
+(⌥⇧.). Reproduced 1:1 the items our dependency-free Markdown renderer supports,
+in Linear's exact order, grouping, labels and shortcut hints:
+
+- **Trigger** — added a `/`-command autocomplete to the shared `MentionInput`
+  (used by both the description `MarkdownEditor` and comments). Detection is a
+  line-start regex (`(?:^|\n)\/([a-zA-Z ]*)$`) so `/` only fires at the start of
+  a block, exactly like Linear; an Escape-dismiss guard (`dismissedAt`) keeps it
+  closed for that anchor until you move off it.
+- **Menu** — grouped while unfiltered (3 dividers), collapsing to a single
+  ranked list once you type a query (matches label or keywords). Keyboard
+  ↑/↓/↵/Tab/Esc + mouse hover/click; lucide icons (Heading1/2/3, List,
+  ListOrdered, ListChecks, Code2, TextQuote) + a monospace shortcut hint column.
+  Both the mention and slash popovers now carry `data-overlay` so the global
+  j/k/x hotkeys bail while they're open.
+- **Insertion** — each command rewrites the current line into markdown our
+  renderer understands: `# ` / `## ` / `### `, `- `, `1. `, `- [ ] `, a fenced
+  ```` ``` ```` code block, `> ` — with the caret placed inside (e.g. between the
+  fences for code). The `MarkdownEditor` textarea shows **"Type / for commands…"**
+  when the draft is empty.
+
+Verified live (localhost:5173, CLA-15 peek): the empty description showed the
+"Type / for commands…" placeholder; `/` opened the menu (H1/H2/H3 + divider +
+Bulleted/Numbered/Checklist + divider + Code block/Blockquote, matching Linear's
+layout and hints); selecting **Heading 1** inserted `# ` and "My heading" then
+rendered as a real H1 on blur. `npx tsc -b` + `npm run build` green; console
+clean (no errors, no infinite-loop warnings). _(Media/gif/attach/diagram/
+collapsible omitted — no upload backend / no renderer support for those; the
+slash menu is shared into comments too via MentionInput.)_
+
 ## 2026-06-17 — Loop #48: Issue links / "Resources" section
 
 Soi'd Linear's issue (Chrome, workspace "Claude Test App"): the ⋯ overflow has

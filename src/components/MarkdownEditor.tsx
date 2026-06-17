@@ -68,7 +68,7 @@ export function MarkdownEditor({ value, onChange, placeholder = 'Add description
               setEditing(false)
             }
           }}
-          placeholder={placeholder}
+          placeholder={draft.trim() ? placeholder : "Type '/' for commands…"}
           className="w-full resize-none bg-transparent font-mono text-[13px] leading-relaxed text-fg outline-none"
         />
       </div>
