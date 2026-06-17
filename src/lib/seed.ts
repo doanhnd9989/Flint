@@ -155,6 +155,7 @@ export function buildSeed(): WorkspaceData {
       description: 'Arrow-key movement drops frames once a list passes ~500 rows. Virtualize the list.',
       teamId: 't_cla', stateId: 's_progress', priority: 1, assigneeId: 'u_me',
       labelIds: ['l_bug'], projectId: 'p_mvp', cycleId: 'cy_1', estimate: 3,
+      dueDate: new Date(Date.now() + 2 * 86_400_000).toISOString(),
     },
     {
       title: 'Design the command palette',

@@ -1,3 +1,4 @@
+import { CalendarClock } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import type { Issue } from '@/lib/types'
 import { StatusIcon } from './StatusIcon'
@@ -6,7 +7,7 @@ import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { StatusPicker, PriorityPicker, AssigneePicker } from './pickers'
 import { ProgressDonut } from './ProgressDonut'
-import { cn, formatDate, isOverdue } from '@/lib/utils'
+import { cn, formatDate, isDueSoon, isOverdue } from '@/lib/utils'
 
 export function IssueRow({
   issue,
@@ -124,10 +125,15 @@ export function IssueRow({
         {issue.dueDate && (
           <span
             className={cn(
-              'text-[11px]',
-              isOverdue(issue.dueDate) ? 'text-[var(--priority-urgent)]' : 'text-faint',
+              'flex items-center gap-0.5 text-[11px]',
+              isOverdue(issue.dueDate)
+                ? 'text-[var(--priority-urgent)]'
+                : isDueSoon(issue.dueDate)
+                  ? 'text-[var(--status-started)]'
+                  : 'text-faint',
             )}
           >
+            <CalendarClock size={11} />
             {formatDate(issue.dueDate)}
           </span>
         )}

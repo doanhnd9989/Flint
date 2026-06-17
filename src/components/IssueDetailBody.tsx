@@ -17,11 +17,12 @@ import { IssueRelations } from './IssueRelations'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MentionInput } from './MentionInput'
 import { CommentReactions } from './CommentReactions'
+import { DatePicker } from './DatePicker'
 import { Markdown } from '@/lib/markdown'
 import { subIssueProgress } from '@/lib/selectors'
 import { PRIORITY_LABELS, ESTIMATE_SCALE } from '@/lib/constants'
-import { formatFullDate, timeAgo } from '@/lib/utils'
-import { GitBranch, CornerLeftUp } from 'lucide-react'
+import { cn, formatFullDate, isDueSoon, isOverdue, timeAgo } from '@/lib/utils'
+import { GitBranch, CornerLeftUp, Calendar } from 'lucide-react'
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -286,6 +287,32 @@ export function IssueDetailBody({
               }
             />
           </PropRow>
+          <PropRow label="Due date">
+            <DatePicker
+              value={issue.dueDate}
+              onChange={(iso) => store.setIssueDueDate(issue.id, iso)}
+              trigger={
+                <span className={triggerCls}>
+                  <Calendar size={14} className="text-faint" />
+                  {issue.dueDate ? (
+                    <span
+                      className={cn(
+                        isOverdue(issue.dueDate)
+                          ? 'text-[var(--priority-urgent)]'
+                          : isDueSoon(issue.dueDate)
+                            ? 'text-[var(--status-started)]'
+                            : 'text-fg',
+                      )}
+                    >
+                      {formatFullDate(issue.dueDate)}
+                    </span>
+                  ) : (
+                    <span className="text-faint">Set due date</span>
+                  )}
+                </span>
+              }
+            />
+          </PropRow>
         </div>
 
         <div className="mt-4 text-[11px] font-medium uppercase tracking-wide text-faint">
@@ -332,12 +359,6 @@ export function IssueDetailBody({
             </span>
           }
         />
-
-        {issue.dueDate && (
-          <div className="mt-4 text-[12px] text-muted">
-            Due {formatFullDate(issue.dueDate)}
-          </div>
-        )}
       </aside>
     </div>
   )

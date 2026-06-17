@@ -2,6 +2,24 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #11: Due-date picker + overdue styling
+
+Issues can be scheduled with a real calendar, Linear-style:
+
+- New `components/DatePicker.tsx`: a month-grid calendar popover (date-fns based)
+  with prev/next month, a Today shortcut and Clear; built on the `Popover` primitive.
+- `IssueDetailBody`: the Properties sidebar gained a "Due date" row using the
+  picker; the value is colored red when overdue and amber when due soon
+  (≤3 days). Removed the old read-only due-date line.
+- `IssueRow`: due dates now show a calendar-clock icon and the same
+  overdue/due-soon/normal coloring.
+- `seed.ts`: CLA-5 now has a due date in 2 days to showcase the styling.
+- Verified live: "Set due date" opened the calendar, picking the 20th set
+  "June 20, 2026" shown in amber (due soon). `tsc` ✅ · build ✅ · clean console.
+
+Next: **Labels management** in settings (create / rename / recolor / delete).
+
+
 ## 2026-06-17 — Loop #10: Emoji reactions on comments
 
 React to comments with emoji, Linear-style:

@@ -32,7 +32,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟡 **Rich-text description editor** — click-to-edit Markdown: headings, bold/italic, inline + fenced code, bullet/ordered/task lists (interactive checkboxes), blockquotes, links, hr. Dependency-free renderer (React nodes, no XSS). _(Full WYSIWYG / slash-commands still TODO.)_
 - [x] 🟡 **@mentions** in comments and descriptions — `@`-triggered user autocomplete (arrow/enter/tab/esc), inserts a `@[Name](id)` token rendered as a chip via the Markdown renderer. Comments now render Markdown too.
 - [x] 🟡 **Emoji reactions** on comments — reaction pills (emoji + count, highlighted when you reacted, reactor names on hover) and an emoji-picker popover to add; toggling removes your reaction.
-- [ ] 🟡 **Due-date picker** (calendar popover) + overdue / due-soon styling everywhere.
+- [x] 🟡 **Due-date picker** — month calendar popover (prev/next, Today, Clear) on the issue's Due date property; overdue (red) / due-soon (amber) styling on the property and in issue rows.
 - [ ] 🟡 **Labels management** in settings — create / rename / recolor / delete; label groups.
 - [ ] 🟡 **Custom workflow states** in settings — add / rename / recolor / reorder per team.
 - [ ] 🟡 **Issue templates** — create issues from a saved template.
