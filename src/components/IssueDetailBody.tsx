@@ -17,6 +17,7 @@ import { IssueRelations } from './IssueRelations'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MentionInput } from './MentionInput'
 import { CommentReactions } from './CommentReactions'
+import { ActivityItem } from './ActivityItem'
 import { DatePicker } from './DatePicker'
 import { Markdown } from '@/lib/markdown'
 import { subIssueProgress } from '@/lib/selectors'
@@ -166,17 +167,9 @@ export function IssueDetailBody({
           <div className="mt-8">
             <div className="mb-3 text-[12px] font-medium text-faint">Activity</div>
             <div className="space-y-3">
-              {activities.map((a) => {
-                const u = store.users.find((x) => x.id === a.userId)
-                return (
-                  <div key={a.id} className="flex items-center gap-2 text-[12px] text-muted">
-                    <Avatar user={u} size={18} />
-                    <span className="text-fg">{u?.name}</span>
-                    <span>{a.kind === 'created' ? 'created the issue' : `changed ${a.kind}`}</span>
-                    <span className="text-faint">· {timeAgo(a.createdAt)}</span>
-                  </div>
-                )
-              })}
+              {activities.map((a) => (
+                <ActivityItem key={a.id} activity={a} />
+              ))}
               {comments.map((c) => {
                 const u = store.users.find((x) => x.id === c.userId)
                 return (

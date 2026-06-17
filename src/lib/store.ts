@@ -286,75 +286,148 @@ export const useStore = create<Store>()(
         }),
 
       setIssuePriority: (id, priority) =>
-        set((s) => ({
-          issues: s.issues.map((i) =>
-            i.id === id ? { ...i, priority, updatedAt: nowIso() } : i,
-          ),
-          activities: [...s.activities, logActivity(s, id, 'priority')],
-        })),
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue || issue.priority === priority) return s
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id ? { ...i, priority, updatedAt: nowIso() } : i,
+            ),
+            activities: [
+              ...s.activities,
+              logActivity(s, id, 'priority', String(issue.priority), String(priority)),
+            ],
+          }
+        }),
 
       setIssueAssignee: (id, assigneeId) =>
-        set((s) => ({
-          issues: s.issues.map((i) =>
-            i.id === id ? { ...i, assigneeId, updatedAt: nowIso() } : i,
-          ),
-          activities: [
-            ...s.activities,
-            logActivity(s, id, 'assignee', undefined, assigneeId),
-          ],
-        })),
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue || issue.assigneeId === assigneeId) return s
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id ? { ...i, assigneeId, updatedAt: nowIso() } : i,
+            ),
+            activities: [
+              ...s.activities,
+              logActivity(s, id, 'assignee', issue.assigneeId, assigneeId),
+            ],
+          }
+        }),
 
       toggleIssueLabel: (id, labelId) =>
-        set((s) => ({
-          issues: s.issues.map((i) =>
-            i.id === id
-              ? {
-                  ...i,
-                  labelIds: i.labelIds.includes(labelId)
-                    ? i.labelIds.filter((l) => l !== labelId)
-                    : [...i.labelIds, labelId],
-                  updatedAt: nowIso(),
-                }
-              : i,
-          ),
-        })),
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue) return s
+          const removing = issue.labelIds.includes(labelId)
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id
+                ? {
+                    ...i,
+                    labelIds: removing
+                      ? i.labelIds.filter((l) => l !== labelId)
+                      : [...i.labelIds, labelId],
+                    updatedAt: nowIso(),
+                  }
+                : i,
+            ),
+            activities: [
+              ...s.activities,
+              // Added → `to` holds the label; removed → `from` holds it.
+              logActivity(
+                s,
+                id,
+                'label',
+                removing ? labelId : undefined,
+                removing ? undefined : labelId,
+              ),
+            ],
+          }
+        }),
 
       setIssueProject: (id, projectId) =>
-        set((s) => ({
-          issues: s.issues.map((i) =>
-            i.id === id
-              ? { ...i, projectId, milestoneId: undefined, updatedAt: nowIso() }
-              : i,
-          ),
-        })),
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue || issue.projectId === projectId) return s
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id
+                ? { ...i, projectId, milestoneId: undefined, updatedAt: nowIso() }
+                : i,
+            ),
+            activities: [
+              ...s.activities,
+              logActivity(s, id, 'project', issue.projectId, projectId),
+            ],
+          }
+        }),
 
       setIssueMilestone: (id, milestoneId) =>
-        set((s) => ({
-          issues: s.issues.map((i) =>
-            i.id === id ? { ...i, milestoneId, updatedAt: nowIso() } : i,
-          ),
-        })),
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue || issue.milestoneId === milestoneId) return s
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id ? { ...i, milestoneId, updatedAt: nowIso() } : i,
+            ),
+            activities: [
+              ...s.activities,
+              logActivity(s, id, 'milestone', issue.milestoneId, milestoneId),
+            ],
+          }
+        }),
 
       setIssueEstimate: (id, estimate) =>
-        set((s) => ({
-          issues: s.issues.map((i) =>
-            i.id === id ? { ...i, estimate, updatedAt: nowIso() } : i,
-          ),
-        })),
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue || issue.estimate === estimate) return s
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id ? { ...i, estimate, updatedAt: nowIso() } : i,
+            ),
+            activities: [
+              ...s.activities,
+              logActivity(
+                s,
+                id,
+                'estimate',
+                issue.estimate == null ? undefined : String(issue.estimate),
+                estimate == null ? undefined : String(estimate),
+              ),
+            ],
+          }
+        }),
 
       setIssueDueDate: (id, dueDate) =>
-        set((s) => ({
-          issues: s.issues.map((i) =>
-            i.id === id ? { ...i, dueDate, updatedAt: nowIso() } : i,
-          ),
-        })),
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue || issue.dueDate === dueDate) return s
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id ? { ...i, dueDate, updatedAt: nowIso() } : i,
+            ),
+            activities: [
+              ...s.activities,
+              logActivity(s, id, 'dueDate', issue.dueDate, dueDate),
+            ],
+          }
+        }),
 
       setIssueTitle: (id, title) =>
-        set((s) => ({
-          issues: s.issues.map((i) =>
-            i.id === id ? { ...i, title, updatedAt: nowIso() } : i,
-          ),
-        })),
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue || issue.title === title) return s
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id ? { ...i, title, updatedAt: nowIso() } : i,
+            ),
+            activities: [
+              ...s.activities,
+              logActivity(s, id, 'title', issue.title, title),
+            ],
+          }
+        }),
 
       setIssueDescription: (id, description) =>
         set((s) => ({

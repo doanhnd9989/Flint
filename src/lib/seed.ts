@@ -321,6 +321,15 @@ export function buildSeed(): WorkspaceData {
     createdAt: iss.createdAt,
   }))
 
+  // A richer history on i_5 to showcase the diffed activity feed.
+  activities.push(
+    { id: 'a_x1', issueId: 'i_5', userId: 'u_avery', kind: 'priority', from: '3', to: '1', createdAt: nowIso() },
+    { id: 'a_x2', issueId: 'i_5', userId: 'u_me', kind: 'assignee', to: 'u_avery', createdAt: nowIso() },
+    { id: 'a_x3', issueId: 'i_5', userId: 'u_avery', kind: 'label', to: 'l_improvement', createdAt: nowIso() },
+    { id: 'a_x4', issueId: 'i_5', userId: 'u_jordan', kind: 'status', from: 's_todo', to: 's_progress', createdAt: nowIso() },
+    { id: 'a_x5', issueId: 'i_5', userId: 'u_me', kind: 'estimate', to: '5', createdAt: nowIso() },
+  )
+
   const notifications: Notification[] = [
     {
       id: 'n_1', issueId: 'i_5', type: 'comment', actorId: 'u_avery',

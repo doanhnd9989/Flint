@@ -2,6 +2,27 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #28: Activity types (diffed feed)
+
+The issue activity feed now reads like Linear's — every change with its diff:
+
+- `types.ts`: added `'milestone'` to `ActivityKind`; documented `from`/`to`.
+- `store.ts`: every property mutation now logs an activity with the real
+  `from`/`to` and skips no-op changes — `setIssuePriority` (numeric from→to),
+  `setIssueAssignee` (old→new user), `toggleIssueLabel` (added → `to`, removed →
+  `from`), `setIssueProject`, `setIssueMilestone`, `setIssueEstimate`,
+  `setIssueDueDate`, `setIssueTitle`. (`status`/`created` already logged.)
+- New `components/ActivityItem.tsx`: resolves each kind into a sentence with the
+  relevant glyph/chip — status & priority icons with a `→` diff, assignee/label
+  /project/milestone chips, estimate "N points", due date as a full date, title
+  rename in quotes. Replaces the old `changed ${kind}` stub in `IssueDetailBody`.
+- `seed.ts`: a richer history on i_5 (priority/assignee/label/status/estimate) to
+  showcase the feed.
+- `tsc` ✅ · build ✅ (built in 4.11s).
+
+Next: **Git branch name** copy + "Copy issue URL", more issue context actions.
+
+
 ## 2026-06-17 — Loop #27: Notification detail (snooze + prefs)
 
 A real inbox, Linear-style:

@@ -116,6 +116,7 @@ export type ActivityKind =
   | 'assignee'
   | 'label'
   | 'project'
+  | 'milestone'
   | 'title'
   | 'estimate'
   | 'dueDate'
@@ -125,7 +126,9 @@ export interface Activity {
   issueId: string
   userId: string
   kind: ActivityKind
+  /** Previous value (id/number/string depending on kind); empty when unset. */
   from?: string
+  /** New value (id/number/string depending on kind); empty when unset. */
   to?: string
   createdAt: string
 }

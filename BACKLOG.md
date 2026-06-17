@@ -49,7 +49,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟢 **Multi-team** polish — a workspace/team switcher dropdown (jump between teams), a "Teams" settings card with per-team membership (add/remove via picker), `Team.memberIds` with a persist `merge` that backfills old workspaces, and seeded Engineering issues + correct per-team issue identifiers.
 - [x] 🟢 **Members & roles** — the Settings Members card has a per-member role selector (admin/member/guest, your own locked), remove (not yourself), and a mock invite form that derives a name from the email and adds a Pending member. `User.role` backfilled via the persist merge.
 - [x] 🟢 **Notification detail** — Inbox/Snoozed tabs, per-notification snooze (1h / tomorrow / next week) + unsnooze, delete, mark-read-on-open, and a per-type preferences popover; the sidebar badge excludes snoozed.
-- [ ] 🟢 **Activity types** — render every change kind (priority/label/project/estimate/due) with diffs.
+- [x] 🟢 **Activity types** — every change kind (status/priority/assignee/label/project/milestone/estimate/due/title) is logged with `from`/`to` and rendered as a Linear-style sentence with glyph/chip diffs in a new `ActivityItem` component.
 - [ ] 🟢 **Git branch name** copy + "Copy issue URL", more issue context actions.
 - [ ] 🟢 **Command menu contextual actions** — when viewing an issue, ⌘K offers status/assignee/label/priority for it.
 - [ ] 🟢 **Empty states & onboarding** polish to match Linear.
