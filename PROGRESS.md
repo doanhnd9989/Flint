@@ -2,6 +2,26 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #10: Emoji reactions on comments
+
+React to comments with emoji, Linear-style:
+
+- `types.ts`: `Comment.reactions?: Record<emoji, userIds>`.
+- Store: `toggleReaction(commentId, emoji)` adds/removes the current user and
+  drops the emoji key when it hits zero.
+- New `components/CommentReactions.tsx`: reaction pills (emoji + count,
+  accent-highlighted when you've reacted, reactor names in the title) plus a
+  smiley button opening a 12-emoji picker popover. Rendered under each comment
+  body in `IssueDetailBody`.
+- `seed.ts`: a sample comment carries 👍 / 🎉 reactions.
+- Verified live: added 🚀 (pill showed "1", highlighted), clicked it to toggle
+  off (pill removed). `tsc` ✅ · build ✅ · clean console.
+- Note: this slice was interrupted mid-way and resumed; the routine cron was
+  re-armed (job 4e1c0057).
+
+Next: **Due-date picker** (calendar popover) + overdue / due-soon styling.
+
+
 ## 2026-06-16 — Loop #9: @mentions
 
 Mention teammates in comments and descriptions:

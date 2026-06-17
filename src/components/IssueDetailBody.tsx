@@ -16,6 +16,7 @@ import { SelectMenu } from './ui/SelectMenu'
 import { IssueRelations } from './IssueRelations'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MentionInput } from './MentionInput'
+import { CommentReactions } from './CommentReactions'
 import { Markdown } from '@/lib/markdown'
 import { subIssueProgress } from '@/lib/selectors'
 import { PRIORITY_LABELS, ESTIMATE_SCALE } from '@/lib/constants'
@@ -184,6 +185,7 @@ export function IssueDetailBody({
                       <div className="text-[13px] text-fg">
                         <Markdown source={c.body} />
                       </div>
+                      <CommentReactions commentId={c.id} />
                     </div>
                   </div>
                 )

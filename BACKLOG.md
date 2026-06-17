@@ -31,7 +31,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟡 **Issue relations** — blocks / blocked-by / related / duplicate-of, stored canonically and shown (with inverses derived) in the issue detail; add via per-kind issue pickers, remove inline.
 - [x] 🟡 **Rich-text description editor** — click-to-edit Markdown: headings, bold/italic, inline + fenced code, bullet/ordered/task lists (interactive checkboxes), blockquotes, links, hr. Dependency-free renderer (React nodes, no XSS). _(Full WYSIWYG / slash-commands still TODO.)_
 - [x] 🟡 **@mentions** in comments and descriptions — `@`-triggered user autocomplete (arrow/enter/tab/esc), inserts a `@[Name](id)` token rendered as a chip via the Markdown renderer. Comments now render Markdown too.
-- [ ] 🟡 **Emoji reactions** on comments.
+- [x] 🟡 **Emoji reactions** on comments — reaction pills (emoji + count, highlighted when you reacted, reactor names on hover) and an emoji-picker popover to add; toggling removes your reaction.
 - [ ] 🟡 **Due-date picker** (calendar popover) + overdue / due-soon styling everywhere.
 - [ ] 🟡 **Labels management** in settings — create / rename / recolor / delete; label groups.
 - [ ] 🟡 **Custom workflow states** in settings — add / rename / recolor / reorder per team.

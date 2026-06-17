@@ -89,6 +89,8 @@ export interface Comment {
   body: string
   createdAt: string
   parentId?: string
+  /** emoji → userIds who reacted with it */
+  reactions?: Record<string, string[]>
 }
 
 export type ActivityKind =

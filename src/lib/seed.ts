@@ -231,6 +231,7 @@ export function buildSeed(): WorkspaceData {
       id: 'c_1', issueId: 'i_5', userId: 'u_avery',
       body: 'I can reproduce this with 800 rows. Virtualization should fix it.',
       createdAt: nowIso(),
+      reactions: { '👍': ['u_me'], '🎉': ['u_jordan'] },
     },
     {
       id: 'c_2', issueId: 'i_5', userId: 'u_me',

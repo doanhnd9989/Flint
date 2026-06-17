@@ -72,6 +72,7 @@ export interface Store extends WorkspaceData, UIState {
   // ── comments ─────────────────────────────────────────────────
   addComment: (issueId: string, body: string, parentId?: string) => void
   deleteComment: (id: string) => void
+  toggleReaction: (commentId: string, emoji: string) => void
 
   // ── labels / projects ────────────────────────────────────────
   createLabel: (name: string, color: string) => Label
@@ -340,6 +341,24 @@ export const useStore = create<Store>()(
 
       deleteComment: (id) =>
         set((s) => ({ comments: s.comments.filter((c) => c.id !== id) })),
+
+      toggleReaction: (commentId, emoji) =>
+        set((s) => ({
+          comments: s.comments.map((c) => {
+            if (c.id !== commentId) return c
+            const reactions = { ...(c.reactions ?? {}) }
+            const users = reactions[emoji] ?? []
+            const me = s.currentUserId
+            if (users.includes(me)) {
+              const next = users.filter((u) => u !== me)
+              if (next.length === 0) delete reactions[emoji]
+              else reactions[emoji] = next
+            } else {
+              reactions[emoji] = [...users, me]
+            }
+            return { ...c, reactions }
+          }),
+        })),
 
       addRelation: (fromIssueId, toIssueId, type) =>
         set((s) => {
