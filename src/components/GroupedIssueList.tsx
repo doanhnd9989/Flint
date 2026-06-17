@@ -19,6 +19,7 @@ import type { IssueGroup } from '@/lib/selectors'
 import type { GroupBy, Issue } from '@/lib/types'
 import { useStore } from '@/lib/store'
 import { IssueRow } from './IssueRow'
+import { VirtualIssueList } from './VirtualIssueList'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
@@ -122,6 +123,13 @@ export function GroupedIssueList({
         </button>
       </div>
     )
+  }
+
+  // Above a size threshold, switch to a windowed renderer (drag-reorder and
+  // collapse are dropped — the right trade-off for very large lists).
+  const totalRows = groups.reduce((n, g) => n + 1 + g.issues.length, 0)
+  if (totalRows > 50) {
+    return <VirtualIssueList groups={groups} groupBy={groupBy} />
   }
 
   const body = (

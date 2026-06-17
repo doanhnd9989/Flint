@@ -45,7 +45,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟡 **Project updates** — post health updates (on-track / at-risk / off-track) with a markdown body from an Updates tab; reverse-chronological timeline with delete; the project header shows the latest health badge.
 - [x] 🟢 **Roadmap / timeline** view (`/roadmap`) — projects as horizontal bars on a month axis, sized/positioned by start→target dates, colored per project with a progress fill and a "today" marker; click a bar to open the project. Sidebar + ⌘K + `G R`.
 - [x] 🟢 **Favorites** — a star button on issue / project / saved-view headers toggles a persisted favorite; starred items appear in a "Favorites" section in the sidebar (click to open).
-- [ ] 🟢 **List virtualization** for large lists (fixes the seeded perf issue CLA-5).
+- [x] 🟢 **List virtualization** — `GroupedIssueList` switches to a windowed renderer (`VirtualIssueList`) above 50 rows: only the rows in the viewport are mounted (verified: 202 issues → 33 DOM rows). Reorder/collapse drop out at that size by design. _(Closes seed issue CLA-5.)_
 - [ ] 🟢 **Multi-team** polish — team switcher, per-team settings, team membership.
 - [ ] 🟢 **Members & roles** management in settings; invite flow (mock).
 - [ ] 🟢 **Notification detail** — snooze, per-type preferences, mark-read-on-open.

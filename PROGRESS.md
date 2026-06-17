@@ -2,6 +2,24 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #24: List virtualization
+
+Large issue lists stay smooth — the fix the seeded CLA-5 asked for:
+
+- New `components/VirtualIssueList.tsx`: a dependency-free windowed renderer.
+  Groups are flattened to fixed-height (36px) header/row items; only the rows in
+  the viewport (+overscan) are mounted, sized via a full-height spacer and a
+  translateY offset; a ResizeObserver tracks the viewport height.
+- `GroupedIssueList`: above 50 flattened rows it delegates to `VirtualIssueList`
+  (drag-reorder and collapse drop out at that scale — the right trade-off);
+  smaller lists keep the dnd path.
+- Verified live: injected 200 issues (Todo = 202) → only 33 IssueRows mounted in
+  the DOM with a tall scroll spacer; removed the test data afterward.
+  `tsc` ✅ · build ✅ · clean console.
+
+Next: **Multi-team polish** — team switcher, per-team settings, team membership.
+
+
 ## 2026-06-17 — Loop #23: Favorites
 
 Star the things you care about, Linear-style:
