@@ -49,34 +49,55 @@ export function filterIssues(
   })
 }
 
+/** Primary comparator for the chosen ordering. */
+function orderComparator(orderBy: OrderBy): (a: Issue, b: Issue) => number {
+  switch (orderBy) {
+    case 'priority':
+      return (a, b) =>
+        PRIORITY_SORT[a.priority] - PRIORITY_SORT[b.priority] ||
+        a.sortOrder - b.sortOrder
+    case 'created':
+      return (a, b) => b.createdAt.localeCompare(a.createdAt)
+    case 'updated':
+      return (a, b) => b.updatedAt.localeCompare(a.updatedAt)
+    case 'title':
+      return (a, b) => a.title.localeCompare(b.title)
+    case 'manual':
+    default:
+      return (a, b) => a.sortOrder - b.sortOrder
+  }
+}
+
 export function sortIssues(
   issues: Issue[],
   orderBy: OrderBy,
   data: WorkspaceData,
+  /**
+   * Linear's "Order completed by recency" display toggle: completed/canceled
+   * issues are sorted by when they were closed (most recent first), overriding
+   * the chosen ordering for those issues. Within a status-grouped view this
+   * means the Done and Canceled groups read newest-first.
+   */
+  orderCompletedByRecency = false,
 ): Issue[] {
   const copy = [...issues]
-  switch (orderBy) {
-    case 'priority':
-      copy.sort(
-        (a, b) =>
-          PRIORITY_SORT[a.priority] - PRIORITY_SORT[b.priority] ||
-          a.sortOrder - b.sortOrder,
-      )
-      break
-    case 'created':
-      copy.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      break
-    case 'updated':
-      copy.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      break
-    case 'title':
-      copy.sort((a, b) => a.title.localeCompare(b.title))
-      break
-    case 'manual':
-    default:
-      copy.sort((a, b) => a.sortOrder - b.sortOrder)
+  const primary = orderComparator(orderBy)
+  if (orderCompletedByRecency) {
+    const closedTypes = new Set(
+      data.states
+        .filter((s) => s.type === 'completed' || s.type === 'canceled')
+        .map((s) => s.id),
+    )
+    const closedAt = (i: Issue) => i.completedAt ?? i.canceledAt ?? i.updatedAt
+    copy.sort((a, b) => {
+      const ac = closedTypes.has(a.stateId)
+      const bc = closedTypes.has(b.stateId)
+      if (ac && bc) return closedAt(b).localeCompare(closedAt(a))
+      return primary(a, b)
+    })
+  } else {
+    copy.sort(primary)
   }
-  void data
   return copy
 }
 

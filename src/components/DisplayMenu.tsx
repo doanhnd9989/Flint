@@ -15,6 +15,9 @@ interface Props {
   /** Sub-grouping — optional; the row only renders when a handler is given. */
   subGroupBy?: GroupBy
   onSubGroupBy?: (g: GroupBy) => void
+  /** "Order completed by recency" — optional; only renders when given. */
+  orderCompletedByRecency?: boolean
+  onOrderCompletedByRecency?: (v: boolean) => void
   /** List options — optional; the section only renders when handlers are given. */
   showSubIssues?: boolean
   onShowSubIssues?: (v: boolean) => void
@@ -133,6 +136,8 @@ export function DisplayMenu({
   onOrderBy,
   subGroupBy,
   onSubGroupBy,
+  orderCompletedByRecency,
+  onOrderCompletedByRecency,
   showSubIssues,
   onShowSubIssues,
   nestedSubIssues,
@@ -194,6 +199,13 @@ export function DisplayMenu({
           <Row label="Ordering">
             <Seg value={orderBy} options={ORDERS} onChange={onOrderBy} />
           </Row>
+          {onOrderCompletedByRecency && (
+            <ToggleRow
+              label="Order completed by recency"
+              checked={orderCompletedByRecency ?? false}
+              onChange={onOrderCompletedByRecency}
+            />
+          )}
 
           {onShowSubIssues && (
             <ToggleRow

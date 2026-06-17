@@ -2,6 +2,34 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #59: Display options — Order completed by recency
+
+Soi'd Linear's **Display** popover (Chrome, "Claude Test App"): directly under
+the **Ordering** dropdown sits an **Order completed by recency** toggle (off by
+default), above **Show sub-issues**. When on, completed/canceled issues are
+ordered by when they were closed (most recent first), overriding the chosen
+ordering for those issues — so in a status-grouped view the **Done** and
+**Canceled** groups read newest-first. Reproduced 1:1:
+
+- **`sortIssues`** (`selectors.ts`) — the `OrderBy` switch is refactored into an
+  `orderComparator(orderBy)` helper; a new `orderCompletedByRecency` param, when
+  set, compares two issues that are **both** in a `completed`/`canceled`
+  workflow state by `completedAt ?? canceledAt ?? updatedAt` **descending**,
+  otherwise falls through to the primary comparator (so within a status-grouped
+  view the closed groups read newest-first; open groups are untouched).
+- **`DisplayMenu`** — a `ToggleRow` rendered between **Ordering** and **Show
+  sub-issues** behind optional `orderCompletedByRecency`/
+  `onOrderCompletedByRecency` props (only renders when the handler is given).
+- **`IssuesView`** — local `orderCompletedByRecency` state (default off), threaded
+  into `sortIssues` and the grouping memo's deps + the `DisplayMenu` props.
+
+Verified live (localhost:5188, All Issues): the toggle sits exactly where Linear
+places it (Ordering → Order completed by recency → Show sub-issues), flips on
+(accent) without error, console clean. `npx tsc -b` + `npm run build` green.
+_(SavedViewScreen doesn't persist this yet — local display state like
+grouping/ordering; the seed has a single Done + single Canceled issue so the
+reorder isn't visually distinguishable, matching the sparse real workspace.)_
+
 ## 2026-06-18 — Loop #58: Display options — Nested sub-issues
 
 Soi'd Linear's **Display** popover **List options** (Chrome, "Claude Test App"):

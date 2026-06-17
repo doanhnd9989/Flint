@@ -22,6 +22,7 @@ export function IssuesView() {
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
   const [subGroupBy, setSubGroupBy] = useState<GroupBy>('none')
   const [orderBy, setOrderBy] = useState<OrderBy>('priority')
+  const [orderCompletedByRecency, setOrderCompletedByRecency] = useState(false)
   const [showSubIssues, setShowSubIssues] = useState(true)
   const [nestedSubIssues, setNestedSubIssues] = useState(false)
   const [showEmptyGroups, setShowEmptyGroups] = useState(false)
@@ -46,7 +47,7 @@ export function IssuesView() {
     if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
 
     const filtered = filterIssues(scoped, filters)
-    const sorted = sortIssues(filtered, orderBy, data)
+    const sorted = sortIssues(filtered, orderBy, data, orderCompletedByRecency)
 
     // Nested mode: pull every sub-issue (whose parent is visible) out of its
     // own status group and render it under its parent. Issues whose parent is
@@ -85,6 +86,7 @@ export function IssuesView() {
     groupBy,
     subGroupBy,
     orderBy,
+    orderCompletedByRecency,
     layout,
     filters,
     showSubIssues,
@@ -128,6 +130,8 @@ export function IssuesView() {
               onOrderBy={setOrderBy}
               subGroupBy={subGroupBy}
               onSubGroupBy={setSubGroupBy}
+              orderCompletedByRecency={orderCompletedByRecency}
+              onOrderCompletedByRecency={setOrderCompletedByRecency}
               showSubIssues={showSubIssues}
               onShowSubIssues={setShowSubIssues}
               nestedSubIssues={nestedSubIssues}
