@@ -2,6 +2,36 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #33: Toast feedback on copy
+
+Built a Linear-faithful toast system for the copy actions. Soiled Linear's real
+toasts via Chrome first: triggered Copy URL / Copy ID / Copy git branch name on a
+row and captured the exact wording, placement (bottom-right), and chrome (elevated
+white card, dark filled info-circle with a white "i", message, × dismiss).
+
+- New `lib/toast.ts`: a **separate, non-persisted** Zustand store (`useToasts`)
+  so ephemeral toasts never leak into localStorage or re-render the main store.
+  Exposes `toast(message)` (callable from plain handlers), `copyToClipboard(text,
+  message)` (writeText + toast in one), and a `copyToast` map holding Linear's
+  verbatim strings: `"<id>" copied to clipboard`, `Issue URL copied to clipboard`,
+  `Branch name copied to clipboard. Paste it into your favorite git client.`
+- New `components/Toaster.tsx`: a portal'd bottom-right stack; each `ToastItem`
+  auto-dismisses after 5s (and on × click). Uses design tokens (bg-bg-elevated,
+  border-border, shadow-lg) so it themes light/dark. Added a `toast-in` slide-up
+  keyframe in `index.css`. Mounted once in the App `Shell`.
+- Rewired every copy action to `copyToClipboard(...)`: `IssueContextMenu` (Copy
+  ID / URL / branch), `CommandMenu` issue-context commands, and the `IssueDetail`
+  + `IssuePeek` header buttons (URL + branch).
+- Verified live on the dev server with Chrome: right-click → Copy issue URL shows
+  "Issue URL copied to clipboard" bottom-right with the dark info badge, then
+  auto-dismisses; matches Linear side-by-side. No console errors. `npx tsc -b` +
+  `npm run build` green.
+
+Next (Discovered later, all 🟡/🟢): onboarding tour / first-run checklist and
+burndown chart aren't observable in this workspace (Cycles disabled, established
+workspace) — revisit when observable. Remaining: set-due-date ⌘K sub-page, label
+groups, async/email export.
+
 ## 2026-06-17 — Loop #32: Import / export issues (CSV + JSON)
 
 Built the last 🟢 backlog item — issue import/export — as a Linear-faithful

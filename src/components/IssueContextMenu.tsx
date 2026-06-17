@@ -14,6 +14,7 @@ import { Avatar } from './Avatar'
 import { PRIORITY_LABELS } from '@/lib/constants'
 import { ChevronRight, Tag, Copy, Maximize2, Trash2, PanelRight, Link2, GitBranch } from 'lucide-react'
 import { branchName, issueUrl } from '@/lib/utils'
+import { copyToClipboard, copyToast } from '@/lib/toast'
 import type { ReactNode } from 'react'
 
 const MENU_W = 220
@@ -66,8 +67,8 @@ export function IssueContextMenu() {
   const state = store.states.find((s) => s.id === issue.stateId)!
   const assignee = store.users.find((u) => u.id === issue.assigneeId)
   const me = store.users.find((u) => u.isMe)
-  const copy = (text: string) => {
-    navigator.clipboard?.writeText(text)
+  const copy = (text: string, message: string) => {
+    copyToClipboard(text, message)
     close()
   }
 
@@ -119,9 +120,9 @@ export function IssueContextMenu() {
 
         <ActionRow icon={<PanelRight size={14} />} label="Open in peek" onClick={() => { store.setPeek(issue.id); close() }} />
         <ActionRow icon={<Maximize2 size={14} />} label="Open full page" onClick={() => { close(); navigate(`/issue/${issue.identifier}`) }} />
-        <ActionRow icon={<Copy size={14} />} label="Copy issue ID" onClick={() => copy(issue.identifier)} />
-        <ActionRow icon={<Link2 size={14} />} label="Copy issue URL" onClick={() => copy(issueUrl(issue.identifier))} />
-        <ActionRow icon={<GitBranch size={14} />} label="Copy git branch name" onClick={() => copy(branchName(issue.identifier, issue.title, me))} />
+        <ActionRow icon={<Copy size={14} />} label="Copy issue ID" onClick={() => copy(issue.identifier, copyToast.id(issue.identifier))} />
+        <ActionRow icon={<Link2 size={14} />} label="Copy issue URL" onClick={() => copy(issueUrl(issue.identifier), copyToast.url())} />
+        <ActionRow icon={<GitBranch size={14} />} label="Copy git branch name" onClick={() => copy(branchName(issue.identifier, issue.title, me), copyToast.branch())} />
 
         <div className="my-1 h-px bg-border" />
 

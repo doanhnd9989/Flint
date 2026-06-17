@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { IssueDetailBody } from './IssueDetailBody'
 import { branchName, issueUrl } from '@/lib/utils'
+import { copyToClipboard, copyToast } from '@/lib/toast'
 import { X, Maximize2, Trash2, Link2, GitBranch } from 'lucide-react'
 
 /** Linear-style "peek": opens an issue in a right-side panel over the list. */
@@ -54,8 +55,9 @@ export function IssuePeek() {
           <button
             title="Copy git branch name"
             onClick={() =>
-              navigator.clipboard?.writeText(
+              copyToClipboard(
                 branchName(issue.identifier, issue.title, store.users.find((u) => u.isMe)),
+                copyToast.branch(),
               )
             }
             className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover"
@@ -64,7 +66,7 @@ export function IssuePeek() {
           </button>
           <button
             title="Copy issue URL"
-            onClick={() => navigator.clipboard?.writeText(issueUrl(issue.identifier))}
+            onClick={() => copyToClipboard(issueUrl(issue.identifier), copyToast.url())}
             className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover"
           >
             <Link2 size={15} />

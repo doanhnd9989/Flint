@@ -3,6 +3,7 @@ import { useStore } from '@/lib/store'
 import { IssueDetailBody } from '@/components/IssueDetailBody'
 import { StarButton } from '@/components/StarButton'
 import { branchName, issueUrl } from '@/lib/utils'
+import { copyToClipboard, copyToast } from '@/lib/toast'
 import { Trash2, Link2, GitBranch } from 'lucide-react'
 
 export function IssueDetail() {
@@ -33,8 +34,9 @@ export function IssueDetail() {
         <button
           title="Copy git branch name"
           onClick={() =>
-            navigator.clipboard?.writeText(
+            copyToClipboard(
               branchName(issue.identifier, issue.title, store.users.find((u) => u.isMe)),
+              copyToast.branch(),
             )
           }
           className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover"
@@ -43,7 +45,7 @@ export function IssueDetail() {
         </button>
         <button
           title="Copy issue URL"
-          onClick={() => navigator.clipboard?.writeText(issueUrl(issue.identifier))}
+          onClick={() => copyToClipboard(issueUrl(issue.identifier), copyToast.url())}
           className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover"
         >
           <Link2 size={15} />

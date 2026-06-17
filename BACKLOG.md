@@ -61,7 +61,7 @@ _(loop appends new Linear features it notices here)_
 
 - [ ] 🟡 **Onboarding tour / first-run checklist** — Linear's "Get started" widget with a checklist of setup steps + dismiss.
 - [ ] 🟡 **Burndown chart** for cycles — scope vs. completed line over the cycle's days.
-- [ ] 🟢 **Toast feedback on copy** — a transient toast ("Copied issue URL") after the copy actions (id / URL / branch name).
+- [x] 🟢 **Toast feedback on copy** — a bottom-right toast stack (`Toaster` + `lib/toast.ts` non-persisted store) with Linear's exact copy wording (`"CLA-1" copied to clipboard` / `Issue URL copied to clipboard` / `Branch name copied to clipboard. Paste it into your favorite git client.`), dark info-circle icon, × dismiss, 5s auto-dismiss; wired into all copy actions (context menu, ⌘K issue-context, issue detail + peek headers). _(Reusable `toast()` helper available for future actions.)_
 - [ ] 🟢 **Set due date ⌘K sub-page** — the calendar UI as a command-menu contextual action (noted in Loop #30).
 - [ ] 🟢 **Label groups** in settings — group labels under a parent (noted in the Labels item).
 - [ ] 🟢 **Async / email-style export** — match Linear's "we'll email you the download link" flow with a mock pending state + ready notification.

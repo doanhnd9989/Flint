@@ -29,6 +29,7 @@ import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { PRIORITY_LABELS, PRIORITY_ORDER, STATUS_TYPE_ORDER } from '@/lib/constants'
 import { branchName, cn, issueUrl } from '@/lib/utils'
+import { copyToClipboard, copyToast } from '@/lib/toast'
 import type { Priority } from '@/lib/types'
 import type { ReactNode } from 'react'
 
@@ -236,14 +237,14 @@ export function CommandMenu() {
               icon: <Copy size={15} />,
               hint: '⌘ .',
               keywords: 'copy id identifier',
-              run: () => navigator.clipboard?.writeText(issue.identifier),
+              run: () => copyToClipboard(issue.identifier, copyToast.id(issue.identifier)),
             },
             {
               id: 'ctx-copy-url',
               label: 'Copy issue URL',
               icon: <Link2 size={15} />,
               keywords: 'copy url link',
-              run: () => navigator.clipboard?.writeText(issueUrl(issue.identifier)),
+              run: () => copyToClipboard(issueUrl(issue.identifier), copyToast.url()),
             },
             {
               id: 'ctx-copy-branch',
@@ -251,8 +252,9 @@ export function CommandMenu() {
               icon: <GitBranch size={15} />,
               keywords: 'copy git branch name',
               run: () =>
-                navigator.clipboard?.writeText(
+                copyToClipboard(
                   branchName(issue.identifier, issue.title, me),
+                  copyToast.branch(),
                 ),
             },
           ]
