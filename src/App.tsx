@@ -25,6 +25,7 @@ import { ProjectsView } from '@/views/ProjectsView'
 import { ProjectDetail } from '@/views/ProjectDetail'
 import { SettingsView } from '@/views/SettingsView'
 import { ViewsView } from '@/views/ViewsView'
+import { SavedViewScreen } from '@/views/SavedViewScreen'
 
 function Shell() {
   useThemeEffect()
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/projects" element={<ProjectsView />} />
           <Route path="/project/:id" element={<ProjectDetail />} />
           <Route path="/views" element={<ViewsView />} />
+          <Route path="/view/:id" element={<SavedViewScreen />} />
           <Route path="/team/:teamKey/active" element={<IssuesView />} />
           <Route path="/team/:teamKey/cycles" element={<CyclesView />} />
           <Route path="/team/:teamKey/projects" element={<ProjectsView />} />

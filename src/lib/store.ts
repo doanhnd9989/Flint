@@ -18,6 +18,7 @@ import type {
   Project,
   Relation,
   RelationType,
+  SavedView,
   ThemeMode,
   WorkflowState,
 } from './types'
@@ -81,6 +82,9 @@ export interface Store extends WorkspaceData, UIState {
   deleteLabel: (id: string) => void
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
   updateProject: (id: string, patch: Partial<Project>) => void
+  createView: (v: Omit<SavedView, 'id'>) => SavedView
+  updateView: (id: string, patch: Partial<SavedView>) => void
+  deleteView: (id: string) => void
   createTemplate: (t: Omit<IssueTemplate, 'id'>) => IssueTemplate
   deleteTemplate: (id: string) => void
   createState: (s: Omit<WorkflowState, 'id'>) => WorkflowState
@@ -431,6 +435,22 @@ export const useStore = create<Store>()(
             p.id === id ? { ...p, ...patch } : p,
           ),
         })),
+
+      createView: (v) => {
+        const view: SavedView = { ...v, id: `v_${nanoid(8)}` }
+        set((s) => ({ savedViews: [...s.savedViews, view] }))
+        return view
+      },
+
+      updateView: (id, patch) =>
+        set((s) => ({
+          savedViews: s.savedViews.map((v) =>
+            v.id === id ? { ...v, ...patch } : v,
+          ),
+        })),
+
+      deleteView: (id) =>
+        set((s) => ({ savedViews: s.savedViews.filter((v) => v.id !== id) })),
 
       createTemplate: (t) => {
         const tpl: IssueTemplate = { ...t, id: `tpl_${nanoid(8)}` }

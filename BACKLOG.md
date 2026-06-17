@@ -36,7 +36,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟡 **Labels management** in settings — create / rename (inline) / recolor (swatch picker) / delete (with usage count; removes the label from all issues). _(Label groups still TODO.)_
 - [x] 🟡 **Custom workflow states** in settings — add / rename / recolor / change type / reorder (within type) / delete (reassigns affected issues). Lives in a "Workflow states" Settings card.
 - [x] 🟡 **Issue templates** — a Template picker in the create modal prefills title/description/priority/labels/status; manage templates (create with fields, delete) in a Settings card. Seeded Bug report + Feature request.
-- [ ] 🟡 **Saved views** — persist filter+group+sort as a named view; show under "Views".
+- [x] 🟡 **Saved views** — "Save view" in the Issues header captures layout+group+sort+filters as a named view; views open at `/view/:id` (workspace-wide), are editable (edits persist back to the view), and are listed/deletable under "Views".
 - [ ] 🟡 **Triage** — inbox of unassigned/incoming issues with accept/decline.
 - [ ] 🟡 **Full-text search** view (beyond ⌘K), with filters and recent searches.
 - [ ] 🟡 **Manual drag-to-reorder** issues within a list group (sortOrder).

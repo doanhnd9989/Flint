@@ -2,6 +2,26 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #15: Saved views
+
+Persist a configured issue view, Linear-style:
+
+- Store: `createView` / `updateView` / `deleteView` over the existing
+  `savedViews` slice.
+- `IssuesView`: a "Save view" button captures the current layout + grouping +
+  ordering + filters as a named `SavedView` and opens it.
+- New `views/SavedViewScreen.tsx` at `/view/:id`: renders the view workspace-wide
+  with its grouping/ordering/filters; the Display menu and filter bar are live
+  and persist edits back to the view via `updateView`.
+- `ViewsView`: lists saved views (open on click, hover-delete) instead of the
+  old stub.
+- Verified live: "Save view" → "My Saved View" created and opened at
+  `/view/v_…` showing all statuses; it appears alongside seed "Active" under
+  Views. `tsc` ✅ · build ✅ · clean console.
+
+Next: **Triage** — inbox of unassigned/incoming issues with accept/decline.
+
+
 ## 2026-06-17 — Loop #14: Issue templates
 
 Spin up issues from reusable templates, Linear-style:

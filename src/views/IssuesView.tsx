@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
+import { Bookmark } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues } from '@/lib/selectors'
 import type { GroupBy, OrderBy, ViewLayout } from '@/lib/types'
@@ -14,6 +15,7 @@ type Tab = 'active' | 'backlog' | 'all'
 
 export function IssuesView() {
   const { teamKey } = useParams()
+  const navigate = useNavigate()
   const data = useStore()
   const [tab, setTab] = useState<Tab>('active')
   const [layout, setLayout] = useState<ViewLayout>('list')
@@ -46,14 +48,35 @@ export function IssuesView() {
         teamName={team.name}
         teamIcon={team.icon}
         right={
-          <DisplayMenu
-            layout={layout}
-            groupBy={groupBy}
-            orderBy={orderBy}
-            onLayout={setLayout}
-            onGroupBy={setGroupBy}
-            onOrderBy={setOrderBy}
-          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const name = prompt('Save view as…')
+                if (!name?.trim()) return
+                const view = data.createView({
+                  name: name.trim(),
+                  icon: 'layers',
+                  layout,
+                  groupBy,
+                  orderBy,
+                  filters,
+                })
+                navigate(`/view/${view.id}`)
+              }}
+              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover"
+            >
+              <Bookmark size={13} /> Save view
+            </button>
+            <DisplayMenu
+              layout={layout}
+              groupBy={groupBy}
+              orderBy={orderBy}
+              onLayout={setLayout}
+              onGroupBy={setGroupBy}
+              onOrderBy={setOrderBy}
+            />
+          </div>
         }
       >
         <div className="flex items-center gap-1">
