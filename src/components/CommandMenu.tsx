@@ -136,7 +136,8 @@ export function CommandMenu() {
     if (open) {
       setQuery('')
       setActive(0)
-      setPage(null)
+      // A row property hotkey (s/p/a/l) seeds the sub-page to drill straight into.
+      setPage((useStore.getState().commandPage as Page) ?? null)
       setDueCustom(false)
       setNoCtx(false)
     }
@@ -152,6 +153,9 @@ export function CommandMenu() {
   // /issue/:identifier route. This is what ⌘K offers contextual actions for.
   const currentIssue = useMemo(() => {
     if (noCtx) return undefined
+    // A row property hotkey explicitly targets one issue — it wins.
+    if (store.commandIssueId)
+      return store.issues.find((i) => i.id === store.commandIssueId)
     if (store.peekIssueId) return store.issues.find((i) => i.id === store.peekIssueId)
     const m = location.pathname.match(/^\/issue\/([^/]+)/)
     if (m) {
@@ -159,7 +163,7 @@ export function CommandMenu() {
       return store.issues.find((i) => i.identifier === id)
     }
     return undefined
-  }, [noCtx, store.peekIssueId, store.issues, location.pathname])
+  }, [noCtx, store.commandIssueId, store.peekIssueId, store.issues, location.pathname])
 
   const me = store.users.find((u) => u.isMe)
 
@@ -564,8 +568,14 @@ export function CommandMenu() {
     if (dueCustom) {
       setDueCustom(false)
     } else if (page) {
-      setPage(null)
-      setQuery('')
+      // A row property hotkey opens a focused picker — backing out of it closes
+      // the menu rather than revealing the full command palette (matches Linear).
+      if (store.commandIssueId) {
+        store.setCommandOpen(false)
+      } else {
+        setPage(null)
+        setQuery('')
+      }
     } else if (currentIssue) {
       setNoCtx(true)
     } else {

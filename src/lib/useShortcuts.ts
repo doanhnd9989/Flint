@@ -70,6 +70,19 @@ export function useShortcuts() {
               store.setPeek(focused.id)
               return
             }
+            // Row property hotkeys — open the command menu at that sub-page
+            // (Linear: s status, p priority, a assignee, l label).
+            const propPage: Record<string, string> = {
+              s: 'status',
+              p: 'priority',
+              a: 'assignee',
+              l: 'label',
+            }
+            if (propPage[key]) {
+              e.preventDefault()
+              store.openIssuePropertyMenu(focused.id, propPage[key])
+              return
+            }
           }
         }
       }

@@ -2,6 +2,37 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #45: Per-row property hotkeys (s / p / a / l)
+
+Prior loops left "per-row property hotkeys s/p/a/l still TODO — they need an
+anchored picker". Soi'd Linear's real list (workspace "Claude Test App"): with a
+row focused/hovered, the hotkey doesn't anchor to the row — it opens the **same
+centered command-palette-style picker** as the ⌘K issue-context sub-pages, with
+the issue chip as a header, a search box, the option list (check on current,
+1-6 number hints) and Esc to close. Confirmed `s` → "Change status…", `p` →
+"Set priority to…", `a` → "Assign to…", `l` → "Add labels…". Reproduced 1:1 by
+**reusing the existing issue-context sub-pages** rather than building anchored
+pickers:
+
+- **State**: transient `commandIssueId` / `commandPage` (string) + an
+  `openIssuePropertyMenu(issueId, page)` action that seeds them and opens the
+  command menu. Both excluded from `persist`; `setCommandOpen(false)` clears them
+  so a later plain ⌘K opens clean.
+- **`useShortcuts`**: on the focused row (`focusedIssueId`), `s`/`p`/`a`/`l` map
+  to status/priority/assignee/label and call `openIssuePropertyMenu`. Guarded by
+  the existing overlay/typing checks; falls through to nothing when no row is
+  focused (so `c` create etc. are unaffected).
+- **`CommandMenu`**: `currentIssue` prefers `commandIssueId`; the open effect
+  seeds `page` from `commandPage`; and in this focused-picker mode `back()`/Esc
+  **closes** the menu instead of drilling back to the command-palette root
+  (Linear's row hotkeys are standalone pickers, not a ⌘K drill-in).
+- **Help overlay**: added S/P/A/L row hotkeys to the Issues section.
+- Verified live (Chrome, localhost:5173): `s` on focused CLA-2 → status picker →
+  "In Progress" moves the row to that group; `l` → label multi-select (check on
+  Documentation), `a` → "Assign to…" list; Esc closes cleanly; `npx tsc -b` +
+  `npm run build` green; no console errors. _(Due-date `d` / project `⇧P` row
+  hotkeys + j/k re-peek while peeking still TODO.)_
+
 ## 2026-06-17 — Loop #44: Issue-list keyboard navigation (j/k row focus)
 
 Several prior loops left "keyboard `j`/`k` navigation" and "row-level hotkeys" as

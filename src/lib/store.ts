@@ -40,6 +40,13 @@ interface UIState {
   theme: ThemeMode
   sidebarCollapsed: boolean
   commandOpen: boolean
+  /**
+   * When the command menu is opened as a row property hotkey (s/p/a/l on the
+   * focused issue), this seeds it with the issue + sub-page to drill straight
+   * into. Both transient; cleared when the menu closes.
+   */
+  commandIssueId: string | null
+  commandPage: string | null
   createOpen: boolean
   /** New-initiative modal (transient). */
   createInitiativeOpen: boolean
@@ -162,6 +169,11 @@ export interface Store extends WorkspaceData, UIState {
   setTheme: (t: ThemeMode) => void
   toggleSidebar: () => void
   setCommandOpen: (open: boolean) => void
+  /**
+   * Open the command menu as a row property hotkey: seeds the issue context +
+   * the sub-page to drill into (status / priority / assignee / label / …).
+   */
+  openIssuePropertyMenu: (issueId: string, page: string) => void
   setCreateOpen: (open: boolean) => void
   setCreateInitiativeOpen: (open: boolean) => void
   setHelpOpen: (open: boolean) => void
@@ -227,6 +239,8 @@ export const useStore = create<Store>()(
       theme: 'system',
       sidebarCollapsed: false,
       commandOpen: false,
+      commandIssueId: null,
+      commandPage: null,
       createOpen: false,
       createInitiativeOpen: false,
       helpOpen: false,
@@ -945,7 +959,12 @@ export const useStore = create<Store>()(
       setTheme: (theme) => set({ theme }),
       toggleSidebar: () =>
         set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-      setCommandOpen: (commandOpen) => set({ commandOpen }),
+      setCommandOpen: (commandOpen) =>
+        // Closing the menu drops any row-hotkey context so a later plain ⌘K
+        // opens clean.
+        set(commandOpen ? { commandOpen } : { commandOpen, commandIssueId: null, commandPage: null }),
+      openIssuePropertyMenu: (commandIssueId, commandPage) =>
+        set({ commandIssueId, commandPage, commandOpen: true }),
       setCreateOpen: (createOpen) => set({ createOpen }),
       setCreateInitiativeOpen: (createInitiativeOpen) =>
         set({ createInitiativeOpen }),
@@ -1181,6 +1200,8 @@ export const useStore = create<Store>()(
         // Persist data + theme/sidebar; keep transient UI out of storage.
         const {
           commandOpen: _c,
+          commandIssueId: _cmi,
+          commandPage: _cmp,
           createOpen: _cr,
           createInitiativeOpen: _ci,
           helpOpen: _h,
