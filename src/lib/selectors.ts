@@ -200,6 +200,24 @@ export function projectProgress(
   }
 }
 
+/** done/total of issues assigned to a milestone. */
+export function milestoneProgress(
+  milestoneId: string,
+  issues: Issue[],
+  data: WorkspaceData,
+): { total: number; done: number; percent: number } {
+  const scoped = issues.filter((i) => i.milestoneId === milestoneId)
+  const completed = new Set(
+    data.states.filter((s) => s.type === 'completed').map((s) => s.id),
+  )
+  const done = scoped.filter((i) => completed.has(i.stateId)).length
+  return {
+    total: scoped.length,
+    done,
+    percent: scoped.length ? Math.round((done / scoped.length) * 100) : 0,
+  }
+}
+
 /** done/total of issues assigned to a cycle, plus started/scope counts. */
 export function cycleProgress(
   cycleId: string,

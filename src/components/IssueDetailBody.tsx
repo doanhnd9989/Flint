@@ -22,7 +22,7 @@ import { Markdown } from '@/lib/markdown'
 import { subIssueProgress } from '@/lib/selectors'
 import { PRIORITY_LABELS, ESTIMATE_SCALE } from '@/lib/constants'
 import { cn, formatFullDate, isDueSoon, isOverdue, timeAgo } from '@/lib/utils'
-import { GitBranch, CornerLeftUp, Calendar } from 'lucide-react'
+import { GitBranch, CornerLeftUp, Calendar, Flag } from 'lucide-react'
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -59,6 +59,10 @@ export function IssueDetailBody({
   const state = store.states.find((s) => s.id === issue.stateId)!
   const assignee = store.users.find((u) => u.id === issue.assigneeId)
   const project = store.projects.find((p) => p.id === issue.projectId)
+  const projectMilestones = issue.projectId
+    ? store.milestones.filter((m) => m.projectId === issue.projectId)
+    : []
+  const milestone = store.milestones.find((m) => m.id === issue.milestoneId)
   const issueLabels = issue.labelIds
     .map((id) => store.labels.find((l) => l.id === id))
     .filter(Boolean)
@@ -359,6 +363,35 @@ export function IssueDetailBody({
             </span>
           }
         />
+
+        {projectMilestones.length > 0 && (
+          <>
+            <div className="mt-4 text-[11px] font-medium uppercase tracking-wide text-faint">
+              Milestone
+            </div>
+            <SelectMenu
+              options={[
+                { id: '__none', label: 'No milestone', selected: !issue.milestoneId },
+                ...projectMilestones.map((m) => ({
+                  id: m.id,
+                  label: m.name,
+                  selected: issue.milestoneId === m.id,
+                })),
+              ]}
+              onSelect={(id) =>
+                store.setIssueMilestone(issue.id, id === '__none' ? undefined : id)
+              }
+              trigger={
+                <span className={triggerCls + ' mt-1'}>
+                  <Flag size={13} className="text-faint" />
+                  {milestone?.name ?? (
+                    <span className="text-faint">No milestone</span>
+                  )}
+                </span>
+              }
+            />
+          </>
+        )}
       </aside>
     </div>
   )

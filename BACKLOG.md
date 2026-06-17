@@ -41,7 +41,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟡 **Full-text search** view (`/search`) — substring search across issue id/title/description and project name/description, narrowable with the filter bar, grouped results, and persisted recent searches (click to re-run, Clear). Sidebar "Search" now opens it.
 - [x] 🟡 **Manual drag-to-reorder** issues within a list group — dnd-kit sortable rows in `GroupedIssueList`; dropping writes a midpoint `sortOrder` and switches the Issues view to Manual ordering. _(Same-group only; cross-group moves stay on the board / pickers.)_
 - [x] 🟡 **Keyboard shortcuts help overlay** (press `?`) — categorized shortcut reference; added `G`-prefixed navigation chords (G I/M/B/C/T/P/V/S) and a ⌘K "Keyboard shortcuts" command. _(Row-level assign/status/priority hotkeys still TODO.)_
-- [ ] 🟡 **Project milestones** with their own progress; group project issues by milestone.
+- [x] 🟡 **Project milestones** — the project detail groups issues by milestone with per-milestone progress bars (+ "No milestone"); add milestones from the header, delete inline; a Milestone property picker on issues in a milestoned project.
 - [ ] 🟡 **Project updates** — status posts (on-track / at-risk / off-track) with a timeline.
 - [ ] 🟢 **Roadmap / timeline** view of projects across time.
 - [ ] 🟢 **Favorites** — star issues/projects/views; a Favorites section in the sidebar.

@@ -13,6 +13,7 @@ import type {
   Issue,
   IssueTemplate,
   Label,
+  Milestone,
   Notification,
   Priority,
   Project,
@@ -65,6 +66,7 @@ export interface Store extends WorkspaceData, UIState {
   setIssueAssignee: (id: string, assigneeId?: string) => void
   toggleIssueLabel: (id: string, labelId: string) => void
   setIssueProject: (id: string, projectId?: string) => void
+  setIssueMilestone: (id: string, milestoneId?: string) => void
   setIssueEstimate: (id: string, estimate?: number) => void
   setIssueDueDate: (id: string, dueDate?: string) => void
   setIssueTitle: (id: string, title: string) => void
@@ -89,6 +91,8 @@ export interface Store extends WorkspaceData, UIState {
   deleteLabel: (id: string) => void
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
   updateProject: (id: string, patch: Partial<Project>) => void
+  createMilestone: (projectId: string, name: string) => Milestone
+  deleteMilestone: (id: string) => void
   createView: (v: Omit<SavedView, 'id'>) => SavedView
   updateView: (id: string, patch: Partial<SavedView>) => void
   deleteView: (id: string) => void
@@ -287,7 +291,16 @@ export const useStore = create<Store>()(
       setIssueProject: (id, projectId) =>
         set((s) => ({
           issues: s.issues.map((i) =>
-            i.id === id ? { ...i, projectId, updatedAt: nowIso() } : i,
+            i.id === id
+              ? { ...i, projectId, milestoneId: undefined, updatedAt: nowIso() }
+              : i,
+          ),
+        })),
+
+      setIssueMilestone: (id, milestoneId) =>
+        set((s) => ({
+          issues: s.issues.map((i) =>
+            i.id === id ? { ...i, milestoneId, updatedAt: nowIso() } : i,
           ),
         })),
 
@@ -485,6 +498,28 @@ export const useStore = create<Store>()(
         set((s) => ({
           projects: s.projects.map((p) =>
             p.id === id ? { ...p, ...patch } : p,
+          ),
+        })),
+
+      createMilestone: (projectId, name) => {
+        const milestone: Milestone = {
+          id: `m_${nanoid(8)}`,
+          projectId,
+          name,
+          sortOrder:
+            get().milestones
+              .filter((m) => m.projectId === projectId)
+              .reduce((mx, m) => Math.max(mx, m.sortOrder), 0) + 1,
+        }
+        set((s) => ({ milestones: [...s.milestones, milestone] }))
+        return milestone
+      },
+
+      deleteMilestone: (id) =>
+        set((s) => ({
+          milestones: s.milestones.filter((m) => m.id !== id),
+          issues: s.issues.map((i) =>
+            i.milestoneId === id ? { ...i, milestoneId: undefined } : i,
           ),
         })),
 

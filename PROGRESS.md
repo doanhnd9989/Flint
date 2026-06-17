@@ -2,6 +2,26 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #20: Project milestones
+
+Plan a project in milestones, Linear-style:
+
+- `selectors.ts`: `milestoneProgress(milestoneId, …)`.
+- Store: `createMilestone` / `deleteMilestone` (clears the link on affected
+  issues) and `setIssueMilestone`; `setIssueProject` now also clears the
+  milestone when the project changes.
+- `ProjectDetail`: rewritten to group issues by milestone — each section shows a
+  Flag, name, done/total and a progress bar, with a hover delete and a final
+  "No milestone" group; "+ Milestone" in the header creates one.
+- `IssueDetailBody`: a Milestone picker appears for issues whose project has
+  milestones.
+- Verified live: MVP Launch showed Alpha/Beta/No-milestone groups; assigning
+  CLA-5 to Alpha from the picker moved it (Alpha 0/1 → 0/2). `tsc` ✅ · build ✅ ·
+  clean console.
+
+Next: **Project updates** — status posts (on-track / at-risk / off-track) with a timeline.
+
+
 ## 2026-06-17 — Loop #19: Keyboard shortcuts help + G-chords
 
 Discoverable shortcuts, Linear-style:
