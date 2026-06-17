@@ -1,6 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
+import {
+  addDays,
+  addHours,
+  addMonths,
+  addWeeks,
+  format,
+  isBefore,
+  isValid,
+  parse,
+  startOfDay,
+  startOfWeek,
+} from 'date-fns'
 import {
   Search,
   PlusCircle,
@@ -16,6 +28,7 @@ import {
   User,
   Tag,
   FolderPlus,
+  CalendarDays,
   Copy,
   Link2,
   GitBranch,
@@ -23,6 +36,7 @@ import {
   X,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { Calendar } from './DatePicker'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
@@ -34,17 +48,21 @@ import type { Priority } from '@/lib/types'
 import type { ReactNode } from 'react'
 
 /** A sub-page the menu can drill into for the issue currently in context. */
-type Page = 'status' | 'priority' | 'assignee' | 'project' | 'label'
+type Page = 'status' | 'priority' | 'assignee' | 'project' | 'label' | 'dueDate'
 
 interface Command {
   id: string
   label: string
   icon: ReactNode
   hint?: string
+  /** Right-aligned muted helper text (e.g. a resolved date). */
+  meta?: string
   keywords?: string
   selected?: boolean
   /** Drill into a sub-page instead of running + closing. */
   goPage?: Page
+  /** Open the inline calendar (Custom due date) instead of running + closing. */
+  openCalendar?: boolean
   /** Keep the menu open after running (e.g. toggling labels). */
   keepOpen?: boolean
   run?: () => void
@@ -56,6 +74,47 @@ const PAGE_PLACEHOLDER: Record<Page, string> = {
   assignee: 'Assign to…',
   project: 'Add to project…',
   label: 'Add labels…',
+  dueDate: 'Try: 24h, 7 days, Feb 9',
+}
+
+/**
+ * Parse Linear's relative/natural due-date input ("24h", "7 days", "Feb 9").
+ * Returns a start-of-day Date, or undefined when nothing sensible is typed.
+ */
+function parseDueInput(raw: string): Date | undefined {
+  const trimmed = raw.trim()
+  if (!trimmed) return undefined
+  const q = trimmed.toLowerCase()
+  const today = startOfDay(new Date())
+  if (q === 'today') return today
+  if (q === 'tomorrow' || q === 'tmr') return addDays(today, 1)
+
+  const rel = q.match(
+    /^(\d+)\s*(h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|month|months)$/,
+  )
+  if (rel) {
+    const n = parseInt(rel[1], 10)
+    const unit = rel[2]
+    if (unit.startsWith('h')) return startOfDay(addHours(new Date(), n))
+    if (unit.startsWith('mo')) return addMonths(today, n)
+    if (unit.startsWith('w')) return addWeeks(today, n)
+    return addDays(today, n)
+  }
+
+  // Month name / numeric dates, e.g. "Feb 9", "February 9", "6/20".
+  const cap = trimmed.replace(/\b\w/g, (c) => c.toUpperCase())
+  for (const fmt of ['MMM d', 'MMMM d', 'MMM d yyyy', 'MMMM d yyyy', 'd MMM', 'M/d', 'M/d/yyyy']) {
+    for (const candidate of [trimmed, cap]) {
+      const d = parse(candidate, fmt, new Date())
+      if (isValid(d)) {
+        let res = startOfDay(d)
+        // Year-less formats default to the current year — bump past dates forward.
+        if (!fmt.includes('yyyy') && isBefore(res, today)) res = addMonths(res, 12)
+        return res
+      }
+    }
+  }
+  return undefined
 }
 
 export function CommandMenu() {
@@ -66,17 +125,27 @@ export function CommandMenu() {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const [page, setPage] = useState<Page | null>(null)
+  /** Inline calendar shown when picking a Custom due date. */
+  const [dueCustom, setDueCustom] = useState(false)
   /** When the user dismisses the issue-context chip, fall back to global commands. */
   const [noCtx, setNoCtx] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open) {
       setQuery('')
       setActive(0)
       setPage(null)
+      setDueCustom(false)
       setNoCtx(false)
     }
   }, [open])
+
+  // Keep the search input focused across sub-page drill-ins (incl. mouse clicks),
+  // so the user can keep typing — matches Linear.
+  useEffect(() => {
+    if (open) inputRef.current?.focus()
+  }, [open, page, dueCustom])
 
   // The issue currently being viewed — the peek panel takes precedence, else the
   // /issue/:identifier route. This is what ⌘K offers contextual actions for.
@@ -165,6 +234,72 @@ export function CommandMenu() {
           })),
         ]
       }
+      if (page === 'dueDate') {
+        const set = (d: Date) =>
+          store.setIssueDueDate(issue.id, startOfDay(d).toISOString())
+
+        // Typing a relative/explicit date surfaces a single resolved suggestion.
+        const parsed = parseDueInput(query)
+        if (parsed) {
+          return [
+            {
+              id: 'due-parsed',
+              label: format(parsed, 'EEE, MMM d, yyyy'),
+              icon: <CalendarDays size={15} />,
+              run: () => set(parsed),
+            },
+          ]
+        }
+
+        const today = new Date()
+        const tomorrow = addDays(today, 1)
+        const endOfThisWeek = addDays(startOfWeek(today, { weekStartsOn: 1 }), 4)
+        const inOneWeek = addWeeks(today, 1)
+        const opts: Command[] = [
+          {
+            id: 'due-custom',
+            label: 'Custom…',
+            icon: <CalendarDays size={15} />,
+            keywords: 'custom calendar pick',
+            openCalendar: true,
+          },
+          {
+            id: 'due-tomorrow',
+            label: 'Tomorrow',
+            icon: <CalendarDays size={15} />,
+            meta: format(tomorrow, 'EEE, d MMM'),
+            keywords: 'tomorrow',
+            run: () => set(tomorrow),
+          },
+          {
+            id: 'due-endweek',
+            label: 'End of this week',
+            icon: <CalendarDays size={15} />,
+            meta: format(endOfThisWeek, 'EEE, d MMM'),
+            keywords: 'end of this week friday',
+            run: () => set(endOfThisWeek),
+          },
+          {
+            id: 'due-inweek',
+            label: 'In one week',
+            icon: <CalendarDays size={15} />,
+            meta: format(inOneWeek, 'EEE, d MMM'),
+            keywords: 'in one week next',
+            run: () => set(inOneWeek),
+          },
+        ]
+        if (issue.dueDate) {
+          opts.push({
+            id: 'due-remove',
+            label: 'Remove due date',
+            icon: <X size={15} />,
+            keywords: 'remove clear delete due date',
+            run: () => store.setIssueDueDate(issue.id, undefined),
+          })
+        }
+        return opts
+      }
+
       // label
       return store.labels.map((l) => ({
         id: `lb-${l.id}`,
@@ -230,6 +365,14 @@ export function CommandMenu() {
               hint: 'L',
               keywords: 'label labels add',
               goPage: 'label' as Page,
+            },
+            {
+              id: 'ctx-duedate',
+              label: 'Set due date…',
+              icon: <CalendarDays size={15} />,
+              hint: '⇧ D',
+              keywords: 'due date deadline set',
+              goPage: 'dueDate' as Page,
             },
             {
               id: 'ctx-copy-id',
@@ -363,9 +506,11 @@ export function CommandMenu() {
     })
 
     return [...contextual, ...base, ...issueCommands]
-  }, [store, navigate, page, currentIssue, me])
+  }, [store, navigate, page, currentIssue, me, query])
 
   const filtered = useMemo(() => {
+    // The due-date page bakes the query into its own suggestions — show as-is.
+    if (page === 'dueDate') return commands
     if (!query) return page ? commands : commands.slice(0, 8)
     const q = query.toLowerCase()
     return commands
@@ -390,13 +535,20 @@ export function CommandMenu() {
       setActive(0)
       return
     }
+    if (c.openCalendar) {
+      setDueCustom(true)
+      setQuery('')
+      return
+    }
     c.run?.()
     if (!c.keepOpen) store.setCommandOpen(false)
   }
 
-  /** Pop a sub-page, or clear the issue context, or close. */
+  /** Pop the calendar, then a sub-page, then the issue context, then close. */
   function back() {
-    if (page) {
+    if (dueCustom) {
+      setDueCustom(false)
+    } else if (page) {
       setPage(null)
       setQuery('')
     } else if (currentIssue) {
@@ -417,6 +569,20 @@ export function CommandMenu() {
         className="w-[600px] max-w-[92vw] overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-lg animate-pop"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            if (dueCustom || page) back()
+            else store.setCommandOpen(false)
+            return
+          }
+          // The inline calendar owns arrows/enter for day navigation.
+          if (dueCustom) {
+            if (e.key === 'Backspace' && query === '') {
+              e.preventDefault()
+              back()
+            }
+            return
+          }
           if (e.key === 'ArrowDown') {
             e.preventDefault()
             setActive((a) => Math.min(a + 1, filtered.length - 1))
@@ -426,10 +592,6 @@ export function CommandMenu() {
           } else if (e.key === 'Enter') {
             e.preventDefault()
             if (filtered[active]) exec(filtered[active])
-          } else if (e.key === 'Escape') {
-            e.preventDefault()
-            if (page) back()
-            else store.setCommandOpen(false)
           } else if (e.key === 'Backspace' && query === '' && (page || currentIssue)) {
             e.preventDefault()
             back()
@@ -453,6 +615,7 @@ export function CommandMenu() {
             </span>
           )}
           <input
+            ref={inputRef}
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -460,36 +623,48 @@ export function CommandMenu() {
             className="flex-1 bg-transparent text-[14px] text-fg outline-none"
           />
         </div>
-        <div className="max-h-80 overflow-y-auto py-1">
-          {filtered.length === 0 && (
-            <div className="px-4 py-6 text-center text-[13px] text-faint">
-              No results
-            </div>
-          )}
-          {filtered.map((c, i) => (
-            <button
-              key={c.id}
-              onMouseEnter={() => setActive(i)}
-              onClick={() => exec(c)}
-              className={cn(
-                'flex w-full items-center gap-3 px-4 py-2 text-left text-[13px] text-fg',
-                i === active && 'bg-bg-hover',
-              )}
-            >
-              <span className="flex h-4 w-4 items-center justify-center text-faint">
-                {c.icon}
-              </span>
-              <span className="flex-1 truncate">{c.label}</span>
-              {c.selected ? (
-                <Check size={14} className="text-fg" />
-              ) : (
-                c.hint && (
-                  <span className="font-mono text-[11px] text-faint">{c.hint}</span>
-                )
-              )}
-            </button>
-          ))}
-        </div>
+        {dueCustom && currentIssue ? (
+          <div className="flex justify-center py-2">
+            <Calendar
+              value={currentIssue.dueDate}
+              onChange={(iso) => store.setIssueDueDate(currentIssue.id, iso)}
+              close={() => store.setCommandOpen(false)}
+            />
+          </div>
+        ) : (
+          <div className="max-h-80 overflow-y-auto py-1">
+            {filtered.length === 0 && (
+              <div className="px-4 py-6 text-center text-[13px] text-faint">
+                No results
+              </div>
+            )}
+            {filtered.map((c, i) => (
+              <button
+                key={c.id}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => exec(c)}
+                className={cn(
+                  'flex w-full items-center gap-3 px-4 py-2 text-left text-[13px] text-fg',
+                  i === active && 'bg-bg-hover',
+                )}
+              >
+                <span className="flex h-4 w-4 items-center justify-center text-faint">
+                  {c.icon}
+                </span>
+                <span className="flex-1 truncate">{c.label}</span>
+                {c.selected ? (
+                  <Check size={14} className="text-fg" />
+                ) : c.meta ? (
+                  <span className="text-[12px] text-muted">{c.meta}</span>
+                ) : (
+                  c.hint && (
+                    <span className="font-mono text-[11px] text-faint">{c.hint}</span>
+                  )
+                )}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>,
     document.body,

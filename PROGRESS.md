@@ -2,6 +2,43 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #34: Set due date ⌘K sub-page
+
+Built the command-menu "Set due date" contextual sub-page (the TODO flagged in
+Loops #30/#54). Soiled Linear's real flow via Chrome first: from an issue, ⌘K →
+"Set due date… (⇧ D)" drills into a page with placeholder `Try: 24h, 7 days,
+Feb 9` and the quick options **Custom…**, **Tomorrow**, **End of this week**,
+**In one week**, each with its resolved date right-aligned (e.g. Tomorrow →
+Thu, 18 Jun). "Custom…" opens a calendar. Reproduced 1:1.
+
+- `CommandMenu.tsx`: new `dueDate` Page. Contextual root gains a **Set due
+  date…** command (calendar icon, hint `⇧ D`) after Add labels…. The sub-page
+  lists Custom… / Tomorrow / End of this week (Friday of the current week) / In
+  one week, with `meta` = `format(d, 'EEE, d MMM')` shown right-aligned (new
+  `Command.meta` field rendered as muted text). A **Remove due date** row appears
+  when the issue already has one.
+- `parseDueInput()`: parses the relative/explicit input — `today`/`tomorrow`,
+  `Nh`/`Nd`/`Nw`/`Nmo`, and month/numeric dates (`Feb 9`, `February 9`, `6/20`),
+  bumping year-less past dates to next year. A match surfaces a single resolved
+  suggestion row (verified: `feb 9` → "Tue, Feb 9, 2027"). Special-cased
+  `filtered` so the dueDate page shows its own query-derived list unfiltered, and
+  added `query` to the commands memo deps.
+- **Custom…** sets `dueCustom` and renders the existing `Calendar` (now exported
+  from `DatePicker.tsx`) inline, centered; selecting a day sets the due date and
+  closes. Esc/Backspace pops calendar → page → context → close via `back()`.
+- Bonus fix: the search input now refocuses across sub-page drill-ins (an
+  `inputRef` + effect on `[open, page, dueCustom]`), so typing keeps working
+  after a mouse click — previously focus was lost on click-drill.
+- Verified live on the dev server with Chrome side-by-side vs Linear: options +
+  dates match exactly, parser works, Custom calendar opens with the current date
+  highlighted, activity logs "set the due date to …", no console errors.
+  `npx tsc -b` + `npm run build` green.
+
+Next (Discovered later): onboarding tour / first-run checklist + cycle burndown
+remain 🟡 but aren't observable in this workspace (Cycles disabled / established
+workspace) — bám sát known Linear design when revisited. Remaining 🟢: label
+groups, async/email export.
+
 ## 2026-06-17 — Loop #33: Toast feedback on copy
 
 Built a Linear-faithful toast system for the copy actions. Soiled Linear's real

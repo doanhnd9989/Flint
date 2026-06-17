@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
-function Calendar({
+export function Calendar({
   value,
   onChange,
   close,
