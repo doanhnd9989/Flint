@@ -2,6 +2,31 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #41: Issue subscribers
+
+The backlog was fully checked, so I closed a real gap: the `Issue.subscriberIds`
+field existed in the data model (seeded, maintained on create/comment) but had
+**no UI**. Built the Subscribers surface to match Linear.
+
+- **Subscribers section** in the issue's right-hand Properties panel (below
+  Project/Milestone): an uppercase "Subscribers" header with stacked subscriber
+  avatars (overlapping `-space-x-1`, bg ring) + a "{name}" / "{n} subscribers"
+  caption, or an "Add subscribers" placeholder when empty.
+- **`SubscriberPicker`** (`pickers.tsx`): a multi-select member dropdown
+  (`SelectMenu` with `keepOpen`, checkmarks, "Add subscribers…" placeholder),
+  modeled on `LabelPicker`. Clicking the avatars row opens it; toggling a member
+  adds/removes them.
+- **Subscribe / Unsubscribe toggle** in the Activity section header (bell /
+  bell-off icon, Linear's hover copy), flipping the current user's subscription
+  via the new `toggleIssueSubscriber(id, userId)` store action.
+- Fixed a duplicate-React-key warning: the seed produced `['u_me','u_me']` when
+  the assignee was me — deduped both the seed and the render with `new Set`.
+- Shared by the full-page `IssueDetail` and the `IssuePeek` panel (both use
+  `IssueDetailBody`). Verified live (Chrome): section renders, picker adds Avery
+  Chen → "2 subscribers" with YO+AC avatars, console clean. `npx tsc -b` +
+  `npm run build` green. _(No auto-subscribe-on-assign / comment-subscribe yet;
+  subscribe isn't a logged timeline activity, matching Linear.)_
+
 ## 2026-06-17 — Loop #40: Initiative updates / health + project-side Initiative picker
 
 Closed the two TODOs Loop #39 left on the Initiatives feature, as one coherent

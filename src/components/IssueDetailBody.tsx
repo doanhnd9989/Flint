@@ -11,6 +11,7 @@ import {
   AssigneePicker,
   LabelPicker,
   ProjectPicker,
+  SubscriberPicker,
 } from './pickers'
 import { SelectMenu } from './ui/SelectMenu'
 import { IssueRelations } from './IssueRelations'
@@ -23,7 +24,7 @@ import { Markdown } from '@/lib/markdown'
 import { subIssueProgress } from '@/lib/selectors'
 import { PRIORITY_LABELS, ESTIMATE_SCALE } from '@/lib/constants'
 import { cn, formatFullDate, isDueSoon, isOverdue, timeAgo } from '@/lib/utils'
-import { GitBranch, CornerLeftUp, Calendar, Flag } from 'lucide-react'
+import { GitBranch, CornerLeftUp, Calendar, Flag, Bell, BellOff } from 'lucide-react'
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -78,6 +79,10 @@ export function IssueDetailBody({
   const activities = store.activities
     .filter((a) => a.issueId === issue.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  const subscribers = [...new Set(issue.subscriberIds)]
+    .map((id) => store.users.find((u) => u.id === id))
+    .filter(Boolean)
+  const isSubscribed = issue.subscriberIds.includes(store.currentUserId)
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -165,7 +170,23 @@ export function IssueDetailBody({
 
           {/* Activity + comments */}
           <div className="mt-8">
-            <div className="mb-3 text-[12px] font-medium text-faint">Activity</div>
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-[12px] font-medium text-faint">Activity</span>
+              <button
+                onClick={() =>
+                  store.toggleIssueSubscriber(issue.id, store.currentUserId)
+                }
+                title={
+                  isSubscribed
+                    ? "You'll be notified of any changes. Click to unsubscribe."
+                    : 'Get notified of any changes to this issue.'
+                }
+                className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-fg"
+              >
+                {isSubscribed ? <BellOff size={13} /> : <Bell size={13} />}
+                {isSubscribed ? 'Unsubscribe' : 'Subscribe'}
+              </button>
+            </div>
             <div className="space-y-3">
               {activities.map((a) => (
                 <ActivityItem key={a.id} activity={a} />
@@ -385,6 +406,40 @@ export function IssueDetailBody({
             />
           </>
         )}
+
+        <div className="mt-4 text-[11px] font-medium uppercase tracking-wide text-faint">
+          Subscribers
+        </div>
+        <SubscriberPicker
+          subscriberIds={issue.subscriberIds}
+          onToggle={(id) => store.toggleIssueSubscriber(issue.id, id)}
+          trigger={
+            <span className="mt-1 flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-bg-hover">
+              {subscribers.length === 0 ? (
+                <span className="text-[13px] text-faint">Add subscribers</span>
+              ) : (
+                <>
+                  <span className="flex -space-x-1">
+                    {subscribers.slice(0, 5).map((u) => (
+                      <span
+                        key={u!.id}
+                        className="rounded-full ring-1 ring-bg"
+                        title={u!.name}
+                      >
+                        <Avatar user={u!} size={20} />
+                      </span>
+                    ))}
+                  </span>
+                  <span className="text-[12px] text-muted">
+                    {subscribers.length === 1
+                      ? subscribers[0]!.name
+                      : `${subscribers.length} subscribers`}
+                  </span>
+                </>
+              )}
+            </span>
+          }
+        />
       </aside>
     </div>
   )

@@ -271,7 +271,7 @@ export function buildSeed(): WorkspaceData {
       number,
       identifier: `${team.key}-${number}`,
       creatorId: 'u_me',
-      subscriberIds: d.assigneeId ? ['u_me', d.assigneeId] : ['u_me'],
+      subscriberIds: [...new Set(d.assigneeId ? ['u_me', d.assigneeId] : ['u_me'])],
       sortOrder: (i + 1) * 100,
       createdAt: created,
       updatedAt: created,

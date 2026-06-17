@@ -84,6 +84,7 @@ export interface Store extends WorkspaceData, UIState {
   setIssuePriority: (id: string, priority: Priority) => void
   setIssueAssignee: (id: string, assigneeId?: string) => void
   toggleIssueLabel: (id: string, labelId: string) => void
+  toggleIssueSubscriber: (id: string, userId: string) => void
   setIssueProject: (id: string, projectId?: string) => void
   setIssueMilestone: (id: string, milestoneId?: string) => void
   setIssueEstimate: (id: string, estimate?: number) => void
@@ -365,6 +366,26 @@ export const useStore = create<Store>()(
                 removing ? undefined : labelId,
               ),
             ],
+          }
+        }),
+
+      toggleIssueSubscriber: (id, userId) =>
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue) return s
+          const subscribed = issue.subscriberIds.includes(userId)
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id
+                ? {
+                    ...i,
+                    subscriberIds: subscribed
+                      ? i.subscriberIds.filter((u) => u !== userId)
+                      : [...i.subscriberIds, userId],
+                    updatedAt: nowIso(),
+                  }
+                : i,
+            ),
           }
         }),
 

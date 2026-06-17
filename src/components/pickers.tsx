@@ -128,6 +128,36 @@ export function LabelPicker({
   )
 }
 
+export function SubscriberPicker({
+  subscriberIds,
+  onToggle,
+  trigger,
+  align,
+}: {
+  subscriberIds: string[]
+  onToggle: (id: string) => void
+  trigger: ReactNode
+  align?: 'start' | 'end'
+}) {
+  const users = useStore((s) => s.users)
+  const options: SelectOption[] = users.map((u) => ({
+    id: u.id,
+    label: u.name,
+    icon: <Avatar user={u} />,
+    selected: subscriberIds.includes(u.id),
+  }))
+  return (
+    <SelectMenu
+      options={options}
+      onSelect={onToggle}
+      trigger={trigger}
+      align={align}
+      keepOpen
+      placeholder="Add subscribers…"
+    />
+  )
+}
+
 export function ProjectPicker({
   projectId,
   onChange,
