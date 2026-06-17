@@ -2,6 +2,26 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #27: Notification detail (snooze + prefs)
+
+A real inbox, Linear-style:
+
+- `types.ts`: `NotificationType`, `Notification.snoozedUntil`, `NotificationPrefs`.
+  Store: `snoozeNotification` / `unsnoozeNotification` / `deleteNotification`,
+  persisted `notificationPrefs` + `setNotificationPref`.
+- `Inbox` rewritten: Inbox/Snoozed tabs; each row has a snooze menu (in 1 hour /
+  tomorrow / next week), delete, and mark-read-on-open; a header "Preferences"
+  popover toggles notifications per type; the Snoozed tab can unsnooze and shows
+  the "snoozed until" time.
+- `Sidebar`: the unread badge now excludes snoozed notifications.
+- `seed.ts`: two more notifications (assigned / mention).
+- Verified live: snoozing the comment notification moved it to Snoozed
+  ("snoozed until Jun 17, 11 AM"), emptied the Inbox and cleared the sidebar
+  badge; unsnooze restored it. `tsc` ✅ · build ✅ · clean console.
+
+Next: **Activity types** — render every change kind (priority/label/project/estimate/due) with diffs.
+
+
 ## 2026-06-17 — Loop #26: Members & roles + invite
 
 Manage who's in the workspace, Linear-style:

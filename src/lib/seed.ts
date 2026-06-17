@@ -326,6 +326,14 @@ export function buildSeed(): WorkspaceData {
       id: 'n_1', issueId: 'i_5', type: 'comment', actorId: 'u_avery',
       body: 'commented on', createdAt: nowIso(), read: false,
     },
+    {
+      id: 'n_2', issueId: 'i_6', type: 'assigned', actorId: 'u_me',
+      body: 'assigned you to', createdAt: nowIso(), read: false,
+    },
+    {
+      id: 'n_3', issueId: 'i_5', type: 'mention', actorId: 'u_jordan',
+      body: 'mentioned you in', createdAt: nowIso(), read: true,
+    },
   ]
 
   const savedViews: SavedView[] = [

@@ -120,7 +120,9 @@ export function Sidebar() {
       return v ? { to: `/view/${v.id}`, icon: <LayersIcon size={15} />, label: v.name } : null
     })
     .filter(Boolean) as { to: string; icon: ReactNode; label: string }[]
-  const unread = notifications.filter((n) => !n.read).length
+  const unread = notifications.filter(
+    (n) => !n.read && !(n.snoozedUntil && new Date(n.snoozedUntil).getTime() > Date.now()),
+  ).length
 
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-bg-sidebar">

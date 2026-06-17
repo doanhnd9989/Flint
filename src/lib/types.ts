@@ -213,15 +213,26 @@ export interface SavedView {
   filters: FilterState
 }
 
+export type NotificationType =
+  | 'assigned'
+  | 'mention'
+  | 'comment'
+  | 'status'
+  | 'subscribed'
+
 export interface Notification {
   id: string
   issueId: string
-  type: 'assigned' | 'mention' | 'comment' | 'status' | 'subscribed'
+  type: NotificationType
   actorId: string
   body: string
   createdAt: string
   read: boolean
+  /** ISO time until which the notification is snoozed (hidden from the inbox). */
+  snoozedUntil?: string
 }
+
+export type NotificationPrefs = Record<NotificationType, boolean>
 
 export type FavoriteType = 'issue' | 'project' | 'view'
 

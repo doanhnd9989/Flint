@@ -17,6 +17,8 @@ import type {
   Label,
   Milestone,
   Notification,
+  NotificationPrefs,
+  NotificationType,
   Priority,
   Project,
   ProjectHealth,
@@ -47,6 +49,8 @@ interface UIState {
   recentSearches: string[]
   /** Starred issues / projects / views (persisted). */
   favorites: Favorite[]
+  /** Per-type notification preferences (persisted). */
+  notificationPrefs: NotificationPrefs
 }
 
 interface NewIssueInput {
@@ -120,6 +124,10 @@ export interface Store extends WorkspaceData, UIState {
   // ── notifications ────────────────────────────────────────────
   markNotificationRead: (id: string) => void
   markAllNotificationsRead: () => void
+  snoozeNotification: (id: string, untilIso: string) => void
+  unsnoozeNotification: (id: string) => void
+  deleteNotification: (id: string) => void
+  setNotificationPref: (type: NotificationType, on: boolean) => void
 
   // ── ui ───────────────────────────────────────────────────────
   setTheme: (t: ThemeMode) => void
@@ -185,6 +193,13 @@ export const useStore = create<Store>()(
       contextMenu: null,
       recentSearches: [],
       favorites: [],
+      notificationPrefs: {
+        assigned: true,
+        mention: true,
+        comment: true,
+        status: true,
+        subscribed: true,
+      },
 
       createIssue: (input) => {
         const s = get()
@@ -696,6 +711,30 @@ export const useStore = create<Store>()(
       markAllNotificationsRead: () =>
         set((s) => ({
           notifications: s.notifications.map((n) => ({ ...n, read: true })),
+        })),
+
+      snoozeNotification: (id, untilIso) =>
+        set((s) => ({
+          notifications: s.notifications.map((n) =>
+            n.id === id ? { ...n, snoozedUntil: untilIso } : n,
+          ),
+        })),
+
+      unsnoozeNotification: (id) =>
+        set((s) => ({
+          notifications: s.notifications.map((n) =>
+            n.id === id ? { ...n, snoozedUntil: undefined } : n,
+          ),
+        })),
+
+      deleteNotification: (id) =>
+        set((s) => ({
+          notifications: s.notifications.filter((n) => n.id !== id),
+        })),
+
+      setNotificationPref: (type, on) =>
+        set((s) => ({
+          notificationPrefs: { ...s.notificationPrefs, [type]: on },
         })),
 
       setTheme: (theme) => set({ theme }),
