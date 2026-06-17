@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { CalendarClock, Diamond, Link2 } from 'lucide-react'
+import { CalendarClock, ChevronRight, Diamond, Link2 } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import type { Issue } from '@/lib/types'
 import { StatusIcon } from './StatusIcon'
@@ -13,9 +13,15 @@ import { cn, formatDate, isDueSoon, isOverdue } from '@/lib/utils'
 export function IssueRow({
   issue,
   showStatus = true,
+  depth = 0,
+  expand,
 }: {
   issue: Issue
   showStatus?: boolean
+  /** Indent level when rendered as a nested sub-issue. */
+  depth?: number
+  /** When set (nested-sub-issues mode), renders a disclosure-chevron gutter. */
+  expand?: { hasChildren: boolean; expanded: boolean; onToggle: () => void }
 }) {
   const {
     states, users, labels, issues, projects, milestones, issueLinks, displayProperties, selectedIssueIds, focusedIssueId,
@@ -78,6 +84,7 @@ export function IssueRow({
         e.preventDefault()
         openContextMenu(issue.id, e.clientX, e.clientY)
       }}
+      style={depth ? { paddingLeft: 16 + depth * 22 } : undefined}
       className={cn(
         'group flex cursor-pointer items-center gap-2 px-4 py-1.5 border-b border-border/40',
         selected
@@ -109,6 +116,26 @@ export function IssueRow({
           </svg>
         )}
       </button>
+
+      {expand &&
+        (expand.hasChildren ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              expand.onToggle()
+            }}
+            className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-faint hover:bg-bg-selected"
+            title={expand.expanded ? 'Collapse sub-issues' : 'Expand sub-issues'}
+          >
+            <ChevronRight
+              size={12}
+              className={cn('transition-transform', expand.expanded && 'rotate-90')}
+            />
+          </button>
+        ) : (
+          <span className="h-4 w-4 shrink-0" />
+        ))}
 
       {dp.priority && (
         <PriorityPicker

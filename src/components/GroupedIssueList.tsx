@@ -73,6 +73,7 @@ export function GroupedIssueList({
   groups,
   groupBy,
   subGroupBy = 'none',
+  childrenByParent,
   onReorder,
   empty,
 }: {
@@ -80,6 +81,9 @@ export function GroupedIssueList({
   groupBy: GroupBy
   /** When set, each group carries `subGroups`; render them nested. */
   subGroupBy?: GroupBy
+  /** Nested-sub-issues mode: parent id → its visible sub-issues, rendered
+   *  indented beneath the parent with a disclosure chevron. */
+  childrenByParent?: Record<string, Issue[]>
   /** Enables drag-to-reorder within a group. Receives the new sortOrder. */
   onReorder?: (issueId: string, sortOrder: number) => void
   /** Customizes the empty state shown when no group has any issue. */
@@ -90,12 +94,34 @@ export function GroupedIssueList({
   const setSelectedIssues = useStore((s) => s.setSelectedIssues)
   const setNavIssueIds = useStore((s) => s.setNavIssueIds)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const anySelected = selectedIssueIds.length > 0
   const subGrouped = subGroupBy !== 'none'
+  const nested = !!childrenByParent
+
+  // Sub-issues default to expanded; collapse on demand.
+  const isExpanded = (id: string) => expanded[id] ?? true
+  const toggleExpand = (id: string) =>
+    setExpanded((e) => ({ ...e, [id]: !(e[id] ?? true) }))
+
+  // Walk the (nested) visible order for prev/next navigation — descending into
+  // a parent's sub-issues only while it's expanded.
+  const visibleOrder = (issues: Issue[]): string[] =>
+    issues.flatMap((i) => {
+      const kids = childrenByParent?.[i.id] ?? []
+      return [
+        i.identifier,
+        ...(kids.length && isExpanded(i.id) ? visibleOrder(kids) : []),
+      ]
+    })
 
   // Publish this list's visible order so the issue detail/peek can offer
   // prev/next navigation through it. The store no-ops on an unchanged order.
-  const flatOrder = groups.flatMap((g) => g.issues.map((i) => i.identifier))
+  const flatOrder = groups.flatMap((g) =>
+    g.subGroups
+      ? g.subGroups.flatMap((sg) => visibleOrder(sg.issues))
+      : visibleOrder(g.issues),
+  )
   useEffect(() => {
     setNavIssueIds(flatOrder)
   }, [flatOrder.join('\n'), setNavIssueIds])
@@ -144,12 +170,40 @@ export function GroupedIssueList({
   // collapse are dropped — the right trade-off for very large lists). Skipped
   // when sub-grouping is active — the nested layout renders in full.
   const totalRows = groups.reduce((n, g) => n + 1 + g.issues.length, 0)
-  if (!subGrouped && totalRows > 50) {
+  if (!subGrouped && !nested && totalRows > 50) {
     return <VirtualIssueList groups={groups} groupBy={groupBy} />
   }
 
+  // Nested-sub-issues render: a parent row + its expanded sub-issues, recursively.
+  const renderNested = (
+    issues: Issue[],
+    depth: number,
+    showStatus: boolean,
+  ): React.ReactNode =>
+    issues.map((issue) => {
+      const kids = childrenByParent?.[issue.id] ?? []
+      const open = isExpanded(issue.id)
+      return (
+        <div key={issue.id}>
+          <IssueRow
+            issue={issue}
+            showStatus={depth > 0 ? true : showStatus}
+            depth={depth}
+            expand={{
+              hasChildren: kids.length > 0,
+              expanded: open,
+              onToggle: () => toggleExpand(issue.id),
+            }}
+          />
+          {open && kids.length > 0 && renderNested(kids, depth + 1, true)}
+        </div>
+      )
+    })
+
   const renderIssues = (issues: Issue[], showStatus: boolean) =>
-    onReorder && !subGrouped ? (
+    nested ? (
+      renderNested(issues, 0, showStatus)
+    ) : onReorder && !subGrouped ? (
       <SortableContext
         items={issues.map((i) => i.id)}
         strategy={verticalListSortingStrategy}

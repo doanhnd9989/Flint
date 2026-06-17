@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Bookmark } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues } from '@/lib/selectors'
-import type { GroupBy, OrderBy, ViewLayout } from '@/lib/types'
+import type { GroupBy, Issue, OrderBy, ViewLayout } from '@/lib/types'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { IssueBoard } from '@/components/IssueBoard'
 import { DisplayMenu } from '@/components/DisplayMenu'
@@ -23,12 +23,16 @@ export function IssuesView() {
   const [subGroupBy, setSubGroupBy] = useState<GroupBy>('none')
   const [orderBy, setOrderBy] = useState<OrderBy>('priority')
   const [showSubIssues, setShowSubIssues] = useState(true)
+  const [nestedSubIssues, setNestedSubIssues] = useState(false)
   const [showEmptyGroups, setShowEmptyGroups] = useState(false)
   const [filters, setFilters] = useState(emptyFilters())
 
   const team = data.teams.find((t) => t.key === teamKey) ?? data.teams[0]
 
-  const groups = useMemo(() => {
+  // Nesting only makes sense in the list view with sub-issues shown.
+  const nested = layout === 'list' && showSubIssues && nestedSubIssues
+
+  const { groups, childrenByParent } = useMemo(() => {
     const statesByType = new Map(data.states.map((s) => [s.id, s.type]))
     let scoped = data.issues.filter((i) => i.teamId === team.id && !i.triage)
     if (tab === 'active')
@@ -43,20 +47,37 @@ export function IssuesView() {
 
     const filtered = filterIssues(scoped, filters)
     const sorted = sortIssues(filtered, orderBy, data)
+
+    // Nested mode: pull every sub-issue (whose parent is visible) out of its
+    // own status group and render it under its parent. Issues whose parent is
+    // not in the visible set stay at the top level.
+    let childrenByParent: Record<string, Issue[]> | undefined
+    let forGrouping = sorted
+    if (nested) {
+      const visible = new Set(sorted.map((i) => i.id))
+      const map: Record<string, Issue[]> = {}
+      for (const i of sorted) {
+        if (i.parentId && visible.has(i.parentId)) (map[i.parentId] ??= []).push(i)
+      }
+      childrenByParent = map
+      forGrouping = sorted.filter((i) => !i.parentId || !visible.has(i.parentId))
+    }
+
     const top = groupIssues(
-      sorted,
+      forGrouping,
       layout === 'board' ? 'status' : groupBy,
       data,
       showEmptyGroups,
     )
     // Sub-grouping only applies to the list view (board uses status columns).
-    if (layout === 'list' && subGroupBy !== 'none') {
-      return top.map((g) => ({
-        ...g,
-        subGroups: groupIssues(g.issues, subGroupBy, data, showEmptyGroups),
-      }))
-    }
-    return top
+    const groups =
+      layout === 'list' && subGroupBy !== 'none'
+        ? top.map((g) => ({
+            ...g,
+            subGroups: groupIssues(g.issues, subGroupBy, data, showEmptyGroups),
+          }))
+        : top
+    return { groups, childrenByParent }
   }, [
     data,
     team.id,
@@ -67,6 +88,7 @@ export function IssuesView() {
     layout,
     filters,
     showSubIssues,
+    nested,
     showEmptyGroups,
   ])
 
@@ -108,6 +130,8 @@ export function IssuesView() {
               onSubGroupBy={setSubGroupBy}
               showSubIssues={showSubIssues}
               onShowSubIssues={setShowSubIssues}
+              nestedSubIssues={nestedSubIssues}
+              onNestedSubIssues={setNestedSubIssues}
               showEmptyGroups={showEmptyGroups}
               onShowEmptyGroups={setShowEmptyGroups}
             />
@@ -140,6 +164,7 @@ export function IssuesView() {
           groups={groups}
           groupBy={groupBy}
           subGroupBy={subGroupBy}
+          childrenByParent={nested ? childrenByParent : undefined}
           onReorder={(id, sortOrder) => {
             data.setIssueSortOrder(id, sortOrder)
             setOrderBy('manual')

@@ -18,6 +18,8 @@ interface Props {
   /** List options — optional; the section only renders when handlers are given. */
   showSubIssues?: boolean
   onShowSubIssues?: (v: boolean) => void
+  nestedSubIssues?: boolean
+  onNestedSubIssues?: (v: boolean) => void
   showEmptyGroups?: boolean
   onShowEmptyGroups?: (v: boolean) => void
 }
@@ -133,6 +135,8 @@ export function DisplayMenu({
   onSubGroupBy,
   showSubIssues,
   onShowSubIssues,
+  nestedSubIssues,
+  onNestedSubIssues,
   showEmptyGroups,
   onShowEmptyGroups,
 }: Props) {
@@ -199,17 +203,26 @@ export function DisplayMenu({
             />
           )}
 
-          {onShowEmptyGroups && (
+          {(onNestedSubIssues || onShowEmptyGroups) && (
             <>
               <div className="my-1.5 border-t border-border" />
               <div className="px-2 pt-0.5 pb-0.5 text-[12px] text-muted">
                 List options
               </div>
-              <ToggleRow
-                label="Show empty groups"
-                checked={showEmptyGroups ?? false}
-                onChange={onShowEmptyGroups}
-              />
+              {onNestedSubIssues && (
+                <ToggleRow
+                  label="Nested sub-issues"
+                  checked={nestedSubIssues ?? false}
+                  onChange={onNestedSubIssues}
+                />
+              )}
+              {onShowEmptyGroups && (
+                <ToggleRow
+                  label="Show empty groups"
+                  checked={showEmptyGroups ?? false}
+                  onChange={onShowEmptyGroups}
+                />
+              )}
             </>
           )}
 

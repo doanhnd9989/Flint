@@ -2,6 +2,40 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #58: Display options — Nested sub-issues
+
+Soi'd Linear's **Display** popover **List options** (Chrome, "Claude Test App"):
+above **Show empty groups** sits a **Nested sub-issues** toggle. When on, every
+sub-issue is pulled out of its own status group and rendered **indented beneath
+its parent** behind a per-row **disclosure chevron** (▸/▾, defaults expanded),
+each sub-issue still showing its own status icon. Loop #56 added the inert
+toggle slot; this round makes it functional 1:1.
+
+- **`DisplayMenu`** — new `nestedSubIssues`/`onNestedSubIssues` props; the
+  List-options section now renders when **either** toggle handler is supplied,
+  with **Nested sub-issues** rendered first (then Show empty groups).
+- **`IssueRow`** — new `depth` (inline `paddingLeft` indent) and `expand`
+  gutter: a chevron button when the row has children (else an aligning spacer),
+  `stopPropagation` so toggling doesn't open the peek. Untouched when `expand`
+  is absent, so flat mode is unchanged.
+- **`GroupedIssueList`** — accepts `childrenByParent` (parent id → its visible
+  sub-issues); a recursive `renderNested` renders a parent row + its expanded
+  children (children always `showStatus`); per-row expand state defaults open;
+  the prev/next nav order walks the nested tree, descending only into expanded
+  parents. Virtualization + drag-reorder fall back to the full render while
+  nested (same trade-off as sub-grouping).
+- **`IssuesView`** — `nestedSubIssues` state; `nested` = list view + Show
+  sub-issues + Nested on. When nested, builds `childrenByParent` from the
+  sorted+filtered set and groups only **top-level** issues (no parent, or
+  parent not in the visible set).
+
+Verified live (localhost:5199): added CLA-6 (In Review) + CLA-2 (Todo) as
+sub-issues of CLA-1 → both nest indented under CLA-1 in the **Todo** group (the
+In Review group empties out), each keeps its own status icon; the chevron
+collapses/expands them; CLA-1 keeps its 0/2 progress badge. `npx tsc -b` +
+`npm run build` green, console clean. _(Board swimlanes + per-view persistence
+still TODO; nested is local display state like grouping/ordering.)_
+
 ## 2026-06-18 — Loop #57: Display options — Sub-grouping
 
 Soi'd Linear's **Display** popover (Chrome, "Claude Test App"): between
