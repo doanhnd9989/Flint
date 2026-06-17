@@ -8,6 +8,7 @@ import type {
   Milestone,
   Notification,
   Project,
+  ProjectUpdate,
   Relation,
   SavedView,
   Team,
@@ -29,6 +30,7 @@ export interface WorkspaceData {
   issues: Issue[]
   relations: Relation[]
   templates: IssueTemplate[]
+  projectUpdates: ProjectUpdate[]
   comments: Comment[]
   activities: Activity[]
   notifications: Notification[]
@@ -258,6 +260,17 @@ export function buildSeed(): WorkspaceData {
     },
   ]
 
+  const projectUpdates: ProjectUpdate[] = [
+    {
+      id: 'pu_1',
+      projectId: 'p_mvp',
+      userId: 'u_me',
+      health: 'on-track',
+      body: 'Kicked off the MVP. Scope is locked and we are **on track** for the July target.',
+      createdAt: nowIso(),
+    },
+  ]
+
   const relations: Relation[] = [
     // CLA-5 (keyboard perf) blocks CLA-7 (board view)
     { id: 'r_1', type: 'blocks', fromIssueId: 'i_5', toIssueId: 'i_7' },
@@ -315,6 +328,7 @@ export function buildSeed(): WorkspaceData {
     issues,
     relations,
     templates,
+    projectUpdates,
     comments,
     activities,
     notifications,

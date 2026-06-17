@@ -17,6 +17,8 @@ import type {
   Notification,
   Priority,
   Project,
+  ProjectHealth,
+  ProjectUpdate,
   Relation,
   RelationType,
   SavedView,
@@ -93,6 +95,8 @@ export interface Store extends WorkspaceData, UIState {
   updateProject: (id: string, patch: Partial<Project>) => void
   createMilestone: (projectId: string, name: string) => Milestone
   deleteMilestone: (id: string) => void
+  createProjectUpdate: (projectId: string, health: ProjectHealth, body: string) => void
+  deleteProjectUpdate: (id: string) => void
   createView: (v: Omit<SavedView, 'id'>) => SavedView
   updateView: (id: string, patch: Partial<SavedView>) => void
   deleteView: (id: string) => void
@@ -521,6 +525,26 @@ export const useStore = create<Store>()(
           issues: s.issues.map((i) =>
             i.milestoneId === id ? { ...i, milestoneId: undefined } : i,
           ),
+        })),
+
+      createProjectUpdate: (projectId, health, body) =>
+        set((s) => ({
+          projectUpdates: [
+            ...s.projectUpdates,
+            {
+              id: `pu_${nanoid(8)}`,
+              projectId,
+              userId: s.currentUserId,
+              health,
+              body,
+              createdAt: nowIso(),
+            } satisfies ProjectUpdate,
+          ],
+        })),
+
+      deleteProjectUpdate: (id) =>
+        set((s) => ({
+          projectUpdates: s.projectUpdates.filter((u) => u.id !== id),
         })),
 
       createView: (v) => {

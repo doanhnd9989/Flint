@@ -2,6 +2,23 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #21: Project updates
+
+Report project health over time, Linear-style:
+
+- `types.ts`: `ProjectHealth` + `ProjectUpdate`. Store: `projectUpdates` slice
+  with `createProjectUpdate` / `deleteProjectUpdate`. Seeded one on-track update.
+- New `components/ProjectUpdates.tsx`: a `HealthBadge`, a composer (health
+  toggle on-track/at-risk/off-track + a `MentionInput` body) and a
+  reverse-chronological timeline (avatar, badge, markdown body, hover delete).
+- `ProjectDetail`: Issues / Updates tabs; the header shows the latest update's
+  health badge.
+- Verified live: posted an "At risk" update — it landed atop the timeline and
+  flipped the header badge from On track → At risk. `tsc` ✅ · build ✅ · clean console.
+
+Next: **Roadmap / timeline** view of projects across time.
+
+
 ## 2026-06-17 — Loop #20: Project milestones
 
 Plan a project in milestones, Linear-style:

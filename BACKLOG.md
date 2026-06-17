@@ -42,7 +42,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟡 **Manual drag-to-reorder** issues within a list group — dnd-kit sortable rows in `GroupedIssueList`; dropping writes a midpoint `sortOrder` and switches the Issues view to Manual ordering. _(Same-group only; cross-group moves stay on the board / pickers.)_
 - [x] 🟡 **Keyboard shortcuts help overlay** (press `?`) — categorized shortcut reference; added `G`-prefixed navigation chords (G I/M/B/C/T/P/V/S) and a ⌘K "Keyboard shortcuts" command. _(Row-level assign/status/priority hotkeys still TODO.)_
 - [x] 🟡 **Project milestones** — the project detail groups issues by milestone with per-milestone progress bars (+ "No milestone"); add milestones from the header, delete inline; a Milestone property picker on issues in a milestoned project.
-- [ ] 🟡 **Project updates** — status posts (on-track / at-risk / off-track) with a timeline.
+- [x] 🟡 **Project updates** — post health updates (on-track / at-risk / off-track) with a markdown body from an Updates tab; reverse-chronological timeline with delete; the project header shows the latest health badge.
 - [ ] 🟢 **Roadmap / timeline** view of projects across time.
 - [ ] 🟢 **Favorites** — star issues/projects/views; a Favorites section in the sidebar.
 - [ ] 🟢 **List virtualization** for large lists (fixes the seeded perf issue CLA-5).

@@ -65,6 +65,17 @@ export interface Project {
   sortOrder: number
 }
 
+export type ProjectHealth = 'on-track' | 'at-risk' | 'off-track'
+
+export interface ProjectUpdate {
+  id: string
+  projectId: string
+  userId: string
+  health: ProjectHealth
+  body: string
+  createdAt: string
+}
+
 export interface Milestone {
   id: string
   projectId: string

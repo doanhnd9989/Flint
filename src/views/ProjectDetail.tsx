@@ -1,11 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Plus, Trash2, Flag } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { sortIssues, projectProgress, milestoneProgress } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
 import { Avatar } from '@/components/Avatar'
-import { formatFullDate } from '@/lib/utils'
+import { ProjectUpdates, HealthBadge } from '@/components/ProjectUpdates'
+import { formatFullDate, cn } from '@/lib/utils'
 import type { Issue } from '@/lib/types'
 
 function Section({
@@ -62,6 +63,15 @@ export function ProjectDetail() {
   const navigate = useNavigate()
   const data = useStore()
   const project = data.projects.find((p) => p.id === id)
+  const [tab, setTab] = useState<'issues' | 'updates'>('issues')
+
+  const latestUpdate = useMemo(
+    () =>
+      data.projectUpdates
+        .filter((u) => u.projectId === id)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0],
+    [data.projectUpdates, id],
+  )
 
   const milestones = useMemo(
     () =>
@@ -122,6 +132,7 @@ export function ProjectDetail() {
               <span>
                 {prog.done}/{prog.total} issues · {prog.percent}%
               </span>
+              {latestUpdate && <HealthBadge health={latestUpdate.health} />}
               <button
                 onClick={() => {
                   const name = prompt('New milestone name…')
@@ -140,22 +151,43 @@ export function ProjectDetail() {
             </div>
           </div>
         </div>
+        <div className="mt-4 flex items-center gap-1">
+          {(['issues', 'updates'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={cn(
+                'rounded-md px-2.5 py-1 text-[12px] capitalize text-muted hover:bg-bg-hover',
+                tab === t && 'bg-bg-selected text-fg font-medium',
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {milestones.map((m) => (
-          <Section
-            key={m.id}
-            title={m.name}
-            issues={scoped.filter((i) => i.milestoneId === m.id)}
-            progress={milestoneProgress(m.id, data.issues, data)}
-            onDelete={() => {
-              if (confirm(`Delete milestone "${m.name}"?`)) data.deleteMilestone(m.id)
-            }}
-          />
-        ))}
-        <Section title="No milestone" issues={noMilestone} />
-      </div>
+      {tab === 'updates' ? (
+        <div className="flex-1 overflow-y-auto">
+          <ProjectUpdates projectId={project.id} />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto">
+          {milestones.map((m) => (
+            <Section
+              key={m.id}
+              title={m.name}
+              issues={scoped.filter((i) => i.milestoneId === m.id)}
+              progress={milestoneProgress(m.id, data.issues, data)}
+              onDelete={() => {
+                if (confirm(`Delete milestone "${m.name}"?`)) data.deleteMilestone(m.id)
+              }}
+            />
+          ))}
+          <Section title="No milestone" issues={noMilestone} />
+        </div>
+      )}
     </div>
   )
 }
