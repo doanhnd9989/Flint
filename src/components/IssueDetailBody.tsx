@@ -18,7 +18,7 @@ import { IssueRelations } from './IssueRelations'
 import { IssueLinks } from './IssueLinks'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MentionInput } from './MentionInput'
-import { CommentItem } from './CommentItem'
+import { CommentThread } from './CommentThread'
 import { ActivityItem } from './ActivityItem'
 import { DatePicker } from './DatePicker'
 import { subIssueProgress, cycleState } from '@/lib/selectors'
@@ -91,6 +91,9 @@ export function IssueDetailBody({
   const comments = store.comments
     .filter((c) => c.issueId === issue.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  // Thread roots: top-level comments, plus replies whose parent was deleted.
+  const commentIds = new Set(comments.map((c) => c.id))
+  const threads = comments.filter((c) => !c.parentId || !commentIds.has(c.parentId))
   const subIssues = store.issues.filter((i) => i.parentId === issue.id)
   const progress = subIssueProgress(issue.id, store.issues, store)
   const parent = issue.parentId
@@ -273,8 +276,12 @@ export function IssueDetailBody({
               {activities.map((a) => (
                 <ActivityItem key={a.id} activity={a} />
               ))}
-              {comments.map((c) => (
-                <CommentItem key={c.id} comment={c} />
+              {threads.map((c) => (
+                <CommentThread
+                  key={c.id}
+                  root={c}
+                  replies={comments.filter((r) => r.parentId === c.id)}
+                />
               ))}
             </div>
 

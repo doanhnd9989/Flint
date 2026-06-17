@@ -358,6 +358,11 @@ export function buildSeed(): WorkspaceData {
       body: 'Agreed @[Avery Chen](u_avery) — going to use a **windowed list**.',
       createdAt: nowIso(),
     },
+    {
+      id: 'c_3', issueId: 'i_5', userId: 'u_jordan', parentId: 'c_1',
+      body: 'Nice. Make sure collapsed groups still measure correctly.',
+      createdAt: nowIso(),
+    },
   ]
 
   const activities: Activity[] = issues.map((iss) => ({

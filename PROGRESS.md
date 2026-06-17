@@ -2,6 +2,38 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #54: Comment threaded replies
+
+Surfaced the long-existing `Comment.parentId` model (added in loop #50, but the
+comment list rendered everything flat) as Linear's real **threaded replies**.
+
+Soi'd the real workspace (Chrome, "Claude Test App", CLA-1): every top-level
+comment is a **thread** — its replies stack on an indented left rail and a
+persistent **"Leave a reply…"** affordance (current-user avatar + placeholder)
+sits at the bottom of each thread. (The bare workspace had no comments to
+screenshot a populated thread, and posting test comments to the user's real
+workspace would be a write action, so I built to Linear's known thread design
+and verified end-to-end in our own app.)
+
+- **`CommentThread`** (new) — renders the root `CommentItem`, then its replies
+  inside an `ml-[11px] border-l pl-4` rail aligned to the root avatar's centre,
+  then a collapsed reply trigger that expands into a `MentionInput` with
+  **Cancel / Reply** (⌘↵ submit, Esc cancel). Replies always attach to the
+  **thread root** (`addComment(root.issueId, body, root.id)`) — Linear threads
+  are one level deep, so a reply-to-a-reply still lands on the root.
+- **`IssueDetailBody`** — groups comments into thread roots (top-level, plus
+  replies whose parent was deleted, promoted to roots so nothing is orphaned)
+  and renders a `CommentThread` per root instead of a flat `CommentItem` list.
+  Shared by the full-page detail and the peek panel.
+- **Seed** — added an illustrative reply `c_3` (Jordan, under Avery's comment on
+  the virtualization issue) so a populated thread is visible on a fresh load.
+
+Verified live (localhost:5173, CLA-5): each comment shows the indented "Leave a
+reply…" composer; typing under Avery's comment + **Reply** rendered the reply
+nested as "You · now" on the rail with a fresh reply box beneath. `npx tsc -b`
++ `npm run build` green, console clean. _(Resolve thread / collapse-resolved
+still TODO — needs a `resolvedAt` flag on the thread root.)_
+
 ## 2026-06-17 — Loop #53: Relation keyboard shortcuts + shared "Mark as" picker
 
 Closed the explicitly-deferred gap from loops #51/#52: the relation shortcuts
