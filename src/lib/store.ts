@@ -52,6 +52,8 @@ interface UIState {
   favorites: Favorite[]
   /** Per-type notification preferences (persisted). */
   notificationPrefs: NotificationPrefs
+  /** Dismissed "Try" onboarding step keys (persisted). */
+  onboardingDismissed: string[]
 }
 
 interface NewIssueInput {
@@ -140,6 +142,7 @@ export interface Store extends WorkspaceData, UIState {
   addRecentSearch: (q: string) => void
   clearRecentSearches: () => void
   toggleFavorite: (type: FavoriteType, id: string) => void
+  dismissOnboardingStep: (key: string) => void
 
   // ── bulk selection ───────────────────────────────────────────
   toggleSelectIssue: (id: string) => void
@@ -205,6 +208,7 @@ export const useStore = create<Store>()(
         status: true,
         subscribed: true,
       },
+      onboardingDismissed: [],
 
       createIssue: (input) => {
         const s = get()
@@ -845,6 +849,13 @@ export const useStore = create<Store>()(
               : [...s.favorites, { type, id }],
           }
         }),
+
+      dismissOnboardingStep: (key) =>
+        set((s) =>
+          s.onboardingDismissed.includes(key)
+            ? s
+            : { onboardingDismissed: [...s.onboardingDismissed, key] },
+        ),
 
       toggleSelectIssue: (id) =>
         set((s) => ({

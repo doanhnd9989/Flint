@@ -2,6 +2,33 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #35: "Try" onboarding section in the sidebar
+
+Built the onboarding / first-run experience (🟡). Soi'd Linear first via Chrome:
+it's **not** a separate "Get started" widget — it's a **"Try"** section at the
+bottom of the sidebar (same uppercase header style as Workspace / Your teams)
+with three action rows: **Import issues** (copy icon), **Invite people** (+),
+**Connect GitHub** (GitHub octocat). Hovering a row reveals a dismiss **×** on
+the right; dismissing/completing a step removes that row, and the section
+disappears once empty. Reproduced 1:1.
+
+- `Sidebar.tsx`: new `TryItem` (icon + label, click runs the action, hover-× via
+  `group/try` + `opacity-0 group-hover/try:opacity-100`) and a `GithubMark`
+  inline SVG (lucide dropped its brand `Github` icon). A `trySteps` array drives
+  the rows; each is filtered out when `done` (Invite people → `users.some(pending)`)
+  or its key is in `onboardingDismissed`. Section renders only when steps remain,
+  after the team sections. Rows route to `/settings` (where import & invite live).
+- `store.ts`: persisted `onboardingDismissed: string[]` (UIState) + a
+  `dismissOnboardingStep(key)` action. No merge backfill needed — initial state
+  already provides `[]`, so older persisted workspaces inherit it.
+- Verified live (localhost:5173) with Chrome side-by-side vs Linear: TRY section +
+  three rows match, hover-× appears and dismisses individually (Import issues →
+  gone), clicking a row navigates to Settings, no console errors. `npx tsc -b` +
+  `npm run build` green.
+
+Next (Discovered later): cycle burndown 🟡 (not observable — Cycles disabled in
+this workspace; bám known design), label groups 🟢, async/email export 🟢.
+
 ## 2026-06-17 — Loop #34: Set due date ⌘K sub-page
 
 Built the command-menu "Set due date" contextual sub-page (the TODO flagged in

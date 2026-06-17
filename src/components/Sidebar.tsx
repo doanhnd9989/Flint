@@ -13,9 +13,21 @@ import {
   IterationCw,
   Ticket,
   Map as MapIcon,
+  Copy,
+  Plus,
+  X,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useStoreShallow } from '@/lib/store'
+
+/** GitHub octocat mark (lucide dropped brand icons) — matches Linear's row. */
+function GithubMark({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" />
+    </svg>
+  )
+}
 import { Popover } from './ui/Popover'
 import { cn } from '@/lib/utils'
 
@@ -66,6 +78,46 @@ function Item({
   )
 }
 
+/** A "Try" onboarding row: leading icon + label, click runs the action, and a
+ *  dismiss × appears on hover (mirrors Linear's getting-started section). */
+function TryItem({
+  icon,
+  label,
+  onClick,
+  onDismiss,
+}: {
+  icon: ReactNode
+  label: string
+  onClick: () => void
+  onDismiss: () => void
+}) {
+  return (
+    <div className="group/try relative">
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-center gap-2 rounded-md px-2 py-1 pr-7 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors"
+      >
+        <span className="flex h-4 w-4 items-center justify-center text-faint">
+          {icon}
+        </span>
+        <span className="flex-1 truncate text-left">{label}</span>
+      </button>
+      <button
+        type="button"
+        title="Dismiss"
+        onClick={(e) => {
+          e.stopPropagation()
+          onDismiss()
+        }}
+        className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-faint opacity-0 hover:bg-bg-tertiary hover:text-fg group-hover/try:opacity-100"
+      >
+        <X size={13} />
+      </button>
+    </div>
+  )
+}
+
 function Section({
   title,
   children,
@@ -94,17 +146,58 @@ function Section({
 
 export function Sidebar() {
   const navigate = useNavigate()
-  const { workspaceName, teams, notifications, issues, projects, savedViews, favorites, setCreateOpen } =
-    useStoreShallow((s) => ({
-      workspaceName: s.workspaceName,
-      teams: s.teams,
-      notifications: s.notifications,
-      issues: s.issues,
-      projects: s.projects,
-      savedViews: s.savedViews,
-      favorites: s.favorites,
-      setCreateOpen: s.setCreateOpen,
-    }))
+  const {
+    workspaceName,
+    teams,
+    notifications,
+    issues,
+    projects,
+    savedViews,
+    favorites,
+    users,
+    onboardingDismissed,
+    setCreateOpen,
+    dismissOnboardingStep,
+  } = useStoreShallow((s) => ({
+    workspaceName: s.workspaceName,
+    teams: s.teams,
+    notifications: s.notifications,
+    issues: s.issues,
+    projects: s.projects,
+    savedViews: s.savedViews,
+    favorites: s.favorites,
+    users: s.users,
+    onboardingDismissed: s.onboardingDismissed,
+    setCreateOpen: s.setCreateOpen,
+    dismissOnboardingStep: s.dismissOnboardingStep,
+  }))
+
+  // Linear's "Try" getting-started section. Each step is hidden once the user
+  // dismisses it (×) or completes the underlying action; the section disappears
+  // when none remain.
+  const trySteps = [
+    {
+      key: 'import',
+      icon: <Copy size={15} />,
+      label: 'Import issues',
+      done: false,
+      action: () => navigate('/settings'),
+    },
+    {
+      key: 'invite',
+      icon: <Plus size={15} />,
+      label: 'Invite people',
+      done: users.some((u) => u.pending),
+      action: () => navigate('/settings'),
+    },
+    {
+      key: 'github',
+      icon: <GithubMark />,
+      label: 'Connect GitHub',
+      done: false,
+      action: () => navigate('/settings'),
+    },
+  ].filter((s) => !s.done && !onboardingDismissed.includes(s.key))
 
   const favoriteItems = favorites
     .map((f) => {
@@ -235,6 +328,20 @@ export function Sidebar() {
             />
           </Section>
         ))}
+
+        {trySteps.length > 0 && (
+          <Section title="Try">
+            {trySteps.map((s) => (
+              <TryItem
+                key={s.key}
+                icon={s.icon}
+                label={s.label}
+                onClick={s.action}
+                onDismiss={() => dismissOnboardingStep(s.key)}
+              />
+            ))}
+          </Section>
+        )}
       </div>
 
       <div className="border-t border-border px-2 py-2">
