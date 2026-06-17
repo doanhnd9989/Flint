@@ -2,6 +2,30 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #31: Empty states polish
+
+Replaced the ad-hoc "No issues" / "Nothing snoozed." text blocks with a
+consistent, Linear-faithful empty-state pattern (soiled Linear's real
+"My issues" and Inbox screens via Chrome first: centered monochrome line
+illustration → muted title → description → optional accent-pill action).
+
+- New `EmptyState.tsx`: an `EmptyState` component (`illustration`, `title`,
+  `description?`, `action?`, `hint?`) plus six dependency-free SVG line
+  illustrations drawn in `currentColor` at `text-faint` so theme applies —
+  `IssuesIllustration` (the isometric ring + chevrons + brackets, matching
+  Linear's), `InboxIllustration` (tray), `SearchIllustration` (magnifier),
+  `StackIllustration` (cards), `CycleIllustration`, `CheckIllustration`.
+- Wired in: `GroupedIssueList` (Issues + My Issues, via a new `empty` prop so
+  My Issues reads "No issues assigned to you" like the real app), `Inbox`
+  (Inbox + Snoozed tabs), `SearchView` (no-results), `CyclesView`,
+  `TriageView`, `ProjectsView` (added — was an empty grid), `ViewsView`.
+- Verified against the running dev server with Chrome: search no-results shows
+  the magnifier state, the Snoozed tab shows the tray (matches Linear's), no
+  console errors. `npx tsc -b` + `npm run build` green.
+
+Next: **Import / export** issues as JSON/CSV. _(Onboarding tour / first-run
+checklist noted in the backlog.)_
+
 ## 2026-06-17 — Loop #30: Command menu contextual actions
 
 ⌘K now acts on the issue you're viewing, matching Linear's command menu

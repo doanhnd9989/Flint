@@ -14,7 +14,15 @@ export function MyIssues() {
   return (
     <div className="flex h-full flex-col">
       <ViewHeader title="My Issues" />
-      <GroupedIssueList groups={groups} groupBy="status" />
+      <GroupedIssueList
+        groups={groups}
+        groupBy="status"
+        empty={{
+          title: 'No issues assigned to you',
+          description:
+            'Issues assigned to you will show up here. Create one to get started.',
+        }}
+      />
     </div>
   )
 }

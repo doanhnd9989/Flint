@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom'
 import { Check, X } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
+import { EmptyState, CheckIllustration } from '@/components/EmptyState'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
 import { Avatar } from '@/components/Avatar'
@@ -28,11 +29,11 @@ export function TriageView() {
       <ViewHeader title="Triage" teamName={team.name} teamIcon={team.icon} />
       <div className="flex-1 overflow-y-auto p-4">
         {queue.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-1 text-faint">
-            <Check size={28} className="text-[var(--status-review)]" />
-            <div className="text-[15px]">Triage is clear</div>
-            <div className="text-[12px]">New incoming issues will show up here.</div>
-          </div>
+          <EmptyState
+            illustration={<CheckIllustration />}
+            title="Triage is clear"
+            description="New issues that need triage will show up here. Nothing to review right now."
+          />
         ) : (
           <div className="mx-auto max-w-3xl space-y-3">
             {queue.map((issue) => {

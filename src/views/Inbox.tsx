@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCheck, Clock, X, Settings2, AlarmClock } from 'lucide-react'
+import { EmptyState, InboxIllustration } from '@/components/EmptyState'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
@@ -110,9 +111,15 @@ export function Inbox() {
 
       <div className="flex-1 overflow-y-auto">
         {list.length === 0 && (
-          <div className="flex h-full items-center justify-center text-faint">
-            {tab === 'snoozed' ? 'Nothing snoozed.' : "You're all caught up."}
-          </div>
+          <EmptyState
+            illustration={<InboxIllustration />}
+            title={tab === 'snoozed' ? 'Nothing snoozed' : 'Inbox'}
+            description={
+              tab === 'snoozed'
+                ? 'Snoozed notifications will reappear here when they return.'
+                : "You're all caught up. New notifications will show up here."
+            }
+          />
         )}
         {list.map((n) => {
           const actor = store.users.find((u) => u.id === n.actorId)

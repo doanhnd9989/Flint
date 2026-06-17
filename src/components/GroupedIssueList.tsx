@@ -25,6 +25,7 @@ import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { cn } from '@/lib/utils'
+import { EmptyState, IssuesIllustration } from './EmptyState'
 
 function GroupGlyph({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy }) {
   const states = useStore((s) => s.states)
@@ -72,11 +73,14 @@ export function GroupedIssueList({
   groups,
   groupBy,
   onReorder,
+  empty,
 }: {
   groups: IssueGroup[]
   groupBy: GroupBy
   /** Enables drag-to-reorder within a group. Receives the new sortOrder. */
   onReorder?: (issueId: string, sortOrder: number) => void
+  /** Customizes the empty state shown when no group has any issue. */
+  empty?: { title?: string; description?: string }
 }) {
   const setCreateOpen = useStore((s) => s.setCreateOpen)
   const selectedIssueIds = useStore((s) => s.selectedIssueIds)
@@ -112,16 +116,15 @@ export function GroupedIssueList({
 
   if (groups.every((g) => g.count === 0)) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-faint">
-        <div className="text-[15px]">No issues</div>
-        <button
-          type="button"
-          onClick={() => setCreateOpen(true)}
-          className="rounded-md bg-accent px-3 py-1.5 text-[13px] text-white hover:bg-accent-hover"
-        >
-          Create issue
-        </button>
-      </div>
+      <EmptyState
+        illustration={<IssuesIllustration />}
+        title={empty?.title ?? 'No issues'}
+        description={
+          empty?.description ??
+          'Create a new issue to start tracking work for your team.'
+        }
+        action={{ label: 'Create new issue', onClick: () => setCreateOpen(true) }}
+      />
     )
   }
 

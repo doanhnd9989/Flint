@@ -52,7 +52,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟢 **Activity types** — every change kind (status/priority/assignee/label/project/milestone/estimate/due/title) is logged with `from`/`to` and rendered as a Linear-style sentence with glyph/chip diffs in a new `ActivityItem` component.
 - [x] 🟢 **Git branch name** copy + "Copy issue URL", more issue context actions — `branchName()` (Linear's `handle/cla-123-title-slug`, handle from email local-part) + `issueUrl()` helpers; context-menu rows (Copy issue ID / URL / git branch name) and header buttons on the issue detail + peek. _(Toast feedback on copy still TODO.)_
 - [x] 🟢 **Command menu contextual actions** — when viewing an issue (detail route or peek), ⌘K shows an issue-context chip + contextual commands (Assign to…, Assign to me, Change status…, Set priority…, Add to project…, Add labels…, Copy ID/URL/branch) that drill into searchable sub-pages with a check on the current value; Esc/Backspace pops back. _(Set due date sub-page still TODO — it needs the calendar UI.)_
-- [ ] 🟢 **Empty states & onboarding** polish to match Linear.
+- [x] 🟢 **Empty states & onboarding** polish to match Linear — a reusable `EmptyState` component (centered line-art illustration + muted title + description + optional accent-pill action) with six monochrome SVG illustrations (issues ring, inbox tray, magnifier, card stack, cycle, checkmark), wired into the issue list / My Issues / Inbox (inbox + snoozed) / Search no-results / Cycles / Triage / Projects / Views. _(Onboarding tour / first-run checklist still TODO.)_
 - [ ] 🟢 **Import / export** issues as JSON/CSV.
 
 ## Discovered later

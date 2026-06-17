@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Layers, Trash2 } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
+import { EmptyState, StackIllustration } from '@/components/EmptyState'
 
 export function ViewsView() {
   const navigate = useNavigate()
@@ -14,9 +15,11 @@ export function ViewsView() {
       <ViewHeader title="Views" />
       <div className="flex-1 overflow-y-auto p-4">
         {savedViews.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-faint">
-            No saved views yet. Save one from the Issues view's Display menu.
-          </div>
+          <EmptyState
+            illustration={<StackIllustration />}
+            title="No saved views yet"
+            description="Save a custom set of filters and grouping from the Issues view to reuse it here."
+          />
         ) : (
           <div className="space-y-1">
             {savedViews.map((v) => (

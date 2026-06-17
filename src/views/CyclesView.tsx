@@ -10,6 +10,7 @@ import {
 } from '@/lib/selectors'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { ViewHeader } from '@/components/ViewHeader'
+import { EmptyState, CycleIllustration } from '@/components/EmptyState'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
@@ -53,9 +54,11 @@ export function CyclesView() {
     return (
       <div className="flex h-full flex-col">
         <ViewHeader title="Cycles" teamName={team.name} teamIcon={team.icon} />
-        <div className="flex flex-1 items-center justify-center text-faint">
-          No cycles for this team yet.
-        </div>
+        <EmptyState
+          illustration={<CycleIllustration />}
+          title="No cycles for this team yet"
+          description="Cycles are time-boxed sprints. Enable them to plan work in regular intervals."
+        />
       </div>
     )
   }

@@ -6,6 +6,7 @@ import { filterIssues } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
 import { FilterBar, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
 import { projectProgress } from '@/lib/selectors'
+import { EmptyState, SearchIllustration } from '@/components/EmptyState'
 
 export function SearchView() {
   const navigate = useNavigate()
@@ -100,9 +101,12 @@ export function SearchView() {
         ) : (
           <div>
             {issueResults.length === 0 && projectResults.length === 0 ? (
-              <div className="mt-10 text-center text-[13px] text-faint">
-                No results for “{query}”.
-              </div>
+              <EmptyState
+                className="mt-10"
+                illustration={<SearchIllustration />}
+                title={`No results for “${query}”`}
+                description="Try a different search term, or check your spelling."
+              />
             ) : (
               <>
                 {projectResults.length > 0 && (

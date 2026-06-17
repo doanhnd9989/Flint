@@ -3,6 +3,7 @@ import { useStore, useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { projectProgress } from '@/lib/selectors'
 import { Avatar } from '@/components/Avatar'
+import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { formatDate } from '@/lib/utils'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -28,6 +29,13 @@ export function ProjectsView() {
     <div className="flex h-full flex-col">
       <ViewHeader title="Projects" />
       <div className="flex-1 overflow-y-auto p-4">
+        {projects.length === 0 ? (
+          <EmptyState
+            illustration={<StackIllustration />}
+            title="No projects yet"
+            description="Projects organize issues toward a larger goal, like a feature launch or a roadmap milestone."
+          />
+        ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {projects.map((p) => {
             const prog = projectProgress(p.id, issues, data)
@@ -75,6 +83,7 @@ export function ProjectsView() {
             )
           })}
         </div>
+        )}
       </div>
     </div>
   )
