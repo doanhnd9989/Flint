@@ -50,7 +50,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟢 **Members & roles** — the Settings Members card has a per-member role selector (admin/member/guest, your own locked), remove (not yourself), and a mock invite form that derives a name from the email and adds a Pending member. `User.role` backfilled via the persist merge.
 - [x] 🟢 **Notification detail** — Inbox/Snoozed tabs, per-notification snooze (1h / tomorrow / next week) + unsnooze, delete, mark-read-on-open, and a per-type preferences popover; the sidebar badge excludes snoozed.
 - [x] 🟢 **Activity types** — every change kind (status/priority/assignee/label/project/milestone/estimate/due/title) is logged with `from`/`to` and rendered as a Linear-style sentence with glyph/chip diffs in a new `ActivityItem` component.
-- [ ] 🟢 **Git branch name** copy + "Copy issue URL", more issue context actions.
+- [x] 🟢 **Git branch name** copy + "Copy issue URL", more issue context actions — `branchName()` (Linear's `handle/cla-123-title-slug`, handle from email local-part) + `issueUrl()` helpers; context-menu rows (Copy issue ID / URL / git branch name) and header buttons on the issue detail + peek. _(Toast feedback on copy still TODO.)_
 - [ ] 🟢 **Command menu contextual actions** — when viewing an issue, ⌘K offers status/assignee/label/priority for it.
 - [ ] 🟢 **Empty states & onboarding** polish to match Linear.
 - [ ] 🟢 **Import / export** issues as JSON/CSV.

@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { IssueDetailBody } from './IssueDetailBody'
-import { X, Maximize2, Trash2, Link2 } from 'lucide-react'
+import { branchName, issueUrl } from '@/lib/utils'
+import { X, Maximize2, Trash2, Link2, GitBranch } from 'lucide-react'
 
 /** Linear-style "peek": opens an issue in a right-side panel over the list. */
 export function IssuePeek() {
@@ -51,8 +52,19 @@ export function IssuePeek() {
           <span className="font-mono text-faint">{issue.identifier}</span>
           <div className="flex-1" />
           <button
-            title="Copy link"
-            onClick={() => navigator.clipboard?.writeText(issue.identifier)}
+            title="Copy git branch name"
+            onClick={() =>
+              navigator.clipboard?.writeText(
+                branchName(issue.identifier, issue.title, store.users.find((u) => u.isMe)),
+              )
+            }
+            className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover"
+          >
+            <GitBranch size={15} />
+          </button>
+          <button
+            title="Copy issue URL"
+            onClick={() => navigator.clipboard?.writeText(issueUrl(issue.identifier))}
             className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover"
           >
             <Link2 size={15} />

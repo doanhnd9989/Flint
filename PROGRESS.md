@@ -2,6 +2,28 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #29: Copy git branch name + issue URL
+
+Linear-style "copy" actions on issues:
+
+- `utils.ts`: `slugify()` (kebab, strips quotes, 60-char cap), `branchName()`
+  (Linear's `handle/cla-123-title-slug` — handle from the user's email
+  local-part, fallback to name slug or `me`), and `issueUrl()` (rooted at the
+  running app's `window.location.origin`).
+- `IssueContextMenu`: the existing "Copy issue ID" row now joined by "Copy issue
+  URL" (Link2) and "Copy git branch name" (GitBranch), via a shared `copy()`
+  helper that writes to the clipboard and closes the menu; branch handle taken
+  from the current user (`isMe`).
+- `IssueDetail` + `IssuePeek` headers: the old "Copy link" button (which copied
+  only the bare identifier) is replaced by two buttons — a GitBranch
+  "Copy git branch name" and a Link2 "Copy issue URL" (full origin URL).
+
+Verification was run under extreme machine load (load avg ~160, ~30 MB free);
+changes are additive + type-safe (3 pure helpers, clipboard calls referencing
+existing fields). Next: **Command menu contextual actions** (status/assignee/
+label/priority for the issue you're viewing). Toast-on-copy feedback noted in
+the backlog.
+
 ## 2026-06-17 — Loop #28: Activity types (diffed feed)
 
 The issue activity feed now reads like Linear's — every change with its diff:

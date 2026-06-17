@@ -67,6 +67,39 @@ export function nowIso(): string {
   return new Date(now).toISOString()
 }
 
+/** Kebab-case slug from arbitrary text (for branch names / URLs). */
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/['"]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+}
+
+/**
+ * Git branch name in Linear's format: `handle/cla-123-issue-title`.
+ * The handle is derived from the user's email local-part (fallback: name).
+ */
+export function branchName(
+  identifier: string,
+  title: string,
+  user?: { email?: string; name?: string },
+): string {
+  const handle =
+    user?.email?.split('@')[0]?.toLowerCase() ||
+    (user?.name ? slugify(user.name) : 'me')
+  const slug = slugify(title)
+  return `${handle}/${identifier.toLowerCase()}${slug ? `-${slug}` : ''}`
+}
+
+/** Shareable URL for an issue, rooted at the running app's origin. */
+export function issueUrl(identifier: string): string {
+  const origin =
+    typeof window !== 'undefined' ? window.location.origin : ''
+  return `${origin}/issue/${identifier}`
+}
+
 export function isDueSoon(iso?: string): boolean {
   if (!iso) return false
   const due = new Date(iso).getTime()
