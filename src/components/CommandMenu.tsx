@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Search,
   PlusCircle,
@@ -13,11 +13,27 @@ import {
   Monitor,
   Keyboard,
   Map,
+  User,
+  Tag,
+  FolderPlus,
+  Copy,
+  Link2,
+  GitBranch,
+  Check,
+  X,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { StatusIcon } from './StatusIcon'
-import { cn } from '@/lib/utils'
+import { PriorityIcon } from './PriorityIcon'
+import { Avatar } from './Avatar'
+import { LabelDot } from './LabelChip'
+import { PRIORITY_LABELS, PRIORITY_ORDER, STATUS_TYPE_ORDER } from '@/lib/constants'
+import { branchName, cn, issueUrl } from '@/lib/utils'
+import type { Priority } from '@/lib/types'
 import type { ReactNode } from 'react'
+
+/** A sub-page the menu can drill into for the issue currently in context. */
+type Page = 'status' | 'priority' | 'assignee' | 'project' | 'label'
 
 interface Command {
   id: string
@@ -25,25 +41,224 @@ interface Command {
   icon: ReactNode
   hint?: string
   keywords?: string
-  run: () => void
+  selected?: boolean
+  /** Drill into a sub-page instead of running + closing. */
+  goPage?: Page
+  /** Keep the menu open after running (e.g. toggling labels). */
+  keepOpen?: boolean
+  run?: () => void
+}
+
+const PAGE_PLACEHOLDER: Record<Page, string> = {
+  status: 'Change status…',
+  priority: 'Set priority…',
+  assignee: 'Assign to…',
+  project: 'Add to project…',
+  label: 'Add labels…',
 }
 
 export function CommandMenu() {
   const navigate = useNavigate()
+  const location = useLocation()
   const store = useStore()
   const open = store.commandOpen
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
+  const [page, setPage] = useState<Page | null>(null)
+  /** When the user dismisses the issue-context chip, fall back to global commands. */
+  const [noCtx, setNoCtx] = useState(false)
 
   useEffect(() => {
     if (open) {
       setQuery('')
       setActive(0)
+      setPage(null)
+      setNoCtx(false)
     }
   }, [open])
 
+  // The issue currently being viewed — the peek panel takes precedence, else the
+  // /issue/:identifier route. This is what ⌘K offers contextual actions for.
+  const currentIssue = useMemo(() => {
+    if (noCtx) return undefined
+    if (store.peekIssueId) return store.issues.find((i) => i.id === store.peekIssueId)
+    const m = location.pathname.match(/^\/issue\/([^/]+)/)
+    if (m) {
+      const id = decodeURIComponent(m[1])
+      return store.issues.find((i) => i.identifier === id)
+    }
+    return undefined
+  }, [noCtx, store.peekIssueId, store.issues, location.pathname])
+
+  const me = store.users.find((u) => u.isMe)
+
   const commands = useMemo<Command[]>(() => {
     const team = store.teams[0]
+
+    // —— Sub-page: options for one property of the current issue ——
+    if (page && currentIssue) {
+      const issue = currentIssue
+      if (page === 'status') {
+        return [...store.states]
+          .sort(
+            (a, b) =>
+              STATUS_TYPE_ORDER[a.type] - STATUS_TYPE_ORDER[b.type] ||
+              a.position - b.position,
+          )
+          .map((st) => ({
+            id: `st-${st.id}`,
+            label: st.name,
+            icon: <StatusIcon type={st.type} color={st.color} />,
+            keywords: st.name,
+            selected: st.id === issue.stateId,
+            run: () => store.setIssueStatus(issue.id, st.id),
+          }))
+      }
+      if (page === 'priority') {
+        return PRIORITY_ORDER.map((p) => ({
+          id: `pr-${p}`,
+          label: PRIORITY_LABELS[p],
+          icon: <PriorityIcon priority={p} />,
+          keywords: PRIORITY_LABELS[p],
+          selected: p === issue.priority,
+          run: () => store.setIssuePriority(issue.id, p as Priority),
+        }))
+      }
+      if (page === 'assignee') {
+        return [
+          {
+            id: 'as-none',
+            label: 'No assignee',
+            icon: <Avatar />,
+            keywords: 'unassigned none',
+            selected: !issue.assigneeId,
+            run: () => store.setIssueAssignee(issue.id, undefined),
+          },
+          ...store.users.map((u) => ({
+            id: `as-${u.id}`,
+            label: u.name,
+            icon: <Avatar user={u} />,
+            keywords: u.name,
+            selected: u.id === issue.assigneeId,
+            run: () => store.setIssueAssignee(issue.id, u.id),
+          })),
+        ]
+      }
+      if (page === 'project') {
+        return [
+          {
+            id: 'pj-none',
+            label: 'No project',
+            icon: <span className="text-faint">○</span>,
+            keywords: 'no project none',
+            selected: !issue.projectId,
+            run: () => store.setIssueProject(issue.id, undefined),
+          },
+          ...store.projects.map((p) => ({
+            id: `pj-${p.id}`,
+            label: p.name,
+            icon: <span>{p.icon}</span>,
+            keywords: p.name,
+            selected: p.id === issue.projectId,
+            run: () => store.setIssueProject(issue.id, p.id),
+          })),
+        ]
+      }
+      // label
+      return store.labels.map((l) => ({
+        id: `lb-${l.id}`,
+        label: l.name,
+        icon: <LabelDot color={l.color} />,
+        keywords: l.name,
+        selected: issue.labelIds.includes(l.id),
+        keepOpen: true,
+        run: () => store.toggleIssueLabel(issue.id, l.id),
+      }))
+    }
+
+    // —— Root page ——
+    const contextual: Command[] = currentIssue
+      ? (() => {
+          const issue = currentIssue
+          const st = store.states.find((s) => s.id === issue.stateId)!
+          return [
+            {
+              id: 'ctx-assign',
+              label: 'Assign to…',
+              icon: <User size={15} />,
+              hint: 'A',
+              keywords: 'assign assignee',
+              goPage: 'assignee' as Page,
+            },
+            {
+              id: 'ctx-assign-me',
+              label: 'Assign to me',
+              icon: <Avatar user={me} size={16} />,
+              hint: 'I',
+              keywords: 'assign me self',
+              run: () => store.setIssueAssignee(issue.id, me?.id),
+            },
+            {
+              id: 'ctx-status',
+              label: 'Change status…',
+              icon: <StatusIcon type={st.type} color={st.color} />,
+              hint: 'S',
+              keywords: 'status change state',
+              goPage: 'status' as Page,
+            },
+            {
+              id: 'ctx-priority',
+              label: 'Set priority…',
+              icon: <PriorityIcon priority={issue.priority} />,
+              hint: 'P',
+              keywords: 'priority',
+              goPage: 'priority' as Page,
+            },
+            {
+              id: 'ctx-project',
+              label: 'Add to project…',
+              icon: <FolderPlus size={15} />,
+              hint: '⇧ P',
+              keywords: 'project add to',
+              goPage: 'project' as Page,
+            },
+            {
+              id: 'ctx-label',
+              label: 'Add labels…',
+              icon: <Tag size={15} />,
+              hint: 'L',
+              keywords: 'label labels add',
+              goPage: 'label' as Page,
+            },
+            {
+              id: 'ctx-copy-id',
+              label: 'Copy issue ID',
+              icon: <Copy size={15} />,
+              hint: '⌘ .',
+              keywords: 'copy id identifier',
+              run: () => navigator.clipboard?.writeText(issue.identifier),
+            },
+            {
+              id: 'ctx-copy-url',
+              label: 'Copy issue URL',
+              icon: <Link2 size={15} />,
+              keywords: 'copy url link',
+              run: () => navigator.clipboard?.writeText(issueUrl(issue.identifier)),
+            },
+            {
+              id: 'ctx-copy-branch',
+              label: 'Copy git branch name',
+              icon: <GitBranch size={15} />,
+              keywords: 'copy git branch name',
+              run: () =>
+                navigator.clipboard?.writeText(
+                  branchName(issue.identifier, issue.title, me),
+                ),
+            },
+          ]
+        })()
+      : []
+
     const base: Command[] = [
       {
         id: 'new-issue',
@@ -145,11 +360,11 @@ export function CommandMenu() {
       }
     })
 
-    return [...base, ...issueCommands]
-  }, [store, navigate])
+    return [...contextual, ...base, ...issueCommands]
+  }, [store, navigate, page, currentIssue, me])
 
   const filtered = useMemo(() => {
-    if (!query) return commands.slice(0, 8)
+    if (!query) return page ? commands : commands.slice(0, 8)
     const q = query.toLowerCase()
     return commands
       .filter(
@@ -158,18 +373,38 @@ export function CommandMenu() {
           (c.keywords ?? '').toLowerCase().includes(q),
       )
       .slice(0, 40)
-  }, [commands, query])
+  }, [commands, query, page])
 
   useEffect(() => {
     setActive(0)
-  }, [query])
+  }, [query, page])
 
   if (!open) return null
 
   function exec(c: Command) {
-    c.run()
-    store.setCommandOpen(false)
+    if (c.goPage) {
+      setPage(c.goPage)
+      setQuery('')
+      setActive(0)
+      return
+    }
+    c.run?.()
+    if (!c.keepOpen) store.setCommandOpen(false)
   }
+
+  /** Pop a sub-page, or clear the issue context, or close. */
+  function back() {
+    if (page) {
+      setPage(null)
+      setQuery('')
+    } else if (currentIssue) {
+      setNoCtx(true)
+    } else {
+      store.setCommandOpen(false)
+    }
+  }
+
+  const placeholder = page ? PAGE_PLACEHOLDER[page] : 'Type a command or search…'
 
   return createPortal(
     <div
@@ -190,17 +425,36 @@ export function CommandMenu() {
             e.preventDefault()
             if (filtered[active]) exec(filtered[active])
           } else if (e.key === 'Escape') {
-            store.setCommandOpen(false)
+            e.preventDefault()
+            if (page) back()
+            else store.setCommandOpen(false)
+          } else if (e.key === 'Backspace' && query === '' && (page || currentIssue)) {
+            e.preventDefault()
+            back()
           }
         }}
       >
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
           <Search size={16} className="text-faint" />
+          {currentIssue && (
+            <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-bg-hover py-1 pl-2 pr-1 text-[12px] text-fg">
+              <span className="font-medium text-muted">{currentIssue.identifier}</span>
+              <span className="max-w-40 truncate text-muted">{currentIssue.title}</span>
+              <button
+                type="button"
+                onClick={back}
+                className="flex h-4 w-4 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
+                aria-label="Remove issue context"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          )}
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Type a command or search…"
+            placeholder={placeholder}
             className="flex-1 bg-transparent text-[14px] text-fg outline-none"
           />
         </div>
@@ -224,8 +478,12 @@ export function CommandMenu() {
                 {c.icon}
               </span>
               <span className="flex-1 truncate">{c.label}</span>
-              {c.hint && (
-                <span className="font-mono text-[11px] text-faint">{c.hint}</span>
+              {c.selected ? (
+                <Check size={14} className="text-fg" />
+              ) : (
+                c.hint && (
+                  <span className="font-mono text-[11px] text-faint">{c.hint}</span>
+                )
               )}
             </button>
           ))}

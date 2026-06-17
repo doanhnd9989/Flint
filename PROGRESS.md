@@ -2,6 +2,31 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #30: Command menu contextual actions
+
+⌘K now acts on the issue you're viewing, matching Linear's command menu
+(verified against the real app — opened CLA-1, ⌘K, observed the contextual list
+and the "Change status…" sub-page with its checkmark on the current status).
+
+- `CommandMenu.tsx`: detects the **current issue** from `peekIssueId` (peek
+  takes precedence) or the `/issue/:identifier` route. When one is in context,
+  the search bar shows a Linear-style chip (`CLA-1 · Title ⊗`) and the list is
+  led by contextual commands: **Assign to…** (A), **Assign to me** (I),
+  **Change status…** (S), **Set priority…** (P), **Add to project…** (⇧P),
+  **Add labels…** (L), and **Copy issue ID / URL / git branch name** — same
+  order/labels/hints as Linear.
+- Sub-pages: the `…` commands drill into a searchable option list (`page` state)
+  with the placeholder set to the command name and a check on the current value;
+  picking a value calls the matching store action. Labels `keepOpen` so you can
+  toggle several. `Escape`/`Backspace`-on-empty pops back to the root, and a
+  second pop (or the chip's ⊗) clears the issue context to the global commands.
+- Reuses the existing store mutations (`setIssueStatus`/`setIssuePriority`/
+  `setIssueAssignee`/`setIssueProject`/`toggleIssueLabel`) and the same
+  sort/ordering helpers the property pickers use.
+
+Next: **Empty states & onboarding** polish. _(Set due date sub-page noted in the
+backlog — it needs the calendar popover, not a flat list.)_
+
 ## 2026-06-17 — Loop #29: Copy git branch name + issue URL
 
 Linear-style "copy" actions on issues:

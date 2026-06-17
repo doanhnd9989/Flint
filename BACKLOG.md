@@ -51,7 +51,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟢 **Notification detail** — Inbox/Snoozed tabs, per-notification snooze (1h / tomorrow / next week) + unsnooze, delete, mark-read-on-open, and a per-type preferences popover; the sidebar badge excludes snoozed.
 - [x] 🟢 **Activity types** — every change kind (status/priority/assignee/label/project/milestone/estimate/due/title) is logged with `from`/`to` and rendered as a Linear-style sentence with glyph/chip diffs in a new `ActivityItem` component.
 - [x] 🟢 **Git branch name** copy + "Copy issue URL", more issue context actions — `branchName()` (Linear's `handle/cla-123-title-slug`, handle from email local-part) + `issueUrl()` helpers; context-menu rows (Copy issue ID / URL / git branch name) and header buttons on the issue detail + peek. _(Toast feedback on copy still TODO.)_
-- [ ] 🟢 **Command menu contextual actions** — when viewing an issue, ⌘K offers status/assignee/label/priority for it.
+- [x] 🟢 **Command menu contextual actions** — when viewing an issue (detail route or peek), ⌘K shows an issue-context chip + contextual commands (Assign to…, Assign to me, Change status…, Set priority…, Add to project…, Add labels…, Copy ID/URL/branch) that drill into searchable sub-pages with a check on the current value; Esc/Backspace pops back. _(Set due date sub-page still TODO — it needs the calendar UI.)_
 - [ ] 🟢 **Empty states & onboarding** polish to match Linear.
 - [ ] 🟢 **Import / export** issues as JSON/CSV.
 
