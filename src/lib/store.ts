@@ -28,6 +28,8 @@ interface UIState {
   sidebarCollapsed: boolean
   commandOpen: boolean
   createOpen: boolean
+  /** Keyboard-shortcuts help overlay (transient). */
+  helpOpen: boolean
   /** Issue currently shown in the right-side peek panel (transient). */
   peekIssueId: string | null
   /** Issues selected for bulk actions (transient). */
@@ -106,6 +108,7 @@ export interface Store extends WorkspaceData, UIState {
   toggleSidebar: () => void
   setCommandOpen: (open: boolean) => void
   setCreateOpen: (open: boolean) => void
+  setHelpOpen: (open: boolean) => void
   setPeek: (id: string | null) => void
   addRecentSearch: (q: string) => void
   clearRecentSearches: () => void
@@ -157,6 +160,7 @@ export const useStore = create<Store>()(
       sidebarCollapsed: false,
       commandOpen: false,
       createOpen: false,
+      helpOpen: false,
       peekIssueId: null,
       selectedIssueIds: [],
       contextMenu: null,
@@ -574,6 +578,7 @@ export const useStore = create<Store>()(
         set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setCommandOpen: (commandOpen) => set({ commandOpen }),
       setCreateOpen: (createOpen) => set({ createOpen }),
+      setHelpOpen: (helpOpen) => set({ helpOpen }),
       setPeek: (peekIssueId) => set({ peekIssueId }),
 
       addRecentSearch: (q) =>
@@ -678,6 +683,7 @@ export const useStore = create<Store>()(
         const {
           commandOpen: _c,
           createOpen: _cr,
+          helpOpen: _h,
           peekIssueId: _p,
           selectedIssueIds: _sel,
           contextMenu: _cm,
@@ -685,6 +691,7 @@ export const useStore = create<Store>()(
         } = s
         void _c
         void _cr
+        void _h
         void _p
         void _sel
         void _cm

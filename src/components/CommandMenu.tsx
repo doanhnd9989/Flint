@@ -11,6 +11,7 @@ import {
   Moon,
   Sun,
   Monitor,
+  Keyboard,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { StatusIcon } from './StatusIcon'
@@ -92,6 +93,14 @@ export function CommandMenu() {
         icon: <Settings size={15} />,
         keywords: 'settings preferences',
         run: () => navigate('/settings'),
+      },
+      {
+        id: 'help',
+        label: 'Keyboard shortcuts',
+        icon: <Keyboard size={15} />,
+        hint: '?',
+        keywords: 'help shortcuts keyboard',
+        run: () => store.setHelpOpen(true),
       },
       {
         id: 'theme-light',

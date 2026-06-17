@@ -2,6 +2,24 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #19: Keyboard shortcuts help + G-chords
+
+Discoverable shortcuts, Linear-style:
+
+- New `components/HelpOverlay.tsx`: a `?`-triggered modal listing shortcuts in
+  Navigation / General / Issues groups with `<kbd>` styling. Transient `helpOpen`
+  state in the store.
+- `useShortcuts`: added `?` (help) and `G`-prefixed navigation chords with a
+  1.2s window — G→I/M/B/C/T/P/V/S jump to Inbox/My Issues/Issues/Cycles/Triage/
+  Projects/Views/Search. ⌘K and C unchanged.
+- `CommandMenu`: a "Keyboard shortcuts" command (hint `?`).
+- Verified live: `?` opened the help modal; G→P then G→S navigated to Projects
+  then Search. (A one-off hooks-order warning was an HMR artifact from adding
+  refs to useShortcuts; clean after reload.) `tsc` ✅ · build ✅ · clean console.
+
+Next: **Project milestones** with progress; group project issues by milestone.
+
+
 ## 2026-06-17 — Loop #18: Manual drag-to-reorder in lists
 
 Reorder issues within a status group by dragging, Linear-style:

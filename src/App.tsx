@@ -13,6 +13,7 @@ import { CreateIssueModal } from '@/components/CreateIssueModal'
 import { IssuePeek } from '@/components/IssuePeek'
 import { BulkActionBar } from '@/components/BulkActionBar'
 import { IssueContextMenu } from '@/components/IssueContextMenu'
+import { HelpOverlay } from '@/components/HelpOverlay'
 import { useThemeEffect } from '@/lib/useTheme'
 import { useShortcuts } from '@/lib/useShortcuts'
 import { useStore } from '@/lib/store'
@@ -48,6 +49,7 @@ function Shell() {
       <IssuePeek />
       <BulkActionBar />
       <IssueContextMenu />
+      <HelpOverlay />
     </div>
   )
 }
