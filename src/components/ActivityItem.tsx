@@ -6,7 +6,7 @@ import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { PRIORITY_LABELS } from '@/lib/constants'
 import { formatFullDate, timeAgo } from '@/lib/utils'
-import { Flag } from 'lucide-react'
+import { Flag, IterationCw } from 'lucide-react'
 
 /** A small inline value chip used inside an activity line. */
 function Pill({ children }: { children: React.ReactNode }) {
@@ -73,6 +73,15 @@ export function ActivityItem({ activity }: { activity: Activity }) {
       <Pill>
         <Flag size={12} />
         {m?.name ?? 'milestone'}
+      </Pill>
+    )
+  }
+  const cyclePill = (id?: string) => {
+    const c = store.cycles.find((x) => x.id === id)
+    return (
+      <Pill>
+        <IterationCw size={12} />
+        {c ? c.name ?? `Cycle ${c.number}` : 'cycle'}
       </Pill>
     )
   }
@@ -157,6 +166,19 @@ export function ActivityItem({ activity }: { activity: Activity }) {
         </>
       ) : (
         <span>removed the milestone</span>
+      )
+      break
+    case 'cycle':
+      body = a.to ? (
+        <>
+          <span>added to cycle</span>
+          {cyclePill(a.to)}
+        </>
+      ) : (
+        <>
+          <span>removed from cycle</span>
+          {cyclePill(a.from)}
+        </>
       )
       break
     case 'estimate':

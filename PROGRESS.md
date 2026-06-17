@@ -2,6 +2,33 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #46: Cycle property picker on issues
+
+The `Issue.cycleId` data model has existed since the Cycles loop, but there was
+no way to set a cycle on an individual issue — only the create-modal could pass
+one. Soi'd Linear's issue right-hand **Properties** group (workspace "Claude Test
+App"): `Status · Priority · Assignee · **Cycle** · Estimate · Due date`. The
+Cycle row shows the cycle/iteration glyph + `Cycle N` (or "No cycle"), and its
+picker lists the team's cycles with a right-aligned status hint. Reproduced 1:1:
+
+- **Store**: `setIssueCycle(id, cycleId?)` — mirrors `setIssueMilestone`,
+  no-ops on unchanged, bumps `updatedAt`, logs a `cycle` activity.
+- **Activity**: new `'cycle'` `ActivityKind`; `ActivityItem` renders it as
+  "added to cycle {pill}" / "removed from cycle {pill}" with an `IterationCw`
+  pill (`cyclePill` resolves `Cycle N` / custom name).
+- **`IssueDetailBody`**: a `Cycle` `PropRow` (after Assignee, before Estimate)
+  with a `SelectMenu` — options are the team's cycles sorted by number, each
+  with a hint of **Active** / **Upcoming** / past date-range (via `cycleState`),
+  plus a "No cycle" entry; trigger shows the `IterationCw` icon + label. The row
+  is hidden when the team has no cycles (matches Linear hiding it when cycles are
+  off). Shared by the full-page detail and the peek panel.
+- Verified live (Chrome, localhost:5173): CLA-1's Cycle read "No cycle"; the
+  picker listed **Cycle 1 · Active** and **Cycle 2 · Upcoming** with the check on
+  "No cycle"; selecting Cycle 1 updated the property to "Cycle 1" and the feed
+  logged "You added to cycle 🔄 Cycle 1 · now". `npx tsc -b` + `npm run build`
+  green; no console errors. _(CreateIssueModal cycle field + a Cycle column in
+  the list display-properties still TODO.)_
+
 ## 2026-06-17 — Loop #45: Per-row property hotkeys (s / p / a / l)
 
 Prior loops left "per-row property hotkeys s/p/a/l still TODO — they need an

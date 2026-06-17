@@ -149,6 +149,7 @@ export type ActivityKind =
   | 'label'
   | 'project'
   | 'milestone'
+  | 'cycle'
   | 'title'
   | 'estimate'
   | 'dueDate'

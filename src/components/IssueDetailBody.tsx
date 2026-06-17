@@ -21,10 +21,25 @@ import { CommentReactions } from './CommentReactions'
 import { ActivityItem } from './ActivityItem'
 import { DatePicker } from './DatePicker'
 import { Markdown } from '@/lib/markdown'
-import { subIssueProgress } from '@/lib/selectors'
+import { subIssueProgress, cycleState } from '@/lib/selectors'
 import { PRIORITY_LABELS, ESTIMATE_SCALE } from '@/lib/constants'
-import { cn, formatFullDate, isDueSoon, isOverdue, timeAgo } from '@/lib/utils'
-import { GitBranch, CornerLeftUp, Calendar, Flag, Bell, BellOff } from 'lucide-react'
+import {
+  cn,
+  formatDate,
+  formatFullDate,
+  isDueSoon,
+  isOverdue,
+  timeAgo,
+} from '@/lib/utils'
+import {
+  GitBranch,
+  CornerLeftUp,
+  Calendar,
+  Flag,
+  IterationCw,
+  Bell,
+  BellOff,
+} from 'lucide-react'
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -65,6 +80,10 @@ export function IssueDetailBody({
     ? store.milestones.filter((m) => m.projectId === issue.projectId)
     : []
   const milestone = store.milestones.find((m) => m.id === issue.milestoneId)
+  const teamCycles = store.cycles
+    .filter((c) => c.teamId === issue.teamId)
+    .sort((a, b) => a.number - b.number)
+  const cycle = store.cycles.find((c) => c.id === issue.cycleId)
   const issueLabels = issue.labelIds
     .map((id) => store.labels.find((l) => l.id === id))
     .filter(Boolean)
@@ -287,6 +306,43 @@ export function IssueDetailBody({
               }
             />
           </PropRow>
+          {teamCycles.length > 0 && (
+            <PropRow label="Cycle">
+              <SelectMenu
+                options={[
+                  { id: '__none', label: 'No cycle', selected: !issue.cycleId },
+                  ...teamCycles.map((c) => {
+                    const cs = cycleState(c.startsAt, c.endsAt, Date.now())
+                    return {
+                      id: c.id,
+                      label: c.name ?? `Cycle ${c.number}`,
+                      keywords: String(c.number),
+                      hint:
+                        cs.status === 'active'
+                          ? 'Active'
+                          : cs.status === 'upcoming'
+                            ? 'Upcoming'
+                            : `${formatDate(c.startsAt)} – ${formatDate(c.endsAt)}`,
+                      selected: issue.cycleId === c.id,
+                    }
+                  }),
+                ]}
+                onSelect={(id) =>
+                  store.setIssueCycle(issue.id, id === '__none' ? undefined : id)
+                }
+                trigger={
+                  <span className={triggerCls}>
+                    <IterationCw size={14} className="text-faint" />
+                    {cycle ? (
+                      cycle.name ?? `Cycle ${cycle.number}`
+                    ) : (
+                      <span className="text-faint">No cycle</span>
+                    )}
+                  </span>
+                }
+              />
+            </PropRow>
+          )}
           <PropRow label="Estimate">
             <SelectMenu
               options={ESTIMATE_SCALE.map((n) => ({

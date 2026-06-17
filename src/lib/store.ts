@@ -108,6 +108,7 @@ export interface Store extends WorkspaceData, UIState {
   toggleIssueSubscriber: (id: string, userId: string) => void
   setIssueProject: (id: string, projectId?: string) => void
   setIssueMilestone: (id: string, milestoneId?: string) => void
+  setIssueCycle: (id: string, cycleId?: string) => void
   setIssueEstimate: (id: string, estimate?: number) => void
   setIssueDueDate: (id: string, dueDate?: string) => void
   setIssueTitle: (id: string, title: string) => void
@@ -454,6 +455,21 @@ export const useStore = create<Store>()(
             activities: [
               ...s.activities,
               logActivity(s, id, 'milestone', issue.milestoneId, milestoneId),
+            ],
+          }
+        }),
+
+      setIssueCycle: (id, cycleId) =>
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue || issue.cycleId === cycleId) return s
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id ? { ...i, cycleId, updatedAt: nowIso() } : i,
+            ),
+            activities: [
+              ...s.activities,
+              logActivity(s, id, 'cycle', issue.cycleId, cycleId),
             ],
           }
         }),
