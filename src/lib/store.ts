@@ -76,6 +76,8 @@ export interface Store extends WorkspaceData, UIState {
 
   // ── labels / projects ────────────────────────────────────────
   createLabel: (name: string, color: string) => Label
+  updateLabel: (id: string, patch: Partial<Pick<Label, 'name' | 'color'>>) => void
+  deleteLabel: (id: string) => void
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
   updateProject: (id: string, patch: Partial<Project>) => void
   createState: (s: Omit<WorkflowState, 'id'>) => WorkflowState
@@ -389,6 +391,21 @@ export const useStore = create<Store>()(
         set((s) => ({ labels: [...s.labels, label] }))
         return label
       },
+
+      updateLabel: (id, patch) =>
+        set((s) => ({
+          labels: s.labels.map((l) => (l.id === id ? { ...l, ...patch } : l)),
+        })),
+
+      deleteLabel: (id) =>
+        set((s) => ({
+          labels: s.labels.filter((l) => l.id !== id),
+          issues: s.issues.map((i) =>
+            i.labelIds.includes(id)
+              ? { ...i, labelIds: i.labelIds.filter((l) => l !== id) }
+              : i,
+          ),
+        })),
 
       createProject: (p) => {
         const project: Project = {

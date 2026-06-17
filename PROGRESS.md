@@ -2,6 +2,22 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #12: Labels management in Settings
+
+Manage the workspace's labels, Linear-style:
+
+- Store: `updateLabel(id, {name?, color?})` and `deleteLabel(id)` (the latter
+  also strips the label from every issue's `labelIds`).
+- New `components/LabelsSettings.tsx`: a list of labels each with a color-swatch
+  popover (recolor), an inline-editable name, a live usage count, and a
+  hover delete; plus a "new label" row (name + color, Enter or Add to create).
+- `SettingsView`: a new "Labels" card hosts it.
+- Verified live: created a "Backend" label which appeared with "0 issues".
+  `tsc` ✅ · build ✅ · clean console.
+
+Next: **Custom workflow states** in settings (add / rename / recolor / reorder per team).
+
+
 ## 2026-06-17 — Loop #11: Due-date picker + overdue styling
 
 Issues can be scheduled with a real calendar, Linear-style:

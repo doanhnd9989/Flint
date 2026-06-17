@@ -1,6 +1,7 @@
 import { useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
+import { LabelsSettings } from '@/components/LabelsSettings'
 import { cn } from '@/lib/utils'
 import type { ThemeMode } from '@/lib/types'
 
@@ -83,6 +84,10 @@ export function SettingsView() {
                 </div>
               ))}
             </div>
+          </Card>
+
+          <Card title="Labels">
+            <LabelsSettings />
           </Card>
 
           <Card title="Danger zone">
