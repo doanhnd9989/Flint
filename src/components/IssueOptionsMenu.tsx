@@ -1,9 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '@/lib/store'
-import type { Issue } from '@/lib/types'
-import { SelectMenu, type SelectOption } from './ui/SelectMenu'
-import { StatusIcon } from './StatusIcon'
+import type { Issue, RelationPickerKind } from '@/lib/types'
 import { branchName, issueUrl } from '@/lib/utils'
 import { copyToClipboard, copyToast } from '@/lib/toast'
 import {
@@ -117,21 +115,6 @@ export function IssueOptionsMenu({
   const starred = store.favorites.some((f) => f.type === 'issue' && f.id === issue.id)
   const subscribed = issue.subscriberIds.includes(store.currentUserId)
 
-  // Existing-issue picker options for "Mark as" (cycle-safe parenting is
-  // enforced by the store's setIssueParent guard).
-  const issueOptions: SelectOption[] = store.issues
-    .filter((i) => i.id !== issue.id && !i.triage)
-    .map((i) => {
-      const st = store.states.find((s) => s.id === i.stateId)!
-      return {
-        id: i.id,
-        label: i.title,
-        hint: i.identifier,
-        keywords: `${i.identifier} ${i.title}`,
-        icon: <StatusIcon type={st.type} color={st.color} />,
-      }
-    })
-
   // Create a fresh issue (same team/project) and run a linker against it.
   const createRelated = (title: string, link: (newId: string) => void) => {
     const created = store.createIssue({
@@ -144,25 +127,18 @@ export function IssueOptionsMenu({
     onOpenIssue(created.identifier)
   }
 
-  const markAs = (label: string, apply: (targetId: string) => void) => (
-    <SelectMenu
-      options={issueOptions}
-      onSelect={(targetId) => {
-        apply(targetId)
+  // "Mark as" opens the shared centered relation picker (Linear's behavior),
+  // so the ⋯ menu and the M-chord / ⌘⇧P shortcuts share one surface.
+  const markAs = (label: string, kind: RelationPickerKind) => (
+    <Row
+      key={kind}
+      icon={MARK_ICONS[label]}
+      label={`${label}…`}
+      hint={MARK_HINTS[label]}
+      onClick={() => {
         close()
+        store.openRelationPicker(issue.id, kind)
       }}
-      placeholder={`${label}…`}
-      width={280}
-      align="start"
-      trigger={
-        <span className={rowCls}>
-          <span className="flex h-4 w-4 items-center justify-center text-faint">
-            {MARK_ICONS[label]}
-          </span>
-          <span className="flex-1 truncate">{label}…</span>
-          {MARK_HINTS[label] && <Hint>{MARK_HINTS[label]}</Hint>}
-        </span>
-      }
     />
   )
 
@@ -272,12 +248,12 @@ export function IssueOptionsMenu({
               </SubRow>
 
               <SubRow id="mark" icon={<ArrowRightLeft size={14} />} label="Mark as">
-                {markAs('Parent of', (t) => store.setIssueParent(t, issue.id))}
-                {markAs('Sub-issue of', (t) => store.setIssueParent(issue.id, t))}
-                {markAs('Related to', (t) => store.addRelation(issue.id, t, 'related'))}
-                {markAs('Blocked by', (t) => store.addRelation(t, issue.id, 'blocks'))}
-                {markAs('Blocking', (t) => store.addRelation(issue.id, t, 'blocks'))}
-                {markAs('Duplicate of', (t) => store.addRelation(issue.id, t, 'duplicate'))}
+                {markAs('Parent of', 'parentOf')}
+                {markAs('Sub-issue of', 'subIssueOf')}
+                {markAs('Related to', 'related')}
+                {markAs('Blocked by', 'blockedBy')}
+                {markAs('Blocking', 'blocking')}
+                {markAs('Duplicate of', 'duplicateOf')}
               </SubRow>
 
               <div className="my-1 h-px bg-border" />

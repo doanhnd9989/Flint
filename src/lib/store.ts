@@ -30,6 +30,7 @@ import type {
   DisplayProperty,
   Relation,
   RelationType,
+  RelationPickerKind,
   SavedView,
   ThemeMode,
   User,
@@ -48,6 +49,12 @@ interface UIState {
    */
   commandIssueId: string | null
   commandPage: string | null
+  /**
+   * Existing-issue relation picker — Linear's "Mark as" centered palette,
+   * opened from the issue ⋯ menu and the `M`-chord / ⌘⇧P keyboard shortcuts.
+   * Links `issueId` to a chosen existing issue per `kind`. Transient.
+   */
+  relationPicker: { issueId: string; kind: RelationPickerKind } | null
   createOpen: boolean
   /** "Create more" toggle in the create-issue modal — keeps it open after creating (persisted, like Linear). */
   createMore: boolean
@@ -190,6 +197,10 @@ export interface Store extends WorkspaceData, UIState {
    * the sub-page to drill into (status / priority / assignee / label / …).
    */
   openIssuePropertyMenu: (issueId: string, page: string) => void
+  /** Open the "Mark as" existing-issue relation picker for `issueId`. */
+  openRelationPicker: (issueId: string, kind: RelationPickerKind) => void
+  /** Close the relation picker. */
+  closeRelationPicker: () => void
   setCreateOpen: (open: boolean) => void
   setCreateMore: (on: boolean) => void
   setCreateInitiativeOpen: (open: boolean) => void
@@ -262,6 +273,7 @@ export const useStore = create<Store>()(
       commandOpen: false,
       commandIssueId: null,
       commandPage: null,
+      relationPicker: null,
       createOpen: false,
       createMore: false,
       createInitiativeOpen: false,
@@ -1073,6 +1085,9 @@ export const useStore = create<Store>()(
         set(commandOpen ? { commandOpen } : { commandOpen, commandIssueId: null, commandPage: null }),
       openIssuePropertyMenu: (commandIssueId, commandPage) =>
         set({ commandIssueId, commandPage, commandOpen: true }),
+      openRelationPicker: (issueId, kind) =>
+        set({ relationPicker: { issueId, kind } }),
+      closeRelationPicker: () => set({ relationPicker: null }),
       setCreateOpen: (createOpen) => set({ createOpen }),
       setCreateMore: (createMore) => set({ createMore }),
       setCreateInitiativeOpen: (createInitiativeOpen) =>
@@ -1316,6 +1331,7 @@ export const useStore = create<Store>()(
           commandOpen: _c,
           commandIssueId: _cmi,
           commandPage: _cmp,
+          relationPicker: _rp,
           createOpen: _cr,
           createInitiativeOpen: _ci,
           helpOpen: _h,

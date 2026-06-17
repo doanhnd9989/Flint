@@ -56,6 +56,17 @@ const SECTIONS: { title: string; items: Shortcut[] }[] = [
       { keys: <Kbd>Drag</Kbd>, label: 'Reorder within a group' },
     ],
   },
+  {
+    title: 'Relations',
+    items: [
+      { keys: <><Kbd>⌘</Kbd> <Kbd>⇧</Kbd> <Kbd>O</Kbd></>, label: 'Create sub-issue' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>⇧</Kbd> <Kbd>P</Kbd></>, label: 'Mark as sub-issue of…' },
+      { keys: <><Kbd>M</Kbd> <Kbd>R</Kbd></>, label: 'Mark as related to…' },
+      { keys: <><Kbd>M</Kbd> <Kbd>B</Kbd></>, label: 'Mark as blocked by…' },
+      { keys: <><Kbd>M</Kbd> <Kbd>X</Kbd></>, label: 'Mark as blocking…' },
+      { keys: <><Kbd>M</Kbd> <Kbd>M</Kbd></>, label: 'Mark as duplicate of…' },
+    ],
+  },
 ]
 
 export function HelpOverlay() {

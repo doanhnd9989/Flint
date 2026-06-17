@@ -2,6 +2,47 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #53: Relation keyboard shortcuts + shared "Mark as" picker
+
+Closed the explicitly-deferred gap from loops #51/#52: the relation shortcuts
+that previously rendered only as **hints** in the ⋯ menu are now wired, and
+they open Linear's real **centered "Mark as" command palette**.
+
+Soi'd the real workspace (Chrome, "Claude Test App") — it's a bare default
+(no projects), so I built to Linear's known design and verified everything in
+our own app side-by-side.
+
+- **Shortcuts** (in `useShortcuts`): **M then R / B / X / M** → Related to /
+  Blocked by / Blocking / Duplicate of; **⌘⇧P** → Sub-issue of an existing
+  issue; **⌘⇧O** → create a new sub-issue and open it. The M-chord uses a
+  `pendingM` ref + 1.2s timer mirroring the existing G-chord. The "current
+  issue" the shortcuts act on resolves as **peek → `/issue/:id` route →
+  `j`/`k`-focused row**.
+- **Shared picker** — a new `RelationPicker` overlay (mounted in `App`)
+  rendering Linear's centered palette: issue chip header (`CLA-N · title` +
+  ×), a per-kind placeholder ("Related to…", "Sub-issue of…", …), and a
+  searchable existing-issue list (status icon + title + identifier, ↑/↓/↵
+  to pick, Esc to cancel; self + triage excluded; the store's
+  `setIssueParent` cycle guard keeps parenting safe). Driven by a transient
+  `relationPicker: { issueId, kind }` store slice + `openRelationPicker` /
+  `closeRelationPicker` (excluded from persist; new `RelationPickerKind`
+  type).
+- **Dedup** — `IssueOptionsMenu`'s "Mark as" rows now call
+  `openRelationPicker` instead of each rendering an anchored `SelectMenu`, so
+  the ⋯ menu and the keyboard shortcuts share one surface — exactly like
+  Linear, whose "Mark as" rows open the same centered palette.
+- **Help overlay** gains a **Relations** section documenting ⌘⇧O, ⌘⇧P, and the
+  four M-chords.
+
+Verified live (localhost:5173): `j` focuses CLA-1, `M R` opens the palette
+("Related to…"), picking CLA-2 adds it under Relations → Related; `⌘⇧P` from
+the CLA-1 route opens "Sub-issue of…"; `⌘⇧O` created **CLA-16** parented to
+CLA-1 (breadcrumb + "set parent to" activity) and opened it; the ⋯ "Mark as"
+flyout matches Linear's icons/labels/hints and routes through the picker.
+`npx tsc -b` + `npm run build` green, console clean. _(⌥F favorite / ⇧S
+subscribe shortcuts still hint-only — the `s` row-hotkey collision needs a
+shift-aware guard, deferred.)_
+
 ## 2026-06-17 — Loop #52: Issue ⋯ menu — Create related / Mark as submenus
 
 Soi'd Linear's issue header **⋯ ("Issue options")** menu (Chrome, workspace

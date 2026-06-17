@@ -206,6 +206,20 @@ export interface Issue {
  */
 export type RelationType = 'blocks' | 'related' | 'duplicate'
 
+/**
+ * Which relationship the "Mark as" picker (the ⋯ menu's flyout and the
+ * `M`-chord / ⌘⇧P keyboard shortcuts) links the current issue to an existing
+ * one with. Distinct from {@link RelationType} because parent/sub-issue is a
+ * parent link, not a stored relation, and the directions differ per kind.
+ */
+export type RelationPickerKind =
+  | 'parentOf'
+  | 'subIssueOf'
+  | 'related'
+  | 'blockedBy'
+  | 'blocking'
+  | 'duplicateOf'
+
 export interface Relation {
   id: string
   type: RelationType

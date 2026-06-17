@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useStore } from './store'
+import { useStore, type Store } from './store'
+import type { Issue, RelationPickerKind } from './types'
 
 function isTyping(el: EventTarget | null): boolean {
   const t = el as HTMLElement | null
@@ -9,16 +10,50 @@ function isTyping(el: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || t.isContentEditable
 }
 
+/**
+ * The issue keyboard shortcuts act on: the peeked issue, else the issue at the
+ * `/issue/:id` route, else the `j`/`k`-focused row.
+ */
+function currentIssue(s: Store): Issue | undefined {
+  if (s.peekIssueId) {
+    const peeked = s.issues.find((i) => i.id === s.peekIssueId)
+    if (peeked) return peeked
+  }
+  const m = window.location.pathname.match(/\/issue\/([^/]+)/)
+  if (m) {
+    const byRoute = s.issues.find(
+      (i) => i.identifier.toLowerCase() === m[1].toLowerCase(),
+    )
+    if (byRoute) return byRoute
+  }
+  if (s.focusedIssueId)
+    return s.issues.find((i) => i.identifier === s.focusedIssueId)
+  return undefined
+}
+
+const M_CHORD: Record<string, RelationPickerKind> = {
+  r: 'related',
+  b: 'blockedBy',
+  x: 'blocking',
+  m: 'duplicateOf',
+}
+
 /** Global keyboard shortcuts, Linear-style (including `G`-prefixed nav chords). */
 export function useShortcuts() {
   const navigate = useNavigate()
   const pendingG = useRef(false)
   const gTimer = useRef<number | undefined>(undefined)
+  const pendingM = useRef(false)
+  const mTimer = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     function clearG() {
       pendingG.current = false
       window.clearTimeout(gTimer.current)
+    }
+    function clearM() {
+      pendingM.current = false
+      window.clearTimeout(mTimer.current)
     }
 
     function onKey(e: KeyboardEvent) {
@@ -33,6 +68,26 @@ export function useShortcuts() {
         return
       }
 
+      // ⌘⇧P — mark sub-issue of an existing issue; ⌘⇧O — create a sub-issue.
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (key === 'p' || key === 'o')) {
+        if (isTyping(e.target)) return
+        const cur = currentIssue(store)
+        if (!cur) return
+        e.preventDefault()
+        if (key === 'p') {
+          store.openRelationPicker(cur.id, 'subIssueOf')
+        } else {
+          const created = store.createIssue({
+            title: 'New sub-issue',
+            teamId: cur.teamId,
+            projectId: cur.projectId,
+          })
+          store.setIssueParent(created.id, cur.id)
+          navigate(`/issue/${created.identifier}`)
+        }
+        return
+      }
+
       if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return
 
       // Any open menu / popover / modal owns the keyboard — don't steal keys.
@@ -42,6 +97,19 @@ export function useShortcuts() {
         store.createInitiativeOpen ||
         store.helpOpen ||
         !!document.querySelector('[data-overlay]')
+
+      // `M` then <key> — relation chords (Mark as …) on the current issue.
+      if (pendingM.current) {
+        clearM()
+        if (!overlayOpen && M_CHORD[key]) {
+          const cur = currentIssue(store)
+          if (cur) {
+            e.preventDefault()
+            store.openRelationPicker(cur.id, M_CHORD[key])
+          }
+        }
+        return
+      }
 
       // ── Issue-list keyboard navigation (Linear's `j`/`k` row focus) ──
       if (!overlayOpen && !pendingG.current) {
@@ -116,6 +184,14 @@ export function useShortcuts() {
         return
       }
 
+      // `M` starts a relation chord, but only when an issue is in context.
+      if (key === 'm' && !overlayOpen && currentIssue(store)) {
+        pendingM.current = true
+        window.clearTimeout(mTimer.current)
+        mTimer.current = window.setTimeout(() => (pendingM.current = false), 1200)
+        return
+      }
+
       // Single-key shortcuts
       if (e.key === '?') {
         e.preventDefault()
@@ -134,6 +210,7 @@ export function useShortcuts() {
     return () => {
       document.removeEventListener('keydown', onKey)
       window.clearTimeout(gTimer.current)
+      window.clearTimeout(mTimer.current)
     }
   }, [navigate])
 }

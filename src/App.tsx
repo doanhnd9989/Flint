@@ -16,6 +16,7 @@ import { BulkActionBar } from '@/components/BulkActionBar'
 import { IssueContextMenu } from '@/components/IssueContextMenu'
 import { AddLinkModal } from '@/components/AddLinkModal'
 import { HelpOverlay } from '@/components/HelpOverlay'
+import { RelationPicker } from '@/components/RelationPicker'
 import { Toaster } from '@/components/Toaster'
 import { useThemeEffect } from '@/lib/useTheme'
 import { useShortcuts } from '@/lib/useShortcuts'
@@ -59,6 +60,7 @@ function Shell() {
       <IssueContextMenu />
       <AddLinkModal />
       <HelpOverlay />
+      <RelationPicker />
       <Toaster />
     </div>
   )
