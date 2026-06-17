@@ -2,6 +2,43 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #63: Project detail — Overview tab + Properties sidebar
+
+Soi'd Linear's project page (Chrome, workspace "Claude Test App"; created a
+throwaway "Overview Soi Demo" project to inspect the layout). Linear's project
+sub-nav is **Overview · Activity · Issues** (Overview default); the Overview is a
+doc-like main column (large project icon, **title**, short summary, a
+**project-update card**, **Description**, **Milestones**) beside a right-hand
+**Properties** panel — Status, Priority, Lead, Members, Issues count, Dates
+(Start → Target), Teams, Slack, Labels — plus Milestones + Activity. Our
+`ProjectDetail` was a header-block + Issues/Updates tabs. Rewrote it to match:
+
+- **Tabs** → **Overview / Activity / Issues** (Overview default); header now shows
+  the `ProjectStatusIcon` before the project name.
+- **Overview main column** — icon, title, summary, an update card (latest update
+  health + snippet, else "Write first project update", switches to Activity),
+  inline-editable **Description** (textarea → `updateProject`), and a
+  **Milestones** list with `milestoneProgress` bars + a `+` add.
+- **Properties sidebar** (`w-[268px]`, `border-l`) wired to real store actions:
+  **Status** (`SelectMenu` over `PROJECT_STATUS_ORDER` + `ProjectStatusIcon`),
+  **Lead** (`AssigneePicker`), **Members** (new `MembersField` — keep-open
+  multi-select toggling `memberIds`), **Issues** (`ProgressDonut` + count),
+  **Start/Target** (`DatePicker`), **Teams** (read-only names), **Initiative**
+  (`SelectMenu` → `setProjectInitiative`).
+- **Activity** tab = the existing `ProjectUpdates` feed; **Issues** tab = the
+  existing milestone-grouped list (kept the `Section` component).
+
+Bug fixed mid-loop: the pickers wrap their trigger in their **own** `<button>`,
+so passing a `<button>` trigger caused a nested-`<button>` hydration error — all
+six triggers are now `<span className={triggerCls}>`. Verified live
+(localhost:5199, MVP Launch): Overview renders 1:1 with Linear (rocket icon,
+summary, on-track card, Alpha 0/1 + Beta 0/0 milestones, full Properties panel);
+the Status picker opens all six project statuses; the Issues tab groups by
+milestone; **console clean** after the fix. `npx tsc -b` + `npm run build` green.
+_(Priority/Labels/Slack rows omitted — no model for those on Project; the inline
+Overview properties row + per-tab deep-linking still TODO; milestone add still
+uses `prompt()`.)_
+
 ## 2026-06-18 — Loop #62: Group-header `+` pre-fills the create modal
 
 Soi'd Linear (Chrome, workspace "Claude Test App", list + board layouts): the

@@ -1,17 +1,36 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Flag, Goal } from 'lucide-react'
+import { Plus, Trash2, Flag, Goal, CalendarRange, Users } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { sortIssues, projectProgress, milestoneProgress } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
 import { Avatar } from '@/components/Avatar'
 import { ProjectUpdates, HealthBadge } from '@/components/ProjectUpdates'
+import { ProjectStatusIcon } from '@/components/ProjectStatusIcon'
+import { ProgressDonut } from '@/components/ProgressDonut'
+import { AssigneePicker } from '@/components/pickers'
+import { DatePicker } from '@/components/DatePicker'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { StarButton } from '@/components/StarButton'
+import { PROJECT_STATUS, PROJECT_STATUS_ORDER } from '@/lib/constants'
 import { formatFullDate, cn } from '@/lib/utils'
-import type { Issue } from '@/lib/types'
+import type { Issue, Project, ProjectStatus } from '@/lib/types'
 
+const triggerCls =
+  'flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] text-fg hover:bg-bg-hover'
+
+/** A label/value row in the right-hand Properties panel. */
+function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <div className="w-16 shrink-0 text-[12px] text-faint">{label}</div>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  )
+}
+
+/** Milestone-grouped issue list (Issues tab). */
 function Section({
   title,
   issues,
@@ -61,12 +80,61 @@ function Section({
   )
 }
 
+/** Multi-select members field (Properties panel). */
+function MembersField({ project }: { project: Project }) {
+  const users = useStore((s) => s.users)
+  const updateProject = useStore((s) => s.updateProject)
+  const members = project.memberIds
+    .map((id) => users.find((u) => u.id === id))
+    .filter(Boolean)
+  const options: SelectOption[] = users.map((u) => ({
+    id: u.id,
+    label: u.name,
+    icon: <Avatar user={u} size={18} />,
+    selected: project.memberIds.includes(u.id),
+  }))
+  const toggle = (id: string) => {
+    const has = project.memberIds.includes(id)
+    updateProject(project.id, {
+      memberIds: has
+        ? project.memberIds.filter((x) => x !== id)
+        : [...project.memberIds, id],
+    })
+  }
+  return (
+    <SelectMenu
+      keepOpen
+      options={options}
+      onSelect={toggle}
+      placeholder="Add members…"
+      trigger={
+        <span className={triggerCls}>
+          {members.length === 0 ? (
+            <>
+              <Users size={14} className="text-faint" />
+              <span className="text-faint">Add members</span>
+            </>
+          ) : (
+            <span className="flex items-center -space-x-1.5">
+              {members.map((m) => (
+                <Avatar key={m!.id} user={m!} size={18} />
+              ))}
+            </span>
+          )}
+        </span>
+      }
+    />
+  )
+}
+
 export function ProjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const data = useStore()
   const project = data.projects.find((p) => p.id === id)
-  const [tab, setTab] = useState<'issues' | 'updates'>('issues')
+  const [tab, setTab] = useState<'overview' | 'activity' | 'issues'>('overview')
+  const [editingDesc, setEditingDesc] = useState(false)
+  const [descDraft, setDescDraft] = useState('')
 
   const latestUpdate = useMemo(
     () =>
@@ -105,26 +173,31 @@ export function ProjectDetail() {
   const prog = projectProgress(project.id, data.issues, data)
   const noMilestone = scoped.filter((i) => !i.milestoneId)
   const initiative = data.initiatives.find((x) => x.id === project.initiativeId)
-  const initiativeOptions: SelectOption[] = [
-    { id: '__none', label: 'No initiative', icon: <Goal size={14} />, selected: !project.initiativeId },
-    ...data.initiatives
-      .slice()
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((i) => ({
-        id: i.id,
-        label: i.name,
-        icon: <span>{i.icon}</span>,
-        selected: i.id === project.initiativeId,
-      })),
-  ]
+  const teams = project.teamIds
+    .map((tid) => data.teams.find((t) => t.id === tid))
+    .filter(Boolean)
+
+  const statusOptions: SelectOption[] = PROJECT_STATUS_ORDER.map((s) => ({
+    id: s,
+    label: PROJECT_STATUS[s].label,
+    icon: <ProjectStatusIcon status={s} />,
+    selected: s === project.status,
+  }))
+
+  function addMilestone() {
+    const name = prompt('New milestone name…')
+    if (name?.trim()) data.createMilestone(project!.id, name.trim())
+  }
 
   return (
     <div className="flex h-full flex-col">
+      {/* Header */}
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-4 text-[13px]">
         <button onClick={() => navigate('/projects')} className="text-muted hover:text-fg">
           Projects
         </button>
         <span className="text-faint">›</span>
+        <ProjectStatusIcon status={project.status} />
         <span className="font-medium text-fg">
           {project.icon} {project.name}
         </span>
@@ -132,82 +205,260 @@ export function ProjectDetail() {
         <StarButton type="project" id={project.id} />
       </header>
 
-      <div className="border-b border-border px-6 py-5">
-        <div className="flex items-start gap-4">
-          <span className="text-3xl">{project.icon}</span>
-          <div className="flex-1">
-            <h1 className="text-[18px] font-semibold text-fg">{project.name}</h1>
-            {project.description && (
-              <p className="mt-1 text-[13px] text-muted">{project.description}</p>
+      {/* Tabs */}
+      <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-1.5">
+        {(['overview', 'activity', 'issues'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={cn(
+              'rounded-md px-2.5 py-1 text-[13px] capitalize text-muted hover:bg-bg-hover',
+              tab === t && 'bg-bg-selected text-fg font-medium',
             )}
-            <div className="mt-3 flex flex-wrap items-center gap-4 text-[12px] text-muted">
-              <span className="flex items-center gap-1.5">
-                <Avatar user={lead} size={18} /> {lead?.name}
-              </span>
-              {project.targetDate && (
-                <span>Target {formatFullDate(project.targetDate)}</span>
-              )}
-              <span>
-                {prog.done}/{prog.total} issues · {prog.percent}%
-              </span>
-              {latestUpdate && <HealthBadge health={latestUpdate.health} />}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* Body */}
+      {tab === 'overview' ? (
+        <div className="flex min-h-0 flex-1">
+          {/* Main column */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="mx-auto max-w-2xl px-10 py-10">
+              <span className="text-3xl">{project.icon}</span>
+              <h1 className="mt-3 text-[22px] font-semibold text-fg">
+                {project.name}
+              </h1>
+              {project.description ? (
+                <p className="mt-1 text-[14px] text-muted">{project.description}</p>
+              ) : null}
+
+              {/* Project update card */}
+              <button
+                type="button"
+                onClick={() => setTab('activity')}
+                className="mt-6 flex w-full items-center gap-2 rounded-lg border border-border bg-bg-secondary px-3 py-2.5 text-left text-[13px] hover:bg-bg-hover"
+              >
+                {latestUpdate ? (
+                  <>
+                    <HealthBadge health={latestUpdate.health} />
+                    <span className="truncate text-muted">{latestUpdate.body}</span>
+                  </>
+                ) : (
+                  <span className="text-muted">Write first project update</span>
+                )}
+              </button>
+
+              {/* Description */}
+              <div className="mt-8">
+                <div className="mb-1.5 text-[13px] font-medium text-fg">Description</div>
+                {editingDesc ? (
+                  <textarea
+                    autoFocus
+                    value={descDraft}
+                    onChange={(e) => setDescDraft(e.target.value)}
+                    onBlur={() => {
+                      data.updateProject(project.id, { description: descDraft.trim() })
+                      setEditingDesc(false)
+                    }}
+                    placeholder="Add description…"
+                    className="min-h-[80px] w-full resize-none rounded-md bg-transparent text-[13px] text-fg outline-none"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDescDraft(project.description ?? '')
+                      setEditingDesc(true)
+                    }}
+                    className="block w-full whitespace-pre-wrap text-left text-[13px] text-fg"
+                  >
+                    {project.description || (
+                      <span className="text-faint">Add description…</span>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Milestones */}
+              <div className="mt-8">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="text-[13px] font-medium text-fg">Milestones</span>
+                  <button
+                    onClick={addMilestone}
+                    className="flex h-5 w-5 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+                {milestones.length === 0 ? (
+                  <p className="text-[13px] text-faint">
+                    Add milestones to organize work within your project and break it
+                    into more granular stages.
+                  </p>
+                ) : (
+                  <div className="space-y-1">
+                    {milestones.map((m) => {
+                      const mp = milestoneProgress(m.id, data.issues, data)
+                      return (
+                        <div
+                          key={m.id}
+                          className="flex items-center gap-2 rounded-md px-1.5 py-1 text-[13px]"
+                        >
+                          <Flag size={13} className="text-faint" />
+                          <span className="text-fg">{m.name}</span>
+                          <div className="flex-1" />
+                          <span className="text-[12px] text-faint">
+                            {mp.done}/{mp.total}
+                          </span>
+                          <div className="h-1 w-16 overflow-hidden rounded-full bg-bg-tertiary">
+                            <div
+                              className="h-full rounded-full bg-accent"
+                              style={{ width: `${mp.percent}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Properties sidebar */}
+          <aside className="w-[268px] shrink-0 overflow-y-auto border-l border-border px-4 py-4">
+            <div className="mb-1.5 text-[12px] font-medium text-muted">Properties</div>
+            <PropRow label="Status">
               <SelectMenu
-                options={initiativeOptions}
-                onSelect={(iid) =>
-                  data.setProjectInitiative(project.id, iid === '__none' ? undefined : iid)
+                options={statusOptions}
+                onSelect={(s) =>
+                  data.updateProject(project.id, { status: s as ProjectStatus })
                 }
-                placeholder="Set initiative…"
+                placeholder="Set status…"
                 trigger={
-                  <span className="flex items-center gap-1.5 rounded-md border border-border px-1.5 py-0.5 hover:bg-bg-hover">
-                    {initiative ? (
+                  <span className={triggerCls}>
+                    <ProjectStatusIcon status={project.status} />
+                    {PROJECT_STATUS[project.status].label}
+                  </span>
+                }
+              />
+            </PropRow>
+            <PropRow label="Lead">
+              <AssigneePicker
+                assigneeId={project.leadId}
+                onChange={(uid) => data.updateProject(project.id, { leadId: uid })}
+                trigger={
+                  <span className={triggerCls}>
+                    {lead ? (
                       <>
-                        <span>{initiative.icon}</span>
-                        {initiative.name}
+                        <Avatar user={lead} size={18} /> {lead.name}
                       </>
                     ) : (
                       <>
-                        <Goal size={13} /> No initiative
+                        <Avatar size={18} /> <span className="text-faint">Add lead</span>
                       </>
                     )}
                   </span>
                 }
               />
-              <button
-                onClick={() => {
-                  const name = prompt('New milestone name…')
-                  if (name?.trim()) data.createMilestone(project.id, name.trim())
-                }}
-                className="flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-muted hover:bg-bg-hover"
-              >
-                <Plus size={12} /> Milestone
-              </button>
-            </div>
-            <div className="mt-2 h-1.5 w-64 overflow-hidden rounded-full bg-bg-tertiary">
-              <div
-                className="h-full rounded-full bg-accent"
-                style={{ width: `${prog.percent}%` }}
+            </PropRow>
+            <PropRow label="Members">
+              <MembersField project={project} />
+            </PropRow>
+            <PropRow label="Issues">
+              <div className="flex items-center gap-1.5 px-1.5 py-1 text-[13px] text-fg">
+                <ProgressDonut percent={prog.percent} size={14} />
+                {prog.total}
+              </div>
+            </PropRow>
+            <PropRow label="Start">
+              <DatePicker
+                value={project.startDate}
+                onChange={(iso) => data.updateProject(project.id, { startDate: iso })}
+                trigger={
+                  <span className={triggerCls}>
+                    <CalendarRange size={14} className="text-faint" />
+                    {project.startDate ? (
+                      formatFullDate(project.startDate)
+                    ) : (
+                      <span className="text-faint">Set start</span>
+                    )}
+                  </span>
+                }
               />
-            </div>
-          </div>
+            </PropRow>
+            <PropRow label="Target">
+              <DatePicker
+                value={project.targetDate}
+                onChange={(iso) => data.updateProject(project.id, { targetDate: iso })}
+                trigger={
+                  <span className={triggerCls}>
+                    <CalendarRange size={14} className="text-faint" />
+                    {project.targetDate ? (
+                      formatFullDate(project.targetDate)
+                    ) : (
+                      <span className="text-faint">Set target</span>
+                    )}
+                  </span>
+                }
+              />
+            </PropRow>
+            <PropRow label="Teams">
+              <div className="px-1.5 py-1 text-[13px] text-fg">
+                {teams.length ? teams.map((t) => t!.name).join(', ') : (
+                  <span className="text-faint">—</span>
+                )}
+              </div>
+            </PropRow>
+            <PropRow label="Initiative">
+              <SelectMenu
+                options={[
+                  {
+                    id: '__none',
+                    label: 'No initiative',
+                    icon: <Goal size={14} />,
+                    selected: !project.initiativeId,
+                  },
+                  ...data.initiatives
+                    .slice()
+                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .map((i) => ({
+                      id: i.id,
+                      label: i.name,
+                      icon: <span>{i.icon}</span>,
+                      selected: i.id === project.initiativeId,
+                    })),
+                ]}
+                onSelect={(iid) =>
+                  data.setProjectInitiative(
+                    project.id,
+                    iid === '__none' ? undefined : iid,
+                  )
+                }
+                placeholder="Set initiative…"
+                trigger={
+                  <span className={triggerCls}>
+                    {initiative ? (
+                      <>
+                        <span>{initiative.icon}</span> {initiative.name}
+                      </>
+                    ) : (
+                      <>
+                        <Goal size={14} className="text-faint" />
+                        <span className="text-faint">No initiative</span>
+                      </>
+                    )}
+                  </span>
+                }
+              />
+            </PropRow>
+          </aside>
         </div>
-        <div className="mt-4 flex items-center gap-1">
-          {(['issues', 'updates'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={cn(
-                'rounded-md px-2.5 py-1 text-[12px] capitalize text-muted hover:bg-bg-hover',
-                tab === t && 'bg-bg-selected text-fg font-medium',
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {tab === 'updates' ? (
+      ) : tab === 'activity' ? (
         <div className="flex-1 overflow-y-auto">
           <ProjectUpdates projectId={project.id} />
         </div>
