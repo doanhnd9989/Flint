@@ -53,8 +53,15 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟢 **Git branch name** copy + "Copy issue URL", more issue context actions — `branchName()` (Linear's `handle/cla-123-title-slug`, handle from email local-part) + `issueUrl()` helpers; context-menu rows (Copy issue ID / URL / git branch name) and header buttons on the issue detail + peek. _(Toast feedback on copy still TODO.)_
 - [x] 🟢 **Command menu contextual actions** — when viewing an issue (detail route or peek), ⌘K shows an issue-context chip + contextual commands (Assign to…, Assign to me, Change status…, Set priority…, Add to project…, Add labels…, Copy ID/URL/branch) that drill into searchable sub-pages with a check on the current value; Esc/Backspace pops back. _(Set due date sub-page still TODO — it needs the calendar UI.)_
 - [x] 🟢 **Empty states & onboarding** polish to match Linear — a reusable `EmptyState` component (centered line-art illustration + muted title + description + optional accent-pill action) with six monochrome SVG illustrations (issues ring, inbox tray, magnifier, card stack, cycle, checkmark), wired into the issue list / My Issues / Inbox (inbox + snoozed) / Search no-results / Cycles / Triage / Projects / Views. _(Onboarding tour / first-run checklist still TODO.)_
-- [ ] 🟢 **Import / export** issues as JSON/CSV.
+- [x] 🟢 **Import / export** issues as JSON/CSV — a Linear-faithful "Import & export" Settings card: **Import** (file picker for `.csv`/`.json`, "creates a copy"), **Export** (Export… → CSV / JSON, downloads immediately). Name-based serializer (`importExport.ts`) so both formats round-trip; CSV is RFC-4180 (quoted fields, embedded newlines). `importIssues` store action resolves team/status/assignee/labels/project/milestone by name, assigns fresh per-team identifiers, logs `created` activity, never overwrites. _(No email-delivered async export — direct download instead, since there's no backend.)_
 
 ## Discovered later
 
 _(loop appends new Linear features it notices here)_
+
+- [ ] 🟡 **Onboarding tour / first-run checklist** — Linear's "Get started" widget with a checklist of setup steps + dismiss.
+- [ ] 🟡 **Burndown chart** for cycles — scope vs. completed line over the cycle's days.
+- [ ] 🟢 **Toast feedback on copy** — a transient toast ("Copied issue URL") after the copy actions (id / URL / branch name).
+- [ ] 🟢 **Set due date ⌘K sub-page** — the calendar UI as a command-menu contextual action (noted in Loop #30).
+- [ ] 🟢 **Label groups** in settings — group labels under a parent (noted in the Labels item).
+- [ ] 🟢 **Async / email-style export** — match Linear's "we'll email you the download link" flow with a mock pending state + ready notification.

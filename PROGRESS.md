@@ -2,6 +2,41 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #32: Import / export issues (CSV + JSON)
+
+Built the last 🟢 backlog item — issue import/export — as a Linear-faithful
+"Import & export" Settings card. Soiled Linear's real `settings/import-export`
+page via Chrome first (Import assistant / CLI import / Export sections, exact
+copy, bordered rows with right-aligned `Export…` button).
+
+- New `lib/importExport.ts`: a **name-based** serializer so CSV and JSON both
+  round-trip. `toExportRows` maps issues → readable rows (Team/Status/Assignee/
+  Labels/Project/Milestone by name, Priority as its label, excludes triage).
+  `rowsToCsv`/`csvToRows` are RFC-4180 (quoted fields, escaped quotes, embedded
+  newlines — issue descriptions contain markdown + newlines). `rowsToJson`/
+  `jsonToRows` (accepts a bare array or `{issues:[…]}`). `parseImportFile`
+  dispatches by extension, `downloadFile` triggers a Blob download, and
+  `parsePriority` maps a label/number back to the 0–4 scale.
+- New `importIssues(rows)` store action: "creates a copy" like Linear's import
+  assistant — resolves team (by key/name), status, assignee (name/email),
+  labels, project, milestone all by name against the workspace; assigns fresh
+  per-team identifiers (CLA-15, …), seeds `sortOrder`, logs a `created`
+  activity, and never overwrites. Returns the count imported.
+- New `ImportExportSettings.tsx` wired into `SettingsView`: an **Import** section
+  (hidden file input + `Import…`, accepts `.csv`/`.json`, shows
+  "Imported N issues…" feedback) and an **Export** section (`Export…` popover →
+  Export as CSV / Export as JSON, downloads `issues-YYYY-MM-DD.{csv,json}`).
+- Verified against the running dev server with Chrome: the card matches Linear's
+  layout; a full export→parse→import round-trip in the live store produced 14
+  rows, parsed back cleanly from both CSV and JSON, and imported 2 new issues
+  with status/priority/labels preserved (cleaned up after). No console errors.
+  `npx tsc -b` + `npm run build` green.
+
+Next: all listed backlog items are done — the loop should append newly-noticed
+Linear features under "Discovered later" (e.g. onboarding tour / first-run
+checklist, label groups, burndown chart, async/email export, set-due-date ⌘K
+sub-page, toast feedback on copy).
+
 ## 2026-06-17 — Loop #31: Empty states polish
 
 Replaced the ad-hoc "No issues" / "Nothing snoozed." text blocks with a

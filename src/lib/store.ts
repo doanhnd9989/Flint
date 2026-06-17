@@ -6,6 +6,7 @@ import { buildSeed } from './seed'
 import type { WorkspaceData } from './seed'
 import { nowIso } from './utils'
 import { STORAGE_KEY, STATUS_TYPE_ORDER } from './constants'
+import { parsePriority, type ImportRow } from './importExport'
 import type {
   Activity,
   ActivityKind,
@@ -155,6 +156,10 @@ export interface Store extends WorkspaceData, UIState {
   closeContextMenu: () => void
 
   resetWorkspace: () => void
+
+  // ── import ───────────────────────────────────────────────────
+  /** Create a copy of name-based rows as new issues. Returns the count added. */
+  importIssues: (rows: ImportRow[]) => number
 }
 
 function logActivity(
@@ -921,6 +926,87 @@ export const useStore = create<Store>()(
       resetWorkspace: () => {
         const fresh = buildSeed()
         set({ ...fresh })
+      },
+
+      importIssues: (rows) => {
+        const s = get()
+        if (!rows.length) return 0
+        const norm = (v?: string) => (v ?? '').trim().toLowerCase()
+        // Per-team running issue number, seeded from existing max.
+        const counters: Record<string, number> = {}
+        for (const t of s.teams)
+          counters[t.id] = s.issues
+            .filter((i) => i.teamId === t.id)
+            .reduce((m, i) => Math.max(m, i.number), 0)
+        let sort = s.issues.reduce((m, i) => Math.max(m, i.sortOrder), 0)
+        const unstarted = s.states.find((x) => x.type === 'unstarted')!
+        const ts = nowIso()
+
+        const created: Issue[] = rows.map((row) => {
+          const team =
+            s.teams.find((t) => norm(t.key) === norm(row.team)) ??
+            s.teams.find((t) => norm(t.name) === norm(row.team)) ??
+            s.teams[0]
+          const state =
+            s.states.find((x) => norm(x.name) === norm(row.status)) ?? unstarted
+          const assignee = row.assignee
+            ? s.users.find(
+                (u) =>
+                  norm(u.name) === norm(row.assignee) ||
+                  norm(u.email) === norm(row.assignee),
+              )
+            : undefined
+          const project = row.project
+            ? s.projects.find((p) => norm(p.name) === norm(row.project))
+            : undefined
+          const milestone =
+            project && row.milestone
+              ? s.milestones.find(
+                  (m) =>
+                    m.projectId === project.id && norm(m.name) === norm(row.milestone),
+                )
+              : undefined
+          const labelIds = (row.labels ?? [])
+            .map((name) => s.labels.find((l) => norm(l.name) === norm(name))?.id)
+            .filter((id): id is string => !!id)
+          const estimate =
+            row.estimate != null && row.estimate !== '' && !isNaN(Number(row.estimate))
+              ? Number(row.estimate)
+              : undefined
+          const number = ++counters[team.id]
+          sort += 100
+          return {
+            id: `i_${nanoid(8)}`,
+            number,
+            identifier: `${team.key}-${number}`,
+            title: (row.title || 'Untitled').trim(),
+            description: row.description ?? '',
+            teamId: team.id,
+            stateId: state.id,
+            priority: parsePriority(row.priority),
+            assigneeId: assignee?.id,
+            creatorId: s.currentUserId,
+            labelIds,
+            projectId: project?.id,
+            milestoneId: milestone?.id,
+            estimate,
+            dueDate: row.dueDate || undefined,
+            subscriberIds: [s.currentUserId],
+            sortOrder: sort,
+            createdAt: row.createdAt || ts,
+            updatedAt: row.updatedAt || ts,
+            completedAt: state.type === 'completed' ? row.completedAt || ts : undefined,
+          }
+        })
+
+        set({
+          issues: [...s.issues, ...created],
+          activities: [
+            ...s.activities,
+            ...created.map((i) => logActivity(s, i.id, 'created')),
+          ],
+        })
+        return created.length
       },
     }),
     {

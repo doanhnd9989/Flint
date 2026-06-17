@@ -5,6 +5,7 @@ import { LabelsSettings } from '@/components/LabelsSettings'
 import { StatesSettings } from '@/components/StatesSettings'
 import { TemplatesSettings } from '@/components/TemplatesSettings'
 import { TeamsSettings } from '@/components/TeamsSettings'
+import { ImportExportSettings } from '@/components/ImportExportSettings'
 import { cn } from '@/lib/utils'
 import type { ThemeMode } from '@/lib/types'
 
@@ -91,6 +92,10 @@ export function SettingsView() {
 
           <Card title="Templates">
             <TemplatesSettings />
+          </Card>
+
+          <Card title="Import & export">
+            <ImportExportSettings />
           </Card>
 
           <Card title="Danger zone">
