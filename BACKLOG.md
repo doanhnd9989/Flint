@@ -39,7 +39,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟡 **Saved views** — "Save view" in the Issues header captures layout+group+sort+filters as a named view; views open at `/view/:id` (workspace-wide), are editable (edits persist back to the view), and are listed/deletable under "Views".
 - [x] 🟡 **Triage** — a per-team queue of incoming issues (`triage` flag) with Accept (into the workflow) / Decline (cancel); inline status/priority/assignee/label pickers, a sidebar entry with a count badge, and an empty state. Triage issues are hidden from the normal issue lists.
 - [x] 🟡 **Full-text search** view (`/search`) — substring search across issue id/title/description and project name/description, narrowable with the filter bar, grouped results, and persisted recent searches (click to re-run, Clear). Sidebar "Search" now opens it.
-- [ ] 🟡 **Manual drag-to-reorder** issues within a list group (sortOrder).
+- [x] 🟡 **Manual drag-to-reorder** issues within a list group — dnd-kit sortable rows in `GroupedIssueList`; dropping writes a midpoint `sortOrder` and switches the Issues view to Manual ordering. _(Same-group only; cross-group moves stay on the board / pickers.)_
 - [ ] 🟡 **Keyboard shortcuts help overlay** (press `?`), plus row-level shortcuts (assign, status, priority on hovered/selected issue).
 - [ ] 🟡 **Project milestones** with their own progress; group project issues by milestone.
 - [ ] 🟡 **Project updates** — status posts (on-track / at-risk / off-track) with a timeline.

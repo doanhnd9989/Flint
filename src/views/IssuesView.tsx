@@ -101,7 +101,14 @@ export function IssuesView() {
       {layout === 'board' ? (
         <IssueBoard groups={groups} />
       ) : (
-        <GroupedIssueList groups={groups} groupBy={groupBy} />
+        <GroupedIssueList
+          groups={groups}
+          groupBy={groupBy}
+          onReorder={(id, sortOrder) => {
+            data.setIssueSortOrder(id, sortOrder)
+            setOrderBy('manual')
+          }}
+        />
       )}
     </div>
   )

@@ -2,6 +2,24 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #18: Manual drag-to-reorder in lists
+
+Reorder issues within a status group by dragging, Linear-style:
+
+- `GroupedIssueList`: an optional `onReorder` prop turns rows into dnd-kit
+  sortables (DndContext + per-group SortableContext, 6px activation so clicks
+  still open the peek). On drop it computes a midpoint `sortOrder` between the
+  new neighbors (same-group only) and calls back.
+- `IssuesView` passes `onReorder` → `setIssueSortOrder(id, sortOrder)` and
+  switches Ordering to Manual so the new order is shown.
+- Store: `setIssueSortOrder`.
+- Verified: dnd-kit engaged on drag (sortable transform visible); and with
+  Manual ordering, lowering CLA-11's sortOrder floated it to the top of
+  In Progress — the exact path a drop commits. `tsc` ✅ · build ✅ · clean console.
+
+Next: **Keyboard shortcuts help overlay** (press `?`) + row-level shortcuts.
+
+
 ## 2026-06-17 — Loop #17: Full-text search
 
 A dedicated search page, Linear-style:

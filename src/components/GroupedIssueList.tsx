@@ -1,7 +1,22 @@
 import { useState } from 'react'
 import { ChevronDown, Plus } from 'lucide-react'
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { IssueGroup } from '@/lib/selectors'
-import type { GroupBy } from '@/lib/types'
+import type { GroupBy, Issue } from '@/lib/types'
 import { useStore } from '@/lib/store'
 import { IssueRow } from './IssueRow'
 import { StatusIcon } from './StatusIcon'
@@ -33,18 +48,66 @@ function GroupGlyph({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy })
   return null
 }
 
+function SortableIssueRow({ issue, showStatus }: { issue: Issue; showStatus: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: issue.id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      {...attributes}
+      {...listeners}
+    >
+      <IssueRow issue={issue} showStatus={showStatus} />
+    </div>
+  )
+}
+
 export function GroupedIssueList({
   groups,
   groupBy,
+  onReorder,
 }: {
   groups: IssueGroup[]
   groupBy: GroupBy
+  /** Enables drag-to-reorder within a group. Receives the new sortOrder. */
+  onReorder?: (issueId: string, sortOrder: number) => void
 }) {
   const setCreateOpen = useStore((s) => s.setCreateOpen)
   const selectedIssueIds = useStore((s) => s.selectedIssueIds)
   const setSelectedIssues = useStore((s) => s.setSelectedIssues)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const anySelected = selectedIssueIds.length > 0
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  )
+
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id || !onReorder) return
+    const group = groups.find((g) => g.issues.some((i) => i.id === active.id))
+    if (!group || !group.issues.some((i) => i.id === over.id)) return // same-group only
+    const ids = group.issues.map((i) => i.id)
+    const reordered = arrayMove(
+      group.issues,
+      ids.indexOf(active.id as string),
+      ids.indexOf(over.id as string),
+    )
+    const pos = reordered.findIndex((i) => i.id === active.id)
+    const prev = reordered[pos - 1]
+    const next = reordered[pos + 1]
+    let sortOrder: number
+    if (prev && next) sortOrder = (prev.sortOrder + next.sortOrder) / 2
+    else if (prev) sortOrder = prev.sortOrder + 100
+    else if (next) sortOrder = next.sortOrder - 100
+    else return
+    onReorder(active.id as string, sortOrder)
+  }
 
   if (groups.every((g) => g.count === 0)) {
     return (
@@ -61,7 +124,7 @@ export function GroupedIssueList({
     )
   }
 
-  return (
+  const body = (
     <div className="flex-1 overflow-y-auto">
       {groups.map((group) => {
         const isCollapsed = collapsed[group.key]
@@ -126,12 +189,32 @@ export function GroupedIssueList({
               </button>
             </div>
             {!isCollapsed &&
-              group.issues.map((issue) => (
-                <IssueRow key={issue.id} issue={issue} showStatus={groupBy !== 'status'} />
+              (onReorder ? (
+                <SortableContext items={groupIds} strategy={verticalListSortingStrategy}>
+                  {group.issues.map((issue) => (
+                    <SortableIssueRow
+                      key={issue.id}
+                      issue={issue}
+                      showStatus={groupBy !== 'status'}
+                    />
+                  ))}
+                </SortableContext>
+              ) : (
+                group.issues.map((issue) => (
+                  <IssueRow key={issue.id} issue={issue} showStatus={groupBy !== 'status'} />
+                ))
               ))}
           </div>
         )
       })}
     </div>
+  )
+
+  if (!onReorder) return body
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      {body}
+    </DndContext>
   )
 }

@@ -68,6 +68,7 @@ export interface Store extends WorkspaceData, UIState {
   setIssueTitle: (id: string, title: string) => void
   setIssueDescription: (id: string, description: string) => void
   moveIssue: (id: string, stateId: string, sortOrder: number) => void
+  setIssueSortOrder: (id: string, sortOrder: number) => void
   acceptTriage: (id: string, stateId?: string) => void
   declineTriage: (id: string) => void
 
@@ -342,6 +343,13 @@ export const useStore = create<Store>()(
               : s.activities,
           }
         }),
+
+      setIssueSortOrder: (id, sortOrder) =>
+        set((s) => ({
+          issues: s.issues.map((i) =>
+            i.id === id ? { ...i, sortOrder } : i,
+          ),
+        })),
 
       acceptTriage: (id, stateId) =>
         set((s) => ({
