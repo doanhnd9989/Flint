@@ -2,6 +2,39 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #36: Cycle burndown chart
+
+Built the cycle **burndown chart** (🟡) — the top remaining Discovered item.
+Cycles are disabled in the live "Claude Test App" workspace so Linear's real
+graph wasn't observable; followed Linear's known burndown design (ideal
+guideline vs. actual remaining, today marker, area fill) — flag to re-check
+against the original in a browser when a workspace with cycles is available.
+
+- `selectors.ts`: new `cycleBurndown(cycle, issues, nowMs)` → per-day series.
+  For each day from cycle start→end it computes `ideal` (straight scope→0 line)
+  and actual `remaining` = scope − issues whose `completedAt` falls on/before
+  that day; future days get `remaining: null` so the actual line stops at today.
+  Day boundaries normalized via local `startOfDay`. Returns `{points, scope, days}`.
+- `CycleBurndown.tsx`: dependency-free SVG (viewBox `720×220`, `width=100%`).
+  Renders horizontal gridlines + Y ticks (0…scope), a dashed **today** marker
+  (interpolated x for `nowMs`), the dashed **Ideal** guideline, the accent
+  **Open** remaining line with an `accent-subtle` area fill, start/mid/end X
+  date labels, and an Open/Ideal legend. Uses design tokens only.
+- `CyclesView.tsx`: renders the chart under the stacked progress bar inside the
+  cycle summary header, gated on `scope > 0` (so upcoming/empty cycles fall back
+  to the existing "No issues" empty state — verified on Cycle 2).
+- `seed.ts`: made the active cycle mid-flight (`cy_1`: −7d…+7d, `cy_2`: +7d…+21d)
+  and added `cycleId: 'cy_1'` to the completed "Dark mode polish" issue, then
+  spread cy_1's completions across its elapsed days, so the burndown is
+  illustrative (scope 6, 1 completed → Open steps 6→5, sits above the ideal line).
+- Verified live (localhost:5173) with Chrome after resetting localStorage to
+  pick up the seed: active cycle shows the descending Open line + dashed ideal +
+  today marker; upcoming cycle hides the chart cleanly; no console errors.
+  `npx tsc -b` + `npm run build` green.
+
+Next (Discovered later): label groups 🟢, async/email-style export 🟢. Burndown
+"Started" stacked area + points-unit toggle noted as follow-ups.
+
 ## 2026-06-17 — Loop #35: "Try" onboarding section in the sidebar
 
 Built the onboarding / first-run experience (🟡). Soi'd Linear first via Chrome:

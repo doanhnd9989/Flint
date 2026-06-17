@@ -241,6 +241,56 @@ export function cycleProgress(
   }
 }
 
+export interface BurndownPoint {
+  /** Day boundary (ISO) this point represents. */
+  dayMs: number
+  /** Ideal remaining scope (straight line from scope → 0). */
+  ideal: number
+  /** Actual open scope at end of this day; null for days still in the future. */
+  remaining: number | null
+  /** Total scope (issues assigned to the cycle). */
+  scope: number
+}
+
+/**
+ * Per-day burndown series for a cycle: ideal guideline vs. actual remaining
+ * open work, derived from each issue's `completedAt`. Future days have a null
+ * `remaining` so the actual line stops at "today".
+ */
+export function cycleBurndown(
+  cycle: { startsAt: string; endsAt: string; id: string },
+  issues: Issue[],
+  nowMs: number,
+): { points: BurndownPoint[]; scope: number; days: number } {
+  const dayMs = 86_400_000
+  const startOfDay = (ms: number) => {
+    const d = new Date(ms)
+    d.setHours(0, 0, 0, 0)
+    return d.getTime()
+  }
+  const scoped = issues.filter((i) => i.cycleId === cycle.id)
+  const scope = scoped.length
+  const completions = scoped
+    .map((i) => (i.completedAt ? new Date(i.completedAt).getTime() : null))
+    .filter((t): t is number => t != null)
+  const startDay = startOfDay(new Date(cycle.startsAt).getTime())
+  const endDay = startOfDay(new Date(cycle.endsAt).getTime())
+  const days = Math.max(1, Math.round((endDay - startDay) / dayMs))
+  const points: BurndownPoint[] = []
+  for (let d = 0; d <= days; d++) {
+    const dayStart = startDay + d * dayMs
+    const dayEnd = dayStart + dayMs
+    const ideal = scope - (scope * d) / days
+    let remaining: number | null = null
+    if (dayStart <= nowMs) {
+      const done = completions.filter((t) => t < dayEnd).length
+      remaining = scope - done
+    }
+    points.push({ dayMs: dayStart, ideal, remaining, scope })
+  }
+  return { points, scope, days }
+}
+
 /** Lifecycle of a cycle relative to now, with days remaining. */
 export function cycleState(
   startsAt: string,

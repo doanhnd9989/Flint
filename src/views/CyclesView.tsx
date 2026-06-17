@@ -3,12 +3,14 @@ import { useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import {
+  cycleBurndown,
   cycleProgress,
   cycleState,
   groupIssues,
   sortIssues,
 } from '@/lib/selectors'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
+import { CycleBurndown } from '@/components/CycleBurndown'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
 import { formatDate } from '@/lib/utils'
@@ -67,6 +69,7 @@ export function CyclesView() {
   const prog = cycleProgress(current.id, data.issues, data)
   const cs = cycleState(current.startsAt, current.endsAt, nowMs)
   const remaining = Math.max(0, prog.total - prog.done - prog.started)
+  const burndown = cycleBurndown(current, data.issues, nowMs)
 
   return (
     <div className="flex h-full flex-col">
@@ -134,6 +137,20 @@ export function CyclesView() {
             style={{ width: `${prog.total ? (remaining / prog.total) * 100 : 0}%` }}
           />
         </div>
+
+        {/* Burndown chart */}
+        {burndown.scope > 0 && (
+          <div className="mt-5">
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-faint">
+              Burndown
+            </div>
+            <CycleBurndown
+              points={burndown.points}
+              scope={burndown.scope}
+              nowMs={nowMs}
+            />
+          </div>
+        )}
       </div>
 
       <GroupedIssueList groups={groups} groupBy="status" />

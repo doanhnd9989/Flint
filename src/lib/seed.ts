@@ -117,15 +117,15 @@ export function buildSeed(): WorkspaceData {
       id: 'cy_1',
       teamId: 't_cla',
       number: 1,
-      startsAt: nowIso(),
-      endsAt: new Date(Date.now() + 14 * 86_400_000).toISOString(),
+      startsAt: new Date(Date.now() - 7 * 86_400_000).toISOString(),
+      endsAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
     },
     {
       id: 'cy_2',
       teamId: 't_cla',
       number: 2,
-      startsAt: new Date(Date.now() + 14 * 86_400_000).toISOString(),
-      endsAt: new Date(Date.now() + 28 * 86_400_000).toISOString(),
+      startsAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+      endsAt: new Date(Date.now() + 21 * 86_400_000).toISOString(),
     },
   ]
 
@@ -183,7 +183,7 @@ export function buildSeed(): WorkspaceData {
       title: 'Dark mode polish',
       description: 'Tune contrast on the sidebar and selected rows in dark theme.',
       teamId: 't_cla', stateId: 's_done', priority: 4, assigneeId: 'u_kai',
-      labelIds: ['l_design', 'l_improvement'], projectId: 'p_mvp',
+      labelIds: ['l_design', 'l_improvement'], projectId: 'p_mvp', cycleId: 'cy_1',
     },
     {
       title: 'Filter issues by label and assignee',
@@ -255,6 +255,17 @@ export function buildSeed(): WorkspaceData {
       completedAt: state.type === 'completed' ? created : undefined,
       canceledAt: state.type === 'canceled' ? created : undefined,
     }
+  })
+
+  // Spread the active cycle's completions across its elapsed days so the
+  // burndown chart descends gradually instead of dropping all at once.
+  const cy1 = cycles[0]
+  const cy1Done = issues.filter((i) => i.cycleId === cy1.id && i.completedAt)
+  const elapsedMs = Date.now() - new Date(cy1.startsAt).getTime()
+  cy1Done.forEach((i, n) => {
+    const at = new Date(cy1.startsAt).getTime() +
+      Math.round(((n + 1) / (cy1Done.length + 1)) * elapsedMs)
+    i.completedAt = new Date(at).toISOString()
   })
 
   const templates: IssueTemplate[] = [
