@@ -41,13 +41,18 @@ export function CreateIssueModal() {
 
   useEffect(() => {
     if (open) {
+      const p = store.createPrefill
       setTitle('')
       setDescription('')
-      setPriority(0)
-      setAssigneeId(undefined)
-      setLabelIds([])
-      setProjectId(undefined)
+      setPriority(p?.priority ?? 0)
+      setAssigneeId(p?.assigneeId)
+      setLabelIds(p?.labelIds ?? [])
+      setProjectId(p?.projectId)
+      if (p?.teamId) setTeamId(p.teamId)
+      if (p?.stateId) setStateId(p.stateId)
     }
+    // Only re-seed when the modal opens, not on every store change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   useEffect(() => {
@@ -90,13 +95,15 @@ export function CreateIssueModal() {
       projectId,
     })
     if (store.createMore) {
-      // Linear's "Create more": keep the modal open and reset the form for rapid entry.
+      // Linear's "Create more": keep the modal open and reset the form for rapid
+      // entry, preserving the group context the modal was opened with.
+      const p = store.createPrefill
       setTitle('')
       setDescription('')
-      setPriority(0)
-      setAssigneeId(undefined)
-      setLabelIds([])
-      setProjectId(undefined)
+      setPriority(p?.priority ?? 0)
+      setAssigneeId(p?.assigneeId)
+      setLabelIds(p?.labelIds ?? [])
+      setProjectId(p?.projectId)
       return
     }
     store.setCreateOpen(false)

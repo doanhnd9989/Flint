@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Plus } from 'lucide-react'
 import {
   DndContext,
   PointerSensor,
@@ -85,13 +85,23 @@ function CardStack({ issues, dropId }: { issues: Issue[]; dropId: string }) {
 
 function Column({ group }: { group: IssueGroup }) {
   const states = useStore((s) => s.states)
+  const openCreateWith = useStore((s) => s.openCreateWith)
   const state = states.find((s) => s.id === group.stateId)
   return (
-    <div className="flex w-72 shrink-0 flex-col">
+    <div className="group flex w-72 shrink-0 flex-col">
       <div className="mb-2 flex items-center gap-2 px-1">
         {state && <StatusIcon type={state.type} color={state.color} />}
         <span className="text-[13px] font-medium text-fg">{group.label}</span>
         <span className="text-[12px] text-faint">{group.count}</span>
+        <div className="flex-1" />
+        <button
+          type="button"
+          title="Add issue"
+          onClick={() => openCreateWith(group.stateId ? { stateId: group.stateId } : {})}
+          className="flex h-5 w-5 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-bg-hover hover:text-fg group-hover:opacity-100"
+        >
+          <Plus size={14} />
+        </button>
       </div>
       <CardStack issues={group.issues} dropId={group.stateId ?? group.key} />
     </div>
@@ -277,12 +287,22 @@ export function IssueBoard({
 /** A board column header (status icon + name + total count) for swimlane mode. */
 function ColumnHeader({ group }: { group: IssueGroup }) {
   const states = useStore((s) => s.states)
+  const openCreateWith = useStore((s) => s.openCreateWith)
   const state = states.find((s) => s.id === group.stateId)
   return (
-    <div className="flex w-72 shrink-0 items-center gap-2 px-1">
+    <div className="group flex w-72 shrink-0 items-center gap-2 px-1">
       {state && <StatusIcon type={state.type} color={state.color} />}
       <span className="text-[13px] font-medium text-fg">{group.label}</span>
       <span className="text-[12px] text-faint">{group.count}</span>
+      <div className="flex-1" />
+      <button
+        type="button"
+        title="Add issue"
+        onClick={() => openCreateWith(group.stateId ? { stateId: group.stateId } : {})}
+        className="flex h-5 w-5 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-bg-hover hover:text-fg group-hover:opacity-100"
+      >
+        <Plus size={14} />
+      </button>
     </div>
   )
 }

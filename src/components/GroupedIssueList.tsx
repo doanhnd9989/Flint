@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { IssueGroup } from '@/lib/selectors'
-import type { GroupBy, Issue } from '@/lib/types'
+import type { CreatePrefill, GroupBy, Issue, Priority } from '@/lib/types'
 import { useStore } from '@/lib/store'
 import { IssueRow } from './IssueRow'
 import { VirtualIssueList } from './VirtualIssueList'
@@ -26,6 +26,25 @@ import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { cn } from '@/lib/utils'
 import { EmptyState, IssuesIllustration } from './EmptyState'
+
+/** Seed values for the create modal from a group's property — Linear's
+ *  group-header `+` pre-fills the new issue with that group's value. */
+export function prefillFor(groupBy: GroupBy, group: IssueGroup): CreatePrefill {
+  switch (groupBy) {
+    case 'status':
+      return group.stateId ? { stateId: group.stateId } : {}
+    case 'priority':
+      return { priority: Number(group.key) as Priority }
+    case 'assignee':
+      return group.key === 'none' ? {} : { assigneeId: group.key }
+    case 'project':
+      return group.key === 'none' ? {} : { projectId: group.key }
+    case 'label':
+      return group.key === 'none' ? {} : { labelIds: [group.key] }
+    default:
+      return {}
+  }
+}
 
 function GroupGlyph({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy }) {
   const states = useStore((s) => s.states)
@@ -90,6 +109,7 @@ export function GroupedIssueList({
   empty?: { title?: string; description?: string }
 }) {
   const setCreateOpen = useStore((s) => s.setCreateOpen)
+  const openCreateWith = useStore((s) => s.openCreateWith)
   const selectedIssueIds = useStore((s) => s.selectedIssueIds)
   const setSelectedIssues = useStore((s) => s.setSelectedIssues)
   const setNavIssueIds = useStore((s) => s.setNavIssueIds)
@@ -276,7 +296,7 @@ export function GroupedIssueList({
               <button
                 type="button"
                 title="Add issue"
-                onClick={() => setCreateOpen(true)}
+                onClick={() => openCreateWith(prefillFor(groupBy, group))}
                 className="flex h-5 w-5 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
               >
                 <Plus size={14} />
@@ -314,7 +334,12 @@ export function GroupedIssueList({
                         <button
                           type="button"
                           title="Add issue"
-                          onClick={() => setCreateOpen(true)}
+                          onClick={() =>
+                            openCreateWith({
+                              ...prefillFor(groupBy, group),
+                              ...prefillFor(subGroupBy, sg),
+                            })
+                          }
                           className="flex h-5 w-5 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
                         >
                           <Plus size={14} />

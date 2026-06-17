@@ -265,6 +265,19 @@ export type GroupBy =
   | 'none'
 export type OrderBy = 'priority' | 'created' | 'updated' | 'manual' | 'title'
 
+/**
+ * Seed values for the create-issue modal — Linear's group-header `+` opens the
+ * modal pre-filled with that group's (and sub-group's) property.
+ */
+export interface CreatePrefill {
+  teamId?: string
+  stateId?: string
+  priority?: Priority
+  assigneeId?: string
+  labelIds?: string[]
+  projectId?: string
+}
+
 /** Properties that can be shown/hidden on issue rows (Linear's Display options). */
 export type DisplayProperty =
   | 'id'

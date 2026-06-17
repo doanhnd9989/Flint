@@ -11,6 +11,7 @@ import type {
   Activity,
   ActivityKind,
   Comment,
+  CreatePrefill,
   Favorite,
   FavoriteType,
   Initiative,
@@ -56,6 +57,8 @@ interface UIState {
    */
   relationPicker: { issueId: string; kind: RelationPickerKind } | null
   createOpen: boolean
+  /** Seed values for the create-issue modal (group-header `+`). Transient. */
+  createPrefill: CreatePrefill | null
   /** "Create more" toggle in the create-issue modal — keeps it open after creating (persisted, like Linear). */
   createMore: boolean
   /** New-initiative modal (transient). */
@@ -204,6 +207,8 @@ export interface Store extends WorkspaceData, UIState {
   /** Close the relation picker. */
   closeRelationPicker: () => void
   setCreateOpen: (open: boolean) => void
+  /** Open the create-issue modal pre-filled with a group's property. */
+  openCreateWith: (prefill: CreatePrefill | null) => void
   setCreateMore: (on: boolean) => void
   setCreateInitiativeOpen: (open: boolean) => void
   setHelpOpen: (open: boolean) => void
@@ -277,6 +282,7 @@ export const useStore = create<Store>()(
       commandPage: null,
       relationPicker: null,
       createOpen: false,
+      createPrefill: null,
       createMore: false,
       createInitiativeOpen: false,
       helpOpen: false,
@@ -1101,7 +1107,9 @@ export const useStore = create<Store>()(
       openRelationPicker: (issueId, kind) =>
         set({ relationPicker: { issueId, kind } }),
       closeRelationPicker: () => set({ relationPicker: null }),
-      setCreateOpen: (createOpen) => set({ createOpen }),
+      setCreateOpen: (createOpen) =>
+        set(createOpen ? { createOpen } : { createOpen, createPrefill: null }),
+      openCreateWith: (createPrefill) => set({ createOpen: true, createPrefill }),
       setCreateMore: (createMore) => set({ createMore }),
       setCreateInitiativeOpen: (createInitiativeOpen) =>
         set({ createInitiativeOpen }),
@@ -1346,6 +1354,7 @@ export const useStore = create<Store>()(
           commandPage: _cmp,
           relationPicker: _rp,
           createOpen: _cr,
+          createPrefill: _crp,
           createInitiativeOpen: _ci,
           helpOpen: _h,
           peekIssueId: _p,
@@ -1358,6 +1367,7 @@ export const useStore = create<Store>()(
         } = s
         void _c
         void _cr
+        void _crp
         void _ci
         void _h
         void _p

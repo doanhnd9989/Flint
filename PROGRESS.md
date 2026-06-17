@@ -2,6 +2,36 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #62: Group-header `+` pre-fills the create modal
+
+Soi'd Linear (Chrome, workspace "Claude Test App", list + board layouts): the
+**`+`** on a group header — and on a board **column** header — opens the **New
+issue** modal *pre-filled with that group's property*, not a blank one. Clicking
+Todo's `+` shows a **Todo** status pill; In Progress's `+` shows **In Progress**;
+a sub-group `+` combines both (status + priority/assignee/…). Our `+` was just
+opening a blank `setCreateOpen(true)`. Reproduced 1:1:
+
+- **`CreatePrefill`** type (`types.ts`) — `teamId`/`stateId`/`priority`/
+  `assigneeId`/`labelIds`/`projectId`.
+- **Store** — a transient `createPrefill` slice + **`openCreateWith(prefill)`**
+  action (sets `createOpen: true` + the prefill); excluded from persist;
+  `setCreateOpen(false)` now also clears `createPrefill`.
+- **`prefillFor(groupBy, group)`** (exported from `GroupedIssueList`) — maps a
+  group's key → its property (status→stateId, priority→priority, assignee→
+  assigneeId, project→projectId, label→[labelId]; "No X" groups prefill nothing).
+  The list group `+` calls `openCreateWith(prefillFor(groupBy, group))`; the
+  sub-group `+` spreads `{...prefillFor(groupBy, group), ...prefillFor(subGroupBy, sg)}`.
+- **`CreateIssueModal`** — seeds its form fields from `createPrefill` when it
+  opens, and re-seeds on each **Create more** so the group context sticks.
+- **`IssueBoard`** — added a hover **`+`** to the board `Column` and swimlane
+  `ColumnHeader` (previously absent), prefilling that column's status.
+
+Verified live (localhost:5199): In Progress `+` → modal pre-set to "In Progress";
+created **CLA-15**, which landed straight in the In Progress group (count 2→3);
+the row's context menu confirmed status = In Progress; deleted the test issue;
+console clean. `npx tsc -b` + `npm run build` green. _(Board swimlane row `+` and
+`SavedViewScreen` group `+` not added — those headers have no add button yet.)_
+
 ## 2026-06-18 — Loop #61: Projects list view + Display options
 
 Soi'd Linear's **Projects** page (Chrome, workspace "Claude Test App"): the
