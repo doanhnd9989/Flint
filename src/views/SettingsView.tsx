@@ -2,6 +2,7 @@ import { useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { LabelsSettings } from '@/components/LabelsSettings'
+import { StatesSettings } from '@/components/StatesSettings'
 import { cn } from '@/lib/utils'
 import type { ThemeMode } from '@/lib/types'
 
@@ -84,6 +85,10 @@ export function SettingsView() {
                 </div>
               ))}
             </div>
+          </Card>
+
+          <Card title="Workflow states">
+            <StatesSettings />
           </Card>
 
           <Card title="Labels">

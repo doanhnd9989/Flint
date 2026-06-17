@@ -2,6 +2,24 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #13: Custom workflow states
+
+Customize a team's statuses, Linear-style:
+
+- Store: `updateState` (name/color/type), `deleteState` (reassigns issues on the
+  removed status to a fallback; blocked when only one status remains), and
+  `moveState(id, up|down)` (swaps `position` with the adjacent status of the same
+  type). Imported `STATUS_TYPE_ORDER` for ordering.
+- New `components/StatesSettings.tsx`: each status shows its glyph + a color-swatch
+  popover, an inline name, a type `<select>`, a live usage count, and hover
+  up/down/delete controls; plus a "new status" row.
+- `SettingsView`: a "Workflow states" card hosts it (above Labels).
+- Verified live: moved "In Review" above "In Progress" (swap within the Started
+  group) and back. `tsc` ✅ · build ✅ · clean console.
+
+Next: **Issue templates** (create issues from a saved template).
+
+
 ## 2026-06-17 — Loop #12: Labels management in Settings
 
 Manage the workspace's labels, Linear-style:

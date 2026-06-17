@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid'
 import { buildSeed } from './seed'
 import type { WorkspaceData } from './seed'
 import { nowIso } from './utils'
-import { STORAGE_KEY } from './constants'
+import { STORAGE_KEY, STATUS_TYPE_ORDER } from './constants'
 import type {
   Activity,
   ActivityKind,
@@ -81,6 +81,9 @@ export interface Store extends WorkspaceData, UIState {
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
   updateProject: (id: string, patch: Partial<Project>) => void
   createState: (s: Omit<WorkflowState, 'id'>) => WorkflowState
+  updateState: (id: string, patch: Partial<Pick<WorkflowState, 'name' | 'color' | 'type'>>) => void
+  deleteState: (id: string) => void
+  moveState: (id: string, dir: 'up' | 'down') => void
 
   // ── notifications ────────────────────────────────────────────
   markNotificationRead: (id: string) => void
@@ -431,6 +434,48 @@ export const useStore = create<Store>()(
         set((s) => ({ states: [...s.states, state] }))
         return state
       },
+
+      updateState: (id, patch) =>
+        set((s) => ({
+          states: s.states.map((st) => (st.id === id ? { ...st, ...patch } : st)),
+        })),
+
+      deleteState: (id) =>
+        set((s) => {
+          if (s.states.length <= 1) return s
+          const fallback = s.states
+            .filter((st) => st.id !== id)
+            .sort(
+              (a, b) =>
+                STATUS_TYPE_ORDER[a.type] - STATUS_TYPE_ORDER[b.type] ||
+                a.position - b.position,
+            )[0]
+          return {
+            states: s.states.filter((st) => st.id !== id),
+            issues: s.issues.map((i) =>
+              i.stateId === id ? { ...i, stateId: fallback.id } : i,
+            ),
+          }
+        }),
+
+      moveState: (id, dir) =>
+        set((s) => {
+          const state = s.states.find((st) => st.id === id)
+          if (!state) return s
+          const peers = s.states
+            .filter((st) => st.type === state.type)
+            .sort((a, b) => a.position - b.position)
+          const idx = peers.findIndex((st) => st.id === id)
+          const target = dir === 'up' ? peers[idx - 1] : peers[idx + 1]
+          if (!target) return s
+          return {
+            states: s.states.map((st) => {
+              if (st.id === id) return { ...st, position: target.position }
+              if (st.id === target.id) return { ...st, position: state.position }
+              return st
+            }),
+          }
+        }),
 
       markNotificationRead: (id) =>
         set((s) => ({

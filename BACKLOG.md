@@ -34,7 +34,7 @@ Priority key: 🔴 core · 🟡 important · 🟢 polish
 - [x] 🟡 **Emoji reactions** on comments — reaction pills (emoji + count, highlighted when you reacted, reactor names on hover) and an emoji-picker popover to add; toggling removes your reaction.
 - [x] 🟡 **Due-date picker** — month calendar popover (prev/next, Today, Clear) on the issue's Due date property; overdue (red) / due-soon (amber) styling on the property and in issue rows.
 - [x] 🟡 **Labels management** in settings — create / rename (inline) / recolor (swatch picker) / delete (with usage count; removes the label from all issues). _(Label groups still TODO.)_
-- [ ] 🟡 **Custom workflow states** in settings — add / rename / recolor / reorder per team.
+- [x] 🟡 **Custom workflow states** in settings — add / rename / recolor / change type / reorder (within type) / delete (reassigns affected issues). Lives in a "Workflow states" Settings card.
 - [ ] 🟡 **Issue templates** — create issues from a saved template.
 - [ ] 🟡 **Saved views** — persist filter+group+sort as a named view; show under "Views".
 - [ ] 🟡 **Triage** — inbox of unassigned/incoming issues with accept/decline.
