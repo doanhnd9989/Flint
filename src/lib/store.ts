@@ -166,6 +166,7 @@ export interface Store extends WorkspaceData, UIState {
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
   updateProject: (id: string, patch: Partial<Project>) => void
   createMilestone: (projectId: string, name: string) => Milestone
+  updateMilestone: (id: string, patch: Partial<Milestone>) => void
   deleteMilestone: (id: string) => void
   createProjectUpdate: (projectId: string, health: ProjectHealth, body: string) => void
   deleteProjectUpdate: (id: string) => void
@@ -883,6 +884,13 @@ export const useStore = create<Store>()(
         set((s) => ({ milestones: [...s.milestones, milestone] }))
         return milestone
       },
+
+      updateMilestone: (id, patch) =>
+        set((s) => ({
+          milestones: s.milestones.map((m) =>
+            m.id === id ? { ...m, ...patch } : m,
+          ),
+        })),
 
       deleteMilestone: (id) =>
         set((s) => ({

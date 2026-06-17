@@ -2,6 +2,35 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #64: Project milestones — inline create/edit (replace prompt())
+
+Soi'd Linear's project Overview milestones (Chrome, workspace "Claude Test App",
+"Overview Soi Demo"). Clicking **+ Milestone** doesn't open a dialog — it inserts
+an **inline, auto-focused** milestone row: a ◇ diamond icon, a "Milestone name"
+placeholder text field, and an "Add a description…" field beneath. Typing the
+name live-creates/updates it (it appears instantly in the right Properties
+Milestones panel as "{name} · X% of N"); each milestone has an inline target
+date and a **···** menu (Edit… / Set target date… / Copy / Move milestone to /
+Delete ⌘⌫). Our `ProjectDetail` still used `prompt('New milestone name…')`.
+Replaced it with the faithful inline flow:
+
+- **types**: `Milestone.description?`.
+- **store**: new `updateMilestone(id, patch)` action.
+- **ProjectDetail**: a new inline `MilestoneItem` — ◇ `Diamond` icon, controlled
+  name + description `<input>`s (write through `updateMilestone` on every
+  keystroke), a `DatePicker` target-date chip, the progress badge + bar, and a
+  `Popover` **···** menu (**Edit…** focuses the name, **Delete** removes it). The
+  Milestones section now renders these rows + a bottom **+ Milestone** button;
+  `addMilestone` creates an empty milestone and auto-focuses it. An abandoned
+  empty row self-deletes on blur (guarded so moving focus *within* the row — to
+  the date picker or ··· menu — doesn't trigger it, via `relatedTarget`).
+
+Verified live (localhost:5199, MVP Launch): **+ Milestone** → editable row →
+typed "Public beta" → persisted to the store next to seeded Alpha/Beta; an empty
+milestone created then blurred away cleaned itself back up (4 → 3); console
+clean; `npx tsc -b` + `npm run build` green. _(Copy / "Move milestone to" ···
+items omitted; target date is shown inline rather than only behind the menu.)_
+
 ## 2026-06-18 — Loop #63: Project detail — Overview tab + Properties sidebar
 
 Soi'd Linear's project page (Chrome, workspace "Claude Test App"; created a

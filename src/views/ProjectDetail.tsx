@@ -1,6 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Flag, Goal, CalendarRange, Users } from 'lucide-react'
+import {
+  Plus,
+  Trash2,
+  Flag,
+  Goal,
+  CalendarRange,
+  Users,
+  Diamond,
+  MoreHorizontal,
+} from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { sortIssues, projectProgress, milestoneProgress } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
@@ -12,10 +21,11 @@ import { AssigneePicker } from '@/components/pickers'
 import { DatePicker } from '@/components/DatePicker'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
+import { Popover } from '@/components/ui/Popover'
 import { StarButton } from '@/components/StarButton'
 import { PROJECT_STATUS, PROJECT_STATUS_ORDER } from '@/lib/constants'
 import { formatFullDate, cn } from '@/lib/utils'
-import type { Issue, Project, ProjectStatus } from '@/lib/types'
+import type { Issue, Milestone, Project, ProjectStatus } from '@/lib/types'
 
 const triggerCls =
   'flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] text-fg hover:bg-bg-hover'
@@ -127,6 +137,117 @@ function MembersField({ project }: { project: Project }) {
   )
 }
 
+/** A single inline-editable milestone in the Overview main column (Linear-style). */
+function MilestoneItem({
+  milestone,
+  progress,
+  autoFocus,
+  onChange,
+  onDelete,
+}: {
+  milestone: Milestone
+  progress: { done: number; total: number; percent: number }
+  autoFocus: boolean
+  onChange: (patch: Partial<Milestone>) => void
+  onDelete: () => void
+}) {
+  const rowRef = useRef<HTMLDivElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (autoFocus) nameRef.current?.focus()
+  }, [autoFocus])
+
+  // Empty milestones (created via "+ Milestone" then abandoned) clean themselves
+  // up when focus leaves the row — matching Linear's transient placeholder row.
+  function handleBlur(e: React.FocusEvent) {
+    if (rowRef.current?.contains(e.relatedTarget as Node)) return
+    if (!milestone.name.trim() && !milestone.description?.trim()) onDelete()
+  }
+
+  return (
+    <div ref={rowRef} className="group rounded-md px-1.5 py-1.5 hover:bg-bg-hover">
+      <div className="flex items-center gap-2">
+        <Diamond size={13} className="shrink-0 text-faint" />
+        <input
+          ref={nameRef}
+          value={milestone.name}
+          onChange={(e) => onChange({ name: e.target.value })}
+          onBlur={handleBlur}
+          placeholder="Milestone name"
+          className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-fg outline-none placeholder:text-faint"
+        />
+        <span className="shrink-0 text-[12px] text-faint">
+          {progress.done}/{progress.total}
+        </span>
+        <div className="h-1 w-16 shrink-0 overflow-hidden rounded-full bg-bg-tertiary">
+          <div
+            className="h-full rounded-full bg-accent"
+            style={{ width: `${progress.percent}%` }}
+          />
+        </div>
+        <DatePicker
+          value={milestone.targetDate}
+          onChange={(iso) => onChange({ targetDate: iso })}
+          trigger={
+            <span
+              onBlur={handleBlur}
+              className="flex items-center gap-1 rounded px-1 py-0.5 text-[12px] text-faint hover:bg-bg-hover"
+            >
+              <CalendarRange size={12} />
+              {milestone.targetDate ? formatFullDate(milestone.targetDate) : null}
+            </span>
+          }
+        />
+        <Popover
+          align="end"
+          width={180}
+          trigger={
+            <span
+              onBlur={handleBlur}
+              className="flex h-5 w-5 items-center justify-center rounded text-faint opacity-0 hover:bg-bg-hover hover:text-fg group-hover:opacity-100"
+            >
+              <MoreHorizontal size={14} />
+            </span>
+          }
+        >
+          {(close) => (
+            <div className="flex flex-col">
+              <button
+                type="button"
+                onClick={() => {
+                  nameRef.current?.focus()
+                  close()
+                }}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+              >
+                <Goal size={14} className="text-faint" /> Edit…
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onDelete()
+                  close()
+                }}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-red hover:bg-bg-hover"
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          )}
+        </Popover>
+      </div>
+      <input
+        value={milestone.description ?? ''}
+        onChange={(e) => onChange({ description: e.target.value })}
+        onBlur={handleBlur}
+        placeholder="Add a description…"
+        className="ml-[21px] mt-0.5 w-[calc(100%-21px)] bg-transparent text-[12px] text-muted outline-none placeholder:text-faint"
+      />
+    </div>
+  )
+}
+
 export function ProjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -135,6 +256,7 @@ export function ProjectDetail() {
   const [tab, setTab] = useState<'overview' | 'activity' | 'issues'>('overview')
   const [editingDesc, setEditingDesc] = useState(false)
   const [descDraft, setDescDraft] = useState('')
+  const [focusMilestoneId, setFocusMilestoneId] = useState<string | null>(null)
 
   const latestUpdate = useMemo(
     () =>
@@ -185,8 +307,8 @@ export function ProjectDetail() {
   }))
 
   function addMilestone() {
-    const name = prompt('New milestone name…')
-    if (name?.trim()) data.createMilestone(project!.id, name.trim())
+    const m = data.createMilestone(project!.id, '')
+    setFocusMilestoneId(m.id)
   }
 
   return (
@@ -300,31 +422,26 @@ export function ProjectDetail() {
                     into more granular stages.
                   </p>
                 ) : (
-                  <div className="space-y-1">
-                    {milestones.map((m) => {
-                      const mp = milestoneProgress(m.id, data.issues, data)
-                      return (
-                        <div
-                          key={m.id}
-                          className="flex items-center gap-2 rounded-md px-1.5 py-1 text-[13px]"
-                        >
-                          <Flag size={13} className="text-faint" />
-                          <span className="text-fg">{m.name}</span>
-                          <div className="flex-1" />
-                          <span className="text-[12px] text-faint">
-                            {mp.done}/{mp.total}
-                          </span>
-                          <div className="h-1 w-16 overflow-hidden rounded-full bg-bg-tertiary">
-                            <div
-                              className="h-full rounded-full bg-accent"
-                              style={{ width: `${mp.percent}%` }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
+                  <div className="space-y-0.5">
+                    {milestones.map((m) => (
+                      <MilestoneItem
+                        key={m.id}
+                        milestone={m}
+                        progress={milestoneProgress(m.id, data.issues, data)}
+                        autoFocus={m.id === focusMilestoneId}
+                        onChange={(patch) => data.updateMilestone(m.id, patch)}
+                        onDelete={() => data.deleteMilestone(m.id)}
+                      />
+                    ))}
                   </div>
                 )}
+                <button
+                  type="button"
+                  onClick={addMilestone}
+                  className="mt-1 flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] text-faint hover:bg-bg-hover hover:text-fg"
+                >
+                  <Plus size={14} /> Milestone
+                </button>
               </div>
             </div>
           </div>

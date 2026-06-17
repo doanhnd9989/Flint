@@ -117,6 +117,7 @@ export interface Milestone {
   id: string
   projectId: string
   name: string
+  description?: string
   targetDate?: string
   sortOrder: number
 }
