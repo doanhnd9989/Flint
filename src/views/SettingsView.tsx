@@ -3,6 +3,7 @@ import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { LabelsSettings } from '@/components/LabelsSettings'
 import { StatesSettings } from '@/components/StatesSettings'
+import { TemplatesSettings } from '@/components/TemplatesSettings'
 import { cn } from '@/lib/utils'
 import type { ThemeMode } from '@/lib/types'
 
@@ -93,6 +94,10 @@ export function SettingsView() {
 
           <Card title="Labels">
             <LabelsSettings />
+          </Card>
+
+          <Card title="Templates">
+            <TemplatesSettings />
           </Card>
 
           <Card title="Danger zone">

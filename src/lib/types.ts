@@ -155,6 +155,18 @@ export interface Relation {
   toIssueId: string
 }
 
+export interface IssueTemplate {
+  id: string
+  name: string
+  teamId?: string
+  title: string
+  description: string
+  priority: Priority
+  labelIds: string[]
+  stateId?: string
+  assigneeId?: string
+}
+
 export type ViewLayout = 'list' | 'board'
 export type GroupBy =
   | 'status'

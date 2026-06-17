@@ -11,6 +11,7 @@ import type {
   ActivityKind,
   Comment,
   Issue,
+  IssueTemplate,
   Label,
   Notification,
   Priority,
@@ -80,6 +81,8 @@ export interface Store extends WorkspaceData, UIState {
   deleteLabel: (id: string) => void
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
   updateProject: (id: string, patch: Partial<Project>) => void
+  createTemplate: (t: Omit<IssueTemplate, 'id'>) => IssueTemplate
+  deleteTemplate: (id: string) => void
   createState: (s: Omit<WorkflowState, 'id'>) => WorkflowState
   updateState: (id: string, patch: Partial<Pick<WorkflowState, 'name' | 'color' | 'type'>>) => void
   deleteState: (id: string) => void
@@ -428,6 +431,15 @@ export const useStore = create<Store>()(
             p.id === id ? { ...p, ...patch } : p,
           ),
         })),
+
+      createTemplate: (t) => {
+        const tpl: IssueTemplate = { ...t, id: `tpl_${nanoid(8)}` }
+        set((s) => ({ templates: [...s.templates, tpl] }))
+        return tpl
+      },
+
+      deleteTemplate: (id) =>
+        set((s) => ({ templates: s.templates.filter((t) => t.id !== id) })),
 
       createState: (st) => {
         const state: WorkflowState = { ...st, id: `s_${nanoid(8)}` }

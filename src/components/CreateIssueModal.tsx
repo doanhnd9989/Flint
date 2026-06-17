@@ -14,6 +14,8 @@ import {
   LabelPicker,
   ProjectPicker,
 } from './pickers'
+import { SelectMenu } from './ui/SelectMenu'
+import { FileText } from 'lucide-react'
 import { PRIORITY_LABELS } from '@/lib/constants'
 
 const chip =
@@ -63,6 +65,18 @@ export function CreateIssueModal() {
   const assignee = store.users.find((u) => u.id === assigneeId)
   const project = store.projects.find((p) => p.id === projectId)
 
+  function applyTemplate(id: string) {
+    const t = store.templates.find((x) => x.id === id)
+    if (!t) return
+    if (t.teamId) setTeamId(t.teamId)
+    setTitle(t.title)
+    setDescription(t.description)
+    setPriority(t.priority)
+    setLabelIds(t.labelIds)
+    if (t.stateId) setStateId(t.stateId)
+    if (t.assigneeId) setAssigneeId(t.assigneeId)
+  }
+
   function submit(openAfter: boolean) {
     if (!title.trim()) return
     const issue = store.createIssue({
@@ -103,6 +117,21 @@ export function CreateIssueModal() {
             {team.icon} {team.key}
           </button>
           <span>New issue</span>
+          <div className="flex-1" />
+          {store.templates.length > 0 && (
+            <SelectMenu
+              align="end"
+              width={220}
+              placeholder="Use a template…"
+              options={store.templates.map((t) => ({ id: t.id, label: t.name }))}
+              onSelect={applyTemplate}
+              trigger={
+                <span className="flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[11px] hover:bg-bg-hover">
+                  <FileText size={12} /> Template
+                </span>
+              }
+            />
+          )}
         </div>
 
         <div className="px-4 py-3">

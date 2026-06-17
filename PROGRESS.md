@@ -2,6 +2,27 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #14: Issue templates
+
+Spin up issues from reusable templates, Linear-style:
+
+- `types.ts`: `IssueTemplate` (name + default title/description/priority/labels/
+  state/assignee). Store slice + `createTemplate` / `deleteTemplate`.
+- `seed.ts`: two starter templates — "Bug report" (steps/expected/actual,
+  High, Bug label, Todo) and "Feature request" (problem/solution, Medium,
+  Feature label, Backlog).
+- `CreateIssueModal`: a "Template" picker in the header prefills the whole form
+  from the chosen template.
+- New `components/TemplatesSettings.tsx` (in a Settings "Templates" card): lists
+  templates with a usage summary + delete, and a form to author new ones
+  (name, title, description, priority, labels).
+- Verified live: opening the create modal and picking "Bug report" prefilled
+  title "[Bug]", the steps-to-reproduce description, Todo, High, and the Bug
+  label. `tsc` ✅ · build ✅ · clean console.
+
+Next: **Saved views** — persist filter+group+sort as a named view under "Views".
+
+
 ## 2026-06-17 — Loop #13: Custom workflow states
 
 Customize a team's statuses, Linear-style:

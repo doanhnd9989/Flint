@@ -3,6 +3,7 @@ import type {
   Comment,
   Cycle,
   Issue,
+  IssueTemplate,
   Label,
   Milestone,
   Notification,
@@ -27,6 +28,7 @@ export interface WorkspaceData {
   cycles: Cycle[]
   issues: Issue[]
   relations: Relation[]
+  templates: IssueTemplate[]
   comments: Comment[]
   activities: Activity[]
   notifications: Notification[]
@@ -220,6 +222,30 @@ export function buildSeed(): WorkspaceData {
     }
   })
 
+  const templates: IssueTemplate[] = [
+    {
+      id: 'tpl_bug',
+      name: 'Bug report',
+      teamId: 't_cla',
+      title: '[Bug] ',
+      description:
+        '## Steps to reproduce\n\n1. \n2. \n\n## Expected\n\n## Actual\n\n## Environment\n',
+      priority: 2,
+      labelIds: ['l_bug'],
+      stateId: 's_todo',
+    },
+    {
+      id: 'tpl_feature',
+      name: 'Feature request',
+      teamId: 't_cla',
+      title: '',
+      description: '## Problem\n\n## Proposed solution\n\n## Out of scope\n',
+      priority: 3,
+      labelIds: ['l_feature'],
+      stateId: 's_backlog',
+    },
+  ]
+
   const relations: Relation[] = [
     // CLA-5 (keyboard perf) blocks CLA-7 (board view)
     { id: 'r_1', type: 'blocks', fromIssueId: 'i_5', toIssueId: 'i_7' },
@@ -276,6 +302,7 @@ export function buildSeed(): WorkspaceData {
     cycles,
     issues,
     relations,
+    templates,
     comments,
     activities,
     notifications,
