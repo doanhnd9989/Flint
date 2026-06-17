@@ -3,6 +3,7 @@ import { useStore } from '@/lib/store'
 import { IssueDetailBody } from '@/components/IssueDetailBody'
 import { StarButton } from '@/components/StarButton'
 import { IssueNav } from '@/components/IssueNav'
+import { IssueOptionsMenu } from '@/components/IssueOptionsMenu'
 import { branchName, issueUrl } from '@/lib/utils'
 import { copyToClipboard, copyToast } from '@/lib/toast'
 import { Trash2, Link2, GitBranch } from 'lucide-react'
@@ -30,6 +31,11 @@ export function IssueDetail() {
         </button>
         <span className="text-faint">›</span>
         <span className="font-mono text-faint">{issue.identifier}</span>
+        <IssueOptionsMenu
+          issue={issue}
+          onOpenIssue={(id) => navigate(`/issue/${id}`)}
+          onDeleted={() => navigate(-1)}
+        />
         <div className="flex-1" />
         <StarButton type="issue" id={issue.id} />
         <button

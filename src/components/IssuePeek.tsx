@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { IssueDetailBody } from './IssueDetailBody'
 import { IssueNav } from './IssueNav'
+import { IssueOptionsMenu } from './IssueOptionsMenu'
 import { branchName, issueUrl } from '@/lib/utils'
 import { copyToClipboard, copyToast } from '@/lib/toast'
 import { X, Maximize2, Trash2, Link2, GitBranch } from 'lucide-react'
@@ -52,6 +53,14 @@ export function IssuePeek() {
           </span>
           <span className="text-faint">›</span>
           <span className="font-mono text-faint">{issue.identifier}</span>
+          <IssueOptionsMenu
+            issue={issue}
+            onOpenIssue={(id) => {
+              const next = store.issues.find((i) => i.identifier === id)
+              if (next) store.setPeek(next.id)
+            }}
+            onDeleted={close}
+          />
           <div className="flex-1" />
           <IssueNav
             identifier={issue.identifier}

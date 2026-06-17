@@ -2,6 +2,50 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #52: Issue ⋯ menu — Create related / Mark as submenus
+
+Soi'd Linear's issue header **⋯ ("Issue options")** menu (Chrome, workspace
+"Claude Test App", CLA-1) and reproduced its two relation submenus 1:1, the
+explicitly-deferred gap from loop #51. The real menu:
+
+- `Add link… (⌃L)` · `Add document…`
+- ─ **Create related** ▸ — Issue… / Sub-issue… ⌘⇧O / Parent issue… /
+  Blocked issue… / Blocking issue… (these **create** a new, linked issue)
+- **Mark as** ▸ — Parent of… / Sub-issue of… ⌘⇧P / Related to… M R /
+  Blocked by… M B / Blocking… M X / Duplicate of… M M (these **link an
+  existing** issue)
+- ─ Copy ▸ · Convert to ▸ · ─ Favorite ⌥F / Remind me ▸ / Unsubscribe ⇧S
+  · ─ Show description history / Delete ⌘⌫
+
+Built a new shared **`IssueOptionsMenu`** and placed it in the breadcrumb
+(right after the identifier) on both the full-page `IssueDetail` and the
+`IssuePeek` header — matching Linear's placement. Faithful slice:
+
+- **Structure** — `Add link…` (⌃L) · **Create related** ▸ · **Mark as** ▸ ·
+  **Copy** ▸ (ID / URL / branch) · Favorite/Unfavorite (⌥F) ·
+  Subscribe/Unsubscribe (⇧S) · Delete (⌘⌫). Exact labels, order, dividers,
+  shortcut hints and icons; the two relation submenus + Copy are
+  **hover-expanding flyouts** to the right.
+- **Create related** — calls `createIssue` (same team/project), then applies
+  the link (`addRelation(self,new,'related'|'blocks')` /
+  `addRelation(new,self,'blocks')` for Blocking / `setIssueParent` for
+  Sub-issue & Parent) and opens the new issue (navigate / re-peek).
+- **Mark as** — each row opens a searchable existing-issue `SelectMenu`
+  (self + triage excluded; the store's `setIssueParent` cycle guard keeps
+  parenting safe) → `setIssueParent` / `addRelation`.
+- Reuses existing store actions/helpers (`openLinkModal`, `toggleFavorite`,
+  `toggleIssueSubscriber`, `deleteIssue`, copy/toast). Escape closes the menu
+  via a **capture-phase** listener + `stopPropagation`, so it doesn't also
+  close the enclosing peek panel. `data-overlay` so global hotkeys bail.
+
+Verified live (localhost:5173, CLA-2): the ⋯ menu and both flyouts render
+identically to Linear (incl. the M-chord hints); **Mark as → Related to… →
+CLA-1** added a Related relation in the Relations section, then removed it via
+the row ×; `npx tsc -b` + `npm run build` green, console clean. _(The
+⌘⇧O/⌘⇧P + M-chord keyboard shortcuts show as hints only — wiring them is
+still TODO; "Convert to / Remind me / Add document / Show description history"
+omitted, no backend for those.)_
+
 ## 2026-06-17 — Loop #51: Parent / sub-issue linking to existing issues
 
 Soi'd Linear's issue ⋯ header menu (Chrome, workspace "Claude Test App",
