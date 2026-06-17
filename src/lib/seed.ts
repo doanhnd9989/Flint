@@ -2,6 +2,7 @@ import type {
   Activity,
   Comment,
   Cycle,
+  Initiative,
   Issue,
   IssueTemplate,
   Label,
@@ -24,6 +25,7 @@ export interface WorkspaceData {
   teams: Team[]
   states: WorkflowState[]
   labels: Label[]
+  initiatives: Initiative[]
   projects: Project[]
   milestones: Milestone[]
   cycles: Cycle[]
@@ -76,6 +78,22 @@ export function buildSeed(): WorkspaceData {
     { id: 'l_urgent', name: 'Needs triage', color: '#f2994a' },
   ]
 
+  const initiatives: Initiative[] = [
+    {
+      id: 'in_h2',
+      name: 'H2 Product Launch',
+      description:
+        'Bring the product to general availability: ship the MVP and the mobile clients, then drive adoption.',
+      icon: '🎯',
+      color: '#5e6ad2',
+      status: 'active',
+      ownerId: 'u_me',
+      targetDate: new Date(Date.now() + 120 * 86_400_000).toISOString(),
+      createdAt: nowIso(),
+      sortOrder: 1,
+    },
+  ]
+
   const projects: Project[] = [
     {
       id: 'p_mvp',
@@ -87,6 +105,7 @@ export function buildSeed(): WorkspaceData {
       leadId: 'u_me',
       memberIds: ['u_me', 'u_avery', 'u_jordan'],
       teamIds: ['t_cla'],
+      initiativeId: 'in_h2',
       startDate: nowIso(),
       targetDate: new Date(Date.now() + 30 * 86_400_000).toISOString(),
       createdAt: nowIso(),
@@ -102,6 +121,7 @@ export function buildSeed(): WorkspaceData {
       leadId: 'u_kai',
       memberIds: ['u_kai', 'u_sam'],
       teamIds: ['t_cla'],
+      initiativeId: 'in_h2',
       targetDate: new Date(Date.now() + 90 * 86_400_000).toISOString(),
       createdAt: nowIso(),
       sortOrder: 2,
@@ -372,6 +392,7 @@ export function buildSeed(): WorkspaceData {
     teams,
     states,
     labels,
+    initiatives,
     projects,
     milestones,
     cycles,

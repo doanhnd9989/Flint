@@ -13,6 +13,7 @@ import type {
   Comment,
   Favorite,
   FavoriteType,
+  Initiative,
   Issue,
   IssueTemplate,
   Label,
@@ -38,6 +39,8 @@ interface UIState {
   sidebarCollapsed: boolean
   commandOpen: boolean
   createOpen: boolean
+  /** New-initiative modal (transient). */
+  createInitiativeOpen: boolean
   /** Keyboard-shortcuts help overlay (transient). */
   helpOpen: boolean
   /** Issue currently shown in the right-side peek panel (transient). */
@@ -105,6 +108,10 @@ export interface Store extends WorkspaceData, UIState {
   createLabelGroup: (name: string) => Label
   updateLabel: (id: string, patch: Partial<Pick<Label, 'name' | 'color' | 'groupId'>>) => void
   deleteLabel: (id: string) => void
+  createInitiative: (i: Omit<Initiative, 'id' | 'createdAt' | 'sortOrder'>) => Initiative
+  updateInitiative: (id: string, patch: Partial<Initiative>) => void
+  deleteInitiative: (id: string) => void
+  setProjectInitiative: (projectId: string, initiativeId?: string) => void
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
   updateProject: (id: string, patch: Partial<Project>) => void
   createMilestone: (projectId: string, name: string) => Milestone
@@ -138,6 +145,7 @@ export interface Store extends WorkspaceData, UIState {
   toggleSidebar: () => void
   setCommandOpen: (open: boolean) => void
   setCreateOpen: (open: boolean) => void
+  setCreateInitiativeOpen: (open: boolean) => void
   setHelpOpen: (open: boolean) => void
   setPeek: (id: string | null) => void
   addRecentSearch: (q: string) => void
@@ -196,6 +204,7 @@ export const useStore = create<Store>()(
       sidebarCollapsed: false,
       commandOpen: false,
       createOpen: false,
+      createInitiativeOpen: false,
       helpOpen: false,
       peekIssueId: null,
       selectedIssueIds: [],
@@ -607,6 +616,41 @@ export const useStore = create<Store>()(
           ),
         })),
 
+      createInitiative: (i) => {
+        const initiative: Initiative = {
+          ...i,
+          id: `in_${nanoid(8)}`,
+          createdAt: nowIso(),
+          sortOrder:
+            get().initiatives.reduce((m, x) => Math.max(m, x.sortOrder), 0) + 1,
+        }
+        set((s) => ({ initiatives: [...s.initiatives, initiative] }))
+        return initiative
+      },
+
+      updateInitiative: (id, patch) =>
+        set((s) => ({
+          initiatives: s.initiatives.map((i) =>
+            i.id === id ? { ...i, ...patch } : i,
+          ),
+        })),
+
+      deleteInitiative: (id) =>
+        set((s) => ({
+          initiatives: s.initiatives.filter((i) => i.id !== id),
+          // Unlink the projects that belonged to it; the projects survive.
+          projects: s.projects.map((p) =>
+            p.initiativeId === id ? { ...p, initiativeId: undefined } : p,
+          ),
+        })),
+
+      setProjectInitiative: (projectId, initiativeId) =>
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === projectId ? { ...p, initiativeId } : p,
+          ),
+        })),
+
       createProject: (p) => {
         const project: Project = {
           ...p,
@@ -836,6 +880,8 @@ export const useStore = create<Store>()(
         set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setCommandOpen: (commandOpen) => set({ commandOpen }),
       setCreateOpen: (createOpen) => set({ createOpen }),
+      setCreateInitiativeOpen: (createInitiativeOpen) =>
+        set({ createInitiativeOpen }),
       setHelpOpen: (helpOpen) => set({ helpOpen }),
       setPeek: (peekIssueId) => set({ peekIssueId }),
 
@@ -1039,6 +1085,7 @@ export const useStore = create<Store>()(
         const {
           commandOpen: _c,
           createOpen: _cr,
+          createInitiativeOpen: _ci,
           helpOpen: _h,
           peekIssueId: _p,
           selectedIssueIds: _sel,
@@ -1047,6 +1094,7 @@ export const useStore = create<Store>()(
         } = s
         void _c
         void _cr
+        void _ci
         void _h
         void _p
         void _sel
@@ -1055,6 +1103,19 @@ export const useStore = create<Store>()(
       },
       merge: (persisted, current) => {
         const merged = { ...current, ...(persisted as Partial<Store>) }
+        // Backfill initiatives for workspaces persisted before they existed.
+        // Also link the seed projects so the seeded initiative isn't empty.
+        if (!Array.isArray(merged.initiatives)) {
+          merged.initiatives = seed.initiatives
+          if (Array.isArray(merged.projects)) {
+            merged.projects = merged.projects.map((p) => {
+              const seeded = seed.projects.find((x) => x.id === p.id)
+              return seeded?.initiativeId && !p.initiativeId
+                ? { ...p, initiativeId: seeded.initiativeId }
+                : p
+            })
+          }
+        }
         // Backfill team.memberIds for workspaces persisted before teams had members.
         if (Array.isArray(merged.teams)) {
           merged.teams = merged.teams.map((t) =>

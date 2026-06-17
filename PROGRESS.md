@@ -2,6 +2,52 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #39: Initiatives
+
+The backlog was fully checked, so I introduced a new flagship Linear feature:
+**Initiatives** (strategic efforts that group projects). Soi'd Linear's real
+Initiatives surface first via Chrome (workspace "Claude Test App"): a
+workspace-level page with **Active / Planned / Completed** tabs and an empty
+state — three-bar line-art illustration, the exact copy "Initiatives are larger,
+strategic product efforts that set the direction of your company. They are
+comprised of all projects that align with the goals of the initiative and allow
+you to monitor their progress at scale.", plus **Create new initiative** (`N`
+then `I`) and **Documentation** buttons. (Creating one is plan-gated in real
+Linear, so the create modal mirrors Linear's known New-initiative dialog.)
+
+Reproduced as a coherent end-to-end slice:
+
+- **Model**: `Initiative` (`status` backlog/planned/active/completed, `ownerId`,
+  `targetDate`, icon/color) in `types.ts`; `Project.initiativeId` links a
+  project into one. `INITIATIVE_STATUS` + order in `constants.ts`.
+- **Store**: `createInitiative` / `updateInitiative` / `deleteInitiative`
+  (keeps the projects, just unlinks) / `setProjectInitiative`, a
+  `createInitiativeOpen` UI flag, partialize strip, and a persist-`merge`
+  backfill that seeds `initiatives` **and** links the seed projects for
+  workspaces persisted before the feature existed.
+- **Selector**: `initiativeProgress` rolls up done/total across the union of an
+  initiative's projects' issues.
+- **Views**: `/initiatives` list (tabs, empty state, rows with icon / status
+  ring / project count / progress bar / owner) and `/initiative/:id` detail
+  (header with inline status + owner `SelectMenu` pickers, target/issue stats,
+  rollup bar; a Projects section listing each project with its own progress and
+  add/remove-project controls; delete in the breadcrumb).
+- **Create**: `CreateInitiativeModal` — centered, workspace chip, emoji icon
+  palette, name, description, status + owner pickers, Cancel / **Create
+  initiative**, ⌘↵ to submit, navigates to the new initiative.
+- **Wiring**: a new `InitiativeIllustration` in `EmptyState`, a sidebar
+  **Initiatives** item (Goal icon) in the Workspace section, ⌘K **Go to
+  Initiatives** + **Create new initiative**, and routes in `App.tsx`.
+- Seeded an **H2 Product Launch** initiative spanning MVP Launch + Mobile App.
+- Verified live (localhost:5173) with Chrome: list (2 projects, 13% rollup),
+  detail page, and the New-initiative modal all render correctly; no console
+  errors. `npx tsc -b` + `npm run build` green.
+
+Next: Initiative **updates / health** timeline (like project updates), a
+project-side **Initiative** property picker, and an Initiatives row on the
+**Roadmap**. Keep appending newly-soi'd Linear features (Documents, Customer
+requests, Pulse, Asks).
+
 ## 2026-06-17 — Loop #38: Async / email-style export
 
 Built the **async / email-style export** flow (🟢, the last unchecked backlog

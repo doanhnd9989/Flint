@@ -10,6 +10,7 @@ import { useEffect } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { CommandMenu } from '@/components/CommandMenu'
 import { CreateIssueModal } from '@/components/CreateIssueModal'
+import { CreateInitiativeModal } from '@/components/CreateInitiativeModal'
 import { IssuePeek } from '@/components/IssuePeek'
 import { BulkActionBar } from '@/components/BulkActionBar'
 import { IssueContextMenu } from '@/components/IssueContextMenu'
@@ -26,6 +27,8 @@ import { MyIssues } from '@/views/MyIssues'
 import { Inbox } from '@/views/Inbox'
 import { ProjectsView } from '@/views/ProjectsView'
 import { ProjectDetail } from '@/views/ProjectDetail'
+import { InitiativesView } from '@/views/InitiativesView'
+import { InitiativeDetail } from '@/views/InitiativeDetail'
 import { RoadmapView } from '@/views/RoadmapView'
 import { SettingsView } from '@/views/SettingsView'
 import { ViewsView } from '@/views/ViewsView'
@@ -48,6 +51,7 @@ function Shell() {
       </main>
       <CommandMenu />
       <CreateIssueModal />
+      <CreateInitiativeModal />
       <IssuePeek />
       <BulkActionBar />
       <IssueContextMenu />
@@ -73,6 +77,8 @@ export default function App() {
           <Route path="/my-issues" element={<MyIssues />} />
           <Route path="/projects" element={<ProjectsView />} />
           <Route path="/project/:id" element={<ProjectDetail />} />
+          <Route path="/initiatives" element={<InitiativesView />} />
+          <Route path="/initiative/:id" element={<InitiativeDetail />} />
           <Route path="/roadmap" element={<RoadmapView />} />
           <Route path="/views" element={<ViewsView />} />
           <Route path="/view/:id" element={<SavedViewScreen />} />

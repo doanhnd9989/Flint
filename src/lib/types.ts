@@ -66,7 +66,28 @@ export interface Project {
   leadId?: string
   memberIds: string[]
   teamIds: string[]
+  initiativeId?: string // the strategic initiative this project rolls up into
   startDate?: string
+  targetDate?: string
+  createdAt: string
+  sortOrder: number
+}
+
+/**
+ * Initiatives — larger, strategic product efforts comprised of all the projects
+ * that align with their goals. Linear's three lifecycle buckets: Planned →
+ * Active → Completed.
+ */
+export type InitiativeStatus = 'backlog' | 'planned' | 'active' | 'completed'
+
+export interface Initiative {
+  id: string
+  name: string
+  description?: string
+  icon: string // emoji
+  color: string
+  status: InitiativeStatus
+  ownerId?: string
   targetDate?: string
   createdAt: string
   sortOrder: number

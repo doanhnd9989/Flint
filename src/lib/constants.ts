@@ -1,4 +1,22 @@
-import type { Priority, StatusType } from './types'
+import type { InitiativeStatus, Priority, StatusType } from './types'
+
+/** Initiative lifecycle metadata — Linear's Backlog / Planned / Active / Completed. */
+export const INITIATIVE_STATUS: Record<
+  InitiativeStatus,
+  { label: string; color: string }
+> = {
+  backlog: { label: 'Backlog', color: 'var(--status-backlog)' },
+  planned: { label: 'Planned', color: 'var(--status-unstarted)' },
+  active: { label: 'Active', color: 'var(--status-started)' },
+  completed: { label: 'Completed', color: 'var(--status-completed)' },
+}
+
+export const INITIATIVE_STATUS_ORDER: InitiativeStatus[] = [
+  'backlog',
+  'planned',
+  'active',
+  'completed',
+]
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
   0: 'No priority',

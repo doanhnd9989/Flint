@@ -25,6 +25,7 @@ import {
   Monitor,
   Keyboard,
   Map,
+  Goal,
   User,
   Tag,
   FolderPlus,
@@ -414,6 +415,13 @@ export function CommandMenu() {
         run: () => store.setCreateOpen(true),
       },
       {
+        id: 'new-initiative',
+        label: 'Create new initiative',
+        icon: <Goal size={15} />,
+        keywords: 'add create initiative new strategy',
+        run: () => store.setCreateInitiativeOpen(true),
+      },
+      {
         id: 'go-inbox',
         label: 'Go to Inbox',
         icon: <Inbox size={15} />,
@@ -447,6 +455,13 @@ export function CommandMenu() {
         icon: <Box size={15} />,
         keywords: 'projects',
         run: () => navigate('/projects'),
+      },
+      {
+        id: 'go-initiatives',
+        label: 'Go to Initiatives',
+        icon: <Goal size={15} />,
+        keywords: 'initiatives strategy goals',
+        run: () => navigate('/initiatives'),
       },
       {
         id: 'go-roadmap',

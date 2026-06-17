@@ -12,6 +12,7 @@ import {
   Layers3,
   IterationCw,
   Ticket,
+  Goal,
   Map as MapIcon,
   Copy,
   Plus,
@@ -298,6 +299,7 @@ export function Sidebar() {
         )}
 
         <Section title="Workspace">
+          <Item to="/initiatives" icon={<Goal size={15} />} label="Initiatives" />
           <Item to="/projects" icon={<Box size={15} />} label="Projects" />
           <Item to="/roadmap" icon={<MapIcon size={15} />} label="Roadmap" />
           <Item to="/views" icon={<LayersIcon size={15} />} label="Views" />

@@ -145,6 +145,41 @@ export function StackIllustration() {
   )
 }
 
+/** Three stacked "project" pills with a chevron + dots — Linear's initiatives art. */
+export function InitiativeIllustration() {
+  return (
+    <svg width={SIZE} height={SIZE} viewBox="0 0 120 120" fill="none" aria-hidden>
+      <g
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {[40, 56, 72].map((y, idx) => (
+          <g key={y} opacity={idx === 1 ? 1 : 0.55}>
+            <rect
+              x={idx === 1 ? 30 : 36}
+              y={y}
+              width={idx === 1 ? 54 : 44}
+              height="14"
+              rx="4"
+              fill="var(--bg-secondary)"
+            />
+            {/* leading chevron glyph */}
+            <path
+              d={`M${(idx === 1 ? 30 : 36) + 8} ${y + 4} l4 3 l-4 3`}
+              opacity={0.8}
+            />
+            {/* trailing "..." dots */}
+            <circle cx={(idx === 1 ? 84 : 80) - 12} cy={y + 7} r="1" fill="currentColor" />
+            <circle cx={(idx === 1 ? 84 : 80) - 7} cy={y + 7} r="1" fill="currentColor" />
+          </g>
+        ))}
+      </g>
+    </svg>
+  )
+}
+
 /** Cycle ring — cycles illustration. */
 export function CycleIllustration() {
   return (

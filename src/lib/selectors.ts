@@ -200,6 +200,32 @@ export function projectProgress(
   }
 }
 
+/**
+ * Roll up an initiative's progress across all of its projects: the union of
+ * those projects' issues, with done = issues in a completed workflow state.
+ */
+export function initiativeProgress(
+  initiativeId: string,
+  projects: { id: string; initiativeId?: string }[],
+  issues: Issue[],
+  data: WorkspaceData,
+): { total: number; done: number; percent: number; projectCount: number } {
+  const projectIds = new Set(
+    projects.filter((p) => p.initiativeId === initiativeId).map((p) => p.id),
+  )
+  const scoped = issues.filter((i) => i.projectId && projectIds.has(i.projectId))
+  const completed = new Set(
+    data.states.filter((s) => s.type === 'completed').map((s) => s.id),
+  )
+  const done = scoped.filter((i) => completed.has(i.stateId)).length
+  return {
+    total: scoped.length,
+    done,
+    percent: scoped.length ? Math.round((done / scoped.length) * 100) : 0,
+    projectCount: projectIds.size,
+  }
+}
+
 /** done/total of issues assigned to a milestone. */
 export function milestoneProgress(
   milestoneId: string,
