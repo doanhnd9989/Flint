@@ -2,6 +2,22 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #22: Roadmap / timeline
+
+A bird's-eye timeline of projects, Linear-style:
+
+- New `views/RoadmapView.tsx` at `/roadmap`: a month axis (date-fns) with each
+  project drawn as a horizontal bar positioned/sized by its start→target dates,
+  colored per project with a progress fill and a "today" marker; bars and names
+  link to the project.
+- Wired into the sidebar (Workspace section), the command menu, and a `G R` chord.
+- Verified live: MVP Launch (Jun→mid-Jul, 33% fill) and Mobile App (Jun→Oct,
+  0%) rendered on the Jun–Oct 2026 axis with the today line. `tsc` ✅ · build ✅ ·
+  clean console.
+
+Next: **Favorites** — star issues/projects/views; a Favorites section in the sidebar.
+
+
 ## 2026-06-17 — Loop #21: Project updates
 
 Report project health over time, Linear-style:

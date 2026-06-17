@@ -12,6 +12,7 @@ import {
   Layers3,
   IterationCw,
   Ticket,
+  Map as MapIcon,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useStoreShallow } from '@/lib/store'
@@ -138,6 +139,7 @@ export function Sidebar() {
 
         <Section title="Workspace">
           <Item to="/projects" icon={<Box size={15} />} label="Projects" />
+          <Item to="/roadmap" icon={<MapIcon size={15} />} label="Roadmap" />
           <Item to="/views" icon={<LayersIcon size={15} />} label="Views" />
         </Section>
 

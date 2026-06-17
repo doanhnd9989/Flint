@@ -42,6 +42,7 @@ export function useShortcuts() {
           i: '/inbox',
           m: '/my-issues',
           p: '/projects',
+          r: '/roadmap',
           v: '/views',
           s: '/search',
           t: `/team/${teamKey}/triage`,

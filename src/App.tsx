@@ -25,6 +25,7 @@ import { MyIssues } from '@/views/MyIssues'
 import { Inbox } from '@/views/Inbox'
 import { ProjectsView } from '@/views/ProjectsView'
 import { ProjectDetail } from '@/views/ProjectDetail'
+import { RoadmapView } from '@/views/RoadmapView'
 import { SettingsView } from '@/views/SettingsView'
 import { ViewsView } from '@/views/ViewsView'
 import { SavedViewScreen } from '@/views/SavedViewScreen'
@@ -70,6 +71,7 @@ export default function App() {
           <Route path="/my-issues" element={<MyIssues />} />
           <Route path="/projects" element={<ProjectsView />} />
           <Route path="/project/:id" element={<ProjectDetail />} />
+          <Route path="/roadmap" element={<RoadmapView />} />
           <Route path="/views" element={<ViewsView />} />
           <Route path="/view/:id" element={<SavedViewScreen />} />
           <Route path="/team/:teamKey/active" element={<IssuesView />} />

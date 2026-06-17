@@ -12,6 +12,7 @@ import {
   Sun,
   Monitor,
   Keyboard,
+  Map,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { StatusIcon } from './StatusIcon'
@@ -86,6 +87,13 @@ export function CommandMenu() {
         icon: <Box size={15} />,
         keywords: 'projects',
         run: () => navigate('/projects'),
+      },
+      {
+        id: 'go-roadmap',
+        label: 'Go to Roadmap',
+        icon: <Map size={15} />,
+        keywords: 'roadmap timeline',
+        run: () => navigate('/roadmap'),
       },
       {
         id: 'go-settings',
