@@ -2,6 +2,40 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #61: Projects list view + Display options
+
+Soi'd Linear's **Projects** page (Chrome, workspace "Claude Test App"): the
+default layout is a **List** (the clone was a card grid), and the Display popover
+offers **Layout** (List / Board / Timeline), **Grouping** (No grouping · Lead ·
+Member · Status · Priority · Label · Team · Health · Start/Target date),
+**Ordering** (Manual default), **Show closed projects**, and **Display
+properties** pills (Milestones · Summary · Priority · Status · Health · Teams ·
+Lead · Members · Dependencies · Start/Target date · Issues · Created · Updated ·
+Completed · Labels). Reproduced the faithful slice we can back with data:
+
+- **`ProjectStatusIcon`** (new) — SVG glyphs for the six project statuses
+  (backlog dashed circle / planned outline / In Progress half-wedge / paused
+  pause-bars / completed filled-check / canceled filled-✕), colored from a new
+  `PROJECT_STATUS` / `PROJECT_STATUS_ORDER` constants pair.
+- **`ProjectsView`** — rewrote the card grid into Linear's **list rows**: status
+  glyph + project emoji + name, then a right cluster of issues-progress
+  (`ProgressDonut` + %), `HealthBadge` (latest project update), target date,
+  member avatars, lead avatar. Each property gated by a toggle. Grouping renders
+  collapsible **sticky group headers** (status glyph / health label / lead avatar
+  + count). Local view state (groupBy / orderBy / property toggles), like the
+  Issues view's grouping/layout. Empty-state copy corrected to Linear's exact
+  wording.
+- **`ProjectsDisplayMenu`** (new) — the Display popover: Layout = List, Grouping
+  (No grouping / Status / Health / Lead), Ordering (Manual / Name / Target date /
+  Created), and Status/Health/Lead/Members/Target date/Issues property pills.
+
+Verified live (localhost:5199): MVP Launch (In Progress, 13%, On track, Jul 18) +
+Mobile App (Planned, Sep 16) render as list rows; Grouping = Status splits into
+collapsible "Planned 1" / "In Progress 1" bands. `npx tsc -b` + `npm run build`
+green, console clean. _(Board / Timeline layouts, Priority/Member/Team/date
+grouping, Milestones/Summary columns, and per-view persistence still TODO —
+Project has no priority field; view state is local like the Issues view.)_
+
 ## 2026-06-18 — Loop #60: Board swimlanes (Rows / sub-grouping on the board)
 
 Soi'd Linear's **Display** popover in **Board** layout (Chrome, "Claude Test

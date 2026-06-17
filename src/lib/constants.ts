@@ -1,4 +1,33 @@
-import type { DisplayProperty, InitiativeStatus, Priority, StatusType } from './types'
+import type {
+  DisplayProperty,
+  InitiativeStatus,
+  Priority,
+  ProjectStatus,
+  StatusType,
+} from './types'
+
+/** Project lifecycle metadata — Linear's Backlog / Planned / In Progress / Paused / Completed / Canceled. */
+export const PROJECT_STATUS: Record<
+  ProjectStatus,
+  { label: string; color: string }
+> = {
+  backlog: { label: 'Backlog', color: 'var(--status-backlog)' },
+  planned: { label: 'Planned', color: 'var(--status-unstarted)' },
+  started: { label: 'In Progress', color: 'var(--status-started)' },
+  paused: { label: 'Paused', color: 'var(--status-backlog)' },
+  completed: { label: 'Completed', color: 'var(--status-completed)' },
+  canceled: { label: 'Canceled', color: 'var(--status-canceled)' },
+}
+
+/** Order Linear lists project status groups in. */
+export const PROJECT_STATUS_ORDER: ProjectStatus[] = [
+  'backlog',
+  'planned',
+  'started',
+  'paused',
+  'completed',
+  'canceled',
+]
 
 /** Initiative lifecycle metadata — Linear's Backlog / Planned / Active / Completed. */
 export const INITIATIVE_STATUS: Record<
