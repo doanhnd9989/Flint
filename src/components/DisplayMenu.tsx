@@ -12,6 +12,9 @@ interface Props {
   onLayout: (l: ViewLayout) => void
   onGroupBy: (g: GroupBy) => void
   onOrderBy: (o: OrderBy) => void
+  /** Sub-grouping — optional; the row only renders when a handler is given. */
+  subGroupBy?: GroupBy
+  onSubGroupBy?: (g: GroupBy) => void
   /** List options — optional; the section only renders when handlers are given. */
   showSubIssues?: boolean
   onShowSubIssues?: (v: boolean) => void
@@ -26,6 +29,17 @@ const GROUPS: { id: GroupBy; label: string }[] = [
   { id: 'project', label: 'Project' },
   { id: 'label', label: 'Label' },
   { id: 'none', label: 'No grouping' },
+]
+
+// Linear's Sub-grouping dropdown — "No grouping" first, then the same keys as
+// Grouping (we omit "Agent", which we don't model).
+const SUBGROUPS: { id: GroupBy; label: string }[] = [
+  { id: 'none', label: 'No grouping' },
+  { id: 'status', label: 'Status' },
+  { id: 'assignee', label: 'Assignee' },
+  { id: 'project', label: 'Project' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'label', label: 'Label' },
 ]
 
 const ORDERS: { id: OrderBy; label: string }[] = [
@@ -115,6 +129,8 @@ export function DisplayMenu({
   onLayout,
   onGroupBy,
   onOrderBy,
+  subGroupBy,
+  onSubGroupBy,
   showSubIssues,
   onShowSubIssues,
   showEmptyGroups,
@@ -162,6 +178,15 @@ export function DisplayMenu({
           <Row label="Grouping">
             <Seg value={groupBy} options={GROUPS} onChange={onGroupBy} />
           </Row>
+          {onSubGroupBy && (
+            <Row label="Sub-grouping">
+              <Seg
+                value={subGroupBy ?? 'none'}
+                options={SUBGROUPS}
+                onChange={onSubGroupBy}
+              />
+            </Row>
+          )}
           <Row label="Ordering">
             <Seg value={orderBy} options={ORDERS} onChange={onOrderBy} />
           </Row>

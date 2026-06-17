@@ -17,6 +17,8 @@ export interface IssueGroup {
   issues: Issue[]
   /** For status groups: the workflow state id, so "add issue" can pre-fill it. */
   stateId?: string
+  /** When sub-grouping is active, the nested groups of this group's issues. */
+  subGroups?: IssueGroup[]
 }
 
 export function filterIssues(

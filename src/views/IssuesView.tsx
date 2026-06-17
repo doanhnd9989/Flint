@@ -20,6 +20,7 @@ export function IssuesView() {
   const [tab, setTab] = useState<Tab>('active')
   const [layout, setLayout] = useState<ViewLayout>('list')
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
+  const [subGroupBy, setSubGroupBy] = useState<GroupBy>('none')
   const [orderBy, setOrderBy] = useState<OrderBy>('priority')
   const [showSubIssues, setShowSubIssues] = useState(true)
   const [showEmptyGroups, setShowEmptyGroups] = useState(false)
@@ -42,17 +43,26 @@ export function IssuesView() {
 
     const filtered = filterIssues(scoped, filters)
     const sorted = sortIssues(filtered, orderBy, data)
-    return groupIssues(
+    const top = groupIssues(
       sorted,
       layout === 'board' ? 'status' : groupBy,
       data,
       showEmptyGroups,
     )
+    // Sub-grouping only applies to the list view (board uses status columns).
+    if (layout === 'list' && subGroupBy !== 'none') {
+      return top.map((g) => ({
+        ...g,
+        subGroups: groupIssues(g.issues, subGroupBy, data, showEmptyGroups),
+      }))
+    }
+    return top
   }, [
     data,
     team.id,
     tab,
     groupBy,
+    subGroupBy,
     orderBy,
     layout,
     filters,
@@ -94,6 +104,8 @@ export function IssuesView() {
               onLayout={setLayout}
               onGroupBy={setGroupBy}
               onOrderBy={setOrderBy}
+              subGroupBy={subGroupBy}
+              onSubGroupBy={setSubGroupBy}
               showSubIssues={showSubIssues}
               onShowSubIssues={setShowSubIssues}
               showEmptyGroups={showEmptyGroups}
@@ -127,6 +139,7 @@ export function IssuesView() {
         <GroupedIssueList
           groups={groups}
           groupBy={groupBy}
+          subGroupBy={subGroupBy}
           onReorder={(id, sortOrder) => {
             data.setIssueSortOrder(id, sortOrder)
             setOrderBy('manual')

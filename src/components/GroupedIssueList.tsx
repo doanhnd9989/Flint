@@ -72,11 +72,14 @@ function SortableIssueRow({ issue, showStatus }: { issue: Issue; showStatus: boo
 export function GroupedIssueList({
   groups,
   groupBy,
+  subGroupBy = 'none',
   onReorder,
   empty,
 }: {
   groups: IssueGroup[]
   groupBy: GroupBy
+  /** When set, each group carries `subGroups`; render them nested. */
+  subGroupBy?: GroupBy
   /** Enables drag-to-reorder within a group. Receives the new sortOrder. */
   onReorder?: (issueId: string, sortOrder: number) => void
   /** Customizes the empty state shown when no group has any issue. */
@@ -88,6 +91,7 @@ export function GroupedIssueList({
   const setNavIssueIds = useStore((s) => s.setNavIssueIds)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const anySelected = selectedIssueIds.length > 0
+  const subGrouped = subGroupBy !== 'none'
 
   // Publish this list's visible order so the issue detail/peek can offer
   // prev/next navigation through it. The store no-ops on an unchanged order.
@@ -137,11 +141,28 @@ export function GroupedIssueList({
   }
 
   // Above a size threshold, switch to a windowed renderer (drag-reorder and
-  // collapse are dropped — the right trade-off for very large lists).
+  // collapse are dropped — the right trade-off for very large lists). Skipped
+  // when sub-grouping is active — the nested layout renders in full.
   const totalRows = groups.reduce((n, g) => n + 1 + g.issues.length, 0)
-  if (totalRows > 50) {
+  if (!subGrouped && totalRows > 50) {
     return <VirtualIssueList groups={groups} groupBy={groupBy} />
   }
+
+  const renderIssues = (issues: Issue[], showStatus: boolean) =>
+    onReorder && !subGrouped ? (
+      <SortableContext
+        items={issues.map((i) => i.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        {issues.map((issue) => (
+          <SortableIssueRow key={issue.id} issue={issue} showStatus={showStatus} />
+        ))}
+      </SortableContext>
+    ) : (
+      issues.map((issue) => (
+        <IssueRow key={issue.id} issue={issue} showStatus={showStatus} />
+      ))
+    )
 
   const body = (
     <div className="flex-1 overflow-y-auto">
@@ -208,20 +229,49 @@ export function GroupedIssueList({
               </button>
             </div>
             {!isCollapsed &&
-              (onReorder ? (
-                <SortableContext items={groupIds} strategy={verticalListSortingStrategy}>
-                  {group.issues.map((issue) => (
-                    <SortableIssueRow
-                      key={issue.id}
-                      issue={issue}
-                      showStatus={groupBy !== 'status'}
-                    />
-                  ))}
-                </SortableContext>
+              (group.subGroups ? (
+                group.subGroups.map((sg) => {
+                  const subKey = `${group.key}::${sg.key}`
+                  const subCollapsed = collapsed[subKey]
+                  return (
+                    <div key={subKey}>
+                      <div className="group flex items-center gap-2 px-4 py-1.5 pl-7">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCollapsed((c) => ({ ...c, [subKey]: !c[subKey] }))
+                          }
+                          className="flex items-center gap-2"
+                        >
+                          <ChevronDown
+                            size={13}
+                            className={cn(
+                              'text-faint transition-transform',
+                              subCollapsed && '-rotate-90',
+                            )}
+                          />
+                          <GroupGlyph group={sg} groupBy={subGroupBy} />
+                          <span className="text-[13px] font-medium text-fg">
+                            {sg.label}
+                          </span>
+                          <span className="text-[12px] text-faint">{sg.count}</span>
+                        </button>
+                        <div className="ml-2 flex-1 border-t border-border" />
+                        <button
+                          type="button"
+                          title="Add issue"
+                          onClick={() => setCreateOpen(true)}
+                          className="flex h-5 w-5 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                      {!subCollapsed && renderIssues(sg.issues, groupBy !== 'status')}
+                    </div>
+                  )
+                })
               ) : (
-                group.issues.map((issue) => (
-                  <IssueRow key={issue.id} issue={issue} showStatus={groupBy !== 'status'} />
-                ))
+                renderIssues(group.issues, groupBy !== 'status')
               ))}
           </div>
         )

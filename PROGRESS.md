@@ -2,6 +2,34 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #57: Display options — Sub-grouping
+
+Soi'd Linear's **Display** popover (Chrome, "Claude Test App"): between
+**Grouping** and **Ordering** sits a **Sub-grouping** dropdown (No grouping ·
+Status · Assignee · Agent · Project · Priority · Label). Selecting one nests
+each top-level group's issues into sub-groups — the top group keeps its sticky
+gray header, then each sub-group renders an indented, transparent header
+(collapse chevron + glyph + name + count + trailing divider line + `+` add) with
+its issues beneath.
+
+Reproduced 1:1 (we omit "Agent" — no agent model):
+- `IssueGroup` gains `subGroups?: IssueGroup[]`.
+- `IssuesView` computes sub-groups per top group via
+  `groupIssues(group.issues, subGroupBy, data, showEmptyGroups)` (list view only
+  — board keeps status columns), behind a new `subGroupBy` state default `none`.
+- `DisplayMenu` gets a **Sub-grouping** `Seg` row (new `SUBGROUPS` constant,
+  "No grouping" first like Linear), wired through optional
+  `subGroupBy`/`onSubGroupBy` props.
+- `GroupedIssueList` renders the nested sub-group headers with independent
+  per-sub-group collapse (key `parentKey::subKey`) via a shared `renderIssues`
+  helper; virtualization + drag-reorder fall back to the full render while
+  sub-grouping is active (the nested layout needs every row mounted).
+
+Verified live (localhost:5190): Group Status / Sub-group Priority → Todo ▸
+High/Medium, In Progress ▸ Urgent/High, In Review ▸ High, Done ▸ Low; collapsing
+the "Medium" sub-group hides only its rows; `npx tsc -b` + `npm run build` green;
+console clean. _(Board swimlanes + SavedViewScreen persistence still TODO.)_
+
 ## 2026-06-18 — Loop #56: Display options — Show sub-issues / Show empty groups
 
 Soi'd Linear's **Display** popover (Chrome, "Claude Test App"): below Layout /
