@@ -2,6 +2,43 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #60: Board swimlanes (Rows / sub-grouping on the board)
+
+Soi'd Linear's **Display** popover in **Board** layout (Chrome, "Claude Test
+App"): it relabels to **Columns** / **Rows** / **Ordering** plus **Board
+options** (**Show empty columns** / **Show empty rows**), and choosing a **Rows**
+value (No grouping · Status · Assignee · Agent · Project · Priority · Label ·
+Parent issue) turns the board into horizontal **swimlanes** — the column headers
+(Todo / In Progress / …) render once across the top, then each row group gets a
+full-width **collapsible header band** (chevron + row glyph + name + count) with
+its cards laid out in the matching status columns beneath; **empty rows collapse
+into a "▸ Hidden rows N"** bar at the bottom (click to expand). Reproduced 1:1
+(we omit the Agent / Parent-issue row options — no model for them):
+
+- **`IssueBoard`** — new `rows` + `subGroupBy` props and a swimlane renderer: a
+  `Swimlane` = a header band (`RowGlyph` mirrors the list's group glyphs) + one
+  droppable `CardStack` per column; each cell's issues come from that column's
+  `subGroups` entry whose key matches the row. Cells carry composite
+  `rowKey::stateId` drop ids so drag-between-columns still resolves the target
+  state and calls `moveIssue`. Non-empty rows render as bands; empty rows fold
+  into an expandable **Hidden rows N** bar. Column headers render once via a new
+  `ColumnHeader`. Prev/next nav order walks the swimlanes row-major.
+- **`IssuesView`** — now computes per-column `subGroups` for **both** layouts
+  (list nests them; board uses them as swimlane cells) and, for the board, an
+  all-rows `rows` list (`showEmptyGroups=true` so empty rows are enumerable for
+  the Hidden-rows bar). Passes `rows` + `subGroupBy` to `IssueBoard`.
+- **`DisplayMenu`** — when `layout==='board'`: Grouping→**Columns**,
+  Sub-grouping→**Rows**, the options header → **Board options**, "Nested
+  sub-issues" hidden (list-only), "Show empty groups"→**Show empty columns**.
+
+Verified live (localhost:5199, Board · Rows = Priority): Urgent / High / Medium /
+Low swimlanes render with each card in the correct status column (Done column
+shows CLA-8), and **Hidden rows 1** expands to reveal the empty **No priority 0**
+band. `npx tsc -b` + `npm run build` green, console clean. _(Cross-swimlane drag
+changes status only, not the row property; a dedicated "Show empty rows" toggle +
+SavedViewScreen persistence still TODO — empty rows are already reachable via the
+Hidden-rows bar.)_
+
 ## 2026-06-18 — Loop #59: Display options — Order completed by recency
 
 Soi'd Linear's **Display** popover (Chrome, "Claude Test App"): directly under

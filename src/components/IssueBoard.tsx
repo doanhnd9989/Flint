@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ChevronDown } from 'lucide-react'
 import {
   DndContext,
   PointerSensor,
@@ -12,7 +13,7 @@ import {
 } from '@dnd-kit/core'
 import { useDraggable } from '@dnd-kit/core'
 import { useStore, useStoreShallow } from '@/lib/store'
-import type { Issue } from '@/lib/types'
+import type { GroupBy, Issue } from '@/lib/types'
 import type { IssueGroup } from '@/lib/selectors'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
@@ -64,8 +65,25 @@ function DraggableCard({ issue }: { issue: Issue }) {
   )
 }
 
+/** A droppable card stack. `dropId` lets swimlane cells be uniquely droppable. */
+function CardStack({ issues, dropId }: { issues: Issue[]; dropId: string }) {
+  const { setNodeRef, isOver } = useDroppable({ id: dropId })
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'flex-1 space-y-2 rounded-lg p-1 transition-colors min-h-24',
+        isOver && 'bg-accent-subtle',
+      )}
+    >
+      {issues.map((issue) => (
+        <DraggableCard key={issue.id} issue={issue} />
+      ))}
+    </div>
+  )
+}
+
 function Column({ group }: { group: IssueGroup }) {
-  const { setNodeRef, isOver } = useDroppable({ id: group.stateId ?? group.key })
   const states = useStore((s) => s.states)
   const state = states.find((s) => s.id === group.stateId)
   return (
@@ -75,28 +93,105 @@ function Column({ group }: { group: IssueGroup }) {
         <span className="text-[13px] font-medium text-fg">{group.label}</span>
         <span className="text-[12px] text-faint">{group.count}</span>
       </div>
-      <div
-        ref={setNodeRef}
-        className={cn(
-          'flex-1 space-y-2 rounded-lg p-1 transition-colors min-h-24',
-          isOver && 'bg-accent-subtle',
-        )}
-      >
-        {group.issues.map((issue) => (
-          <DraggableCard key={issue.id} issue={issue} />
-        ))}
-      </div>
+      <CardStack issues={group.issues} dropId={group.stateId ?? group.key} />
     </div>
   )
 }
 
-export function IssueBoard({ groups }: { groups: IssueGroup[] }) {
+/** Header glyph for a swimlane (row) — mirrors the list's group glyphs. */
+function RowGlyph({ group, by }: { group: IssueGroup; by: GroupBy }) {
+  const states = useStore((s) => s.states)
+  const users = useStore((s) => s.users)
+  if (by === 'status') {
+    const st = states.find((s) => s.id === group.stateId)
+    return st ? <StatusIcon type={st.type} color={st.color} /> : null
+  }
+  if (by === 'priority')
+    return <PriorityIcon priority={Number(group.key) as 0 | 1 | 2 | 3 | 4} />
+  if (by === 'assignee') {
+    const u = users.find((x) => x.id === group.key)
+    return <Avatar user={u} size={16} />
+  }
+  if (by === 'project') return <span className="text-[13px]">{group.icon ?? '○'}</span>
+  if (by === 'label') return group.color ? <LabelDot color={group.color} /> : null
+  return null
+}
+
+/** A single swimlane: a full-width header band + one card stack per column. */
+function Swimlane({
+  row,
+  columns,
+  subGroupBy,
+}: {
+  row: IssueGroup
+  columns: IssueGroup[]
+  subGroupBy: GroupBy
+}) {
+  const [collapsed, setCollapsed] = useState(false)
+  // cell issues = the column's sub-group whose key matches this row.
+  const cellFor = (col: IssueGroup) =>
+    col.subGroups?.find((sg) => sg.key === row.key)?.issues ?? []
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-bg-hover"
+      >
+        <ChevronDown
+          size={13}
+          className={cn('text-faint transition-transform', collapsed && '-rotate-90')}
+        />
+        <RowGlyph group={row} by={subGroupBy} />
+        <span className="text-[13px] font-medium text-fg">{row.label}</span>
+        <span className="text-[12px] text-faint">{row.count}</span>
+      </button>
+      {!collapsed && (
+        <div className="flex gap-4 pb-2">
+          {columns.map((col) => (
+            <div key={col.key} className="flex w-72 shrink-0 flex-col">
+              <CardStack
+                issues={cellFor(col)}
+                dropId={`${row.key}::${col.stateId ?? col.key}`}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function IssueBoard({
+  groups,
+  rows,
+  subGroupBy = 'none',
+}: {
+  groups: IssueGroup[]
+  /** When set, the board renders horizontal swimlanes grouped by these rows. */
+  rows?: IssueGroup[]
+  subGroupBy?: GroupBy
+}) {
   const moveIssue = useStore((s) => s.moveIssue)
   const setNavIssueIds = useStore((s) => s.setNavIssueIds)
   const [active, setActive] = useState<Issue | null>(null)
+  const [showHidden, setShowHidden] = useState(false)
 
-  // Publish column-by-column order for the issue detail's prev/next navigation.
-  const flatOrder = groups.flatMap((g) => g.issues.map((i) => i.identifier))
+  const swimlanes = rows && subGroupBy !== 'none'
+  // Empty swimlanes collapse into a "Hidden rows N" bar at the bottom.
+  const visibleRows = swimlanes ? rows!.filter((r) => r.count > 0) : []
+  const hiddenRows = swimlanes ? rows!.filter((r) => r.count === 0) : []
+
+  // Publish the visible order for the issue detail's prev/next navigation.
+  const flatOrder = swimlanes
+    ? visibleRows.flatMap((r) =>
+        groups.flatMap((g) =>
+          (g.subGroups?.find((sg) => sg.key === r.key)?.issues ?? []).map(
+            (i) => i.identifier,
+          ),
+        ),
+      )
+    : groups.flatMap((g) => g.issues.map((i) => i.identifier))
   useEffect(() => {
     setNavIssueIds(flatOrder)
   }, [flatOrder.join('\n'), setNavIssueIds])
@@ -112,19 +207,82 @@ export function IssueBoard({ groups }: { groups: IssueGroup[] }) {
     setActive(null)
     const issue = e.active.data.current?.issue as Issue | undefined
     const overId = e.over?.id as string | undefined
-    if (issue && overId && issue.stateId !== overId) {
-      moveIssue(issue.id, overId, issue.sortOrder)
-    }
+    if (!issue || !overId) return
+    // Swimlane cells carry composite "rowKey::stateId" drop ids.
+    const stateId = overId.includes('::') ? overId.split('::')[1] : overId
+    if (issue.stateId !== stateId) moveIssue(issue.id, stateId, issue.sortOrder)
   }
 
   return (
     <DndContext sensors={sensors} onDragStart={onStart} onDragEnd={onEnd}>
-      <div className="flex h-full gap-4 overflow-x-auto p-4">
-        {groups.map((g) => (
-          <Column key={g.key} group={g} />
-        ))}
-      </div>
+      {swimlanes ? (
+        <div className="h-full overflow-auto p-4">
+          {/* Column headers, rendered once across the top. */}
+          <div className="flex gap-4">
+            {groups.map((g) => (
+              <ColumnHeader key={g.key} group={g} />
+            ))}
+          </div>
+          <div className="mt-1 space-y-1">
+            {visibleRows.map((row) => (
+              <Swimlane
+                key={row.key}
+                row={row}
+                columns={groups}
+                subGroupBy={subGroupBy}
+              />
+            ))}
+            {hiddenRows.length > 0 && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowHidden((s) => !s)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted hover:bg-bg-hover"
+                >
+                  <ChevronDown
+                    size={13}
+                    className={cn(
+                      'text-faint transition-transform',
+                      !showHidden && '-rotate-90',
+                    )}
+                  />
+                  Hidden rows
+                  <span className="text-faint">{hiddenRows.length}</span>
+                </button>
+                {showHidden &&
+                  hiddenRows.map((row) => (
+                    <Swimlane
+                      key={row.key}
+                      row={row}
+                      columns={groups}
+                      subGroupBy={subGroupBy}
+                    />
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex h-full gap-4 overflow-x-auto p-4">
+          {groups.map((g) => (
+            <Column key={g.key} group={g} />
+          ))}
+        </div>
+      )}
       <DragOverlay>{active && <Card issue={active} />}</DragOverlay>
     </DndContext>
+  )
+}
+
+/** A board column header (status icon + name + total count) for swimlane mode. */
+function ColumnHeader({ group }: { group: IssueGroup }) {
+  const states = useStore((s) => s.states)
+  const state = states.find((s) => s.id === group.stateId)
+  return (
+    <div className="flex w-72 shrink-0 items-center gap-2 px-1">
+      {state && <StatusIcon type={state.type} color={state.color} />}
+      <span className="text-[13px] font-medium text-fg">{group.label}</span>
+      <span className="text-[12px] text-faint">{group.count}</span>
+    </div>
   )
 }

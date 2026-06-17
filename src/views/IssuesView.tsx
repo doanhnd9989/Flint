@@ -33,7 +33,7 @@ export function IssuesView() {
   // Nesting only makes sense in the list view with sub-issues shown.
   const nested = layout === 'list' && showSubIssues && nestedSubIssues
 
-  const { groups, childrenByParent } = useMemo(() => {
+  const { groups, childrenByParent, rows } = useMemo(() => {
     const statesByType = new Map(data.states.map((s) => [s.id, s.type]))
     let scoped = data.issues.filter((i) => i.teamId === team.id && !i.triage)
     if (tab === 'active')
@@ -70,15 +70,23 @@ export function IssuesView() {
       data,
       showEmptyGroups,
     )
-    // Sub-grouping only applies to the list view (board uses status columns).
+    // Sub-grouping: each top group carries its issues sub-grouped. In the list
+    // these render as nested sub-group headers; on the board they become the
+    // per-column cells of each swimlane (row).
     const groups =
-      layout === 'list' && subGroupBy !== 'none'
+      subGroupBy !== 'none'
         ? top.map((g) => ({
             ...g,
             subGroups: groupIssues(g.issues, subGroupBy, data, showEmptyGroups),
           }))
         : top
-    return { groups, childrenByParent }
+    // Board swimlanes: the ordered set of row groups (incl. empty ones, which
+    // the board collapses into a "Hidden rows" bar).
+    const rows =
+      layout === 'board' && subGroupBy !== 'none'
+        ? groupIssues(forGrouping, subGroupBy, data, true)
+        : undefined
+    return { groups, childrenByParent, rows }
   }, [
     data,
     team.id,
@@ -162,7 +170,7 @@ export function IssuesView() {
       <FilterBar filters={filters} onChange={setFilters} />
 
       {layout === 'board' ? (
-        <IssueBoard groups={groups} />
+        <IssueBoard groups={groups} rows={rows} subGroupBy={subGroupBy} />
       ) : (
         <GroupedIssueList
           groups={groups}

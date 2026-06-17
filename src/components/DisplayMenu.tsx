@@ -184,11 +184,11 @@ export function DisplayMenu({
               <Columns3 size={13} /> Board
             </button>
           </Row>
-          <Row label="Grouping">
+          <Row label={layout === 'board' ? 'Columns' : 'Grouping'}>
             <Seg value={groupBy} options={GROUPS} onChange={onGroupBy} />
           </Row>
           {onSubGroupBy && (
-            <Row label="Sub-grouping">
+            <Row label={layout === 'board' ? 'Rows' : 'Sub-grouping'}>
               <Seg
                 value={subGroupBy ?? 'none'}
                 options={SUBGROUPS}
@@ -215,13 +215,13 @@ export function DisplayMenu({
             />
           )}
 
-          {(onNestedSubIssues || onShowEmptyGroups) && (
+          {((onNestedSubIssues && layout === 'list') || onShowEmptyGroups) && (
             <>
               <div className="my-1.5 border-t border-border" />
               <div className="px-2 pt-0.5 pb-0.5 text-[12px] text-muted">
-                List options
+                {layout === 'board' ? 'Board options' : 'List options'}
               </div>
-              {onNestedSubIssues && (
+              {onNestedSubIssues && layout === 'list' && (
                 <ToggleRow
                   label="Nested sub-issues"
                   checked={nestedSubIssues ?? false}
@@ -230,7 +230,7 @@ export function DisplayMenu({
               )}
               {onShowEmptyGroups && (
                 <ToggleRow
-                  label="Show empty groups"
+                  label={layout === 'board' ? 'Show empty columns' : 'Show empty groups'}
                   checked={showEmptyGroups ?? false}
                   onChange={onShowEmptyGroups}
                 />
