@@ -156,6 +156,7 @@ export type ActivityKind =
   | 'estimate'
   | 'dueDate'
   | 'link'
+  | 'parent'
 
 export interface Activity {
   id: string

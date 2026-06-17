@@ -2,6 +2,44 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #51: Parent / sub-issue linking to existing issues
+
+Soi'd Linear's issue ⋯ header menu (Chrome, workspace "Claude Test App",
+CLA-1). Two relation submenus: **Create related** ▸ (Issue / Sub-issue ⌘⇧O /
+Parent issue / Blocked / Blocking — *create* new linked issues) and **Mark as**
+▸ (Parent of… / Sub-issue of… ⌘⇧P / Related to… M R / Blocked by… M B /
+Blocking… M X / Duplicate of… M M — *link existing* issues). We already had the
+relation pickers (blocks/related/duplicate) and create-only sub-issues; the
+missing piece was the **parent/sub-issue-of** relationship to an *existing*
+issue.
+
+Reproduced the highest-value faithful slice on the issue detail (shared by the
+full-page view and the peek panel):
+
+- **Store / model** — new `setIssueParent(id, parentId?)` action: sets
+  `parentId`, guards against self-parenting and cycles (walks up from the new
+  parent; bails if it reaches the issue), logs a new `'parent'` activity.
+- **`'parent'` ActivityKind** + an `issuePill` helper in `ActivityItem` →
+  renders **"set parent to {CLA-N · title}"** / **"removed the parent issue"**.
+- **Sub-issues header** — the `+ Add sub-issue` button became a searchable
+  `SelectMenu`: first option **Create new sub-issue** (Plus icon, prior
+  create-fresh behavior), then candidate existing issues (status icon + title +
+  `CLA-N` hint), filtered to exclude self, current sub-issues, this issue's
+  ancestors (cycle-safe) and triage. Selecting an existing issue calls
+  `setIssueParent(thatId, issue.id)`.
+- **Unparent affordances** — each sub-issue row and the parent **breadcrumb**
+  now reveal a hover **×** that clears the parent (`setIssueParent(…,
+  undefined)`).
+
+Verified live (localhost:5173): CLA-2 → **+ Add sub-issue** → picker lists
+Create-new + existing issues → "Connect your tools" (CLA-3) becomes a sub-issue
+(rollup shows 0/1); CLA-3 then shows the **CLA-2** breadcrumb + a **"set parent
+to CLA-2 Set up your teams"** activity; hovering the breadcrumb reveals the ×,
+which removes the parent and logs **"removed the parent issue"**. Console clean,
+`npx tsc -b` + `npm run build` green. _(The full ⋯ "Mark as"/"Create related"
+submenus and the ⌘⇧P/⌘⇧O keyboard shortcuts are still TODO; "Parent of…" is
+covered from the parent side via the same picker.)_
+
 ## 2026-06-17 — Loop #50: Comment actions (edit / delete) + hover toolbar
 
 Soi'd Linear's comment (Chrome, workspace "Claude Test App", issue CLA-1):

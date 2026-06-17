@@ -38,6 +38,8 @@ import {
   IterationCw,
   Bell,
   BellOff,
+  Plus,
+  X,
 } from 'lucide-react'
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -94,6 +96,37 @@ export function IssueDetailBody({
   const parent = issue.parentId
     ? store.issues.find((i) => i.id === issue.parentId)
     : undefined
+  // Ancestors of this issue — candidates for "add existing sub-issue" must
+  // exclude them (and this issue itself, and current sub-issues) to avoid cycles.
+  const ancestorIds = new Set<string>()
+  {
+    let cursor = issue.parentId
+    while (cursor) {
+      ancestorIds.add(cursor)
+      cursor = store.issues.find((i) => i.id === cursor)?.parentId
+    }
+  }
+  const addSubIssueOptions = [
+    { id: '__new', label: 'Create new sub-issue', icon: <Plus size={14} /> },
+    ...store.issues
+      .filter(
+        (i) =>
+          i.id !== issue.id &&
+          i.parentId !== issue.id &&
+          !ancestorIds.has(i.id) &&
+          !i.triage,
+      )
+      .map((i) => {
+        const st = store.states.find((s) => s.id === i.stateId)!
+        return {
+          id: i.id,
+          label: i.title,
+          hint: i.identifier,
+          keywords: `${i.identifier} ${i.title}`,
+          icon: <StatusIcon type={st.type} color={st.color} />,
+        }
+      }),
+  ]
   const activities = store.activities
     .filter((a) => a.issueId === issue.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -108,14 +141,23 @@ export function IssueDetailBody({
       <div className="flex-1 overflow-y-auto">
         <div className={compact ? 'px-6 py-6' : 'mx-auto max-w-3xl px-10 py-8'}>
           {parent && (
-            <button
-              onClick={() => onOpenIssue(parent.identifier)}
-              className="mb-2 flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-fg"
-            >
-              <CornerLeftUp size={13} className="text-faint" />
-              <span className="font-mono text-faint">{parent.identifier}</span>
-              <span className="truncate">{parent.title}</span>
-            </button>
+            <div className="group/parent mb-2 flex items-center gap-0.5">
+              <button
+                onClick={() => onOpenIssue(parent.identifier)}
+                className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-fg"
+              >
+                <CornerLeftUp size={13} className="text-faint" />
+                <span className="font-mono text-faint">{parent.identifier}</span>
+                <span className="truncate">{parent.title}</span>
+              </button>
+              <button
+                onClick={() => store.setIssueParent(issue.id, undefined)}
+                className="rounded p-1 text-faint opacity-0 hover:text-[var(--priority-urgent)] group-hover/parent:opacity-100"
+                title="Remove parent"
+              >
+                <X size={12} />
+              </button>
+            </div>
           )}
           <input
             value={issue.title}
@@ -147,19 +189,27 @@ export function IssueDetailBody({
                   </>
                 )}
               </div>
-              <button
-                onClick={() =>
-                  store.createIssue({
-                    title: 'New sub-issue',
-                    teamId: issue.teamId,
-                    parentId: issue.id,
-                    projectId: issue.projectId,
-                  })
+              <SelectMenu
+                options={addSubIssueOptions}
+                onSelect={(id) => {
+                  if (id === '__new') {
+                    store.createIssue({
+                      title: 'New sub-issue',
+                      teamId: issue.teamId,
+                      parentId: issue.id,
+                      projectId: issue.projectId,
+                    })
+                  } else {
+                    store.setIssueParent(id, issue.id)
+                  }
+                }}
+                placeholder="Add sub-issue…"
+                width={280}
+                align="end"
+                trigger={
+                  <span className="text-[12px] text-muted hover:text-fg">+ Add sub-issue</span>
                 }
-                className="text-[12px] text-muted hover:text-fg"
-              >
-                + Add sub-issue
-              </button>
+              />
             </div>
             {subIssues.length === 0 ? (
               <div className="text-[12px] text-faint">No sub-issues yet.</div>
@@ -168,15 +218,26 @@ export function IssueDetailBody({
                 {subIssues.map((sub) => {
                   const sst = store.states.find((s) => s.id === sub.stateId)!
                   return (
-                    <button
+                    <div
                       key={sub.id}
-                      onClick={() => onOpenIssue(sub.identifier)}
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-bg-hover"
+                      className="group/sub flex items-center gap-2 px-3 py-1.5 hover:bg-bg-hover"
                     >
-                      <StatusIcon type={sst.type} color={sst.color} />
-                      <span className="font-mono text-[11px] text-faint">{sub.identifier}</span>
-                      <span className="text-[13px] text-fg">{sub.title}</span>
-                    </button>
+                      <button
+                        onClick={() => onOpenIssue(sub.identifier)}
+                        className="flex flex-1 items-center gap-2 text-left"
+                      >
+                        <StatusIcon type={sst.type} color={sst.color} />
+                        <span className="font-mono text-[11px] text-faint">{sub.identifier}</span>
+                        <span className="text-[13px] text-fg">{sub.title}</span>
+                      </button>
+                      <button
+                        onClick={() => store.setIssueParent(sub.id, undefined)}
+                        className="text-faint opacity-0 hover:text-[var(--priority-urgent)] group-hover/sub:opacity-100"
+                        title="Remove sub-issue"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
                   )
                 })}
               </div>

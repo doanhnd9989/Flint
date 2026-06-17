@@ -117,6 +117,7 @@ export interface Store extends WorkspaceData, UIState {
   setIssueProject: (id: string, projectId?: string) => void
   setIssueMilestone: (id: string, milestoneId?: string) => void
   setIssueCycle: (id: string, cycleId?: string) => void
+  setIssueParent: (id: string, parentId?: string) => void
   setIssueEstimate: (id: string, estimate?: number) => void
   setIssueDueDate: (id: string, dueDate?: string) => void
   setIssueTitle: (id: string, title: string) => void
@@ -492,6 +493,28 @@ export const useStore = create<Store>()(
             activities: [
               ...s.activities,
               logActivity(s, id, 'cycle', issue.cycleId, cycleId),
+            ],
+          }
+        }),
+
+      setIssueParent: (id, parentId) =>
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue || issue.parentId === parentId || id === parentId) return s
+          // Guard against cycles: the new parent must not be a descendant of
+          // this issue (walking up from the parent must never reach `id`).
+          let cursor = parentId
+          while (cursor) {
+            if (cursor === id) return s
+            cursor = s.issues.find((i) => i.id === cursor)?.parentId
+          }
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id ? { ...i, parentId, updatedAt: nowIso() } : i,
+            ),
+            activities: [
+              ...s.activities,
+              logActivity(s, id, 'parent', issue.parentId, parentId),
             ],
           }
         }),

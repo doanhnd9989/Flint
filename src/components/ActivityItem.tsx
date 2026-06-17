@@ -86,6 +86,15 @@ export function ActivityItem({ activity }: { activity: Activity }) {
       </Pill>
     )
   }
+  const issuePill = (id?: string) => {
+    const i = store.issues.find((x) => x.id === id)
+    return (
+      <Pill>
+        <span className="font-mono text-[11px] text-faint">{i?.identifier ?? '—'}</span>
+        {i?.title}
+      </Pill>
+    )
+  }
 
   // The verb phrase for this kind, rendered as inline nodes.
   let body: React.ReactNode
@@ -208,6 +217,16 @@ export function ActivityItem({ activity }: { activity: Activity }) {
           <span>renamed to</span>
           <span className="font-medium text-fg">“{a.to}”</span>
         </>
+      )
+      break
+    case 'parent':
+      body = a.to ? (
+        <>
+          <span>set parent to</span>
+          {issuePill(a.to)}
+        </>
+      ) : (
+        <span>removed the parent issue</span>
       )
       break
     case 'link':
