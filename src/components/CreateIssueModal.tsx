@@ -15,7 +15,7 @@ import {
   ProjectPicker,
 } from './pickers'
 import { SelectMenu } from './ui/SelectMenu'
-import { FileText } from 'lucide-react'
+import { FileText, X } from 'lucide-react'
 import { PRIORITY_LABELS } from '@/lib/constants'
 
 const chip =
@@ -89,6 +89,16 @@ export function CreateIssueModal() {
       labelIds,
       projectId,
     })
+    if (store.createMore) {
+      // Linear's "Create more": keep the modal open and reset the form for rapid entry.
+      setTitle('')
+      setDescription('')
+      setPriority(0)
+      setAssigneeId(undefined)
+      setLabelIds([])
+      setProjectId(undefined)
+      return
+    }
     store.setCreateOpen(false)
     if (openAfter) navigate(`/issue/${issue.identifier}`)
   }
@@ -132,6 +142,13 @@ export function CreateIssueModal() {
               }
             />
           )}
+          <button
+            onClick={() => store.setCreateOpen(false)}
+            aria-label="Close"
+            className="-mr-1 flex h-6 w-6 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-muted"
+          >
+            <X size={15} />
+          </button>
         </div>
 
         <div className="px-4 py-3">
@@ -223,13 +240,25 @@ export function CreateIssueModal() {
 
         <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
           <span className="text-[11px] text-faint">⌘↵ to create</span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => store.setCreateOpen(false)}
-              className="rounded-md px-3 py-1.5 text-[13px] text-muted hover:bg-bg-hover"
-            >
-              Cancel
-            </button>
+          <div className="flex items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-muted">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={store.createMore}
+                onClick={() => store.setCreateMore(!store.createMore)}
+                className={`relative h-4 w-7 rounded-full transition-colors ${
+                  store.createMore ? 'bg-accent' : 'bg-bg-tertiary'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${
+                    store.createMore ? 'translate-x-3.5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+              Create more
+            </label>
             <button
               onClick={() => submit(false)}
               disabled={!title.trim()}

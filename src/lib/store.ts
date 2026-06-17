@@ -48,6 +48,8 @@ interface UIState {
   commandIssueId: string | null
   commandPage: string | null
   createOpen: boolean
+  /** "Create more" toggle in the create-issue modal — keeps it open after creating (persisted, like Linear). */
+  createMore: boolean
   /** New-initiative modal (transient). */
   createInitiativeOpen: boolean
   /** Keyboard-shortcuts help overlay (transient). */
@@ -176,6 +178,7 @@ export interface Store extends WorkspaceData, UIState {
    */
   openIssuePropertyMenu: (issueId: string, page: string) => void
   setCreateOpen: (open: boolean) => void
+  setCreateMore: (on: boolean) => void
   setCreateInitiativeOpen: (open: boolean) => void
   setHelpOpen: (open: boolean) => void
   setPeek: (id: string | null) => void
@@ -243,6 +246,7 @@ export const useStore = create<Store>()(
       commandIssueId: null,
       commandPage: null,
       createOpen: false,
+      createMore: false,
       createInitiativeOpen: false,
       helpOpen: false,
       peekIssueId: null,
@@ -982,6 +986,7 @@ export const useStore = create<Store>()(
       openIssuePropertyMenu: (commandIssueId, commandPage) =>
         set({ commandIssueId, commandPage, commandOpen: true }),
       setCreateOpen: (createOpen) => set({ createOpen }),
+      setCreateMore: (createMore) => set({ createMore }),
       setCreateInitiativeOpen: (createInitiativeOpen) =>
         set({ createInitiativeOpen }),
       setHelpOpen: (helpOpen) => set({ helpOpen }),

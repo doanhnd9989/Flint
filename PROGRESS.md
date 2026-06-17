@@ -2,6 +2,35 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #47: Create-issue modal "Create more" toggle + header close
+
+Soi'd Linear's real **New issue** modal (Chrome, workspace "Claude Test App")
+side-by-side with ours. The real modal: header `[team] CLA › New issue` with an
+**expand** icon + **× close** top-right; footer is a paperclip (left) then a
+**"Create more"** toggle + **Create issue** (right) — no Cancel button, no "⌘↵"
+text; the `…` chip opens an overflow menu (**Set due date** ⇧D, **Make
+recurring…**, **Add link…** ⌃L, **Add sub-issue** ⌘⇧O). Also confirmed (relevant
+to last loop's leftover) that this workspace has **cycles disabled**, so its
+Display-properties popover shows **no Cycle pill** — our list matches Linear
+exactly (ID · Status · Assignee · Priority · Project · Due date · Milestone ·
+Labels · Links · Time in status · Created · Updated), so a Cycle column would be
+*unfaithful* here. Reproduced the two highest-value, fully-verifiable gaps:
+
+- **"Create more" toggle** — a persisted `createMore` store flag (+ `setCreateMore`,
+  kept across opens like Linear; left in `partialize` so it survives reloads) and
+  a Linear-style switch in the footer. When on, **Create issue** keeps the modal
+  open and resets the form (title/description/priority/assignee/labels/project)
+  for rapid entry instead of closing + navigating.
+- **× close button** in the header (right of the Template picker).
+
+Verified live (localhost:5173): toggled Create more on, typed "First batch issue",
+clicked **Create issue** → **CLA-15** appeared in Todo (3→4) and the modal stayed
+open with a cleared title field; **×** closes the modal. `npx tsc -b` + `npm run
+build` green; console clean (no errors, no infinite-loop warnings). _(Expand-to-
+full-page, the paperclip attachment, and the `…` overflow items — Set due date /
+Make recurring / Add link / Add sub-issue — remain TODO; the create-modal Cycle
+field stays gated on cycles-enabled.)_
+
 ## 2026-06-17 — Loop #46: Cycle property picker on issues
 
 The `Issue.cycleId` data model has existed since the Cycles loop, but there was
