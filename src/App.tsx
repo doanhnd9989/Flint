@@ -14,6 +14,7 @@ import { CreateInitiativeModal } from '@/components/CreateInitiativeModal'
 import { IssuePeek } from '@/components/IssuePeek'
 import { BulkActionBar } from '@/components/BulkActionBar'
 import { IssueContextMenu } from '@/components/IssueContextMenu'
+import { AddLinkModal } from '@/components/AddLinkModal'
 import { HelpOverlay } from '@/components/HelpOverlay'
 import { Toaster } from '@/components/Toaster'
 import { useThemeEffect } from '@/lib/useTheme'
@@ -56,6 +57,7 @@ function Shell() {
       <IssuePeek />
       <BulkActionBar />
       <IssueContextMenu />
+      <AddLinkModal />
       <HelpOverlay />
       <Toaster />
     </div>

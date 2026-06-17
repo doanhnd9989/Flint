@@ -153,6 +153,7 @@ export type ActivityKind =
   | 'title'
   | 'estimate'
   | 'dueDate'
+  | 'link'
 
 export interface Activity {
   id: string
@@ -207,6 +208,19 @@ export interface Relation {
   type: RelationType
   fromIssueId: string
   toIssueId: string
+}
+
+/**
+ * An external resource attached to an issue — Linear's "Resources" section
+ * (added via the issue's "Add link…" / ⌃L). Just a URL with an optional title.
+ */
+export interface IssueLink {
+  id: string
+  issueId: string
+  url: string
+  title?: string
+  creatorId: string
+  createdAt: string
 }
 
 export interface IssueTemplate {

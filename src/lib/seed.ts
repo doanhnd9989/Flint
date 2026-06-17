@@ -4,6 +4,7 @@ import type {
   Cycle,
   Initiative,
   Issue,
+  IssueLink,
   IssueTemplate,
   Label,
   Milestone,
@@ -31,6 +32,7 @@ export interface WorkspaceData {
   milestones: Milestone[]
   cycles: Cycle[]
   issues: Issue[]
+  issueLinks: IssueLink[]
   relations: Relation[]
   templates: IssueTemplate[]
   projectUpdates: ProjectUpdate[]
@@ -390,6 +392,18 @@ export function buildSeed(): WorkspaceData {
     },
   ]
 
+  const issueLinks: IssueLink[] = [
+    {
+      id: 'il_1', issueId: 'i_1', creatorId: 'u_me',
+      url: 'https://github.com/anthropics/linear-clone/pull/1',
+      title: 'Design spec', createdAt: nowIso(),
+    },
+    {
+      id: 'il_2', issueId: 'i_1', creatorId: 'u_me',
+      url: 'https://www.figma.com/file/abc/Onboarding', createdAt: nowIso(),
+    },
+  ]
+
   const savedViews: SavedView[] = [
     {
       id: 'v_active', name: 'Active', icon: 'circle-dot', layout: 'list',
@@ -410,6 +424,7 @@ export function buildSeed(): WorkspaceData {
     milestones,
     cycles,
     issues,
+    issueLinks,
     relations,
     templates,
     projectUpdates,

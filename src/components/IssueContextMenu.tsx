@@ -118,6 +118,10 @@ export function IssueContextMenu() {
 
         <div className="my-1 h-px bg-border" />
 
+        <ActionRow icon={<Link2 size={14} />} label="Add link…" onClick={() => { close(); store.openLinkModal(issue.id) }} />
+
+        <div className="my-1 h-px bg-border" />
+
         <ActionRow icon={<PanelRight size={14} />} label="Open in peek" onClick={() => { store.setPeek(issue.id); close() }} />
         <ActionRow icon={<Maximize2 size={14} />} label="Open full page" onClick={() => { close(); navigate(`/issue/${issue.identifier}`) }} />
         <ActionRow icon={<Copy size={14} />} label="Copy issue ID" onClick={() => copy(issue.identifier, copyToast.id(issue.identifier))} />

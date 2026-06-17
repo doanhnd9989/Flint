@@ -15,6 +15,7 @@ import type {
   FavoriteType,
   Initiative,
   Issue,
+  IssueLink,
   IssueTemplate,
   Label,
   Milestone,
@@ -71,6 +72,11 @@ interface UIState {
   focusedIssueId: string | null
   /** Right-click context menu target + position (transient). */
   contextMenu: { issueId: string; x: number; y: number } | null
+  /**
+   * Add/edit-link modal target (transient). `editId` is set when editing an
+   * existing link, null when adding a new one.
+   */
+  linkModal: { issueId: string; editId: string | null } | null
   /** Recent search queries (persisted, newest first). */
   recentSearches: string[]
   /** Starred issues / projects / views (persisted). */
@@ -123,6 +129,11 @@ export interface Store extends WorkspaceData, UIState {
   // ── relations ────────────────────────────────────────────────
   addRelation: (fromIssueId: string, toIssueId: string, type: RelationType) => void
   removeRelation: (id: string) => void
+
+  // ── links (Resources) ────────────────────────────────────────
+  addIssueLink: (issueId: string, url: string, title?: string) => void
+  updateIssueLink: (id: string, patch: Partial<Pick<IssueLink, 'url' | 'title'>>) => void
+  removeIssueLink: (id: string) => void
 
   // ── comments ─────────────────────────────────────────────────
   addComment: (issueId: string, body: string, parentId?: string) => void
@@ -207,6 +218,10 @@ export interface Store extends WorkspaceData, UIState {
   openContextMenu: (issueId: string, x: number, y: number) => void
   closeContextMenu: () => void
 
+  // ── link modal ───────────────────────────────────────────────
+  openLinkModal: (issueId: string, editId?: string) => void
+  closeLinkModal: () => void
+
   resetWorkspace: () => void
 
   // ── import ───────────────────────────────────────────────────
@@ -254,6 +269,7 @@ export const useStore = create<Store>()(
       navIssueIds: [],
       focusedIssueId: null,
       contextMenu: null,
+      linkModal: null,
       recentSearches: [],
       favorites: [],
       notificationPrefs: {
@@ -318,6 +334,7 @@ export const useStore = create<Store>()(
           issues: s.issues.filter((i) => i.id !== id && i.parentId !== id),
           comments: s.comments.filter((c) => c.issueId !== id),
           activities: s.activities.filter((a) => a.issueId !== id),
+          issueLinks: s.issueLinks.filter((l) => l.issueId !== id),
           relations: s.relations.filter(
             (r) => r.fromIssueId !== id && r.toIssueId !== id,
           ),
@@ -664,6 +681,46 @@ export const useStore = create<Store>()(
 
       removeRelation: (id) =>
         set((s) => ({ relations: s.relations.filter((r) => r.id !== id) })),
+
+      addIssueLink: (issueId, url, title) =>
+        set((s) => {
+          const trimmed = url.trim()
+          if (!trimmed) return s
+          const t = title?.trim() || undefined
+          const link: IssueLink = {
+            id: `il_${nanoid(8)}`,
+            issueId,
+            url: trimmed,
+            title: t,
+            creatorId: s.currentUserId,
+            createdAt: nowIso(),
+          }
+          return {
+            issueLinks: [...s.issueLinks, link],
+            // `from` carries the url (for the favicon), `to` the display text.
+            activities: [
+              ...s.activities,
+              logActivity(s, issueId, 'link', trimmed, t ?? trimmed),
+            ],
+          }
+        }),
+
+      updateIssueLink: (id, patch) =>
+        set((s) => ({
+          issueLinks: s.issueLinks.map((l) =>
+            l.id === id
+              ? {
+                  ...l,
+                  ...patch,
+                  title:
+                    'title' in patch ? patch.title?.trim() || undefined : l.title,
+                }
+              : l,
+          ),
+        })),
+
+      removeIssueLink: (id) =>
+        set((s) => ({ issueLinks: s.issueLinks.filter((l) => l.id !== id) })),
 
       createLabel: (name, color, groupId) => {
         const label: Label = { id: `l_${nanoid(8)}`, name, color, groupId }
@@ -1118,6 +1175,7 @@ export const useStore = create<Store>()(
             ),
             comments: s.comments.filter((c) => !set_.has(c.issueId)),
             activities: s.activities.filter((a) => !set_.has(a.issueId)),
+            issueLinks: s.issueLinks.filter((l) => !set_.has(l.issueId)),
             relations: s.relations.filter(
               (r) => !set_.has(r.fromIssueId) && !set_.has(r.toIssueId),
             ),
@@ -1128,6 +1186,10 @@ export const useStore = create<Store>()(
       openContextMenu: (issueId, x, y) =>
         set({ contextMenu: { issueId, x, y } }),
       closeContextMenu: () => set({ contextMenu: null }),
+
+      openLinkModal: (issueId, editId) =>
+        set({ linkModal: { issueId, editId: editId ?? null } }),
+      closeLinkModal: () => set({ linkModal: null }),
 
       resetWorkspace: () => {
         const fresh = buildSeed()
@@ -1231,6 +1293,7 @@ export const useStore = create<Store>()(
           navIssueIds: _nav,
           focusedIssueId: _foc,
           contextMenu: _cm,
+          linkModal: _lm,
           ...rest
         } = s
         void _c
@@ -1242,6 +1305,7 @@ export const useStore = create<Store>()(
         void _nav
         void _foc
         void _cm
+        void _lm
         return rest as Store
       },
       merge: (persisted, current) => {
@@ -1250,6 +1314,10 @@ export const useStore = create<Store>()(
         merged.displayProperties = {
           ...DEFAULT_DISPLAY_PROPERTIES,
           ...(merged.displayProperties ?? {}),
+        }
+        // Backfill issue links for workspaces persisted before they existed.
+        if (!Array.isArray(merged.issueLinks)) {
+          merged.issueLinks = seed.issueLinks
         }
         // Backfill initiatives for workspaces persisted before they existed.
         // Also link the seed projects so the seeded initiative isn't empty.

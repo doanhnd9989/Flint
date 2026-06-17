@@ -7,6 +7,7 @@ import { LabelDot } from './LabelChip'
 import { PRIORITY_LABELS } from '@/lib/constants'
 import { formatFullDate, timeAgo } from '@/lib/utils'
 import { Flag, IterationCw } from 'lucide-react'
+import { LinkFavicon } from './LinkFavicon'
 
 /** A small inline value chip used inside an activity line. */
 function Pill({ children }: { children: React.ReactNode }) {
@@ -206,6 +207,27 @@ export function ActivityItem({ activity }: { activity: Activity }) {
         <>
           <span>renamed to</span>
           <span className="font-medium text-fg">“{a.to}”</span>
+        </>
+      )
+      break
+    case 'link':
+      // `from` holds the url (favicon), `to` the display text.
+      body = (
+        <>
+          <span>linked</span>
+          {a.from ? (
+            <a
+              href={a.from}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-medium text-fg hover:underline"
+            >
+              <LinkFavicon url={a.from} size={13} />
+              {a.to}
+            </a>
+          ) : (
+            <span className="font-medium text-fg">{a.to}</span>
+          )}
         </>
       )
       break

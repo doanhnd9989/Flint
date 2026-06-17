@@ -2,6 +2,40 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #48: Issue links / "Resources" section
+
+Soi'd Linear's issue (Chrome, workspace "Claude Test App"): the ⋯ overflow has
+**Add link… (⌃L)** → an **"Add link to CLA-1"** modal (chain-link icon header,
+**URL** field placeholder `https://...`, **Title (optional)** field, **Cancel** /
+**Add link**). Submitting renders the link in a **Resources** section that sits
+between sub-issues and Activity — a `▾ Resources` header with a collapse chevron
+and a circular **+** (add another), then rows of **favicon · title** (the site
+favicon; falls back to the URL host when no title) · relative time · a `···`
+menu (**Open link** / **Copy link** / **Edit…** / **Remove…**). It also logs a
+**"{user} linked {favicon} {title}"** activity entry. Reproduced 1:1:
+
+- **Data model** — `IssueLink` (`url`, optional `title`, creator, `createdAt`) +
+  an `issueLinks` store slice. Actions `addIssueLink` / `updateIssueLink` /
+  `removeIssueLink`; persist-merge backfill for old workspaces; cleaned up on
+  `deleteIssue` + `bulkDelete`. New `'link'` `ActivityKind` (`from`=url for the
+  favicon, `to`=display text).
+- **UI** — a shared `LinkFavicon` (Google s2 favicon service, graceful `Link2`
+  fallback on error/unparseable URL) + `linkHost` helper; the `IssueLinks`
+  Resources section in `IssueDetailBody` (shared by full-page detail + peek,
+  hidden when empty like Linear); an `AddLinkModal` (doubles as edit, ↵ submits,
+  Esc/backdrop closes, transient `linkModal` UI state); an **Add link…** row in
+  the issue context menu (Linear's ⋯ analog); and the previously-inert **Links**
+  display property now renders a link-count pill (`Link2` + N) on issue rows.
+
+Verified live (localhost:5173): the seeded GitHub ("Design spec") + Figma links
+render with real favicons; the **+** opened the Add-link modal, added
+**"Linear docs"** → a new row (with the Linear favicon) + a "You linked 🔗 Linear
+docs · now" activity line; all three persist across a reload (merge backfill OK).
+`npx tsc -b` + `npm run build` green; console clean (no errors, no infinite-loop
+warnings). _(The ⌃L keyboard shortcut and a styled remove-confirm dialog remain
+TODO; the row pill follows Linear's default-off **Links** display toggle, so it's
+hidden until enabled — matching Linear.)_
+
 ## 2026-06-17 — Loop #47: Create-issue modal "Create more" toggle + header close
 
 Soi'd Linear's real **New issue** modal (Chrome, workspace "Claude Test App")

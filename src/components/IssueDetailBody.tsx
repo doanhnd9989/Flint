@@ -15,6 +15,7 @@ import {
 } from './pickers'
 import { SelectMenu } from './ui/SelectMenu'
 import { IssueRelations } from './IssueRelations'
+import { IssueLinks } from './IssueLinks'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MentionInput } from './MentionInput'
 import { CommentReactions } from './CommentReactions'
@@ -183,6 +184,9 @@ export function IssueDetailBody({
               </div>
             )}
           </div>
+
+          {/* Resources (external links) */}
+          <IssueLinks issue={issue} />
 
           {/* Relations */}
           <IssueRelations issue={issue} onOpenIssue={onOpenIssue} />

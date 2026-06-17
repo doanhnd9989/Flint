@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { CalendarClock, Diamond } from 'lucide-react'
+import { CalendarClock, Diamond, Link2 } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import type { Issue } from '@/lib/types'
 import { StatusIcon } from './StatusIcon'
@@ -18,7 +18,7 @@ export function IssueRow({
   showStatus?: boolean
 }) {
   const {
-    states, users, labels, issues, projects, milestones, displayProperties, selectedIssueIds, focusedIssueId,
+    states, users, labels, issues, projects, milestones, issueLinks, displayProperties, selectedIssueIds, focusedIssueId,
     setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue, setFocusedIssue, openContextMenu,
   } = useStoreShallow((s) => ({
     states: s.states,
@@ -27,6 +27,7 @@ export function IssueRow({
     issues: s.issues,
     projects: s.projects,
     milestones: s.milestones,
+    issueLinks: s.issueLinks,
     displayProperties: s.displayProperties,
     selectedIssueIds: s.selectedIssueIds,
     focusedIssueId: s.focusedIssueId,
@@ -57,6 +58,7 @@ export function IssueRow({
   const issueLabels = issue.labelIds
     .map((id) => labels.find((l) => l.id === id))
     .filter(Boolean)
+  const linkCount = issueLinks.filter((l) => l.issueId === issue.id).length
   const children = issues.filter((i) => i.parentId === issue.id)
   const childDone = children.filter((i) => {
     const st = states.find((s) => s.id === i.stateId)
@@ -189,6 +191,15 @@ export function IssueRow({
               </span>
             ))}
           </div>
+        )}
+        {dp.links && linkCount > 0 && (
+          <span
+            className="flex items-center gap-0.5 text-[11px] text-faint"
+            title={`${linkCount} link${linkCount > 1 ? 's' : ''}`}
+          >
+            <Link2 size={11} />
+            {linkCount}
+          </span>
         )}
         {dp.created && (
           <span className="w-10 text-right text-[11px] text-faint">
