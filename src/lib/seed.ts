@@ -47,8 +47,14 @@ export function buildSeed(): WorkspaceData {
   ]
 
   const teams: Team[] = [
-    { id: 't_cla', name: 'Claude Test App', key: 'CLA', icon: '🧩', color: '#5e6ad2' },
-    { id: 't_eng', name: 'Engineering', key: 'ENG', icon: '⚙️', color: '#4ea7fc' },
+    {
+      id: 't_cla', name: 'Claude Test App', key: 'CLA', icon: '🧩', color: '#5e6ad2',
+      memberIds: ['u_me', 'u_avery', 'u_jordan', 'u_sam'],
+    },
+    {
+      id: 't_eng', name: 'Engineering', key: 'ENG', icon: '⚙️', color: '#4ea7fc',
+      memberIds: ['u_me', 'u_kai'],
+    },
   ]
 
   const states: WorkflowState[] = [
@@ -215,17 +221,32 @@ export function buildSeed(): WorkspaceData {
       teamId: 't_cla', stateId: 's_todo', priority: 0,
       labelIds: [], triage: true,
     },
+    {
+      title: 'Set up CI pipeline',
+      description: 'Lint, typecheck and build on every PR.',
+      teamId: 't_eng', stateId: 's_progress', priority: 2, assigneeId: 'u_kai',
+      labelIds: ['l_improvement'],
+    },
+    {
+      title: 'Database migration framework',
+      description: 'Versioned, reversible migrations with a CLI.',
+      teamId: 't_eng', stateId: 's_todo', priority: 3, assigneeId: 'u_kai',
+      labelIds: ['l_feature'],
+    },
   ]
 
   const baseTime = Date.now() - drafts.length * 3_600_000
+  const teamCounters: Record<string, number> = {}
   const issues: Issue[] = drafts.map((d, i) => {
     const created = new Date(baseTime + i * 3_600_000).toISOString()
     const state = states.find((s) => s.id === d.stateId)!
+    const team = teams.find((t) => t.id === d.teamId)!
+    const number = (teamCounters[d.teamId] = (teamCounters[d.teamId] ?? 0) + 1)
     return {
       ...d,
       id: `i_${i + 1}`,
-      number: i + 1,
-      identifier: `CLA-${i + 1}`,
+      number,
+      identifier: `${team.key}-${number}`,
       creatorId: 'u_me',
       subscriberIds: d.assigneeId ? ['u_me', d.assigneeId] : ['u_me'],
       sortOrder: (i + 1) * 100,

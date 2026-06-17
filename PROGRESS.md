@@ -2,6 +2,27 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #25: Multi-team polish
+
+Make the second team a first-class citizen, Linear-style:
+
+- `types.ts`: `Team.memberIds`. Store: `toggleTeamMember`; a persist `merge` that
+  backfills `memberIds` from the seed for workspaces saved before this (so no
+  reset is needed and nothing crashes on the missing field).
+- `seed.ts`: members on both teams, two Engineering issues, and fixed per-team
+  issue identifiers (ENG issues were wrongly numbered `CLA-…`).
+- New `components/TeamsSettings.tsx` (Settings "Teams" card): each team shows
+  icon/key/issue-count/members with an add/remove member picker.
+- `Sidebar`: the workspace button is now a switcher dropdown — jump to any team's
+  issues or Settings.
+- Verified live: Teams card shows CLA (4 members) + Engineering (2 members) via
+  the backfill; the switcher navigated to the Engineering team. (A transient
+  "Popover is not defined" was an HMR artifact; clean after reload.)
+  `tsc` ✅ · build ✅ · clean console.
+
+Next: **Members & roles** management in settings; invite flow (mock).
+
+
 ## 2026-06-17 — Loop #24: List virtualization
 
 Large issue lists stay smooth — the fix the seeded CLA-5 asked for:

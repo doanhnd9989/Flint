@@ -106,6 +106,7 @@ export interface Store extends WorkspaceData, UIState {
   deleteView: (id: string) => void
   createTemplate: (t: Omit<IssueTemplate, 'id'>) => IssueTemplate
   deleteTemplate: (id: string) => void
+  toggleTeamMember: (teamId: string, userId: string) => void
   createState: (s: Omit<WorkflowState, 'id'>) => WorkflowState
   updateState: (id: string, patch: Partial<Pick<WorkflowState, 'name' | 'color' | 'type'>>) => void
   deleteState: (id: string) => void
@@ -578,6 +579,20 @@ export const useStore = create<Store>()(
       deleteTemplate: (id) =>
         set((s) => ({ templates: s.templates.filter((t) => t.id !== id) })),
 
+      toggleTeamMember: (teamId, userId) =>
+        set((s) => ({
+          teams: s.teams.map((t) =>
+            t.id === teamId
+              ? {
+                  ...t,
+                  memberIds: (t.memberIds ?? []).includes(userId)
+                    ? (t.memberIds ?? []).filter((u) => u !== userId)
+                    : [...(t.memberIds ?? []), userId],
+                }
+              : t,
+          ),
+        })),
+
       createState: (st) => {
         const state: WorkflowState = { ...st, id: `s_${nanoid(8)}` }
         set((s) => ({ states: [...s.states, state] }))
@@ -771,6 +786,18 @@ export const useStore = create<Store>()(
         void _sel
         void _cm
         return rest as Store
+      },
+      merge: (persisted, current) => {
+        const merged = { ...current, ...(persisted as Partial<Store>) }
+        // Backfill team.memberIds for workspaces persisted before teams had members.
+        if (Array.isArray(merged.teams)) {
+          merged.teams = merged.teams.map((t) =>
+            t.memberIds
+              ? t
+              : { ...t, memberIds: seed.teams.find((x) => x.id === t.id)?.memberIds ?? [] },
+          )
+        }
+        return merged
       },
     },
   ),

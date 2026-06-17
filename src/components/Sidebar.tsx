@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useStoreShallow } from '@/lib/store'
+import { Popover } from './ui/Popover'
 import { cn } from '@/lib/utils'
 
 function Item({
@@ -125,19 +126,57 @@ export function Sidebar() {
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-bg-sidebar">
       {/* Workspace header */}
       <div className="flex items-center gap-2 px-3 py-2.5">
-        <button
-          type="button"
-          onClick={() => navigate('/settings')}
-          className="flex flex-1 items-center gap-2 rounded-md px-1 py-1 hover:bg-bg-hover"
-        >
-          <span className="flex h-5 w-5 items-center justify-center rounded bg-accent text-[11px] font-bold text-white">
-            {workspaceName.slice(0, 1)}
-          </span>
-          <span className="truncate text-[13px] font-semibold text-fg">
-            {workspaceName}
-          </span>
-          <ChevronDown size={14} className="text-faint" />
-        </button>
+        <div className="flex-1">
+          <Popover
+            align="start"
+            width={220}
+            trigger={
+              <span className="flex w-full items-center gap-2 rounded-md px-1 py-1 hover:bg-bg-hover">
+                <span className="flex h-5 w-5 items-center justify-center rounded bg-accent text-[11px] font-bold text-white">
+                  {workspaceName.slice(0, 1)}
+                </span>
+                <span className="truncate text-[13px] font-semibold text-fg">
+                  {workspaceName}
+                </span>
+                <ChevronDown size={14} className="text-faint" />
+              </span>
+            }
+          >
+            {(close) => (
+              <div>
+                <div className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-faint">
+                  Teams
+                </div>
+                {teams.map((team) => (
+                  <button
+                    key={team.id}
+                    type="button"
+                    onClick={() => {
+                      close()
+                      navigate(`/team/${team.key}/active`)
+                    }}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                  >
+                    <span>{team.icon}</span>
+                    <span className="flex-1 truncate">{team.name}</span>
+                    <span className="text-[11px] text-faint">{team.key}</span>
+                  </button>
+                ))}
+                <div className="my-1 h-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    close()
+                    navigate('/settings')
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                >
+                  <Settings size={14} className="text-faint" /> Settings
+                </button>
+              </div>
+            )}
+          </Popover>
+        </div>
         <button
           type="button"
           title="New issue"

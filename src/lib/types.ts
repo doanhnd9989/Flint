@@ -39,6 +39,7 @@ export interface Team {
   icon: string
   color: string
   private?: boolean
+  memberIds: string[]
 }
 
 export type ProjectStatus =

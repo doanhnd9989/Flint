@@ -4,6 +4,7 @@ import { Avatar } from '@/components/Avatar'
 import { LabelsSettings } from '@/components/LabelsSettings'
 import { StatesSettings } from '@/components/StatesSettings'
 import { TemplatesSettings } from '@/components/TemplatesSettings'
+import { TeamsSettings } from '@/components/TeamsSettings'
 import { cn } from '@/lib/utils'
 import type { ThemeMode } from '@/lib/types'
 
@@ -86,6 +87,10 @@ export function SettingsView() {
                 </div>
               ))}
             </div>
+          </Card>
+
+          <Card title="Teams">
+            <TeamsSettings />
           </Card>
 
           <Card title="Workflow states">
