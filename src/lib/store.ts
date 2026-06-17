@@ -137,6 +137,7 @@ export interface Store extends WorkspaceData, UIState {
 
   // ── comments ─────────────────────────────────────────────────
   addComment: (issueId: string, body: string, parentId?: string) => void
+  editComment: (id: string, body: string) => void
   deleteComment: (id: string) => void
   toggleReaction: (commentId: string, emoji: string) => void
 
@@ -635,6 +636,13 @@ export const useStore = create<Store>()(
               createdAt: nowIso(),
             } satisfies Comment,
           ],
+        })),
+
+      editComment: (id, body) =>
+        set((s) => ({
+          comments: s.comments.map((c) =>
+            c.id === id ? { ...c, body, editedAt: nowIso() } : c,
+          ),
         })),
 
       deleteComment: (id) =>

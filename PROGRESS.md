@@ -2,6 +2,48 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #50: Comment actions (edit / delete) + hover toolbar
+
+Soi'd Linear's comment (Chrome, workspace "Claude Test App", issue CLA-1):
+hovering a comment reveals a top-right toolbar — an **emoji-react** picker and
+a **⋯ overflow** menu. The menu is **Edit** · ─ · Unsubscribe from thread ·
+Resolve thread · ─ · **Copy link to comment** · **Copy content as Markdown** · ─
+· New issue from comment… · New sub-issue from comment… · ─ · **Delete** (red).
+**Edit** turns the body into an inline textarea with **Cancel / Save** (accent
+button); **Delete** opens a centered **"Delete this comment?" / "You cannot undo
+this action."** confirm (Cancel / red **Delete**).
+
+Reproduced 1:1 the items with real backing in our store, and noted the bigger
+ones as deferred:
+
+- **Store / model** — new `editComment(id, body)` action that sets the body and
+  stamps `Comment.editedAt` (new optional field). Comments with `editedAt` show
+  an **"(edited)"** hint after the timestamp, like Linear.
+- **`CommentReactions`** — refactored to render only the reaction pills (returns
+  null when none); the add-reaction picker moved into the hover toolbar where
+  Linear keeps it.
+- **`CommentActions`** (new) — the hover toolbar: a `SmilePlus` reaction
+  `Popover` (6×2 emoji grid → `toggleReaction`) + a `MoreHorizontal` `Popover`
+  menu with **Edit** (→ inline edit), **Copy link to comment** (copies
+  `issueUrl#comment-<id>` → "Comment URL copied to clipboard" toast), **Copy
+  content as Markdown** (copies the body → toast) and **Delete** (red, opens a
+  portal confirm dialog matching Linear's exact wording; **Delete** uses
+  `var(--c-red)`).
+- **`CommentItem`** (new) — one comment: avatar, header (`name · timeAgo ·
+  (edited)`), Markdown body, reaction pills, the hover toolbar (fades in on
+  `group-hover`), and inline edit mode (`MentionInput` with **⌘↵ to save / Esc
+  to cancel** + Cancel/Save buttons). Wired into `IssueDetailBody`, so it's
+  shared by the full-page detail and the peek panel.
+
+Verified live (localhost:5173, CLA-1 peek): added a comment → hover toolbar
+appeared → ⋯ → **Edit** changed the text and showed **"(edited)"**; **Copy link
+to comment** fired the "Comment URL copied to clipboard" toast; ⋯ → **Delete** →
+the "Delete this comment?" confirm → **Delete** removed it. `npx tsc -b` +
+`npm run build` green; console clean (no errors, no infinite-loop warnings).
+_(Unsubscribe / Resolve thread, threaded comment replies, and New-issue-from-
+comment omitted this round — each needs thread/relation model work; the toolbar
++ menu scaffolding is now in place to add them.)_
+
 ## 2026-06-17 — Loop #49: Slash command menu in the editor
 
 Soi'd Linear's description editor (Chrome, workspace "Claude Test App", issue

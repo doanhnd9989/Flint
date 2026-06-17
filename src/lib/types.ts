@@ -136,6 +136,8 @@ export interface Comment {
   userId: string
   body: string
   createdAt: string
+  /** Set when the comment has been edited (Linear shows an "(edited)" hint). */
+  editedAt?: string
   parentId?: string
   /** emoji → userIds who reacted with it */
   reactions?: Record<string, string[]>

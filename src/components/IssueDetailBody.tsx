@@ -18,10 +18,9 @@ import { IssueRelations } from './IssueRelations'
 import { IssueLinks } from './IssueLinks'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MentionInput } from './MentionInput'
-import { CommentReactions } from './CommentReactions'
+import { CommentItem } from './CommentItem'
 import { ActivityItem } from './ActivityItem'
 import { DatePicker } from './DatePicker'
-import { Markdown } from '@/lib/markdown'
 import { subIssueProgress, cycleState } from '@/lib/selectors'
 import { PRIORITY_LABELS, ESTIMATE_SCALE } from '@/lib/constants'
 import {
@@ -30,7 +29,6 @@ import {
   formatFullDate,
   isDueSoon,
   isOverdue,
-  timeAgo,
 } from '@/lib/utils'
 import {
   GitBranch,
@@ -214,24 +212,9 @@ export function IssueDetailBody({
               {activities.map((a) => (
                 <ActivityItem key={a.id} activity={a} />
               ))}
-              {comments.map((c) => {
-                const u = store.users.find((x) => x.id === c.userId)
-                return (
-                  <div key={c.id} className="flex gap-2">
-                    <Avatar user={u} size={22} />
-                    <div className="flex-1 rounded-lg border border-border bg-bg-secondary px-3 py-2">
-                      <div className="mb-0.5 flex items-center gap-2 text-[12px]">
-                        <span className="font-medium text-fg">{u?.name}</span>
-                        <span className="text-faint">{timeAgo(c.createdAt)}</span>
-                      </div>
-                      <div className="text-[13px] text-fg">
-                        <Markdown source={c.body} />
-                      </div>
-                      <CommentReactions commentId={c.id} />
-                    </div>
-                  </div>
-                )
-              })}
+              {comments.map((c) => (
+                <CommentItem key={c.id} comment={c} />
+              ))}
             </div>
 
             <div className="mt-4 flex gap-2">
