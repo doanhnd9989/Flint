@@ -147,6 +147,8 @@ export interface Store extends WorkspaceData, UIState {
   addComment: (issueId: string, body: string, parentId?: string) => void
   editComment: (id: string, body: string) => void
   deleteComment: (id: string) => void
+  /** Resolve / unresolve a comment thread (toggles state on the thread root). */
+  toggleResolveThread: (rootId: string) => void
   toggleReaction: (commentId: string, emoji: string) => void
 
   // ── labels / projects ────────────────────────────────────────
@@ -682,6 +684,17 @@ export const useStore = create<Store>()(
 
       deleteComment: (id) =>
         set((s) => ({ comments: s.comments.filter((c) => c.id !== id) })),
+
+      toggleResolveThread: (rootId) =>
+        set((s) => ({
+          comments: s.comments.map((c) =>
+            c.id === rootId
+              ? c.resolvedAt
+                ? { ...c, resolvedAt: undefined, resolvedBy: undefined }
+                : { ...c, resolvedAt: nowIso(), resolvedBy: s.currentUserId }
+              : c,
+          ),
+        })),
 
       toggleReaction: (commentId, emoji) =>
         set((s) => ({

@@ -139,6 +139,9 @@ export interface Comment {
   /** Set when the comment has been edited (Linear shows an "(edited)" hint). */
   editedAt?: string
   parentId?: string
+  /** Set on a thread root when the thread is resolved — Linear collapses it. */
+  resolvedAt?: string
+  resolvedBy?: string
   /** emoji → userIds who reacted with it */
   reactions?: Record<string, string[]>
 }

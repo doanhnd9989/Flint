@@ -7,6 +7,8 @@ import {
   Link2,
   Copy,
   Trash2,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { Popover } from './ui/Popover'
@@ -22,17 +24,22 @@ const EMOJIS = ['👍', '❤️', '🎉', '🚀', '👀', '😄', '🙏', '🔥'
  */
 export function CommentActions({
   commentId,
+  rootId,
   onEdit,
 }: {
   commentId: string
+  /** Thread root — "Resolve thread" always acts on it. Defaults to this comment. */
+  rootId?: string
   onEdit: () => void
 }) {
   const store = useStore()
   const comment = store.comments.find((c) => c.id === commentId)
+  const root = store.comments.find((c) => c.id === (rootId ?? commentId))
   const [confirm, setConfirm] = useState(false)
   if (!comment) return null
 
   const issue = store.issues.find((i) => i.id === comment.issueId)
+  const resolved = !!root?.resolvedAt
 
   function copyLink() {
     if (!issue) return
@@ -91,6 +98,14 @@ export function CommentActions({
                 onClick={() => {
                   close()
                   onEdit()
+                }}
+              />
+              <MenuItem
+                icon={resolved ? <Circle size={14} /> : <CheckCircle2 size={14} />}
+                label={resolved ? 'Unresolve thread' : 'Resolve thread'}
+                onClick={() => {
+                  close()
+                  if (root) store.toggleResolveThread(root.id)
                 }}
               />
               <div className="my-1 border-t border-border" />

@@ -9,7 +9,7 @@ import { CommentActions } from './CommentActions'
 import { timeAgo } from '@/lib/utils'
 
 /** A single comment: header, body (Markdown), reactions, hover toolbar, inline edit. */
-export function CommentItem({ comment }: { comment: Comment }) {
+export function CommentItem({ comment, rootId }: { comment: Comment; rootId?: string }) {
   const store = useStore()
   const user = store.users.find((u) => u.id === comment.userId)
   const [editing, setEditing] = useState(false)
@@ -77,7 +77,7 @@ export function CommentItem({ comment }: { comment: Comment }) {
             </div>
             <CommentReactions commentId={comment.id} />
             <div className="absolute right-1.5 top-1.5 rounded-md border border-border bg-bg-elevated opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
-              <CommentActions commentId={comment.id} onEdit={() => setEditing(true)} />
+              <CommentActions commentId={comment.id} rootId={rootId} onEdit={() => setEditing(true)} />
             </div>
           </>
         )}

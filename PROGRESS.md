@@ -2,6 +2,33 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #55: Resolve comment thread
+
+Closed the gap deferred in loops #54 and #55-prior ("Resolve thread / collapse-
+resolved — needs a `resolvedAt` flag"). Linear lets you **resolve a comment
+thread**, which collapses it into a compact green-check summary bar; resolved
+threads can be expanded and **unresolved**.
+
+- **Data** — `Comment.resolvedAt` + `resolvedBy` on the thread root; a
+  `toggleResolveThread(rootId)` store action (sets/clears them, stamping the
+  current user as resolver).
+- **`CommentActions`** — a new **Resolve thread / Unresolve thread** menu item
+  (circled-check / circle icon) between Edit and Copy link. A `rootId` prop is
+  threaded through `CommentItem` so the action always targets the thread root,
+  no matter which comment's menu you open.
+- **`CommentThread`** — when resolved it collapses to a single bar: green check +
+  root author avatar + a one-line Markdown-stripped `snippet()` + "{n} repl(y/ies)"
+  + "{resolver} resolved" + chevron. Clicking the bar expands it, showing a
+  "Resolved by {name} · {ago}" banner with inline **Unresolve** / **Collapse**
+  buttons above the full root + replies + reply composer.
+
+Verified live (Chrome, localhost:5173, CLA-5): the ⋯ menu shows
+Edit / Resolve thread / Copy link / Delete in order; resolving collapses Avery's
+thread to "Avery Chen … 1 reply · You resolved"; expanding shows the banner +
+Unresolve/Collapse with the reply visible; Unresolve restores the thread.
+`npx tsc -b` + `npm run build` green, console clean. _(Auto-collapse preference
+and a thread-level resolved activity entry still TODO.)_
+
 ## 2026-06-18 — Loop #54: Comment threaded replies
 
 Surfaced the long-existing `Comment.parentId` model (added in loop #50, but the
