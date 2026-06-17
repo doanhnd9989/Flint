@@ -92,13 +92,12 @@ function Section({
 
 export function Sidebar() {
   const navigate = useNavigate()
-  const { workspaceName, teams, notifications, issues, setCommandOpen, setCreateOpen } =
+  const { workspaceName, teams, notifications, issues, setCreateOpen } =
     useStoreShallow((s) => ({
       workspaceName: s.workspaceName,
       teams: s.teams,
       notifications: s.notifications,
       issues: s.issues,
-      setCommandOpen: s.setCommandOpen,
       setCreateOpen: s.setCreateOpen,
     }))
   const unread = notifications.filter((n) => !n.read).length
@@ -132,11 +131,7 @@ export function Sidebar() {
 
       <div className="flex-1 overflow-y-auto px-2 pb-4">
         <div className="space-y-px">
-          <Item
-            icon={<Search size={15} />}
-            label="Search"
-            onClick={() => setCommandOpen(true)}
-          />
+          <Item to="/search" icon={<Search size={15} />} label="Search" />
           <Item to="/inbox" icon={<Inbox size={15} />} label="Inbox" badge={unread} />
           <Item to="/my-issues" icon={<CircleDot size={15} />} label="My Issues" />
         </div>

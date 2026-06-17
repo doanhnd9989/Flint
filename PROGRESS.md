@@ -2,6 +2,23 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #17: Full-text search
+
+A dedicated search page, Linear-style:
+
+- Store: persisted `recentSearches` with `addRecentSearch` (dedup, cap 8) and
+  `clearRecentSearches`.
+- New `views/SearchView.tsx` at `/search`: substring search over issue
+  identifier/title/description and project name/description; results grouped into
+  Projects and Issues (rendered with `IssueRow`); the filter bar narrows issue
+  results; recent searches show when the query is empty (click to re-run, Clear).
+- Sidebar "Search" now navigates to `/search` (⌘K still handles the command menu).
+- Verified live: "board" matched CLA-7 "Board view" and CLA-5 (substring of
+  "Keyboard"); the query was saved under Recent. `tsc` ✅ · build ✅ · clean console.
+
+Next: **Manual drag-to-reorder** issues within a list group (sortOrder).
+
+
 ## 2026-06-17 — Loop #16: Triage
 
 A queue for incoming issues, Linear-style:

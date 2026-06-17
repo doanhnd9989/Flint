@@ -27,6 +27,7 @@ import { ProjectDetail } from '@/views/ProjectDetail'
 import { SettingsView } from '@/views/SettingsView'
 import { ViewsView } from '@/views/ViewsView'
 import { SavedViewScreen } from '@/views/SavedViewScreen'
+import { SearchView } from '@/views/SearchView'
 
 function Shell() {
   useThemeEffect()
@@ -62,6 +63,7 @@ export default function App() {
       <Routes>
         <Route element={<Shell />}>
           <Route path="/" element={<DefaultRedirect />} />
+          <Route path="/search" element={<SearchView />} />
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/my-issues" element={<MyIssues />} />
           <Route path="/projects" element={<ProjectsView />} />

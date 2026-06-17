@@ -34,6 +34,8 @@ interface UIState {
   selectedIssueIds: string[]
   /** Right-click context menu target + position (transient). */
   contextMenu: { issueId: string; x: number; y: number } | null
+  /** Recent search queries (persisted, newest first). */
+  recentSearches: string[]
 }
 
 interface NewIssueInput {
@@ -104,6 +106,8 @@ export interface Store extends WorkspaceData, UIState {
   setCommandOpen: (open: boolean) => void
   setCreateOpen: (open: boolean) => void
   setPeek: (id: string | null) => void
+  addRecentSearch: (q: string) => void
+  clearRecentSearches: () => void
 
   // ── bulk selection ───────────────────────────────────────────
   toggleSelectIssue: (id: string) => void
@@ -155,6 +159,7 @@ export const useStore = create<Store>()(
       peekIssueId: null,
       selectedIssueIds: [],
       contextMenu: null,
+      recentSearches: [],
 
       createIssue: (input) => {
         const s = get()
@@ -562,6 +567,19 @@ export const useStore = create<Store>()(
       setCommandOpen: (commandOpen) => set({ commandOpen }),
       setCreateOpen: (createOpen) => set({ createOpen }),
       setPeek: (peekIssueId) => set({ peekIssueId }),
+
+      addRecentSearch: (q) =>
+        set((s) => {
+          const query = q.trim()
+          if (!query) return s
+          return {
+            recentSearches: [
+              query,
+              ...s.recentSearches.filter((x) => x !== query),
+            ].slice(0, 8),
+          }
+        }),
+      clearRecentSearches: () => set({ recentSearches: [] }),
 
       toggleSelectIssue: (id) =>
         set((s) => ({
