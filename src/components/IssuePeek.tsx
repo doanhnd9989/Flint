@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { IssueDetailBody } from './IssueDetailBody'
+import { IssueNav } from './IssueNav'
 import { branchName, issueUrl } from '@/lib/utils'
 import { copyToClipboard, copyToast } from '@/lib/toast'
 import { X, Maximize2, Trash2, Link2, GitBranch } from 'lucide-react'
@@ -52,6 +53,13 @@ export function IssuePeek() {
           <span className="text-faint">›</span>
           <span className="font-mono text-faint">{issue.identifier}</span>
           <div className="flex-1" />
+          <IssueNav
+            identifier={issue.identifier}
+            onGo={(id) => {
+              const next = store.issues.find((i) => i.identifier === id)
+              if (next) store.setPeek(next.id)
+            }}
+          />
           <button
             title="Copy git branch name"
             onClick={() =>

@@ -2,6 +2,31 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-17 — Loop #43: Prev/next issue navigation
+
+The backlog was fully checked, so I soi'd Linear's issue header and found a clear
+gap: Linear shows a **"n / total"** position counter with **↓ (next)** / **↑
+(previous)** chevrons (split by a thin divider) on both the full-page issue and
+the side peek, letting you walk the list you came from without going back.
+
+- **`IssueNav`** (new shared component): the counter + ↓/↑ buttons, 1:1 with
+  Linear's order (counter, ↓ next, divider, ↑ prev). The edge arrow disables
+  (faded) at the first/last issue. Renders nothing when the current issue isn't
+  in a known list (e.g. opened from ⌘K).
+- **State**: a transient `navIssueIds` slice (ordered issue *identifiers*) +
+  `setNavIssueIds(ids)` that no-ops when the order is unchanged (avoids render
+  churn) and is excluded from `persist`.
+- **Publishers**: `GroupedIssueList` (covers `VirtualIssueList` and every list
+  screen that uses it) and `IssueBoard` push their visible order into the slice
+  via a `useEffect` keyed on the flattened identifier list.
+- **Consumers**: the `IssueDetail` header (navigates `/issue/:id`) and the
+  `IssuePeek` header (re-peeks the destination issue).
+- Verified live (Chrome, localhost:5173): peek on CLA-1 shows "1 / 8" with the
+  up arrow faded (first), ↓ advances to CLA-2 "2 / 8" with both arrows live, and
+  maximizing carries the same "2 / 8" into the full-page header. Console clean,
+  `npx tsc -b` + `npm run build` green. _(Keyboard `j`/`k` / arrow shortcuts for
+  prev/next still TODO — buttons only this round.)_
+
 ## 2026-06-17 — Loop #42: Display properties (Display options popover)
 
 The backlog was fully checked, so I soi'd Linear's **Display options** popover

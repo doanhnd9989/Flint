@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { IssueDetailBody } from '@/components/IssueDetailBody'
 import { StarButton } from '@/components/StarButton'
+import { IssueNav } from '@/components/IssueNav'
 import { branchName, issueUrl } from '@/lib/utils'
 import { copyToClipboard, copyToast } from '@/lib/toast'
 import { Trash2, Link2, GitBranch } from 'lucide-react'
@@ -60,6 +61,10 @@ export function IssueDetail() {
         >
           <Trash2 size={15} />
         </button>
+        <IssueNav
+          identifier={issue.identifier}
+          onGo={(id) => navigate(`/issue/${id}`)}
+        />
       </header>
 
       <IssueDetailBody

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   DndContext,
@@ -92,7 +92,15 @@ function Column({ group }: { group: IssueGroup }) {
 
 export function IssueBoard({ groups }: { groups: IssueGroup[] }) {
   const moveIssue = useStore((s) => s.moveIssue)
+  const setNavIssueIds = useStore((s) => s.setNavIssueIds)
   const [active, setActive] = useState<Issue | null>(null)
+
+  // Publish column-by-column order for the issue detail's prev/next navigation.
+  const flatOrder = groups.flatMap((g) => g.issues.map((i) => i.identifier))
+  useEffect(() => {
+    setNavIssueIds(flatOrder)
+  }, [flatOrder.join('\n'), setNavIssueIds])
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )

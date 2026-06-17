@@ -49,6 +49,12 @@ interface UIState {
   peekIssueId: string | null
   /** Issues selected for bulk actions (transient). */
   selectedIssueIds: string[]
+  /**
+   * Ordered issue identifiers of the list the user is currently browsing,
+   * used to power the issue detail's prev/next "n / total ↓ ↑" navigation.
+   * Set by whichever list/board is on screen; transient.
+   */
+  navIssueIds: string[]
   /** Right-click context menu target + position (transient). */
   contextMenu: { issueId: string; x: number; y: number } | null
   /** Recent search queries (persisted, newest first). */
@@ -155,6 +161,7 @@ export interface Store extends WorkspaceData, UIState {
   setCreateInitiativeOpen: (open: boolean) => void
   setHelpOpen: (open: boolean) => void
   setPeek: (id: string | null) => void
+  setNavIssueIds: (ids: string[]) => void
   addRecentSearch: (q: string) => void
   clearRecentSearches: () => void
   toggleFavorite: (type: FavoriteType, id: string) => void
@@ -216,6 +223,7 @@ export const useStore = create<Store>()(
       helpOpen: false,
       peekIssueId: null,
       selectedIssueIds: [],
+      navIssueIds: [],
       contextMenu: null,
       recentSearches: [],
       favorites: [],
@@ -933,6 +941,14 @@ export const useStore = create<Store>()(
         set({ createInitiativeOpen }),
       setHelpOpen: (helpOpen) => set({ helpOpen }),
       setPeek: (peekIssueId) => set({ peekIssueId }),
+      setNavIssueIds: (navIssueIds) =>
+        set((s) =>
+          // Avoid a needless re-render when the order is unchanged.
+          s.navIssueIds.length === navIssueIds.length &&
+          s.navIssueIds.every((v, i) => v === navIssueIds[i])
+            ? s
+            : { navIssueIds },
+        ),
 
       addRecentSearch: (q) =>
         set((s) => {
@@ -1145,6 +1161,7 @@ export const useStore = create<Store>()(
           helpOpen: _h,
           peekIssueId: _p,
           selectedIssueIds: _sel,
+          navIssueIds: _nav,
           contextMenu: _cm,
           ...rest
         } = s
@@ -1154,6 +1171,7 @@ export const useStore = create<Store>()(
         void _h
         void _p
         void _sel
+        void _nav
         void _cm
         return rest as Store
       },

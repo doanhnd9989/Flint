@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown, Plus } from 'lucide-react'
 import {
   DndContext,
@@ -85,8 +85,16 @@ export function GroupedIssueList({
   const setCreateOpen = useStore((s) => s.setCreateOpen)
   const selectedIssueIds = useStore((s) => s.selectedIssueIds)
   const setSelectedIssues = useStore((s) => s.setSelectedIssues)
+  const setNavIssueIds = useStore((s) => s.setNavIssueIds)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const anySelected = selectedIssueIds.length > 0
+
+  // Publish this list's visible order so the issue detail/peek can offer
+  // prev/next navigation through it. The store no-ops on an unchanged order.
+  const flatOrder = groups.flatMap((g) => g.issues.map((i) => i.identifier))
+  useEffect(() => {
+    setNavIssueIds(flatOrder)
+  }, [flatOrder.join('\n'), setNavIssueIds])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
