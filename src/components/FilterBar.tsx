@@ -11,22 +11,39 @@ import type { FilterState, Priority } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
 
-type Dim = 'statusIds' | 'assigneeIds' | 'priorities' | 'labelIds' | 'projectIds'
+type Dim =
+  | 'statusIds'
+  | 'assigneeIds'
+  | 'creatorIds'
+  | 'priorities'
+  | 'labelIds'
+  | 'projectIds'
+  | 'subscriberIds'
 
 const DIMS: { id: Dim; label: string }[] = [
   { id: 'statusIds', label: 'Status' },
   { id: 'assigneeIds', label: 'Assignee' },
+  { id: 'creatorIds', label: 'Creator' },
   { id: 'priorities', label: 'Priority' },
   { id: 'labelIds', label: 'Label' },
   { id: 'projectIds', label: 'Project' },
+  { id: 'subscriberIds', label: 'Subscribers' },
 ]
 
 export function emptyFilters(): FilterState {
-  return { statusIds: [], assigneeIds: [], priorities: [], labelIds: [], projectIds: [] }
+  return {
+    statusIds: [],
+    assigneeIds: [],
+    priorities: [],
+    labelIds: [],
+    projectIds: [],
+    creatorIds: [],
+    subscriberIds: [],
+  }
 }
 
 export function hasActiveFilters(f: FilterState): boolean {
-  return DIMS.some((d) => (f[d.id] as unknown[]).length > 0)
+  return DIMS.some((d) => ((f[d.id] as unknown[]) ?? []).length > 0)
 }
 
 interface ValueOption {
@@ -46,6 +63,8 @@ function useDimOptions(): Record<Dim, ValueOption[]> {
       .sort((a, b) => STATUS_TYPE_ORDER[a.type] - STATUS_TYPE_ORDER[b.type] || a.position - b.position)
       .map((st) => ({ id: st.id, label: st.name, icon: <StatusIcon type={st.type} color={st.color} /> })),
     assigneeIds: users.map((u) => ({ id: u.id, label: u.name, icon: <Avatar user={u} size={16} /> })),
+    creatorIds: users.map((u) => ({ id: u.id, label: u.name, icon: <Avatar user={u} size={16} /> })),
+    subscriberIds: users.map((u) => ({ id: u.id, label: u.name, icon: <Avatar user={u} size={16} /> })),
     priorities: PRIORITY_ORDER.map((p) => ({
       id: String(p),
       label: PRIORITY_LABELS[p],
@@ -58,7 +77,7 @@ function useDimOptions(): Record<Dim, ValueOption[]> {
 
 function valuesOf(f: FilterState, dim: Dim): string[] {
   if (dim === 'priorities') return f.priorities.map(String)
-  return f[dim] as string[]
+  return (f[dim] as string[] | undefined) ?? []
 }
 
 function setValues(f: FilterState, dim: Dim, ids: string[]): FilterState {

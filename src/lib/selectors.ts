@@ -45,6 +45,16 @@ export function filterIssues(
       !(i.projectId && filters.projectIds.includes(i.projectId))
     )
       return false
+    if (
+      filters.creatorIds?.length &&
+      !filters.creatorIds.includes(i.creatorId)
+    )
+      return false
+    if (
+      filters.subscriberIds?.length &&
+      !i.subscriberIds.some((s) => filters.subscriberIds!.includes(s))
+    )
+      return false
     return true
   })
 }

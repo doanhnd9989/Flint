@@ -2,6 +2,34 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #66: Filter by Creator & Subscribers
+
+Backlog was fully ticked and `tsc -b` + `npm run build` were already green, so
+this loop advanced parity on the filter bar. Soi'd Linear's **Filter** popover
+(Chrome, workspace "Claude Test App"): it offers Status · Assignee · **Creator**
+· Priority · Labels · … · **Subscribers** (Creator = person icon, Subscribers =
+bell icon; both submenus are people pickers identical to Assignee). Our
+`FilterBar` only filtered Status/Assignee/Priority/Label/Project even though
+`Issue.creatorId` and `Issue.subscriberIds` have existed in the model for a
+while.
+
+Added the two missing dimensions:
+- `FilterBar` — new `creatorIds` / `subscriberIds` dims (both backed by the user
+  list with avatars), ordered to match Linear (Creator right after Assignee,
+  Subscribers at the end); `emptyFilters()` seeds both.
+- `FilterState` — gains optional `creatorIds?` / `subscriberIds?` (kept optional
+  so SavedViews persisted before this round still deserialize); `valuesOf` and
+  `hasActiveFilters` now guard reads with `?? []`.
+- `filterIssues` (selectors) — filters by exact `creatorId` and by
+  any-subscriber overlap, both guarded with `?.length`.
+
+Verified live against `vite preview` on :4900 (the dev port 5173 was occupied by
+an unrelated project this run): the Filter menu lists the new dims in Linear's
+order; `Creator = You` keeps every seed issue (all created by me); `Creator =
+Avery Chen` empties the list to the "No issues" empty state; the chip, its
+re-edit popover, and Clear all behave; console clean; `tsc -b` + `npm run build`
+green. _(Cycle/Milestone/Dates filter dims still TODO.)_
+
 ## 2026-06-18 — Loop #65: Settings — two-pane layout with grouped left nav
 
 Soi'd Linear's Settings (Chrome, workspace "Claude Test App"). Opening Settings

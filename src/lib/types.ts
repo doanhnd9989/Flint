@@ -300,6 +300,9 @@ export interface FilterState {
   priorities: Priority[]
   labelIds: string[]
   projectIds: string[]
+  // Optional so saved views persisted before these dimensions existed still load.
+  creatorIds?: string[]
+  subscriberIds?: string[]
 }
 
 export interface SavedView {
