@@ -2,6 +2,44 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #83: Right-click context menu → Linear's full list-row menu (1:1)
+
+Soi'd Linear's issue list-row right-click menu in Chrome (workspace "Claude Test
+App", team Issues) and rebuilt our right-click `IssueContextMenu` to match it 1:1.
+
+**Before:** a thinner subset — Status / Priority / Assignee / Labels pickers,
+Add link, Open in peek / full page, three Copy rows, Delete — in a non-Linear
+order.
+
+**Linear's actual order** (observed): Status (S) · Priority (P) · Assignee (A) ·
+Due date (⇧D) · Labels (L) · Project (⇧P) · More properties › — divider —
+Create related › · Mark as › — divider — Copy › · Convert to › · Open in › —
+divider — Favorite (⌥F) · Unsubscribe (⇧S) · Remind me (⇧H) › — divider —
+Delete (⌘⌫). The **Mark as** flyout: Parent of… / Sub-issue of… (⌘⇧P) /
+Related to… (M R) / Blocked by… (M B) / Blocking… (M X) / Duplicate of… (M M).
+
+**Rebuilt 1:1** for everything backable with real data:
+- Six **property rows** now show shortcut hints + chevrons and open the shared
+  pickers. **Due date** (new — `DatePicker` → `setIssueDueDate`) and **Project**
+  (new — `ProjectPicker` → `setIssueProject`) added alongside Status / Priority /
+  Assignee / Labels.
+- Hover **flyouts** reusing the same `SubRow` pattern + surfaces as the ⋯
+  `IssueOptionsMenu`: **More properties** (Add link… ⌃L), **Create related**
+  (Issue / Sub-issue ⌘⇧O / Parent / Blocked / Blocking — `createIssue`+link &
+  navigate), **Mark as** (six relation kinds → `openRelationPicker`'s centered
+  palette), **Copy** (issue ID ⌘. / URL ⌘⇧, / git branch ⌘⇧.).
+- **Favorite/Unfavorite** (⌥F, `toggleFavorite`), **Subscribe/Unsubscribe**
+  (⇧S, `toggleIssueSubscriber` — label reflects current state), **Delete** (⌘⌫).
+
+Verified live (vite :5188, team Issues): the menu renders in Linear's exact
+order, the Mark-as flyout matches the screenshot exactly, picking Jun 25 from the
+Due-date calendar stamps "Jun 25" onto CLA-1's row, console clean; `tsc -b` +
+`npm run build` green.
+
+_Omitted (no backing): **Convert to** (needs a convert-to-project/sub-issue
+flow), **Open in** (Linear shows only "Configure coding tools…"), **Remind me**
+(no reminder backend)._
+
 ## 2026-06-18 — Loop #82: Display options — Ordering direction toggle (asc/desc)
 
 Backlog fully ticked + `tsc -b`/`npm run build` green, so this loop closed the
