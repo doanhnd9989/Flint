@@ -2,6 +2,44 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #75: Inbox — two-pane reading view (Linear 1:1)
+
+Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop closed
+the explicit TODO from loop #74: the Inbox **two-pane reading view**.
+
+Soi'd Linear's Inbox in Chrome (workspace "Claude Test App"): it is a **two-pane**
+surface — a narrow left **list pane** (its own `Inbox · ⋯ · Filter · Display`
+header) and a right **reading pane** showing the selected notification's issue.
+Selecting a notification doesn't navigate away; it opens the issue beside the
+list. Empty selection shows the inbox illustration + "{n} unread notification(s)";
+the reading-pane header carries a **clock (snooze)** + **done/archive** icon (and
+I added the standard team › identifier breadcrumb + maximize).
+
+Reproduced 1:1 — rewrote `Inbox.tsx` from a single-pane list-that-navigates into
+a `flex` two-pane:
+
+- **List pane** (`w-[340px]`, `border-r`) keeps the existing ⋯/Filter/Display
+  header + filter chips; `NotificationRow` redrawn for the narrow column as a
+  compact two-line row (unread dot · avatar · **issue title** bold + `{actor}
+  {verb}` muted · `timeAgo` right · hover snooze/done). The row is a
+  `<div role="button">` (not `<button>`) so the snooze `Popover`'s inner button
+  doesn't nest → no hydration error; `outline-none` since selection shows via
+  `bg-bg-selected`.
+- **Reading pane** — a new `ReadingPane` renders `IssueDetailBody` (compact) for
+  the selected notification's issue, with a header (breadcrumb + snooze popover /
+  unsnooze + **Mark as done** + maximize). Selecting marks read; **done** &
+  **snooze** remove the row and advance selection to the neighbour; **Esc** clears.
+- Keyboard nav: **↑/↓ + j/k** move the selection (refs + a single window keydown
+  listener, bailing on inputs / `[data-overlay]` popovers).
+
+Verified live (vite preview :4931): clicking notifications renders CLA-5/CLA-6
+in full (description, relations, activity, comments + Properties sidebar) with
+the breadcrumb + snooze/done/maximize header; ↑/↓ moves selection; the unread
+count decrements as rows are read; no focus ring; **console clean**; `tsc -b` +
+`npm run build` green. _(Linear's "Mark as done" archives reversibly — our model
+has no archived state, so done = delete; the welcome-message custom reading doc
+and the snoozed/done sub-filters are omitted.)_
+
 ## 2026-06-18 — Loop #74: Inbox header — ⋯ / Filter / Display options (Linear 1:1)
 
 Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop rebuilt

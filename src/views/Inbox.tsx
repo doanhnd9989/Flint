@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import {
@@ -17,10 +17,13 @@ import {
   Circle,
   Check,
   ChevronLeft,
+  Inbox as InboxIcon,
+  Maximize2,
 } from 'lucide-react'
 import { EmptyState, InboxIllustration } from '@/components/EmptyState'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
+import { IssueDetailBody } from '@/components/IssueDetailBody'
 import { Avatar } from '@/components/Avatar'
 import { Popover } from '@/components/ui/Popover'
 import { PriorityIcon } from '@/components/PriorityIcon'
@@ -526,6 +529,7 @@ export function Inbox() {
   const [display, setDisplay] = useState<InboxDisplay>(DEFAULT_DISPLAY)
   const [filters, setFilters] = useState<InboxFilters>(EMPTY_FILTERS)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const now = Date.now()
 
   const statusTypeOf = (issueId: string): StatusType | undefined => {
@@ -568,49 +572,118 @@ export function Inbox() {
   const snooze = (id: string, ms: number) =>
     store.snoozeNotification(id, new Date(now + ms).toISOString())
 
+  // ── selection ────────────────────────────────────────────────────────────
+  const selected = list.find((n) => n.id === selectedId) ?? null
+  const select = (id: string) => {
+    store.markNotificationRead(id)
+    setSelectedId(id)
+  }
+  // Mark-done / snooze removes the row from the inbox — keep a notification
+  // selected by jumping to its neighbour, exactly like Linear's reading pane.
+  const actThenAdvance = (id: string, act: (id: string) => void) => {
+    const idx = list.findIndex((n) => n.id === id)
+    const next = list[idx + 1] ?? list[idx - 1] ?? null
+    act(id)
+    setSelectedId(next ? next.id : null)
+  }
+
+  // ↑/↓ + j/k move the selection; Esc clears it (Linear's inbox shortcuts).
+  const listRef = useRef(list)
+  listRef.current = list
+  const selRef = useRef(selectedId)
+  selRef.current = selectedId
+  const selectRef = useRef(select)
+  selectRef.current = select
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+        return
+      if (document.querySelector('[data-overlay]')) return
+      const items = listRef.current
+      if (!items.length) return
+      const idx = items.findIndex((n) => n.id === selRef.current)
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        e.preventDefault()
+        selectRef.current((items[Math.min(idx + 1, items.length - 1)] ?? items[0]).id)
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        e.preventDefault()
+        selectRef.current((idx <= 0 ? items[0] : items[idx - 1]).id)
+      } else if (e.key === 'Escape' && selRef.current) {
+        setSelectedId(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const unreadCount = store.notifications.filter(
+    (n) => !n.read && !isSnoozed(n.snoozedUntil, now),
+  ).length
+
   return (
-    <div className="flex h-full flex-col">
-      <ViewHeader
-        title="Inbox"
-        right={
-          <div className="flex items-center gap-1">
-            <InboxFilterMenu filters={filters} setFilters={setFilters} />
-            <InboxDisplayMenu display={display} setDisplay={setDisplay} />
-          </div>
-        }
-      >
-        <InboxOptionsMenu onDeleteAll={() => setConfirmDelete(true)} />
-      </ViewHeader>
+    <div className="flex h-full">
+      {/* ── list pane ─────────────────────────────────────────────────────── */}
+      <div className="flex h-full w-[340px] shrink-0 flex-col border-r border-border">
+        <ViewHeader
+          title="Inbox"
+          right={
+            <div className="flex items-center gap-1">
+              <InboxFilterMenu filters={filters} setFilters={setFilters} />
+              <InboxDisplayMenu display={display} setDisplay={setDisplay} />
+            </div>
+          }
+        >
+          <InboxOptionsMenu onDeleteAll={() => setConfirmDelete(true)} />
+        </ViewHeader>
 
-      <FilterChips filters={filters} setFilters={setFilters} />
+        <FilterChips filters={filters} setFilters={setFilters} />
 
-      <div className="flex-1 overflow-y-auto">
-        {list.length === 0 && (
+        <div className="flex-1 overflow-y-auto">
+          {list.length === 0 && (
+            <div className="px-4 py-10 text-center text-[13px] text-faint">
+              {anyFilter(filters)
+                ? 'No notifications match your filters.'
+                : "You're all caught up."}
+            </div>
+          )}
+          {list.map((n) => (
+            <NotificationRow
+              key={n.id}
+              n={n}
+              now={now}
+              selected={n.id === selectedId}
+              onOpen={() => select(n.id)}
+              onSnooze={(id, ms) => actThenAdvance(id, (x) => snooze(x, ms))}
+              onUnsnooze={store.unsnoozeNotification}
+              onDelete={(id) => actThenAdvance(id, store.deleteNotification)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* ── reading pane ──────────────────────────────────────────────────── */}
+      <div className="flex h-full min-w-0 flex-1 flex-col">
+        {selected ? (
+          <ReadingPane
+            key={selected.id}
+            n={selected}
+            onSnooze={(ms) => actThenAdvance(selected.id, (x) => snooze(x, ms))}
+            onUnsnooze={() => store.unsnoozeNotification(selected.id)}
+            onDone={() => actThenAdvance(selected.id, store.deleteNotification)}
+            onOpenFull={(identifier) => navigate(`/issue/${identifier}`)}
+          />
+        ) : (
           <EmptyState
             illustration={<InboxIllustration />}
-            title="Inbox"
+            title={list.length === 0 ? 'Inbox' : ''}
             description={
-              anyFilter(filters)
-                ? 'No notifications match your filters.'
-                : "You're all caught up. New notifications will show up here."
+              list.length === 0
+                ? "You're all caught up. New notifications will show up here."
+                : `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}`
             }
           />
         )}
-        {list.map((n) => (
-          <NotificationRow
-            key={n.id}
-            n={n}
-            now={now}
-            onOpen={() => {
-              store.markNotificationRead(n.id)
-              const issue = store.issues.find((i) => i.id === n.issueId)
-              if (issue) navigate(`/issue/${issue.identifier}`)
-            }}
-            onSnooze={snooze}
-            onUnsnooze={store.unsnoozeNotification}
-            onDelete={store.deleteNotification}
-          />
-        ))}
       </div>
 
       {confirmDelete && (
@@ -618,6 +691,7 @@ export function Inbox() {
           onCancel={() => setConfirmDelete(false)}
           onConfirm={() => {
             store.deleteAllNotifications()
+            setSelectedId(null)
             setConfirmDelete(false)
           }}
         />
@@ -626,9 +700,131 @@ export function Inbox() {
   )
 }
 
+// ── reading pane: the selected notification's issue ──────────────────────────
+function ReadingPane({
+  n,
+  onSnooze,
+  onUnsnooze,
+  onDone,
+  onOpenFull,
+}: {
+  n: Notification
+  onSnooze: (ms: number) => void
+  onUnsnooze: () => void
+  onDone: () => void
+  onOpenFull: (identifier: string) => void
+}) {
+  const store = useStore()
+  const issue = store.issues.find((i) => i.id === n.issueId)
+  const now = Date.now()
+  const snoozed = isSnoozed(n.snoozedUntil, now)
+
+  const header = (
+    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3 text-[13px]">
+      {issue && (
+        <>
+          <span className="text-faint">
+            {store.teams.find((t) => t.id === issue.teamId)?.name}
+          </span>
+          <span className="text-faint">›</span>
+          <span className="font-mono text-faint">{issue.identifier}</span>
+        </>
+      )}
+      <div className="flex-1" />
+      {snoozed ? (
+        <button
+          onClick={onUnsnooze}
+          title="Unsnooze"
+          className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg"
+        >
+          <AlarmClock size={15} />
+        </button>
+      ) : (
+        <Popover
+          align="end"
+          width={160}
+          trigger={
+            <span
+              title="Snooze"
+              className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg"
+            >
+              <Clock size={15} />
+            </span>
+          }
+        >
+          {(close) => (
+            <div>
+              {[
+                { label: 'In 1 hour', ms: 3_600_000 },
+                { label: 'Tomorrow', ms: 86_400_000 },
+                { label: 'Next week', ms: 7 * 86_400_000 },
+              ].map((o) => (
+                <button
+                  key={o.label}
+                  onClick={() => {
+                    onSnooze(o.ms)
+                    close()
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                >
+                  <Clock size={13} className="text-faint" /> {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </Popover>
+      )}
+      <button
+        onClick={onDone}
+        title="Mark as done"
+        className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg"
+      >
+        <InboxIcon size={15} />
+      </button>
+      {issue && (
+        <button
+          onClick={() => onOpenFull(issue.identifier)}
+          title="Open full page"
+          className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg"
+        >
+          <Maximize2 size={15} />
+        </button>
+      )}
+    </header>
+  )
+
+  if (!issue) {
+    return (
+      <>
+        {header}
+        <EmptyState
+          illustration={<InboxIllustration />}
+          title={n.body || 'Notification'}
+          description="This notification isn't linked to an issue."
+        />
+      </>
+    )
+  }
+
+  return (
+    <>
+      {header}
+      <IssueDetailBody
+        issue={issue}
+        compact
+        onOpenIssue={(identifier) => {
+          const next = store.issues.find((i) => i.identifier === identifier)
+          if (next) onOpenFull(next.identifier)
+        }}
+      />
+    </>
+  )
+}
+
 function NotificationRow({
   n,
   now,
+  selected,
   onOpen,
   onSnooze,
   onUnsnooze,
@@ -636,6 +832,7 @@ function NotificationRow({
 }: {
   n: Notification
   now: number
+  selected: boolean
   onOpen: () => void
   onSnooze: (id: string, ms: number) => void
   onUnsnooze: (id: string) => void
@@ -647,46 +844,71 @@ function NotificationRow({
   const snoozed = isSnoozed(n.snoozedUntil, now)
 
   return (
-    <div className="group flex items-center gap-3 border-b border-border px-4 py-3 hover:bg-bg-hover">
-      {!n.read ? (
-        <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
-      ) : (
-        <span className="h-2 w-2 shrink-0" />
+    <div
+      role="button"
+      tabIndex={-1}
+      onClick={onOpen}
+      className={cn(
+        'group flex w-full cursor-pointer items-start gap-2.5 border-b border-border px-3 py-3 text-left outline-none',
+        selected ? 'bg-bg-selected' : 'hover:bg-bg-hover',
       )}
-      <button onClick={onOpen} className="flex flex-1 items-center gap-3 text-left">
-        <Avatar user={actor} size={24} />
-        <div className="flex-1">
-          <div className={cn('text-[13px]', n.read ? 'text-muted' : 'text-fg')}>
-            <span className="font-medium">{actor?.name}</span> {n.body}{' '}
-            <span className="text-muted">{issue?.title}</span>
+    >
+      <span className="mt-1.5 flex w-2 shrink-0 justify-center">
+        {!n.read && <span className="h-2 w-2 rounded-full bg-accent" />}
+      </span>
+      <Avatar user={actor} size={20} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <div
+            className={cn(
+              'flex-1 truncate text-[13px] font-medium',
+              n.read ? 'text-muted' : 'text-fg',
+            )}
+          >
+            {issue?.title ?? actor?.name}
           </div>
-          <div className="text-[11px] text-faint">
-            {issue?.identifier} · {timeAgo(n.createdAt)}
-            {snoozed &&
-              ` · snoozed until ${new Date(n.snoozedUntil!).toLocaleDateString(
-                'en-US',
-                { month: 'short', day: 'numeric', hour: 'numeric' },
-              )}`}
-          </div>
+          <span className="shrink-0 text-[11px] text-faint">
+            {timeAgo(n.createdAt)}
+          </span>
         </div>
-      </button>
+        <div className="truncate text-[12px] text-faint">
+          <span className="text-muted">{actor?.name}</span> {n.body}
+        </div>
+        {snoozed && (
+          <div className="mt-0.5 flex items-center gap-1 text-[11px] text-faint">
+            <AlarmClock size={11} />
+            {new Date(n.snoozedUntil!).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+            })}
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
         {snoozed ? (
-          <button
-            onClick={() => onUnsnooze(n.id)}
+          <span
+            role="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onUnsnooze(n.id)
+            }}
             title="Unsnooze"
-            className="flex h-7 w-7 items-center justify-center rounded text-faint hover:bg-bg-selected hover:text-fg"
+            className="flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
           >
-            <AlarmClock size={15} />
-          </button>
+            <AlarmClock size={14} />
+          </span>
         ) : (
           <Popover
             align="end"
             width={160}
             trigger={
-              <span className="flex h-7 w-7 items-center justify-center rounded text-faint hover:bg-bg-selected hover:text-fg">
-                <Clock size={15} />
+              <span
+                onClick={(e) => e.stopPropagation()}
+                className="flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
+              >
+                <Clock size={14} />
               </span>
             }
           >
@@ -712,13 +934,17 @@ function NotificationRow({
             )}
           </Popover>
         )}
-        <button
-          onClick={() => onDelete(n.id)}
-          title="Delete"
-          className="flex h-7 w-7 items-center justify-center rounded text-faint hover:bg-bg-selected hover:text-[var(--priority-urgent)]"
+        <span
+          role="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete(n.id)
+          }}
+          title="Mark as done"
+          className="flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
         >
-          <X size={15} />
-        </button>
+          <X size={14} />
+        </span>
       </div>
     </div>
   )
