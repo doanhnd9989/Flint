@@ -2,6 +2,41 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #65: Settings — two-pane layout with grouped left nav
+
+Soi'd Linear's Settings (Chrome, workspace "Claude Test App"). Opening Settings
+**replaces the app sidebar entirely** with a dedicated settings nav: a `‹ Settings`
+back row, a **Search…** box, then grouped sections in this exact order —
+**Personal** (Preferences · Profile · Notifications · Code & reviews · Security &
+access · Connected accounts · Agent personalization), **Issues** (Labels ·
+Templates · SLAs), **Projects** (Labels · Templates · Statuses · Updates),
+**Features** (AI & Agents · Initiatives · Documents · Customer requests · Releases
+· Pulse · Asks · Emojis · Integrations), **Administration** (Workspace · Teams ·
+Members · Security · API · Applications · Billing), **Your teams** (the team
+names) — with the workspace name pinned at the bottom. The right pane is a
+max-width doc: a big page title, optional description, and stacked sections.
+
+Rewrote `SettingsView` from a single scrolling card stack into that two-pane
+shell: the nav groups/labels/order are reproduced 1:1, section routing is via a
+`?page=` search param (linkable + back/forward), and a live nav **search filter**
+hides empty groups as you type. `Shell` (App.tsx) now hides the app `<Sidebar>`
+while the path is under `/settings`, matching Linear. Wired real content for the
+sections we can back with data: **Preferences** (interface-theme cards
+System/Light/Dark), **Profile** (avatar + editable Full name + read-only email),
+**Issues→Labels/Templates** (`LabelsSettings`/`TemplatesSettings`),
+**Projects→Statuses** (`StatesSettings`), **Administration→Workspace** (rename +
+Import & export + Danger-zone reset), **Teams**, **Members**, and each
+**Your teams→team** (Workflow states). Every other Linear nav item renders a
+clean `EmptyState` placeholder ("This settings section isn't available in this
+clone yet"). Added two tiny store actions: `updateUser(id, patch)` (Profile name)
+and `setWorkspaceName(name)` (Workspace rename).
+
+Verified live (localhost:5199): the nav matches Linear's groups/labels/order;
+Preferences/Profile/Members/Integrations-placeholder all render; the search box
+filters to Labels-only and hides empty groups; console clean; `tsc -b` + build
+green. _(Notifications/Security/API/Billing/Features/* remain placeholders until
+backed by data; per-team settings show only Workflow for now.)_
+
 ## 2026-06-18 — Loop #64: Project milestones — inline create/edit (replace prompt())
 
 Soi'd Linear's project Overview milestones (Chrome, workspace "Claude Test App",

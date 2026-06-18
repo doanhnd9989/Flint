@@ -46,9 +46,11 @@ function Shell() {
     useStore.getState().clearSelection()
     useStore.getState().setFocusedIssue(null)
   }, [location.pathname])
+  // Linear replaces the app sidebar with the settings nav while in Settings.
+  const inSettings = location.pathname.startsWith('/settings')
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg text-fg">
-      <Sidebar />
+      {!inSettings && <Sidebar />}
       <main className="flex-1 overflow-hidden bg-bg-secondary">
         <Outlet />
       </main>

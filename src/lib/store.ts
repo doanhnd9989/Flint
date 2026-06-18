@@ -181,6 +181,10 @@ export interface Store extends WorkspaceData, UIState {
   setUserRole: (id: string, role: UserRole) => void
   inviteMember: (email: string, role: UserRole) => void
   removeUser: (id: string) => void
+  /** Edit a user's profile (name / email). Used by the Profile settings page. */
+  updateUser: (id: string, patch: Partial<Pick<User, 'name' | 'email'>>) => void
+  /** Rename the workspace (Administration → Workspace settings). */
+  setWorkspaceName: (name: string) => void
   createState: (s: Omit<WorkflowState, 'id'>) => WorkflowState
   updateState: (id: string, patch: Partial<Pick<WorkflowState, 'name' | 'color' | 'type'>>) => void
   deleteState: (id: string) => void
@@ -983,6 +987,13 @@ export const useStore = create<Store>()(
         set((s) => ({
           users: s.users.map((u) => (u.id === id ? { ...u, role } : u)),
         })),
+
+      updateUser: (id, patch) =>
+        set((s) => ({
+          users: s.users.map((u) => (u.id === id ? { ...u, ...patch } : u)),
+        })),
+
+      setWorkspaceName: (name) => set({ workspaceName: name.trim() || 'Workspace' }),
 
       inviteMember: (email, role) =>
         set((s) => {
