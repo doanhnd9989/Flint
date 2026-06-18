@@ -37,8 +37,19 @@ function issueDate(i: Issue, field: DateField): string | undefined {
   }
 }
 
-/** Resolve a relative period token (e.g. "1w") to an absolute cutoff Date. */
+/** An absolute custom date is stored as a plain `YYYY-MM-DD` string. */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Resolve a date-filter value to an absolute cutoff Date. The value is either a
+ * relative period token (e.g. "1w") or a `YYYY-MM-DD` custom day, in which case
+ * the cutoff is that day at local midnight.
+ */
 export function resolveDateCutoff(value: string): Date {
+  if (ISO_DATE.test(value)) {
+    const [y, m, d] = value.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }
   const d = new Date()
   switch (value) {
     case '1d':

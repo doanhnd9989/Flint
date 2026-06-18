@@ -2,6 +2,41 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #70: Custom date filter (Day picker)
+
+Backlog fully ticked and `tsc -b` + `npm run build` already green, so this loop
+closed the **"Custom date or timeframe…"** TODO carried from the Dates filter
+(loops #66–69). Soi'd Linear's modal (Chrome, workspace "Claude Test App"): the
+relative-period list ends with a divider + **Custom date or timeframe…**; for the
+**Day** granularity it opens a dialog titled **{field}** with a **before / after**
+segmented toggle, a free-text input (placeholder _Try: May 2027, Q4,
+20/05/2027_), Day/Month/Quarter/Half-year/Year tabs, a **two-month calendar**
+(Monday-first, weekends faint, today ring-circled, ‹ › month nav) and **Cancel /
+Apply** (Apply disabled until a day is picked). The chip becomes **{field} ·
+before/after · {MMM D[, YYYY]} · ×**.
+
+Reproduced the **Day** slice 1:1 — no schema change needed, a custom day rides on
+the existing `DateFilter.value` as a plain `YYYY-MM-DD` string:
+- `selectors.ts` — `resolveDateCutoff` now detects an ISO `YYYY-MM-DD` value and
+  resolves it to that day at **local midnight**, so the existing
+  `before`(≤)/`after`(≥) `matchesDate` comparison works unchanged.
+- `FilterBar.tsx` — new `CustomDateModal` (portal overlay, Esc-to-close,
+  before/after toggle, typed `DD/MM/YYYY`-or-`YYYY-MM-DD` parse that jumps the
+  calendar, two `MonthGrid`s with Monday-first `monthCells`). Wired into **both**
+  the add-flow period list (appends a new filter) and the `DateChip` period
+  popover (the **Custom date or timeframe…** entry shows a check when the active
+  value is a custom date; editing **patches op+value in place**). New
+  `datePeriodLabel` branch formats ISO values as `MMM D` / `MMM D, YYYY`.
+
+Verified live (localhost:5199 — 5173/5174 held by the unrelated "Hubneo" app):
+`Dates → Created date → Custom… → Jun 10 → Apply` → chip **📅 Created date · after
+· Jun 10**, all seed issues (created yesterday) kept; re-opening the chip's period
+popover shows **Custom date or timeframe… ✓**, and re-editing to **before · Jun
+10** empties the list (correct inversion); console clean; `tsc -b` + `npm run
+build` green. _(Month/Quarter/Half-year/Year granularities — the "in {period}"
+operator + range matching — plus the input's natural-language period parsing
+still TODO; that's the remaining slice of this modal.)_
+
 ## 2026-06-18 — Loop #69: Filter by Dates
 
 Backlog fully ticked and `tsc -b` + `npm run build` already green, so this loop

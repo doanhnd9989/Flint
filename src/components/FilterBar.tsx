@@ -1,5 +1,15 @@
-import { useState } from 'react'
-import { Filter, X, Plus, IterationCw, Diamond, CalendarDays } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  Filter,
+  X,
+  Plus,
+  IterationCw,
+  Diamond,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { Popover } from './ui/Popover'
 import { StatusIcon } from './StatusIcon'
@@ -57,7 +67,20 @@ function dateFieldLabel(field: DateField): string {
   return DATE_FIELDS.find((f) => f.id === field)?.label ?? field
 }
 
+/** A custom absolute day is stored as a plain `YYYY-MM-DD` string. */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
 function datePeriodLabel(value: string): string {
+  if (ISO_DATE.test(value)) {
+    const [y, m, d] = value.split('-').map(Number)
+    const dt = new Date(y, m - 1, d)
+    return dt.toLocaleDateString(
+      'en-US',
+      dt.getFullYear() === new Date().getFullYear()
+        ? { month: 'short', day: 'numeric' }
+        : { month: 'short', day: 'numeric', year: 'numeric' },
+    )
+  }
   return DATE_PERIODS.find((p) => p.value === value)?.label ?? value
 }
 
@@ -246,10 +269,12 @@ function AddFilterPanel({
   filters,
   onChange,
   onPicked,
+  onCustom,
 }: {
   filters: FilterState
   onChange: (f: FilterState) => void
   onPicked: () => void
+  onCustom: (req: CustomReq) => void
 }) {
   // null = root · Dim = that dimension's value list · 'dates' = date-field list ·
   // DateField = that field's relative-period list.
@@ -343,6 +368,17 @@ function AddFilterPanel({
             {p.label}
           </button>
         ))}
+        <div className="my-1 border-t border-border" />
+        <button
+          type="button"
+          onClick={() => {
+            onCustom({ field, op: 'after' })
+            onPicked()
+          }}
+          className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+        >
+          Custom date or timeframe…
+        </button>
       </div>
     )
   }
@@ -443,15 +479,234 @@ function Chip({
   )
 }
 
+// ── Custom-date picker (Linear's "Custom date or timeframe…" → Day view) ──────
+
+/** A request to open the custom-date modal, optionally editing chip `index`. */
+type CustomReq = {
+  field: DateField
+  op: 'before' | 'after'
+  value?: string
+  index?: number
+}
+
+const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+
+const pad = (n: number) => String(n).padStart(2, '0')
+const toIso = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`
+
+/** Day-of-month cells for a month, Monday-first, with `null` for leading blanks. */
+function monthCells(year: number, month: number): (number | null)[] {
+  const offset = (new Date(year, month, 1).getDay() + 6) % 7 // 0 = Monday
+  const days = new Date(year, month + 1, 0).getDate()
+  const cells: (number | null)[] = Array(offset).fill(null)
+  for (let d = 1; d <= days; d++) cells.push(d)
+  return cells
+}
+
+/** One month grid in the custom-date calendar. */
+function MonthGrid({
+  year,
+  month,
+  selected,
+  onPick,
+}: {
+  year: number
+  month: number
+  selected?: string
+  onPick: (iso: string) => void
+}) {
+  const todayIso = (() => {
+    const n = new Date()
+    return toIso(n.getFullYear(), n.getMonth(), n.getDate())
+  })()
+  return (
+    <div className="w-[224px]">
+      <div className="mb-2 px-1 text-[13px] font-medium text-fg">
+        {new Date(year, month, 1).toLocaleDateString('en-US', {
+          month: 'long',
+          year: 'numeric',
+        })}
+      </div>
+      <div className="grid grid-cols-7 gap-y-1 text-center">
+        {WEEKDAYS.map((w, i) => (
+          <div key={w} className={cn('text-[11px]', i >= 5 ? 'text-faint' : 'text-muted')}>
+            {w}
+          </div>
+        ))}
+        {monthCells(year, month).map((d, i) => {
+          if (d === null) return <div key={i} />
+          const iso = toIso(year, month, d)
+          const weekend = i % 7 >= 5
+          const isSel = iso === selected
+          const isToday = iso === todayIso
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onPick(iso)}
+              className={cn(
+                'mx-auto flex h-7 w-7 items-center justify-center rounded-md text-[13px] hover:bg-bg-hover',
+                isSel ? 'bg-accent text-white hover:bg-accent' : weekend ? 'text-faint' : 'text-fg',
+                isToday && !isSel && 'ring-1 ring-border',
+              )}
+            >
+              {d}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Linear's "Custom date or timeframe…" modal, Day granularity: a before/after
+ * toggle over a typed-date input and a two-month calendar. Apply stores the
+ * picked day as a `YYYY-MM-DD` date-filter value.
+ */
+function CustomDateModal({
+  req,
+  onApply,
+  onClose,
+}: {
+  req: CustomReq
+  onApply: (op: 'before' | 'after', iso: string) => void
+  onClose: () => void
+}) {
+  const [op, setOp] = useState<'before' | 'after'>(req.op)
+  const init = req.value && ISO_DATE.test(req.value) ? req.value : undefined
+  const [selected, setSelected] = useState<string | undefined>(init)
+  const [text, setText] = useState('')
+  // First of the two visible months — anchored on the selection or today.
+  const [anchor, setAnchor] = useState(() => {
+    const base = init ? new Date(init) : new Date()
+    return new Date(base.getFullYear(), base.getMonth(), 1)
+  })
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  // Parse a typed `DD/MM/YYYY` (or `YYYY-MM-DD`) date and jump the calendar.
+  function onText(v: string) {
+    setText(v)
+    const dmy = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+    const ymd = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+    let y = 0,
+      m = 0,
+      d = 0
+    if (dmy) [, d, m, y] = dmy.map(Number) as [number, number, number, number]
+    else if (ymd) [, y, m, d] = ymd.map(Number) as [number, number, number, number]
+    else return
+    const dt = new Date(y, m - 1, d)
+    if (dt.getMonth() !== m - 1) return // invalid (e.g. 31/02)
+    setSelected(toIso(y, m - 1, d))
+    setAnchor(new Date(y, m - 1, 1))
+  }
+
+  const next = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1)
+
+  return createPortal(
+    <div
+      data-overlay
+      className="fixed inset-0 z-50 flex items-start justify-center bg-bg-overlay pt-32 animate-fade"
+      onMouseDown={onClose}
+    >
+      <div
+        className="w-[520px] max-w-[92vw] rounded-xl border border-border bg-bg-elevated p-5 shadow-lg animate-pop"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-[15px] font-semibold text-fg">{dateFieldLabel(req.field)}</span>
+          <div className="flex items-center rounded-md bg-secondary p-0.5 text-[12px]">
+            {(['before', 'after'] as const).map((o) => (
+              <button
+                key={o}
+                type="button"
+                onClick={() => setOp(o)}
+                className={cn(
+                  'rounded px-2 py-0.5',
+                  op === o ? 'bg-bg text-fg shadow-sm' : 'text-muted hover:text-fg',
+                )}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <input
+          autoFocus
+          value={text}
+          onChange={(e) => onText(e.target.value)}
+          placeholder="Try: 20/05/2027"
+          className="mb-4 w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] text-fg outline-none placeholder:text-faint focus:border-accent"
+        />
+
+        <div className="flex items-start gap-6">
+          <button
+            type="button"
+            onClick={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1))}
+            className="mt-0.5 rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
+            aria-label="Previous month"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <MonthGrid
+            year={anchor.getFullYear()}
+            month={anchor.getMonth()}
+            selected={selected}
+            onPick={setSelected}
+          />
+          <MonthGrid year={next.getFullYear()} month={next.getMonth()} selected={selected} onPick={setSelected} />
+          <button
+            type="button"
+            onClick={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1))}
+            className="mt-0.5 rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
+            aria-label="Next month"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-border px-3 py-1.5 text-[13px] text-fg hover:bg-bg-hover"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!selected}
+            onClick={() => selected && onApply(op, selected)}
+            className="rounded-md bg-accent px-3 py-1.5 text-[13px] text-white hover:opacity-90 disabled:opacity-50"
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 /** One date filter, rendered like Linear: field · before/after · period · ×. */
 function DateChip({
   index,
   filters,
   onChange,
+  onCustom,
 }: {
   index: number
   filters: FilterState
   onChange: (f: FilterState) => void
+  onCustom: (req: CustomReq) => void
 }) {
   const df = filters.dates?.[index]
   if (!df) return null
@@ -525,6 +780,18 @@ function DateChip({
                 {df.value === p.value && CheckMark}
               </button>
             ))}
+            <div className="my-1 border-t border-border" />
+            <button
+              type="button"
+              onClick={() => {
+                onCustom({ field: df.field, op: df.op, value: df.value, index })
+                close()
+              }}
+              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+            >
+              Custom date or timeframe…
+              {ISO_DATE.test(df.value) && CheckMark}
+            </button>
           </div>
         )}
       </Popover>
@@ -547,6 +814,20 @@ export function FilterBar({
   onChange: (f: FilterState) => void
 }) {
   const active = hasActiveFilters(filters)
+  const [custom, setCustom] = useState<CustomReq | null>(null)
+
+  function applyCustom(op: 'before' | 'after', iso: string) {
+    if (!custom) return
+    if (custom.index !== undefined) {
+      const dates = [...(filters.dates ?? [])]
+      dates[custom.index] = { ...dates[custom.index], op, value: iso }
+      onChange({ ...filters, dates })
+    } else {
+      onChange({ ...filters, dates: [...(filters.dates ?? []), { field: custom.field, op, value: iso }] })
+    }
+    setCustom(null)
+  }
+
   return (
     <div className="flex items-center gap-2 border-b border-border px-4 py-1.5">
       <Popover
@@ -565,7 +846,12 @@ export function FilterBar({
         }
       >
         {(close) => (
-          <AddFilterPanel filters={filters} onChange={onChange} onPicked={close} />
+          <AddFilterPanel
+            filters={filters}
+            onChange={onChange}
+            onPicked={close}
+            onCustom={setCustom}
+          />
         )}
       </Popover>
 
@@ -574,7 +860,7 @@ export function FilterBar({
       ))}
 
       {(filters.dates ?? []).map((_, i) => (
-        <DateChip key={i} index={i} filters={filters} onChange={onChange} />
+        <DateChip key={i} index={i} filters={filters} onChange={onChange} onCustom={setCustom} />
       ))}
 
       {active && (
@@ -585,6 +871,10 @@ export function FilterBar({
         >
           Clear
         </button>
+      )}
+
+      {custom && (
+        <CustomDateModal req={custom} onApply={applyCustom} onClose={() => setCustom(null)} />
       )}
     </div>
   )
