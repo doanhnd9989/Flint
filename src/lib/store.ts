@@ -192,11 +192,13 @@ export interface Store extends WorkspaceData, UIState {
 
   // ── notifications ────────────────────────────────────────────
   markNotificationRead: (id: string) => void
+  setNotificationRead: (id: string, read: boolean) => void
   markAllNotificationsRead: () => void
   snoozeNotification: (id: string, untilIso: string) => void
   unsnoozeNotification: (id: string) => void
   deleteNotification: (id: string) => void
   deleteAllNotifications: () => void
+  deleteAllReadNotifications: () => void
   setNotificationPref: (type: NotificationType, on: boolean) => void
 
   // ── ui ───────────────────────────────────────────────────────
@@ -1086,6 +1088,13 @@ export const useStore = create<Store>()(
           ),
         })),
 
+      setNotificationRead: (id, read) =>
+        set((s) => ({
+          notifications: s.notifications.map((n) =>
+            n.id === id ? { ...n, read } : n,
+          ),
+        })),
+
       markAllNotificationsRead: () =>
         set((s) => ({
           notifications: s.notifications.map((n) => ({ ...n, read: true })),
@@ -1111,6 +1120,11 @@ export const useStore = create<Store>()(
         })),
 
       deleteAllNotifications: () => set({ notifications: [] }),
+
+      deleteAllReadNotifications: () =>
+        set((s) => ({
+          notifications: s.notifications.filter((n) => !n.read),
+        })),
 
       setNotificationPref: (type, on) =>
         set((s) => ({

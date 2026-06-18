@@ -2,6 +2,35 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #76: Inbox keyboard shortcuts (Linear 1:1)
+
+Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop added the
+**Inbox keyboard shortcuts**, building on loop #75's two-pane reading view.
+
+Soi'd Linear's shortcut reference (Chrome, workspace "Claude Test App" → Help →
+Keyboard shortcuts → "inbox"). The **Inbox** section lists exactly: **⌫** Delete
+notification (= mark as done) · **⇧⌫** Delete all read notifications · **U** Mark
+as read/unread · **⌥U** Mark all as read · **H** Snooze notification (plus the
+existing ↓/j ↑/k navigation). Reproduced all of them in `Inbox.tsx`:
+
+- New store actions `setNotificationRead(id, read)` (toggle) and
+  `deleteAllReadNotifications()`; the rest map to existing actions.
+- The keydown handler now lives in a ref (always reads fresh list/selection) and
+  is registered in the **capture phase** with `stopImmediatePropagation()` on the
+  keys it owns, so the global `useShortcuts` (which also binds j/k/arrows →
+  `moveFocus`) no longer double-fires on the Inbox while `c`/`g`/`?` still pass
+  through. `⌥U` is matched via `e.code === 'KeyU' && e.altKey` (macOS Alt+U is a
+  dead key, so `e.key` is unreliable). ⌫/H/U act on the selected notification and
+  advance to its neighbour exactly like the reading pane's buttons.
+- Added an **Inbox** section to the `?` help overlay and shortcut hints to the
+  reading-pane buttons (`Snooze (H)`, `Mark as done (⌫)`).
+
+Verified live (production preview): j selects + opens, U toggles the unread dot,
+H snoozes (row leaves the list, selection advances), ⌫ marks done + advances, ⌥U
+clears the sidebar unread badge; console clean; `tsc -b` + build green. _(H
+snoozes to "tomorrow" by default — the full snooze date picker stays on the clock
+button, since Linear's H opens a flyout we don't yet position via keyboard.)_
+
 ## 2026-06-18 — Loop #75: Inbox — two-pane reading view (Linear 1:1)
 
 Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop closed

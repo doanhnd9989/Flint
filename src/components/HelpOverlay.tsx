@@ -67,6 +67,18 @@ const SECTIONS: { title: string; items: Shortcut[] }[] = [
       { keys: <><Kbd>M</Kbd> <Kbd>M</Kbd></>, label: 'Mark as duplicate of…' },
     ],
   },
+  {
+    title: 'Inbox',
+    items: [
+      { keys: <><Kbd>↓</Kbd> <Kbd>J</Kbd></>, label: 'Next notification' },
+      { keys: <><Kbd>↑</Kbd> <Kbd>K</Kbd></>, label: 'Previous notification' },
+      { keys: <Kbd>⌫</Kbd>, label: 'Mark as done' },
+      { keys: <><Kbd>⇧</Kbd> <Kbd>⌫</Kbd></>, label: 'Delete all read notifications' },
+      { keys: <Kbd>U</Kbd>, label: 'Mark as read / unread' },
+      { keys: <><Kbd>⌥</Kbd> <Kbd>U</Kbd></>, label: 'Mark all as read' },
+      { keys: <Kbd>H</Kbd>, label: 'Snooze notification' },
+    ],
+  },
 ]
 
 export function HelpOverlay() {

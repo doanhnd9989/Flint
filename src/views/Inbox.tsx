@@ -587,34 +587,86 @@ export function Inbox() {
     setSelectedId(next ? next.id : null)
   }
 
-  // ↑/↓ + j/k move the selection; Esc clears it (Linear's inbox shortcuts).
-  const listRef = useRef(list)
-  listRef.current = list
-  const selRef = useRef(selectedId)
-  selRef.current = selectedId
-  const selectRef = useRef(select)
-  selectRef.current = select
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const t = e.target as HTMLElement
-      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
-        return
-      if (document.querySelector('[data-overlay]')) return
-      const items = listRef.current
-      if (!items.length) return
-      const idx = items.findIndex((n) => n.id === selRef.current)
-      if (e.key === 'ArrowDown' || e.key === 'j') {
-        e.preventDefault()
-        selectRef.current((items[Math.min(idx + 1, items.length - 1)] ?? items[0]).id)
-      } else if (e.key === 'ArrowUp' || e.key === 'k') {
-        e.preventDefault()
-        selectRef.current((idx <= 0 ? items[0] : items[idx - 1]).id)
-      } else if (e.key === 'Escape' && selRef.current) {
-        setSelectedId(null)
-      }
+  // Inbox keyboard shortcuts (soi'd Linear's shortcut reference, workspace
+  // "Claude Test App"): ↑/↓ + j/k move the selection · Esc clears it ·
+  // ⌫ mark as done · ⇧⌫ delete all read · U mark read/unread · ⌥U mark all
+  // read · H snooze. The handler reads fresh closures via a ref so it always
+  // sees the current list / selection without re-binding the listener.
+  const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  onKeyRef.current = (e: KeyboardEvent) => {
+    const t = e.target as HTMLElement
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+      return
+    if (document.querySelector('[data-overlay]')) return
+    const items = list
+    const idx = items.findIndex((n) => n.id === selectedId)
+    const cur = items[idx]
+    // Inbox owns this key — stop the global shortcut handler (which also binds
+    // j/k/arrows) from double-firing.
+    const own = () => {
+      e.preventDefault()
+      e.stopImmediatePropagation()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+
+    // ── navigation ──
+    if (e.key === 'ArrowDown' || e.key === 'j') {
+      if (!items.length) return
+      own()
+      select((items[Math.min(idx + 1, items.length - 1)] ?? items[0]).id)
+      return
+    }
+    if (e.key === 'ArrowUp' || e.key === 'k') {
+      if (!items.length) return
+      own()
+      select((idx <= 0 ? items[0] : items[idx - 1]).id)
+      return
+    }
+    if (e.key === 'Escape' && selectedId) {
+      own()
+      setSelectedId(null)
+      return
+    }
+
+    // ── mark all as read (⌥U) — checked before plain U ──
+    if (e.code === 'KeyU' && e.altKey && !e.metaKey && !e.ctrlKey) {
+      own()
+      store.markAllNotificationsRead()
+      return
+    }
+    // ── mark as read/unread (U) ──
+    if (e.code === 'KeyU' && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      if (!cur) return
+      own()
+      store.setNotificationRead(cur.id, !cur.read)
+      return
+    }
+    // ── delete all read (⇧⌫) ──
+    if ((e.key === 'Backspace' || e.key === 'Delete') && e.shiftKey) {
+      own()
+      store.deleteAllReadNotifications()
+      if (cur?.read) setSelectedId(null)
+      return
+    }
+    // ── mark as done / delete (⌫) ──
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      if (!cur) return
+      own()
+      actThenAdvance(cur.id, store.deleteNotification)
+      return
+    }
+    // ── snooze (H) — default to tomorrow; the picker stays on the button ──
+    if (e.code === 'KeyH' && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      if (!cur || isSnoozed(cur.snoozedUntil, Date.now())) return
+      own()
+      actThenAdvance(cur.id, (x) => snooze(x, 86_400_000))
+      return
+    }
+  }
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => onKeyRef.current(e)
+    // Capture phase so we run before — and can pre-empt — the global handler.
+    window.addEventListener('keydown', handler, true)
+    return () => window.removeEventListener('keydown', handler, true)
   }, [])
 
   const unreadCount = store.notifications.filter(
@@ -745,7 +797,7 @@ function ReadingPane({
           width={160}
           trigger={
             <span
-              title="Snooze"
+              title="Snooze (H)"
               className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg"
             >
               <Clock size={15} />
@@ -776,7 +828,7 @@ function ReadingPane({
       )}
       <button
         onClick={onDone}
-        title="Mark as done"
+        title="Mark as done (⌫)"
         className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg"
       >
         <InboxIcon size={15} />
