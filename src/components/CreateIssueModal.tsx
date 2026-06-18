@@ -15,8 +15,10 @@ import {
   ProjectPicker,
 } from './pickers'
 import { SelectMenu } from './ui/SelectMenu'
-import { FileText, X } from 'lucide-react'
+import { FileText, IterationCw, X } from 'lucide-react'
 import { PRIORITY_LABELS } from '@/lib/constants'
+import { cycleState } from '@/lib/selectors'
+import { formatDate } from '@/lib/utils'
 
 const chip =
   'flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover'
@@ -38,6 +40,7 @@ export function CreateIssueModal() {
   const [assigneeId, setAssigneeId] = useState<string | undefined>()
   const [labelIds, setLabelIds] = useState<string[]>([])
   const [projectId, setProjectId] = useState<string | undefined>()
+  const [cycleId, setCycleId] = useState<string | undefined>()
 
   useEffect(() => {
     if (open) {
@@ -48,6 +51,7 @@ export function CreateIssueModal() {
       setAssigneeId(p?.assigneeId)
       setLabelIds(p?.labelIds ?? [])
       setProjectId(p?.projectId)
+      setCycleId(undefined)
       if (p?.teamId) setTeamId(p.teamId)
       if (p?.stateId) setStateId(p.stateId)
     }
@@ -69,6 +73,10 @@ export function CreateIssueModal() {
   const team = teams.find((t) => t.id === teamId)!
   const assignee = store.users.find((u) => u.id === assigneeId)
   const project = store.projects.find((p) => p.id === projectId)
+  const teamCycles = store.cycles
+    .filter((c) => c.teamId === teamId)
+    .sort((a, b) => a.number - b.number)
+  const cycle = store.cycles.find((c) => c.id === cycleId)
 
   function applyTemplate(id: string) {
     const t = store.templates.find((x) => x.id === id)
@@ -93,6 +101,7 @@ export function CreateIssueModal() {
       assigneeId,
       labelIds,
       projectId,
+      cycleId,
     })
     if (store.createMore) {
       // Linear's "Create more": keep the modal open and reset the form for rapid
@@ -104,6 +113,7 @@ export function CreateIssueModal() {
       setAssigneeId(p?.assigneeId)
       setLabelIds(p?.labelIds ?? [])
       setProjectId(p?.projectId)
+      setCycleId(undefined)
       return
     }
     store.setCreateOpen(false)
@@ -124,11 +134,12 @@ export function CreateIssueModal() {
       >
         <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-[12px] text-muted">
           <button
-            onClick={() =>
+            onClick={() => {
               setTeamId(
                 teams[(teams.findIndex((t) => t.id === teamId) + 1) % teams.length].id,
               )
-            }
+              setCycleId(undefined)
+            }}
             className="flex items-center gap-1 rounded-md bg-bg-tertiary px-1.5 py-0.5"
           >
             {team.icon} {team.key}
@@ -242,6 +253,36 @@ export function CreateIssueModal() {
                 </span>
               }
             />
+            {teamCycles.length > 0 && (
+              <SelectMenu
+                width={220}
+                options={[
+                  { id: '__none', label: 'No cycle', selected: !cycleId },
+                  ...teamCycles.map((c) => {
+                    const cs = cycleState(c.startsAt, c.endsAt, Date.now())
+                    return {
+                      id: c.id,
+                      label: c.name ?? `Cycle ${c.number}`,
+                      keywords: String(c.number),
+                      hint:
+                        cs.status === 'active'
+                          ? 'Active'
+                          : cs.status === 'upcoming'
+                            ? 'Upcoming'
+                            : `${formatDate(c.startsAt)} – ${formatDate(c.endsAt)}`,
+                      selected: cycleId === c.id,
+                    }
+                  }),
+                ]}
+                onSelect={(id) => setCycleId(id === '__none' ? undefined : id)}
+                trigger={
+                  <span className={chip}>
+                    <IterationCw size={13} />
+                    {cycle ? cycle.name ?? `Cycle ${cycle.number}` : 'Cycle'}
+                  </span>
+                }
+              />
+            )}
           </div>
         </div>
 

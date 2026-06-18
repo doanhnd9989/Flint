@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { CalendarClock, ChevronRight, Diamond, Link2 } from 'lucide-react'
+import { CalendarClock, ChevronRight, Diamond, IterationCw, Link2 } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import type { Issue } from '@/lib/types'
 import { StatusIcon } from './StatusIcon'
@@ -24,7 +24,7 @@ export function IssueRow({
   expand?: { hasChildren: boolean; expanded: boolean; onToggle: () => void }
 }) {
   const {
-    states, users, labels, issues, projects, milestones, issueLinks, displayProperties, selectedIssueIds, focusedIssueId,
+    states, users, labels, issues, projects, milestones, cycles, issueLinks, displayProperties, selectedIssueIds, focusedIssueId,
     setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue, setFocusedIssue, openContextMenu,
   } = useStoreShallow((s) => ({
     states: s.states,
@@ -33,6 +33,7 @@ export function IssueRow({
     issues: s.issues,
     projects: s.projects,
     milestones: s.milestones,
+    cycles: s.cycles,
     issueLinks: s.issueLinks,
     displayProperties: s.displayProperties,
     selectedIssueIds: s.selectedIssueIds,
@@ -61,6 +62,7 @@ export function IssueRow({
   const assignee = users.find((u) => u.id === issue.assigneeId)
   const project = projects.find((p) => p.id === issue.projectId)
   const milestone = milestones.find((m) => m.id === issue.milestoneId)
+  const cycle = cycles.find((c) => c.id === issue.cycleId)
   const issueLabels = issue.labelIds
     .map((id) => labels.find((l) => l.id === id))
     .filter(Boolean)
@@ -198,6 +200,12 @@ export function IssueRow({
           <span className="flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted">
             <span className="text-[10px] leading-none">{project.icon}</span>
             {project.name}
+          </span>
+        )}
+        {dp.cycle && cycle && (
+          <span className="flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted">
+            <IterationCw size={10} />
+            {cycle.name ?? `Cycle ${cycle.number}`}
           </span>
         )}
         {dp.milestone && milestone && (

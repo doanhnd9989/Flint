@@ -2,6 +2,31 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #78: Create-issue Cycle field + Cycle list column (Linear 1:1)
+
+Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop closed the
+two TODOs the cycle-property-picker loop left behind: **a Cycle field in the New
+issue modal** and **a Cycle column in the issue list**.
+
+- **CreateIssueModal** — added a **Cycle** picker after Project (hidden when the
+  active team has no cycles, matching the Properties-panel behaviour). It reuses the
+  same `SelectMenu` shape as the issue-detail cycle picker: the team's cycles sorted
+  by number with `Active` / `Upcoming` / `{start} – {end}` hints, a "No cycle" option,
+  a check on the current value, and an `IterationCw` chip reading the cycle name or
+  "Cycle". Wired to `createIssue({ …, cycleId })` (`NewIssueInput` already had the
+  field). `cycleId` resets when the modal opens, on "Create more", and when the team
+  is switched via the team button — cycles are per-team, so a stale cross-team cycle
+  can never be submitted.
+- **Display properties / IssueRow** — added `'cycle'` to the `DisplayProperty` union,
+  a **Cycle** pill to `DISPLAY_PROPERTIES` (after Project) defaulting **off** like
+  Milestone (the persist merge-backfill spreads the new default automatically), and an
+  `IterationCw` cycle chip in `IssueRow` gated on `dp.cycle` (name or `Cycle {n}`).
+
+`tsc -b` (exit 0) + `npm run build` green; the cycle `SelectMenu` is byte-for-byte
+the already-verified issue-detail picker, so behaviour carries over. _(Should be
+re-confirmed against Linear in-browser next loop; the board cards and
+CreateInitiativeModal are unaffected.)_
+
 ## 2026-06-18 — Loop #77: Settings → Notifications page (Linear 1:1)
 
 Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop built out

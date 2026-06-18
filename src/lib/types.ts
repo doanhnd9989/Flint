@@ -286,6 +286,7 @@ export type DisplayProperty =
   | 'assignee'
   | 'priority'
   | 'project'
+  | 'cycle'
   | 'dueDate'
   | 'milestone'
   | 'labels'
