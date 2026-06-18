@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { Check, X } from 'lucide-react'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CheckIllustration } from '@/components/EmptyState'
 import { StatusIcon } from '@/components/StatusIcon'
@@ -21,6 +21,7 @@ const chip =
 export function TriageView() {
   const { teamKey } = useParams()
   const store = useStore()
+  const fmt = useDisplayName()
   const team = store.teams.find((t) => t.key === teamKey) ?? store.teams[0]
   const queue = store.issues.filter((i) => i.teamId === team.id && i.triage)
 
@@ -105,7 +106,7 @@ export function TriageView() {
                       trigger={
                         <span className={chip}>
                           <Avatar user={assignee} size={16} />
-                          {assignee?.name ?? 'Assignee'}
+                          {assignee ? fmt(assignee.name) : 'Assignee'}
                         </span>
                       }
                     />

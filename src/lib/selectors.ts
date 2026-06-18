@@ -9,6 +9,7 @@ import type {
 } from './types'
 import type { WorkspaceData } from './seed'
 import { PRIORITY_LABELS, PRIORITY_SORT, STATUS_TYPE_ORDER } from './constants'
+import { displayName } from './utils'
 
 export interface IssueGroup {
   key: string
@@ -258,6 +259,7 @@ export function groupIssues(
   groupBy: GroupBy,
   data: WorkspaceData,
   showEmptyGroups = false,
+  displayNamesMode: 'full' | 'first' = 'full',
 ): IssueGroup[] {
   if (groupBy === 'none') {
     return [
@@ -295,7 +297,7 @@ export function groupIssues(
   if (groupBy === 'assignee') {
     const groups: IssueGroup[] = data.users.map((u) => ({
       key: u.id,
-      label: u.name,
+      label: displayName(u.name, displayNamesMode),
       color: u.avatarColor,
       count: 0,
       issues: issues.filter((i) => i.assigneeId === u.id),

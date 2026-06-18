@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Comment } from '@/lib/types'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import { Avatar } from './Avatar'
 import { Markdown } from '@/lib/markdown'
 import { MentionInput } from './MentionInput'
@@ -11,6 +11,7 @@ import { timeAgo } from '@/lib/utils'
 /** A single comment: header, body (Markdown), reactions, hover toolbar, inline edit. */
 export function CommentItem({ comment, rootId }: { comment: Comment; rootId?: string }) {
   const store = useStore()
+  const fmt = useDisplayName()
   const user = store.users.find((u) => u.id === comment.userId)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(comment.body)
@@ -26,7 +27,7 @@ export function CommentItem({ comment, rootId }: { comment: Comment; rootId?: st
       <Avatar user={user} size={22} />
       <div className="relative flex-1 rounded-lg border border-border bg-bg-secondary px-3 py-2">
         <div className="mb-0.5 flex items-center gap-2 text-[12px]">
-          <span className="font-medium text-fg">{user?.name}</span>
+          <span className="font-medium text-fg">{fmt(user?.name)}</span>
           <span className="text-faint">{timeAgo(comment.createdAt)}</span>
           {comment.editedAt && <span className="text-faint">(edited)</span>}
         </div>

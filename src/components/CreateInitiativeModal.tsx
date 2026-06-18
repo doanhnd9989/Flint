@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import { Avatar } from './Avatar'
 import { SelectMenu } from './ui/SelectMenu'
 import type { SelectOption } from './ui/SelectMenu'
@@ -17,6 +17,7 @@ const ICONS = ['🎯', '🚀', '🧭', '⭐', '🏆', '🔭', '🌱', '⚡', '�
 export function CreateInitiativeModal() {
   const navigate = useNavigate()
   const store = useStore()
+  const fmt = useDisplayName()
   const open = store.createInitiativeOpen
 
   const [icon, setIcon] = useState('🎯')
@@ -68,7 +69,7 @@ export function CreateInitiativeModal() {
     { id: '__none', label: 'No owner', icon: <Avatar />, selected: !ownerId },
     ...store.users.map((u) => ({
       id: u.id,
-      label: u.name,
+      label: fmt(u.name),
       icon: <Avatar user={u} />,
       selected: u.id === ownerId,
     })),

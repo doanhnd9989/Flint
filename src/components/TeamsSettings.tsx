@@ -1,5 +1,5 @@
 import { UserPlus } from 'lucide-react'
-import { useStoreShallow } from '@/lib/store'
+import { useStoreShallow, useDisplayName } from '@/lib/store'
 import { Avatar } from './Avatar'
 import { SelectMenu, type SelectOption } from './ui/SelectMenu'
 
@@ -10,6 +10,7 @@ export function TeamsSettings() {
     issues: s.issues,
     toggleTeamMember: s.toggleTeamMember,
   }))
+  const fmt = useDisplayName()
 
   return (
     <div className="space-y-3">
@@ -19,7 +20,7 @@ export function TeamsSettings() {
         const issueCount = issues.filter((i) => i.teamId === team.id).length
         const options: SelectOption[] = users.map((u) => ({
           id: u.id,
-          label: u.name,
+          label: fmt(u.name),
           icon: <Avatar user={u} size={16} />,
           selected: memberIds.includes(u.id),
         }))

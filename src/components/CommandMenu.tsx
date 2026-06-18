@@ -36,7 +36,7 @@ import {
   Check,
   X,
 } from 'lucide-react'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import { Calendar } from './DatePicker'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
@@ -122,6 +122,7 @@ export function CommandMenu() {
   const navigate = useNavigate()
   const location = useLocation()
   const store = useStore()
+  const fmt = useDisplayName()
   const open = store.commandOpen
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
@@ -211,7 +212,7 @@ export function CommandMenu() {
           },
           ...store.users.map((u) => ({
             id: `as-${u.id}`,
-            label: u.name,
+            label: fmt(u.name),
             icon: <Avatar user={u} />,
             keywords: u.name,
             selected: u.id === issue.assigneeId,

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import type { ProjectHealth } from '@/lib/types'
 import { Avatar } from './Avatar'
 import { Markdown } from '@/lib/markdown'
@@ -13,6 +13,7 @@ const ORDER: ProjectHealth[] = ['on-track', 'at-risk', 'off-track']
 
 export function InitiativeUpdates({ initiativeId }: { initiativeId: string }) {
   const store = useStore()
+  const fmt = useDisplayName()
   const updates = store.initiativeUpdates
     .filter((u) => u.initiativeId === initiativeId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -79,7 +80,7 @@ export function InitiativeUpdates({ initiativeId }: { initiativeId: string }) {
               <Avatar user={user} size={26} />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-medium text-fg">{user?.name}</span>
+                  <span className="text-[13px] font-medium text-fg">{fmt(user?.name)}</span>
                   <HealthBadge health={u.health} />
                   <span className="text-[11px] text-faint">{timeAgo(u.createdAt)}</span>
                   <div className="flex-1" />

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Trash2 } from 'lucide-react'
-import { useStoreShallow } from '@/lib/store'
+import { useStoreShallow, useDisplayName } from '@/lib/store'
 import { SelectMenu, type SelectOption } from './ui/SelectMenu'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
@@ -31,6 +31,7 @@ export function BulkActionBar() {
     bulkDelete: s.bulkDelete,
   }))
 
+  const fmt = useDisplayName()
   const ids = selectedIssueIds
   const count = ids.length
 
@@ -57,7 +58,7 @@ export function BulkActionBar() {
   }))
   const assigneeOptions: SelectOption[] = [
     { id: '__none', label: 'No assignee', icon: <Avatar /> },
-    ...users.map((u) => ({ id: u.id, label: u.name, icon: <Avatar user={u} size={16} /> })),
+    ...users.map((u) => ({ id: u.id, label: fmt(u.name), icon: <Avatar user={u} size={16} /> })),
   ]
   const labelOptions: SelectOption[] = labels.map((l) => ({
     id: l.id,

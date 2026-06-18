@@ -201,22 +201,24 @@ function IssueTab({
       forGrouping = sorted.filter((i) => !i.parentId || !visible.has(i.parentId))
     }
 
+    const dn = data.preferences.displayNames
     const top = groupIssues(
       forGrouping,
       layout === 'board' ? 'status' : groupBy,
       data,
       showEmptyGroups,
+      dn,
     )
     const groups =
       subGroupBy !== 'none'
         ? top.map((g) => ({
             ...g,
-            subGroups: groupIssues(g.issues, subGroupBy, data, showEmptyGroups),
+            subGroups: groupIssues(g.issues, subGroupBy, data, showEmptyGroups, dn),
           }))
         : top
     const rows =
       layout === 'board' && subGroupBy !== 'none'
-        ? groupIssues(forGrouping, subGroupBy, data, true)
+        ? groupIssues(forGrouping, subGroupBy, data, true, dn)
         : undefined
     return { groups, childrenByParent, rows }
   }, [

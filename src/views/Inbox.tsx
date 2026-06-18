@@ -21,7 +21,7 @@ import {
   Maximize2,
 } from 'lucide-react'
 import { EmptyState, InboxIllustration } from '@/components/EmptyState'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { IssueDetailBody } from '@/components/IssueDetailBody'
 import { Avatar } from '@/components/Avatar'
@@ -192,6 +192,7 @@ function InboxFilterMenu({
   setFilters: (f: InboxFilters) => void
 }) {
   const { users, projects } = useStore()
+  const fmt = useDisplayName()
   const [dim, setDim] = useState<Dim | null>(null)
 
   return (
@@ -260,7 +261,7 @@ function InboxFilterMenu({
                     setFilters({ ...filters, from: toggle(filters.from, u.id) })
                   }
                 >
-                  <Avatar user={u} size={16} /> {u.name}
+                  <Avatar user={u} size={16} /> {fmt(u.name)}
                 </ValueRow>
               ))}
             {dim === 'projects' &&
@@ -413,6 +414,7 @@ function FilterChips({
   setFilters: (f: InboxFilters) => void
 }) {
   const { users, projects } = useStore()
+  const fmt = useDisplayName()
   const chips: { key: Dim; label: string; clear: () => void }[] = []
   if (filters.types.length)
     chips.push({
@@ -424,7 +426,7 @@ function FilterChips({
     chips.push({
       key: 'from',
       label: `From · ${filters.from
-        .map((id) => users.find((u) => u.id === id)?.name ?? '?')
+        .map((id) => fmt(users.find((u) => u.id === id)?.name) || '?')
         .join(', ')}`,
       clear: () => setFilters({ ...filters, from: [] }),
     })
@@ -891,6 +893,7 @@ function NotificationRow({
   onDelete: (id: string) => void
 }) {
   const store = useStore()
+  const fmt = useDisplayName()
   const actor = store.users.find((u) => u.id === n.actorId)
   const issue = store.issues.find((i) => i.id === n.issueId)
   const snoozed = isSnoozed(n.snoozedUntil, now)
@@ -917,14 +920,14 @@ function NotificationRow({
               n.read ? 'text-muted' : 'text-fg',
             )}
           >
-            {issue?.title ?? actor?.name}
+            {issue?.title ?? fmt(actor?.name)}
           </div>
           <span className="shrink-0 text-[11px] text-faint">
             {timeAgo(n.createdAt)}
           </span>
         </div>
         <div className="truncate text-[12px] text-faint">
-          <span className="text-muted">{actor?.name}</span> {n.body}
+          <span className="text-muted">{fmt(actor?.name)}</span> {n.body}
         </div>
         {snoozed && (
           <div className="mt-0.5 flex items-center gap-1 text-[11px] text-faint">

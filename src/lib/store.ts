@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { nanoid } from 'nanoid'
 import { buildSeed } from './seed'
 import type { WorkspaceData } from './seed'
-import { nowIso } from './utils'
+import { nowIso, displayName } from './utils'
 import {
   STORAGE_KEY,
   STATUS_TYPE_ORDER,
@@ -1567,6 +1567,16 @@ export const useStore = create<Store>()(
  */
 export function useStoreShallow<T>(selector: (state: Store) => T): T {
   return useStore(useShallow(selector))
+}
+
+/**
+ * Returns a `(name) => string` formatter honouring the "Display names"
+ * preference (Full name / First name). Stable per render — the underlying
+ * pure `displayName` is recomputed only when the preference changes.
+ */
+export function useDisplayName(): (name: string | undefined) => string {
+  const mode = useStore((s) => s.preferences.displayNames)
+  return (name) => (name ? displayName(name, mode) : '')
 }
 
 // Notification helper used by Notification entities (kept here for type export).

@@ -1,5 +1,5 @@
 import type { Activity, Priority } from '@/lib/types'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
@@ -25,6 +25,7 @@ function Pill({ children }: { children: React.ReactNode }) {
 export function ActivityItem({ activity }: { activity: Activity }) {
   const a = activity
   const store = useStore()
+  const fmt = useDisplayName()
   const actor = store.users.find((u) => u.id === a.userId)
 
   const statusPill = (id?: string) => {
@@ -257,7 +258,7 @@ export function ActivityItem({ activity }: { activity: Activity }) {
   return (
     <div className="flex items-center gap-2 text-[12px] text-muted">
       <Avatar user={actor} size={18} />
-      <span className="text-fg">{actor?.name}</span>
+      <span className="text-fg">{fmt(actor?.name)}</span>
       <span className="flex flex-wrap items-center gap-1.5">{body}</span>
       <span className="text-faint">· {timeAgo(a.createdAt)}</span>
     </div>

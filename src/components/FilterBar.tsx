@@ -10,7 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import { Popover } from './ui/Popover'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
@@ -131,6 +131,7 @@ interface ValueOption {
 function useDimOptions(): Record<Dim, ValueOption[]> {
   const states = useStore((s) => s.states)
   const users = useStore((s) => s.users)
+  const fmt = useDisplayName()
   const labels = useStore((s) => s.labels)
   const projects = useStore((s) => s.projects)
   const cycles = useStore((s) => s.cycles)
@@ -140,9 +141,9 @@ function useDimOptions(): Record<Dim, ValueOption[]> {
     statusIds: [...states]
       .sort((a, b) => STATUS_TYPE_ORDER[a.type] - STATUS_TYPE_ORDER[b.type] || a.position - b.position)
       .map((st) => ({ id: st.id, label: st.name, icon: <StatusIcon type={st.type} color={st.color} /> })),
-    assigneeIds: users.map((u) => ({ id: u.id, label: u.name, icon: <Avatar user={u} size={16} /> })),
-    creatorIds: users.map((u) => ({ id: u.id, label: u.name, icon: <Avatar user={u} size={16} /> })),
-    subscriberIds: users.map((u) => ({ id: u.id, label: u.name, icon: <Avatar user={u} size={16} /> })),
+    assigneeIds: users.map((u) => ({ id: u.id, label: fmt(u.name), icon: <Avatar user={u} size={16} /> })),
+    creatorIds: users.map((u) => ({ id: u.id, label: fmt(u.name), icon: <Avatar user={u} size={16} /> })),
+    subscriberIds: users.map((u) => ({ id: u.id, label: fmt(u.name), icon: <Avatar user={u} size={16} /> })),
     priorities: PRIORITY_ORDER.map((p) => ({
       id: String(p),
       label: PRIORITY_LABELS[p],

@@ -2,6 +2,34 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #80: Wire "Display names" preference (Full / First name)
+
+Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop closed the
+highest-value behavior TODO loop #79 left: the **Display names** preference (Full
+name / First name) was persisting + selecting but never changed any rendering.
+Re-soi'd Linear's `/settings/account/preferences` to confirm the copy ("Select how
+names are displayed in the Linear interface").
+
+Added pure `firstName()` + `displayName(name, mode)` helpers in `utils.ts` and a
+`useDisplayName()` store hook returning a `(name) => string` formatter reading
+`preferences.displayNames`. Applied app-wide to every user-name **display** site:
+issue assignee + single-subscriber label, comment authors / thread resolved-by /
+reaction tooltips, activity-feed actor, project + initiative update authors,
+project lead + initiative owner, **all** people-picker option labels (Assignee /
+Subscriber / Members / Owner / Team member / Bulk bar / Filter Assignee-Creator-
+Subscribers / ⌘K Assign-to / Create-issue / Create-initiative), the Inbox From-
+filter + notification-row actor, and **group-by-assignee** headers (threaded an
+optional `displayNamesMode` through `groupIssues`, passed from IssuesView /
+MyIssues / SavedViewScreen). Avatars/initials + tooltips and the canonical
+Profile/Members identity keep the full name (matching Linear); mention `@chips`
+keep their stored token.
+
+Verified live (preview :4972, Chrome side-by-side): flipping the pref to **First
+name** re-renders CLA-2's assignee as "Avery" (was "Avery Chen") with no
+"Avery Chen" string left anywhere on the page; restored to Full afterwards;
+console clean on load + reload; `tsc -b` (exit 0) + `npm run build` pass.
+_(MembersSettings admin list intentionally stays full name; mention chips unchanged.)_
+
 ## 2026-06-18 — Loop #79: Settings → Preferences page (full, Linear 1:1)
 
 Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop replaced

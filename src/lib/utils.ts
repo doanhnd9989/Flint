@@ -6,6 +6,22 @@ export function cn(...inputs: ClassValue[]): string {
   return clsx(inputs)
 }
 
+/** First name (first whitespace-delimited token) of a full name. */
+export function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] || name
+}
+
+/**
+ * Render a user's name per the "Display names" preference.
+ * `'first'` shows just the first name; `'full'` (default) the whole name.
+ */
+export function displayName(
+  name: string,
+  mode: 'full' | 'first' = 'full',
+): string {
+  return mode === 'first' ? firstName(name) : name
+}
+
 /** Initials from a display name, max 2 chars. */
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/)

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CheckCircle2, ChevronRight } from 'lucide-react'
 import type { Comment } from '@/lib/types'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import { timeAgo } from '@/lib/utils'
 import { Avatar } from './Avatar'
 import { MentionInput } from './MentionInput'
@@ -26,6 +26,7 @@ function snippet(body: string): string {
  */
 export function CommentThread({ root, replies }: { root: Comment; replies: Comment[] }) {
   const store = useStore()
+  const fmt = useDisplayName()
   const me = store.users.find((u) => u.isMe)
   const [replying, setReplying] = useState(false)
   const [draft, setDraft] = useState('')
@@ -60,7 +61,7 @@ export function CommentThread({ root, replies }: { root: Comment; replies: Comme
         <CheckCircle2 size={16} style={{ color: 'var(--c-green)' }} className="shrink-0" />
         <Avatar user={author} size={18} />
         <span className="min-w-0 flex-1 truncate text-[13px] text-muted">
-          <span className="font-medium text-fg">{author?.name}</span> {snippet(root.body)}
+          <span className="font-medium text-fg">{fmt(author?.name)}</span> {snippet(root.body)}
         </span>
         {replies.length > 0 && (
           <span className="shrink-0 text-[12px] text-faint">
@@ -68,7 +69,7 @@ export function CommentThread({ root, replies }: { root: Comment; replies: Comme
           </span>
         )}
         <span className="shrink-0 text-[12px] text-faint">
-          {resolver?.name ?? 'Someone'} resolved
+          {fmt(resolver?.name) || 'Someone'} resolved
         </span>
         <ChevronRight size={14} className="shrink-0 text-faint" />
       </button>
@@ -81,7 +82,7 @@ export function CommentThread({ root, replies }: { root: Comment; replies: Comme
         <div className="mb-1.5 flex items-center gap-1.5 pl-[30px] text-[12px] text-muted">
           <CheckCircle2 size={13} style={{ color: 'var(--c-green)' }} />
           <span>
-            Resolved by {store.users.find((u) => u.id === root.resolvedBy)?.name ?? 'someone'} ·{' '}
+            Resolved by {fmt(store.users.find((u) => u.id === root.resolvedBy)?.name) || 'someone'} ·{' '}
             {timeAgo(root.resolvedAt!)}
           </span>
           <button

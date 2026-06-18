@@ -10,7 +10,7 @@ import {
   Diamond,
   MoreHorizontal,
 } from 'lucide-react'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import { sortIssues, projectProgress, milestoneProgress } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
 import { Avatar } from '@/components/Avatar'
@@ -94,12 +94,13 @@ function Section({
 function MembersField({ project }: { project: Project }) {
   const users = useStore((s) => s.users)
   const updateProject = useStore((s) => s.updateProject)
+  const fmt = useDisplayName()
   const members = project.memberIds
     .map((id) => users.find((u) => u.id === id))
     .filter(Boolean)
   const options: SelectOption[] = users.map((u) => ({
     id: u.id,
-    label: u.name,
+    label: fmt(u.name),
     icon: <Avatar user={u} size={18} />,
     selected: project.memberIds.includes(u.id),
   }))
@@ -252,6 +253,7 @@ export function ProjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const data = useStore()
+  const fmt = useDisplayName()
   const project = data.projects.find((p) => p.id === id)
   const [tab, setTab] = useState<'overview' | 'activity' | 'issues'>('overview')
   const [editingDesc, setEditingDesc] = useState(false)
@@ -472,7 +474,7 @@ export function ProjectDetail() {
                   <span className={triggerCls}>
                     {lead ? (
                       <>
-                        <Avatar user={lead} size={18} /> {lead.name}
+                        <Avatar user={lead} size={18} /> {fmt(lead.name)}
                       </>
                     ) : (
                       <>

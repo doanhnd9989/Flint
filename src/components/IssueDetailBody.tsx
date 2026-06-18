@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import type { Issue } from '@/lib/types'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
@@ -72,6 +72,7 @@ export function IssueDetailBody({
   compact?: boolean
 }) {
   const store = useStore()
+  const fmt = useDisplayName()
   const [commentBody, setCommentBody] = useState('')
 
   const state = store.states.find((s) => s.id === issue.stateId)!
@@ -356,7 +357,7 @@ export function IssueDetailBody({
               trigger={
                 <span className={triggerCls}>
                   <Avatar user={assignee} size={18} />
-                  {assignee?.name ?? 'Unassigned'}
+                  {assignee ? fmt(assignee.name) : 'Unassigned'}
                 </span>
               }
             />
@@ -543,7 +544,7 @@ export function IssueDetailBody({
                   </span>
                   <span className="text-[12px] text-muted">
                     {subscribers.length === 1
-                      ? subscribers[0]!.name
+                      ? fmt(subscribers[0]!.name)
                       : `${subscribers.length} subscribers`}
                   </span>
                 </>

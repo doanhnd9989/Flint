@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import { SelectMenu, type SelectOption } from './ui/SelectMenu'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
@@ -71,6 +71,7 @@ export function AssigneePicker({
   align?: 'start' | 'end'
 }) {
   const users = useStore((s) => s.users)
+  const fmt = useDisplayName()
   const options: SelectOption[] = [
     {
       id: '__none',
@@ -80,7 +81,7 @@ export function AssigneePicker({
     },
     ...users.map((u) => ({
       id: u.id,
-      label: u.name,
+      label: fmt(u.name),
       icon: <Avatar user={u} />,
       selected: u.id === assigneeId,
     })),
@@ -140,9 +141,10 @@ export function SubscriberPicker({
   align?: 'start' | 'end'
 }) {
   const users = useStore((s) => s.users)
+  const fmt = useDisplayName()
   const options: SelectOption[] = users.map((u) => ({
     id: u.id,
-    label: u.name,
+    label: fmt(u.name),
     icon: <Avatar user={u} />,
     selected: subscriberIds.includes(u.id),
   }))

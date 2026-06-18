@@ -1,4 +1,4 @@
-import { useStoreShallow } from '@/lib/store'
+import { useStoreShallow, useDisplayName } from '@/lib/store'
 import { cn } from '@/lib/utils'
 
 /**
@@ -13,6 +13,7 @@ export function CommentReactions({ commentId }: { commentId: string }) {
     currentUserId: s.currentUserId,
     toggleReaction: s.toggleReaction,
   }))
+  const fmt = useDisplayName()
   const comment = comments.find((c) => c.id === commentId)
   if (!comment) return null
   const reactions = comment.reactions ?? {}
@@ -20,7 +21,7 @@ export function CommentReactions({ commentId }: { commentId: string }) {
   if (entries.length === 0) return null
 
   const namesOf = (ids: string[]) =>
-    ids.map((id) => users.find((u) => u.id === id)?.name ?? '?').join(', ')
+    ids.map((id) => fmt(users.find((u) => u.id === id)?.name) || '?').join(', ')
 
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1">

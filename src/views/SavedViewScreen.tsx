@@ -19,7 +19,13 @@ export function SavedViewScreen() {
     if (!view) return []
     const filtered = filterIssues(data.issues, view.filters)
     const sorted = sortIssues(filtered, view.orderBy, data)
-    return groupIssues(sorted, view.layout === 'board' ? 'status' : view.groupBy, data)
+    return groupIssues(
+      sorted,
+      view.layout === 'board' ? 'status' : view.groupBy,
+      data,
+      false,
+      data.preferences.displayNames,
+    )
   }, [data, view])
 
   if (!view) {

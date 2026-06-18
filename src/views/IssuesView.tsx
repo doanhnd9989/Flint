@@ -64,11 +64,13 @@ export function IssuesView() {
       forGrouping = sorted.filter((i) => !i.parentId || !visible.has(i.parentId))
     }
 
+    const dn = data.preferences.displayNames
     const top = groupIssues(
       forGrouping,
       layout === 'board' ? 'status' : groupBy,
       data,
       showEmptyGroups,
+      dn,
     )
     // Sub-grouping: each top group carries its issues sub-grouped. In the list
     // these render as nested sub-group headers; on the board they become the
@@ -77,14 +79,14 @@ export function IssuesView() {
       subGroupBy !== 'none'
         ? top.map((g) => ({
             ...g,
-            subGroups: groupIssues(g.issues, subGroupBy, data, showEmptyGroups),
+            subGroups: groupIssues(g.issues, subGroupBy, data, showEmptyGroups, dn),
           }))
         : top
     // Board swimlanes: the ordered set of row groups (incl. empty ones, which
     // the board collapses into a "Hidden rows" bar).
     const rows =
       layout === 'board' && subGroupBy !== 'none'
-        ? groupIssues(forGrouping, subGroupBy, data, true)
+        ? groupIssues(forGrouping, subGroupBy, data, true, dn)
         : undefined
     return { groups, childrenByParent, rows }
   }, [

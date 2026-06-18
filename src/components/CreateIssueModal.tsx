@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import type { Priority } from '@/lib/types'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
@@ -26,6 +26,7 @@ const chip =
 export function CreateIssueModal() {
   const navigate = useNavigate()
   const store = useStore()
+  const fmt = useDisplayName()
   const open = store.createOpen
   const teams = store.teams
   const states = store.states
@@ -211,7 +212,7 @@ export function CreateIssueModal() {
               trigger={
                 <span className={chip}>
                   <Avatar user={assignee} size={16} />
-                  {assignee?.name ?? 'Assignee'}
+                  {assignee ? fmt(assignee.name) : 'Assignee'}
                 </span>
               }
             />

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Plus, Trash2, X } from 'lucide-react'
-import { useStore, useStoreShallow } from '@/lib/store'
+import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { HealthBadge } from '@/components/ProjectUpdates'
@@ -34,6 +34,7 @@ export function InitiativeDetail() {
     initiativeUpdates: s.initiativeUpdates,
   }))
   const data = useStore()
+  const fmt = useDisplayName()
   const {
     updateInitiative,
     deleteInitiative,
@@ -78,7 +79,7 @@ export function InitiativeDetail() {
     { id: '__none', label: 'No owner', icon: <Avatar />, selected: !initiative.ownerId },
     ...users.map((u) => ({
       id: u.id,
-      label: u.name,
+      label: fmt(u.name),
       icon: <Avatar user={u} />,
       selected: u.id === initiative.ownerId,
     })),
@@ -161,7 +162,7 @@ export function InitiativeDetail() {
                 trigger={
                   <span className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 hover:bg-bg-hover">
                     <Avatar user={owner} size={16} />
-                    {owner?.name ?? 'No owner'}
+                    {owner ? fmt(owner.name) : 'No owner'}
                   </span>
                 }
               />

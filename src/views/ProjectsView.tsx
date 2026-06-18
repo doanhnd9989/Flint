@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
-import { useStore, useStoreShallow } from '@/lib/store'
+import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { projectProgress } from '@/lib/selectors'
 import { PROJECT_STATUS, PROJECT_STATUS_ORDER } from '@/lib/constants'
@@ -35,6 +35,7 @@ export function ProjectsView() {
     projectUpdates: s.projectUpdates,
   }))
   const data = useStore()
+  const fmt = useDisplayName()
 
   const [groupBy, setGroupBy] = useState<ProjectGroupBy>('none')
   const [orderBy, setOrderBy] = useState<ProjectOrderBy>('manual')
@@ -110,14 +111,14 @@ export function ProjectsView() {
     }
     return [...leads.entries()].map(([k, items]) => ({
       key: k,
-      label: users.find((u) => u.id === k)?.name ?? 'No lead',
+      label: fmt(users.find((u) => u.id === k)?.name) || 'No lead',
       icon:
         k === '__none' ? null : (
           <Avatar user={users.find((u) => u.id === k)} size={16} />
         ),
       items,
     }))
-  }, [groupBy, sorted, healthById, users])
+  }, [groupBy, sorted, healthById, users, fmt])
 
   function toggleProperty(p: ProjectProperty) {
     setProps((prev) => ({ ...prev, [p]: !prev[p] }))

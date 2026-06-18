@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useStore } from '@/lib/store'
+import { useStore, useDisplayName } from '@/lib/store'
 import {
   StatusPicker,
   PriorityPicker,
@@ -49,6 +49,7 @@ function ActionRow({
 export function IssueContextMenu() {
   const navigate = useNavigate()
   const store = useStore()
+  const fmt = useDisplayName()
   const ctx = store.contextMenu
   const issue = store.issues.find((i) => i.id === ctx?.issueId)
 
@@ -107,7 +108,7 @@ export function IssueContextMenu() {
           assigneeId={issue.assigneeId}
           onChange={(id) => { store.setIssueAssignee(issue.id, id); close() }}
           align="start"
-          trigger={subRow(<Avatar user={assignee} size={16} />, 'Assignee', assignee?.name ?? 'Unassigned')}
+          trigger={subRow(<Avatar user={assignee} size={16} />, 'Assignee', assignee ? fmt(assignee.name) : 'Unassigned')}
         />
         <LabelPicker
           labelIds={issue.labelIds}
