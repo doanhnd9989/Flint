@@ -2,6 +2,31 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #82: Display options — Ordering direction toggle (asc/desc)
+
+Backlog fully ticked + `tsc -b`/`npm run build` green, so this loop closed the
+direction-toggle gap deferred in loops #81/#110. Soi'd Linear's Display popover
+(Chrome, team Issues): a small **sort-direction arrow** sits between the
+**Ordering** label and its dropdown — **ascending** = up-arrow with narrow→wide
+bars; clicking flips to a **descending** down-arrow with wide→narrow bars **plus
+a filled background** marking the active state. It reverses the chosen ordering.
+
+Reproduced 1:1:
+
+- `OrderDir = 'asc' | 'desc'` type (`types.ts`).
+- `sortIssues` gains an `orderDir` param — wraps/negates the primary comparator
+  when `desc`; the `orderCompletedByRecency` override stays newest-first.
+- `DisplayMenu` renders the toggle button (`ArrowUpNarrowWide` / `ArrowDownWideNarrow`,
+  filled `bg-bg-selected` when desc) before the Ordering `Seg`, behind optional
+  `orderDir`/`onOrderDir` props (only shows when handlers are passed).
+- `IssuesView` + `MyIssues` hold the local `orderDir` state and thread it into
+  `sortIssues` + the memo deps + the `DisplayMenu`.
+
+Verified live (vite preview :5199, team Issues): the ascending arrow renders next
+to "Priority", clicking flips it to the filled descending arrow 1:1 with Linear,
+console clean; `tsc -b` + `npm run build` green. Deferred: SavedViewScreen doesn't
+expose/persist the direction yet (local display state like the other toggles).
+
 ## 2026-06-18 — Loop #81: Display options — full Ordering list + Grouping order parity
 
 Soi'd Linear's Display popover (Chrome, team Issues). Linear's **Ordering** offers

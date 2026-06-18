@@ -275,6 +275,8 @@ export type OrderBy =
   | 'created'
   | 'dueDate'
   | 'linkCount'
+/** Ordering direction toggle next to the Display popover's Ordering dropdown. */
+export type OrderDir = 'asc' | 'desc'
 
 /**
  * Seed values for the create-issue modal — Linear's group-header `+` opens the

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Bookmark } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues } from '@/lib/selectors'
-import type { GroupBy, Issue, OrderBy, ViewLayout } from '@/lib/types'
+import type { GroupBy, Issue, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { IssueBoard } from '@/components/IssueBoard'
 import { DisplayMenu } from '@/components/DisplayMenu'
@@ -22,6 +22,7 @@ export function IssuesView() {
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
   const [subGroupBy, setSubGroupBy] = useState<GroupBy>('none')
   const [orderBy, setOrderBy] = useState<OrderBy>('priority')
+  const [orderDir, setOrderDir] = useState<OrderDir>('asc')
   const [orderCompletedByRecency, setOrderCompletedByRecency] = useState(false)
   const [showSubIssues, setShowSubIssues] = useState(true)
   const [nestedSubIssues, setNestedSubIssues] = useState(false)
@@ -47,7 +48,13 @@ export function IssuesView() {
     if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
 
     const filtered = filterIssues(scoped, filters)
-    const sorted = sortIssues(filtered, orderBy, data, orderCompletedByRecency)
+    const sorted = sortIssues(
+      filtered,
+      orderBy,
+      data,
+      orderCompletedByRecency,
+      orderDir,
+    )
 
     // Nested mode: pull every sub-issue (whose parent is visible) out of its
     // own status group and render it under its parent. Issues whose parent is
@@ -96,6 +103,7 @@ export function IssuesView() {
     groupBy,
     subGroupBy,
     orderBy,
+    orderDir,
     orderCompletedByRecency,
     layout,
     filters,
@@ -138,6 +146,8 @@ export function IssuesView() {
               onLayout={setLayout}
               onGroupBy={setGroupBy}
               onOrderBy={setOrderBy}
+              orderDir={orderDir}
+              onOrderDir={setOrderDir}
               subGroupBy={subGroupBy}
               onSubGroupBy={setSubGroupBy}
               orderCompletedByRecency={orderCompletedByRecency}

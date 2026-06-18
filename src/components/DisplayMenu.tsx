@@ -1,9 +1,15 @@
-import { SlidersHorizontal, LayoutList, Columns3 } from 'lucide-react'
+import {
+  SlidersHorizontal,
+  LayoutList,
+  Columns3,
+  ArrowUpNarrowWide,
+  ArrowDownWideNarrow,
+} from 'lucide-react'
 import { Popover } from './ui/Popover'
 import { useStoreShallow } from '@/lib/store'
 import { DISPLAY_PROPERTIES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
-import type { GroupBy, OrderBy, ViewLayout } from '@/lib/types'
+import type { GroupBy, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
 
 interface Props {
   layout: ViewLayout
@@ -12,6 +18,9 @@ interface Props {
   onLayout: (l: ViewLayout) => void
   onGroupBy: (g: GroupBy) => void
   onOrderBy: (o: OrderBy) => void
+  /** Ordering direction — optional; the arrow only renders when given. */
+  orderDir?: OrderDir
+  onOrderDir?: (d: OrderDir) => void
   /** Sub-grouping — optional; the row only renders when a handler is given. */
   subGroupBy?: GroupBy
   onSubGroupBy?: (g: GroupBy) => void
@@ -144,6 +153,8 @@ export function DisplayMenu({
   onLayout,
   onGroupBy,
   onOrderBy,
+  orderDir,
+  onOrderDir,
   subGroupBy,
   onSubGroupBy,
   orderCompletedByRecency,
@@ -207,6 +218,29 @@ export function DisplayMenu({
             </Row>
           )}
           <Row label="Ordering">
+            {onOrderDir && (
+              <button
+                type="button"
+                title={
+                  (orderDir ?? 'asc') === 'asc'
+                    ? 'Ascending — click for descending'
+                    : 'Descending — click for ascending'
+                }
+                onClick={() =>
+                  onOrderDir((orderDir ?? 'asc') === 'asc' ? 'desc' : 'asc')
+                }
+                className={cn(
+                  'flex items-center justify-center rounded-md p-1 text-muted hover:bg-bg-hover',
+                  (orderDir ?? 'asc') === 'desc' && 'bg-bg-selected text-fg',
+                )}
+              >
+                {(orderDir ?? 'asc') === 'asc' ? (
+                  <ArrowUpNarrowWide size={14} />
+                ) : (
+                  <ArrowDownWideNarrow size={14} />
+                )}
+              </button>
+            )}
             <Seg value={orderBy} options={ORDERS} onChange={onOrderBy} />
           </Row>
           {onOrderCompletedByRecency && (

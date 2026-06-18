@@ -22,6 +22,7 @@ import type {
   GroupBy,
   Issue,
   OrderBy,
+  OrderDir,
   ViewLayout,
 } from '@/lib/types'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
@@ -68,6 +69,7 @@ export function MyIssues() {
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
   const [subGroupBy, setSubGroupBy] = useState<GroupBy>('none')
   const [orderBy, setOrderBy] = useState<OrderBy>('priority')
+  const [orderDir, setOrderDir] = useState<OrderDir>('asc')
   const [orderCompletedByRecency, setOrderCompletedByRecency] = useState(false)
   const [showSubIssues, setShowSubIssues] = useState(true)
   const [nestedSubIssues, setNestedSubIssues] = useState(false)
@@ -102,6 +104,8 @@ export function MyIssues() {
               onLayout={setLayout}
               onGroupBy={setGroupBy}
               onOrderBy={setOrderBy}
+              orderDir={orderDir}
+              onOrderDir={setOrderDir}
               subGroupBy={subGroupBy}
               onSubGroupBy={setSubGroupBy}
               orderCompletedByRecency={orderCompletedByRecency}
@@ -126,6 +130,7 @@ export function MyIssues() {
           groupBy={groupBy}
           subGroupBy={subGroupBy}
           orderBy={orderBy}
+          orderDir={orderDir}
           orderCompletedByRecency={orderCompletedByRecency}
           showSubIssues={showSubIssues}
           nestedSubIssues={nestedSubIssues}
@@ -147,6 +152,7 @@ interface IssueTabProps {
   groupBy: GroupBy
   subGroupBy: GroupBy
   orderBy: OrderBy
+  orderDir: OrderDir
   orderCompletedByRecency: boolean
   showSubIssues: boolean
   nestedSubIssues: boolean
@@ -162,6 +168,7 @@ function IssueTab({
   groupBy,
   subGroupBy,
   orderBy,
+  orderDir,
   orderCompletedByRecency,
   showSubIssues,
   nestedSubIssues,
@@ -187,7 +194,13 @@ function IssueTab({
     if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
 
     const filtered = filterIssues(scoped, filters)
-    const sorted = sortIssues(filtered, orderBy, data, orderCompletedByRecency)
+    const sorted = sortIssues(
+      filtered,
+      orderBy,
+      data,
+      orderCompletedByRecency,
+      orderDir,
+    )
 
     let childrenByParent: Record<string, Issue[]> | undefined
     let forGrouping = sorted
@@ -227,6 +240,7 @@ function IssueTab({
     groupBy,
     subGroupBy,
     orderBy,
+    orderDir,
     orderCompletedByRecency,
     layout,
     filters,

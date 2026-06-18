@@ -5,6 +5,7 @@ import type {
   GroupBy,
   Issue,
   OrderBy,
+  OrderDir,
   Priority,
 } from './types'
 import type { WorkspaceData } from './seed'
@@ -270,9 +271,17 @@ export function sortIssues(
    * means the Done and Canceled groups read newest-first.
    */
   orderCompletedByRecency = false,
+  /**
+   * Linear's ordering direction toggle (the arrow left of the Ordering
+   * dropdown). 'desc' reverses the chosen ordering. The completed-by-recency
+   * override stays newest-first regardless.
+   */
+  orderDir: OrderDir = 'asc',
 ): Issue[] {
   const copy = [...issues]
-  const primary = orderComparator(orderBy, data)
+  const base = orderComparator(orderBy, data)
+  const primary: (a: Issue, b: Issue) => number =
+    orderDir === 'desc' ? (a, b) => -base(a, b) : base
   if (orderCompletedByRecency) {
     const closedTypes = new Set(
       data.states
