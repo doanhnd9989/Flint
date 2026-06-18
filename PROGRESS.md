@@ -2,6 +2,40 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #71: Custom date filter — Month/Quarter/Half-year/Year + "in" range
+
+Backlog fully ticked and `tsc -b` + `npm run build` already green, so this loop
+closed the **Month/Quarter/Half-year/Year granularities + "in {period}" operator**
+slice carried from the Custom-date modal (loops #66–70).
+
+Soi'd Linear (Chrome, workspace "Claude Test App"): the modal's **Day · Month ·
+Quarter · Half-year · Year** tabs each swap the picker, and for the period
+granularities the operator toggle gains **in** (before / after / **in**), so a
+chip can read **Created date · in · Jun 2026 · ×**. Reproduced 1:1:
+
+- `types.ts` — `DateFilter.op` widened to `'before' | 'after' | 'in'`; `value`
+  now also carries absolute periods (`YYYY-MM` month · `YYYY-Q[1-4]` quarter ·
+  `YYYY-H[12]` half-year · `YYYY` year) alongside the existing `YYYY-MM-DD` day
+  and relative tokens.
+- `selectors.ts` — new exported `periodRange(value)` resolves any absolute value
+  to a `[start, end)` range; `matchesDate` does `in` = within range, `before` =
+  `< start`, `after` = `≥ end` (relative tokens keep the cutoff path).
+- `FilterBar.tsx` — `CustomDateModal` gains the granularity tabs + per-gran
+  pickers (Month = year-stepper + 4-col month grid; Quarter = Q1–Q4; Half-year =
+  H1/H2 with Jan–Jun / Jul–Dec hints; Year = a 12-year window grid), the
+  before/after/**in** toggle (in only for non-day grans, clamped on tab switch),
+  an extended natural-language parser (`May 2027`, `Q4 2027`, `H1 2027`, bare
+  `2027`, plus `DD/MM/YYYY`), `datePeriodLabel` formatting for each period kind,
+  and the `DateChip` operator popover now offering **in** for absolute values.
+
+Verified live (localhost:5199): Dates → Created date → Custom → **Month → in →
+Jun** → chip **📅 Created date · in · Jun 2026**, all June-created seed issues
+kept; flipping the chip operator to **before** empties the list (correct
+inversion); the operator popover shows before/after/**in ✓**; console clean;
+`tsc -b` + `npm run build` green. _(The input's relative-to-now period phrasing
+("next quarter") + per-view persistence of the period beyond the optional
+`dates` field still TODO.)_
+
 ## 2026-06-18 — Loop #70: Custom date filter (Day picker)
 
 Backlog fully ticked and `tsc -b` + `npm run build` already green, so this loop

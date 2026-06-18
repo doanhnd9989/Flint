@@ -77,11 +77,57 @@ export function resolveDateCutoff(value: string): Date {
   return d
 }
 
+const MONTH_PERIOD = /^(\d{4})-(\d{2})$/
+const QUARTER_PERIOD = /^(\d{4})-Q([1-4])$/
+const HALF_PERIOD = /^(\d{4})-H([12])$/
+const YEAR_PERIOD = /^(\d{4})$/
+
+/**
+ * The absolute `[start, end)` range an absolute date-filter value spans (a day,
+ * month, quarter, half-year or year). Returns null for relative tokens (1w …).
+ */
+export function periodRange(value: string): { start: Date; end: Date } | null {
+  if (ISO_DATE.test(value)) {
+    const [y, m, d] = value.split('-').map(Number)
+    return { start: new Date(y, m - 1, d), end: new Date(y, m - 1, d + 1) }
+  }
+  let m = value.match(MONTH_PERIOD)
+  if (m) {
+    const y = Number(m[1]), mo = Number(m[2])
+    return { start: new Date(y, mo - 1, 1), end: new Date(y, mo, 1) }
+  }
+  m = value.match(QUARTER_PERIOD)
+  if (m) {
+    const y = Number(m[1]), q = Number(m[2])
+    return { start: new Date(y, (q - 1) * 3, 1), end: new Date(y, q * 3, 1) }
+  }
+  m = value.match(HALF_PERIOD)
+  if (m) {
+    const y = Number(m[1]), h = Number(m[2])
+    return { start: new Date(y, (h - 1) * 6, 1), end: new Date(y, h * 6, 1) }
+  }
+  m = value.match(YEAR_PERIOD)
+  if (m) {
+    const y = Number(m[1])
+    return { start: new Date(y, 0, 1), end: new Date(y + 1, 0, 1) }
+  }
+  return null
+}
+
 /** Does an issue satisfy a single date filter? */
 function matchesDate(i: Issue, f: DateFilter): boolean {
   const raw = issueDate(i, f.field)
   if (!raw) return false
   const when = new Date(raw).getTime()
+  // Absolute calendar period (day/month/quarter/half/year) → range comparison.
+  const range = periodRange(f.value)
+  if (range) {
+    const start = range.start.getTime()
+    const end = range.end.getTime()
+    if (f.op === 'in') return when >= start && when < end
+    return f.op === 'before' ? when < start : when >= end
+  }
+  // Relative period token (1w …): cutoff comparison ('in' is not offered).
   const cutoff = resolveDateCutoff(f.value).getTime()
   return f.op === 'before' ? when <= cutoff : when >= cutoff
 }

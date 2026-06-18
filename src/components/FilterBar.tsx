@@ -69,6 +69,12 @@ function dateFieldLabel(field: DateField): string {
 
 /** A custom absolute day is stored as a plain `YYYY-MM-DD` string. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+/** Any absolute calendar period: day · month · quarter · half-year · year. */
+const ABSOLUTE_DATE = /^(\d{4}-\d{2}-\d{2}|\d{4}-\d{2}|\d{4}-Q[1-4]|\d{4}-H[12]|\d{4})$/
+
+function isAbsoluteDate(value: string): boolean {
+  return ABSOLUTE_DATE.test(value)
+}
 
 function datePeriodLabel(value: string): string {
   if (ISO_DATE.test(value)) {
@@ -81,6 +87,16 @@ function datePeriodLabel(value: string): string {
         : { month: 'short', day: 'numeric', year: 'numeric' },
     )
   }
+  const month = value.match(/^(\d{4})-(\d{2})$/)
+  if (month) {
+    const [, y, m] = month.map(Number)
+    return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  }
+  const q = value.match(/^(\d{4})-Q([1-4])$/)
+  if (q) return `Q${q[2]} ${q[1]}`
+  const h = value.match(/^(\d{4})-H([12])$/)
+  if (h) return `H${h[2]} ${h[1]}`
+  if (/^\d{4}$/.test(value)) return value
   return DATE_PERIODS.find((p) => p.value === value)?.label ?? value
 }
 
@@ -484,9 +500,38 @@ function Chip({
 /** A request to open the custom-date modal, optionally editing chip `index`. */
 type CustomReq = {
   field: DateField
-  op: 'before' | 'after'
+  op: 'before' | 'after' | 'in'
   value?: string
   index?: number
+}
+
+type Gran = 'day' | 'month' | 'quarter' | 'half' | 'year'
+
+const GRANS: { id: Gran; label: string }[] = [
+  { id: 'day', label: 'Day' },
+  { id: 'month', label: 'Month' },
+  { id: 'quarter', label: 'Quarter' },
+  { id: 'half', label: 'Half-year' },
+  { id: 'year', label: 'Year' },
+]
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** The granularity implied by a stored date-filter value. */
+function granOf(value?: string): Gran {
+  if (!value) return 'day'
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'day'
+  if (/^\d{4}-\d{2}$/.test(value)) return 'month'
+  if (/^\d{4}-Q[1-4]$/.test(value)) return 'quarter'
+  if (/^\d{4}-H[12]$/.test(value)) return 'half'
+  if (/^\d{4}$/.test(value)) return 'year'
+  return 'day'
+}
+
+/** The year embedded in an absolute period value (or the current year). */
+function yearOf(value?: string): number {
+  const m = value?.match(/^(\d{4})/)
+  return m ? Number(m[1]) : new Date().getFullYear()
 }
 
 const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
@@ -560,9 +605,11 @@ function MonthGrid({
 }
 
 /**
- * Linear's "Custom date or timeframe…" modal, Day granularity: a before/after
- * toggle over a typed-date input and a two-month calendar. Apply stores the
- * picked day as a `YYYY-MM-DD` date-filter value.
+ * Linear's "Custom date or timeframe…" modal: a before/after/in operator toggle,
+ * Day/Month/Quarter/Half-year/Year granularity tabs, a typed-period input, and a
+ * picker matched to the granularity (two-month calendar for Day, period grids
+ * otherwise). Apply stores the picked period as the date-filter value
+ * (`YYYY-MM-DD` · `YYYY-MM` · `YYYY-Q[1-4]` · `YYYY-H[12]` · `YYYY`).
  */
 function CustomDateModal({
   req,
@@ -570,18 +617,23 @@ function CustomDateModal({
   onClose,
 }: {
   req: CustomReq
-  onApply: (op: 'before' | 'after', iso: string) => void
+  onApply: (op: 'before' | 'after' | 'in', value: string) => void
   onClose: () => void
 }) {
-  const [op, setOp] = useState<'before' | 'after'>(req.op)
-  const init = req.value && ISO_DATE.test(req.value) ? req.value : undefined
-  const [selected, setSelected] = useState<string | undefined>(init)
+  const initVal = req.value && isAbsoluteDate(req.value) ? req.value : undefined
+  const [gran, setGran] = useState<Gran>(granOf(initVal))
+  const [op, setOp] = useState<'before' | 'after' | 'in'>(req.op)
+  const [selected, setSelected] = useState<string | undefined>(initVal)
   const [text, setText] = useState('')
-  // First of the two visible months — anchored on the selection or today.
+  // First of the two visible months in the Day calendar — anchored on the selection.
   const [anchor, setAnchor] = useState(() => {
-    const base = init ? new Date(init) : new Date()
+    const base = initVal && granOf(initVal) === 'day' ? new Date(initVal) : new Date()
     return new Date(base.getFullYear(), base.getMonth(), 1)
   })
+  // Year focused by the Month/Quarter/Half pickers.
+  const [pYear, setPYear] = useState(() => yearOf(initVal))
+  // First year of the 12-year window in the Year picker.
+  const [yearBase, setYearBase] = useState(() => yearOf(initVal) - 5)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -591,24 +643,56 @@ function CustomDateModal({
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  // Parse a typed `DD/MM/YYYY` (or `YYYY-MM-DD`) date and jump the calendar.
+  // Switching granularity keeps an existing selection of the same kind, else clears
+  // it; 'in' is only valid for non-day granularities.
+  function pickGran(g: Gran) {
+    setGran(g)
+    if (g === 'day' && op === 'in') setOp('after')
+    if (granOf(selected) !== g) setSelected(undefined)
+  }
+
+  // Parse a typed period and jump the matching picker. Supports `DD/MM/YYYY`,
+  // `YYYY-MM-DD`, `Mon YYYY`, `Q[1-4] YYYY`, `H[12] YYYY` (year either side) and a
+  // bare `YYYY`.
   function onText(v: string) {
     setText(v)
-    const dmy = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
-    const ymd = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
-    let y = 0,
-      m = 0,
-      d = 0
-    if (dmy) [, d, m, y] = dmy.map(Number) as [number, number, number, number]
-    else if (ymd) [, y, m, d] = ymd.map(Number) as [number, number, number, number]
-    else return
-    const dt = new Date(y, m - 1, d)
-    if (dt.getMonth() !== m - 1) return // invalid (e.g. 31/02)
-    setSelected(toIso(y, m - 1, d))
-    setAnchor(new Date(y, m - 1, 1))
+    const s = v.trim()
+    let m
+    if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)) || (m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) {
+      const iso = s.includes('/')
+        ? [Number(m[3]), Number(m[2]) - 1, Number(m[1])]
+        : [Number(m[1]), Number(m[2]) - 1, Number(m[3])]
+      const dt = new Date(iso[0], iso[1], iso[2])
+      if (dt.getMonth() !== iso[1]) return // invalid (e.g. 31/02)
+      pickGran('day')
+      setSelected(toIso(iso[0], iso[1], iso[2]))
+      setAnchor(new Date(iso[0], iso[1], 1))
+    } else if ((m = s.match(/^([A-Za-z]{3,})\s+(\d{4})$/))) {
+      const mi = MONTHS_SHORT.findIndex((mo) => mo.toLowerCase() === m![1].slice(0, 3).toLowerCase())
+      if (mi < 0) return
+      const y = Number(m[2])
+      setGran('month'); setPYear(y); setSelected(`${y}-${pad(mi + 1)}`)
+    } else if ((m = s.match(/^Q([1-4])\s+(\d{4})$/i)) || (m = s.match(/^(\d{4})\s+Q([1-4])$/i))) {
+      const q = s.toUpperCase().startsWith('Q') ? Number(m[1]) : Number(m[2])
+      const y = s.toUpperCase().startsWith('Q') ? Number(m[2]) : Number(m[1])
+      setGran('quarter'); setPYear(y); setSelected(`${y}-Q${q}`)
+    } else if ((m = s.match(/^H([12])\s+(\d{4})$/i)) || (m = s.match(/^(\d{4})\s+H([12])$/i))) {
+      const h = s.toUpperCase().startsWith('H') ? Number(m[1]) : Number(m[2])
+      const y = s.toUpperCase().startsWith('H') ? Number(m[2]) : Number(m[1])
+      setGran('half'); setPYear(y); setSelected(`${y}-H${h}`)
+    } else if ((m = s.match(/^(\d{4})$/))) {
+      const y = Number(m[1])
+      setGran('year'); setYearBase(y - 5); setSelected(`${y}`)
+    }
   }
 
   const next = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1)
+  const cellCls = (active: boolean) =>
+    cn(
+      'rounded-md py-2 text-[13px] hover:bg-bg-hover',
+      active ? 'bg-accent text-white hover:bg-accent' : 'text-fg',
+    )
+  const ops = gran === 'day' ? (['before', 'after'] as const) : (['before', 'after', 'in'] as const)
 
   return createPortal(
     <div
@@ -623,7 +707,7 @@ function CustomDateModal({
         <div className="mb-3 flex items-center gap-2">
           <span className="text-[15px] font-semibold text-fg">{dateFieldLabel(req.field)}</span>
           <div className="flex items-center rounded-md bg-secondary p-0.5 text-[12px]">
-            {(['before', 'after'] as const).map((o) => (
+            {ops.map((o) => (
               <button
                 key={o}
                 type="button"
@@ -643,35 +727,144 @@ function CustomDateModal({
           autoFocus
           value={text}
           onChange={(e) => onText(e.target.value)}
-          placeholder="Try: 20/05/2027"
-          className="mb-4 w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] text-fg outline-none placeholder:text-faint focus:border-accent"
+          placeholder="Try: May 2027, Q4 2027, 20/05/2027"
+          className="mb-3 w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] text-fg outline-none placeholder:text-faint focus:border-accent"
         />
 
-        <div className="flex items-start gap-6">
-          <button
-            type="button"
-            onClick={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1))}
-            className="mt-0.5 rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
-            aria-label="Previous month"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <MonthGrid
-            year={anchor.getFullYear()}
-            month={anchor.getMonth()}
-            selected={selected}
-            onPick={setSelected}
-          />
-          <MonthGrid year={next.getFullYear()} month={next.getMonth()} selected={selected} onPick={setSelected} />
-          <button
-            type="button"
-            onClick={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1))}
-            className="mt-0.5 rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
-            aria-label="Next month"
-          >
-            <ChevronRight size={16} />
-          </button>
+        <div className="mb-4 flex items-center gap-1 rounded-md bg-secondary p-0.5 text-[12px]">
+          {GRANS.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => pickGran(g.id)}
+              className={cn(
+                'flex-1 rounded px-2 py-1',
+                gran === g.id ? 'bg-bg text-fg shadow-sm' : 'text-muted hover:text-fg',
+              )}
+            >
+              {g.label}
+            </button>
+          ))}
         </div>
+
+        {gran === 'day' && (
+          <div className="flex items-start justify-center gap-6">
+            <button
+              type="button"
+              onClick={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1))}
+              className="mt-0.5 rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
+              aria-label="Previous month"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <MonthGrid year={anchor.getFullYear()} month={anchor.getMonth()} selected={selected} onPick={setSelected} />
+            <MonthGrid year={next.getFullYear()} month={next.getMonth()} selected={selected} onPick={setSelected} />
+            <button
+              type="button"
+              onClick={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1))}
+              className="mt-0.5 rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
+              aria-label="Next month"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+
+        {(gran === 'month' || gran === 'quarter' || gran === 'half') && (
+          <div>
+            <div className="mb-3 flex items-center justify-center gap-4">
+              <button
+                type="button"
+                onClick={() => setPYear(pYear - 1)}
+                className="rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
+                aria-label="Previous year"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[13px] font-medium text-fg">{pYear}</span>
+              <button
+                type="button"
+                onClick={() => setPYear(pYear + 1)}
+                className="rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
+                aria-label="Next year"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+            {gran === 'month' && (
+              <div className="grid grid-cols-4 gap-2">
+                {MONTHS_SHORT.map((mo, i) => {
+                  const v = `${pYear}-${pad(i + 1)}`
+                  return (
+                    <button key={mo} type="button" onClick={() => setSelected(v)} className={cellCls(v === selected)}>
+                      {mo}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {gran === 'quarter' && (
+              <div className="grid grid-cols-2 gap-2">
+                {[1, 2, 3, 4].map((q) => {
+                  const v = `${pYear}-Q${q}`
+                  return (
+                    <button key={q} type="button" onClick={() => setSelected(v)} className={cellCls(v === selected)}>
+                      Q{q}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {gran === 'half' && (
+              <div className="grid grid-cols-2 gap-2">
+                {[1, 2].map((h) => {
+                  const v = `${pYear}-H${h}`
+                  return (
+                    <button key={h} type="button" onClick={() => setSelected(v)} className={cellCls(v === selected)}>
+                      H{h} {h === 1 ? '· Jan–Jun' : '· Jul–Dec'}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {gran === 'year' && (
+          <div>
+            <div className="mb-3 flex items-center justify-center gap-4">
+              <button
+                type="button"
+                onClick={() => setYearBase(yearBase - 12)}
+                className="rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
+                aria-label="Previous years"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[13px] font-medium text-fg">
+                {yearBase}–{yearBase + 11}
+              </span>
+              <button
+                type="button"
+                onClick={() => setYearBase(yearBase + 12)}
+                className="rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
+                aria-label="Next years"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {Array.from({ length: 12 }, (_, i) => yearBase + i).map((y) => {
+                const v = `${y}`
+                return (
+                  <button key={y} type="button" onClick={() => setSelected(v)} className={cellCls(v === selected)}>
+                    {y}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="mt-5 flex justify-end gap-2">
           <button
@@ -738,7 +931,10 @@ function DateChip({
       >
         {(close) => (
           <div>
-            {(['before', 'after'] as const).map((op) => (
+            {(isAbsoluteDate(df.value)
+              ? (['before', 'after', 'in'] as const)
+              : (['before', 'after'] as const)
+            ).map((op) => (
               <button
                 key={op}
                 type="button"
@@ -790,7 +986,7 @@ function DateChip({
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
             >
               Custom date or timeframe…
-              {ISO_DATE.test(df.value) && CheckMark}
+              {isAbsoluteDate(df.value) && CheckMark}
             </button>
           </div>
         )}
@@ -816,14 +1012,14 @@ export function FilterBar({
   const active = hasActiveFilters(filters)
   const [custom, setCustom] = useState<CustomReq | null>(null)
 
-  function applyCustom(op: 'before' | 'after', iso: string) {
+  function applyCustom(op: 'before' | 'after' | 'in', value: string) {
     if (!custom) return
     if (custom.index !== undefined) {
       const dates = [...(filters.dates ?? [])]
-      dates[custom.index] = { ...dates[custom.index], op, value: iso }
+      dates[custom.index] = { ...dates[custom.index], op, value }
       onChange({ ...filters, dates })
     } else {
-      onChange({ ...filters, dates: [...(filters.dates ?? []), { field: custom.field, op, value: iso }] })
+      onChange({ ...filters, dates: [...(filters.dates ?? []), { field: custom.field, op, value }] })
     }
     setCustom(null)
   }

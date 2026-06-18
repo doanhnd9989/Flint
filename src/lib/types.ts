@@ -303,8 +303,13 @@ export type DateField = 'due' | 'created' | 'updated' | 'completed'
  */
 export interface DateFilter {
   field: DateField
-  op: 'before' | 'after'
-  /** Relative period token: 1d · 3d · 1w · 1m · 3m · 6m · 1y. */
+  /** `in` matches a calendar period range (month/quarter/half-year/year/day). */
+  op: 'before' | 'after' | 'in'
+  /**
+   * Either a relative period token (1d · 3d · 1w · 1m · 3m · 6m · 1y) or an
+   * absolute calendar period: `YYYY-MM-DD` day · `YYYY-MM` month · `YYYY-Q[1-4]`
+   * quarter · `YYYY-H[12]` half-year · `YYYY` year.
+   */
   value: string
 }
 
