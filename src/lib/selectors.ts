@@ -203,21 +203,59 @@ export function filterIssues(
 }
 
 /** Primary comparator for the chosen ordering. */
-function orderComparator(orderBy: OrderBy): (a: Issue, b: Issue) => number {
+function orderComparator(
+  orderBy: OrderBy,
+  data: WorkspaceData,
+): (a: Issue, b: Issue) => number {
+  const manual = (a: Issue, b: Issue) => a.sortOrder - b.sortOrder
   switch (orderBy) {
     case 'priority':
       return (a, b) =>
-        PRIORITY_SORT[a.priority] - PRIORITY_SORT[b.priority] ||
-        a.sortOrder - b.sortOrder
+        PRIORITY_SORT[a.priority] - PRIORITY_SORT[b.priority] || manual(a, b)
     case 'created':
       return (a, b) => b.createdAt.localeCompare(a.createdAt)
     case 'updated':
       return (a, b) => b.updatedAt.localeCompare(a.updatedAt)
     case 'title':
-      return (a, b) => a.title.localeCompare(b.title)
+      return (a, b) => a.title.localeCompare(b.title) || manual(a, b)
+    case 'status': {
+      // Workflow order (Backlog → Done) then position within the type.
+      const rank = new Map(
+        data.states.map((s) => [
+          s.id,
+          STATUS_TYPE_ORDER[s.type] * 1000 + s.position,
+        ]),
+      )
+      return (a, b) =>
+        (rank.get(a.stateId) ?? 0) - (rank.get(b.stateId) ?? 0) || manual(a, b)
+    }
+    case 'assignee': {
+      // Alphabetical by assignee name; unassigned sinks to the bottom.
+      const name = new Map(data.users.map((u) => [u.id, u.name]))
+      const key = (i: Issue) =>
+        i.assigneeId ? (name.get(i.assigneeId) ?? '￿') : '￿'
+      return (a, b) => key(a).localeCompare(key(b)) || manual(a, b)
+    }
+    case 'estimate':
+      // Highest estimate first; issues without an estimate sink to the bottom.
+      return (a, b) =>
+        (b.estimate ?? -1) - (a.estimate ?? -1) || manual(a, b)
+    case 'dueDate': {
+      // Soonest due date first; issues without a due date sink to the bottom.
+      const key = (i: Issue) => i.dueDate ?? '￿'
+      return (a, b) => key(a).localeCompare(key(b)) || manual(a, b)
+    }
+    case 'linkCount': {
+      // Most links first.
+      const count = new Map<string, number>()
+      for (const l of data.issueLinks)
+        count.set(l.issueId, (count.get(l.issueId) ?? 0) + 1)
+      return (a, b) =>
+        (count.get(b.id) ?? 0) - (count.get(a.id) ?? 0) || manual(a, b)
+    }
     case 'manual':
     default:
-      return (a, b) => a.sortOrder - b.sortOrder
+      return manual
   }
 }
 
@@ -234,7 +272,7 @@ export function sortIssues(
   orderCompletedByRecency = false,
 ): Issue[] {
   const copy = [...issues]
-  const primary = orderComparator(orderBy)
+  const primary = orderComparator(orderBy, data)
   if (orderCompletedByRecency) {
     const closedTypes = new Set(
       data.states

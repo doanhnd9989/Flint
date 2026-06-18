@@ -264,7 +264,17 @@ export type GroupBy =
   | 'project'
   | 'label'
   | 'none'
-export type OrderBy = 'priority' | 'created' | 'updated' | 'manual' | 'title'
+export type OrderBy =
+  | 'manual'
+  | 'title'
+  | 'status'
+  | 'priority'
+  | 'assignee'
+  | 'estimate'
+  | 'updated'
+  | 'created'
+  | 'dueDate'
+  | 'linkCount'
 
 /**
  * Seed values for the create-issue modal — Linear's group-header `+` opens the

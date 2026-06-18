@@ -2,6 +2,30 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #81: Display options — full Ordering list + Grouping order parity
+
+Soi'd Linear's Display popover (Chrome, team Issues). Linear's **Ordering** offers
+Manual · Title · Status · Priority · Assignee · Agent · Estimate · Updated ·
+Created · Due date · Link count · Time in status; **Grouping** = No grouping ·
+Status · Assignee · Agent · Project · Priority · Label. Ours only had
+Priority/Updated/Created/Title/Manual ordering and a differently-ordered Grouping
+list. Brought both to 1:1 (omitting **Agent** — not modeled — and **Time in
+status** — no per-status timestamps):
+
+- `OrderBy` widened to `manual|title|status|priority|assignee|estimate|updated|created|dueDate|linkCount`.
+- `orderComparator` now takes `WorkspaceData`; new comparators: **Status**
+  (workflow type order × position), **Assignee** (alpha, unassigned last),
+  **Estimate** (highest first, none last), **Due date** (soonest first, none
+  last), **Link count** (most `issueLinks` first); all fall back to `sortOrder`.
+- `DisplayMenu` `ORDERS` lists all ten in Linear's order ("Last updated"→"Updated");
+  `GROUPS` reordered to "No grouping" first + Project before Priority (now
+  consistent with `SUBGROUPS`).
+
+Verified live (vite :5191): Ordering dropdown shows all ten options in Linear's
+order; switching to **Due date** re-sorts within Status groups (CLA-5 due Jun 20
+above CLA-7 with no due date); console clean; `tsc -b` + `npm run build` green.
+Deferred: ascending/descending direction toggle + Agent/Time-in-status orderings.
+
 ## 2026-06-18 — Loop #80: Wire "Display names" preference (Full / First name)
 
 Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop closed the

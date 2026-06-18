@@ -27,13 +27,15 @@ interface Props {
   onShowEmptyGroups?: (v: boolean) => void
 }
 
+// Linear's Grouping dropdown order: No grouping, Status, Assignee, (Agent),
+// Project, Priority, Label. We omit "Agent" (not modeled).
 const GROUPS: { id: GroupBy; label: string }[] = [
+  { id: 'none', label: 'No grouping' },
   { id: 'status', label: 'Status' },
   { id: 'assignee', label: 'Assignee' },
-  { id: 'priority', label: 'Priority' },
   { id: 'project', label: 'Project' },
+  { id: 'priority', label: 'Priority' },
   { id: 'label', label: 'Label' },
-  { id: 'none', label: 'No grouping' },
 ]
 
 // Linear's Sub-grouping dropdown — "No grouping" first, then the same keys as
@@ -47,12 +49,20 @@ const SUBGROUPS: { id: GroupBy; label: string }[] = [
   { id: 'label', label: 'Label' },
 ]
 
+// Linear's Ordering dropdown order: Manual, Title, Status, Priority, Assignee,
+// (Agent), Estimate, Updated, Created, Due date, Link count, (Time in status).
+// We omit "Agent" and "Time in status" (no data to back them).
 const ORDERS: { id: OrderBy; label: string }[] = [
-  { id: 'priority', label: 'Priority' },
-  { id: 'updated', label: 'Last updated' },
-  { id: 'created', label: 'Created' },
-  { id: 'title', label: 'Title' },
   { id: 'manual', label: 'Manual' },
+  { id: 'title', label: 'Title' },
+  { id: 'status', label: 'Status' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'assignee', label: 'Assignee' },
+  { id: 'estimate', label: 'Estimate' },
+  { id: 'updated', label: 'Updated' },
+  { id: 'created', label: 'Created' },
+  { id: 'dueDate', label: 'Due date' },
+  { id: 'linkCount', label: 'Link count' },
 ]
 
 function Row({
