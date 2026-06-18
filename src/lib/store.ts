@@ -41,6 +41,7 @@ import type {
   RelationType,
   RelationPickerKind,
   SavedView,
+  Preferences,
   ThemeMode,
   User,
   UserRole,
@@ -49,6 +50,8 @@ import type {
 
 interface UIState {
   theme: ThemeMode
+  /** Settings → Preferences (persisted). */
+  preferences: Preferences
   sidebarCollapsed: boolean
   commandOpen: boolean
   /**
@@ -221,6 +224,7 @@ export interface Store extends WorkspaceData, UIState {
 
   // ── ui ───────────────────────────────────────────────────────
   setTheme: (t: ThemeMode) => void
+  setPreference: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void
   toggleSidebar: () => void
   setCommandOpen: (open: boolean) => void
   /**
@@ -302,6 +306,20 @@ export const useStore = create<Store>()(
 
       // UI defaults
       theme: 'system',
+      preferences: {
+        homeView: 'active',
+        displayNames: 'full',
+        firstDayOfWeek: 'monday',
+        convertEmoticons: true,
+        sendCommentOn: 'enter',
+        fontSize: 'default',
+        pointerCursors: false,
+        lightTheme: 'light',
+        darkTheme: 'dark',
+        openInDesktop: false,
+        autoAssignSelf: false,
+        assignSelfOnStart: false,
+      },
       sidebarCollapsed: false,
       commandOpen: false,
       commandIssueId: null,
@@ -395,12 +413,22 @@ export const useStore = create<Store>()(
           if (!issue) return s
           const newState = s.states.find((x) => x.id === stateId)
           const ts = nowIso()
+          // Preference: when moving an unassigned issue to a started state,
+          // assign it to the current user (Linear's "assign to yourself").
+          const autoAssign =
+            s.preferences.assignSelfOnStart &&
+            newState?.type === 'started' &&
+            !issue.assigneeId
+          const extraActivities = autoAssign
+            ? [logActivity(s, id, 'assignee', undefined, s.currentUserId)]
+            : []
           return {
             issues: s.issues.map((i) =>
               i.id === id
                 ? {
                     ...i,
                     stateId,
+                    assigneeId: autoAssign ? s.currentUserId : i.assigneeId,
                     updatedAt: ts,
                     completedAt:
                       newState?.type === 'completed' ? ts : undefined,
@@ -412,6 +440,7 @@ export const useStore = create<Store>()(
             activities: [
               ...s.activities,
               logActivity(s, id, 'status', issue.stateId, stateId),
+              ...extraActivities,
             ],
           }
         }),
@@ -1181,6 +1210,8 @@ export const useStore = create<Store>()(
         })),
 
       setTheme: (theme) => set({ theme }),
+      setPreference: (key, value) =>
+        set((s) => ({ preferences: { ...s.preferences, [key]: value } })),
       toggleSidebar: () =>
         set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setCommandOpen: (commandOpen) =>

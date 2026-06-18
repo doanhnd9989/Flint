@@ -2,6 +2,33 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #79: Settings → Preferences page (full, Linear 1:1)
+
+Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop replaced
+the theme-only Preferences stub with Linear's complete account Preferences page,
+soi'd live in Chrome (`/settings/account/preferences`, workspace "Claude Test
+App"). Four bordered cards under **General** / **Interface and theme** /
+**Desktop application** / **Automations and workflows** with exact labels, helper
+text and control types (dropdowns + pill toggles), including the **Aa**-swatched
+Interface-theme / Light / Dark dropdowns.
+
+New persisted `Preferences` store slice (12 fields) + `setPreference(key,value)`
+action, and reusable `PrefCard` / `PrefRow` / `Toggle` / `PrefDropdown` /
+`ThemeSwatch` building blocks in `SettingsView`. Several settings are genuinely
+functional, not cosmetic: Interface theme + Light/Dark sub-themes feed
+`useThemeEffect` (system appearance picks the chosen sub-theme); a new
+`usePreferenceEffect` applies Font size (root font-size) and Use pointer cursors
+(`.pointer-cursors` CSS); Default home view drives `DefaultRedirect`; Auto-assign
+to self defaults the New-issue assignee; "On move to started status, assign to
+yourself" auto-assigns an unassigned issue in `setIssueStatus`.
+
+Verified live (dev server :5180, Chrome side-by-side): page matches Linear, the
+Interface-theme dropdown flips the whole app to dark instantly, dropdowns show a
+check + swatch on the selected option, console clean; `tsc -b` (exit 0) + build
+pass. _(Display names / First day of week / Convert emoticons / Send comment on /
+Open in desktop persist + select but their app-wide behavior wiring is the next
+slice; App sidebar "Customize" has no sub-panel yet.)_
+
 ## 2026-06-18 — Loop #78: Create-issue Cycle field + Cycle list column (Linear 1:1)
 
 Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop closed the

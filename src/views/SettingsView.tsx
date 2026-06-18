@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronLeft, Search, Settings2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, Search, Settings2 } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
+import { Popover } from '@/components/ui/Popover'
 import { Avatar } from '@/components/Avatar'
 import { MembersSettings } from '@/components/MembersSettings'
 import { LabelsSettings } from '@/components/LabelsSettings'
@@ -12,7 +13,7 @@ import { ImportExportSettings } from '@/components/ImportExportSettings'
 import { NotificationsSettings } from '@/components/NotificationsSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
-import type { ThemeMode } from '@/lib/types'
+import type { Preferences, ThemeMode } from '@/lib/types'
 
 // ── Settings navigation — mirrors Linear's Settings sidebar 1:1 ──────────────
 // (workspace "Claude Test App"): groups Personal / Issues / Projects / Features
@@ -78,12 +79,6 @@ const NAV: NavGroup[] = [
   },
 ]
 
-const THEMES: { id: ThemeMode; label: string; hint: string }[] = [
-  { id: 'system', label: 'System', hint: 'Sync with your device' },
-  { id: 'light', label: 'Light', hint: 'Always light' },
-  { id: 'dark', label: 'Dark', hint: 'Always dark' },
-]
-
 // ── content scaffolding ──────────────────────────────────────────────────────
 function Page({
   title,
@@ -114,44 +109,328 @@ function Section({ title, children }: { title?: string; children: React.ReactNod
   )
 }
 
-// ── individual setting pages ─────────────────────────────────────────────────
-function PreferencesPage() {
-  const { theme, setTheme } = useStoreShallow((s) => ({
-    theme: s.theme,
-    setTheme: s.setTheme,
-  }))
+// ── Preferences building blocks (mirror Linear's setting cards) ──────────────
+/** A bordered card grouping setting rows with hairline separators. */
+function PrefCard({ children }: { children: React.ReactNode }) {
   return (
-    <Page title="Preferences">
-      <Section title="Interface and theme">
-        <div className="grid grid-cols-3 gap-3">
-          {THEMES.map((t) => (
+    <div className="divide-y divide-border rounded-xl border border-border">
+      {children}
+    </div>
+  )
+}
+
+/** One setting row: title + description on the left, a control on the right. */
+function PrefRow({
+  title,
+  description,
+  control,
+}: {
+  title: string
+  description: string
+  control: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+      <div className="min-w-0">
+        <div className="text-[13px] font-medium text-fg">{title}</div>
+        <div className="mt-0.5 text-[12px] text-muted">{description}</div>
+      </div>
+      <div className="shrink-0">{control}</div>
+    </div>
+  )
+}
+
+/** Linear's pill toggle. */
+function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className={cn(
+        'relative h-[18px] w-[30px] rounded-full transition-colors',
+        on ? 'bg-accent' : 'bg-[var(--border)]',
+      )}
+    >
+      <span
+        className={cn(
+          'absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-transform',
+          on ? 'translate-x-[14px]' : 'translate-x-[2px]',
+        )}
+      />
+    </button>
+  )
+}
+
+interface DropOption {
+  value: string
+  label: string
+  swatch?: React.ReactNode
+}
+
+/** A small dropdown control matching Linear's preference selects. */
+function PrefDropdown({
+  value,
+  options,
+  onSelect,
+}: {
+  value: string
+  options: DropOption[]
+  onSelect: (value: string) => void
+}) {
+  const current = options.find((o) => o.value === value)
+  return (
+    <Popover
+      align="end"
+      width={220}
+      trigger={
+        <span className="flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-2.5 py-1.5 text-[13px] font-medium text-fg hover:bg-bg-hover">
+          {current?.swatch}
+          {current?.label ?? value}
+          <ChevronDown size={14} className="text-faint" />
+        </span>
+      }
+    >
+      {(close) => (
+        <div className="max-h-72 overflow-y-auto">
+          {options.map((o) => (
             <button
-              key={t.id}
-              onClick={() => setTheme(t.id)}
-              className={cn(
-                'flex flex-col items-start gap-1 rounded-lg border px-3 py-3 text-left transition-colors',
-                theme === t.id
-                  ? 'border-accent ring-1 ring-accent'
-                  : 'border-border hover:bg-bg-hover',
-              )}
+              key={o.value}
+              type="button"
+              onClick={() => {
+                onSelect(o.value)
+                close()
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
             >
-              <span
-                className={cn(
-                  'flex h-9 w-full items-center justify-center rounded-md border text-[15px] font-semibold',
-                  t.id === 'dark'
-                    ? 'border-[#2a2a2e] bg-[#1a1a1e] text-white'
-                    : t.id === 'light'
-                      ? 'border-[#e6e6e6] bg-white text-black'
-                      : 'border-border bg-gradient-to-r from-white to-[#1a1a1e] text-muted',
-                )}
-              >
-                Aa
-              </span>
-              <span className="text-[13px] font-medium text-fg">{t.label}</span>
-              <span className="text-[11px] text-faint">{t.hint}</span>
+              {o.swatch}
+              <span className="flex-1 truncate">{o.label}</span>
+              {o.value === value && <Check size={14} className="text-fg" />}
             </button>
           ))}
         </div>
+      )}
+    </Popover>
+  )
+}
+
+/** Tiny "Aa" theme swatch shown inside the theme dropdowns. */
+function ThemeSwatch({ dark }: { dark: boolean }) {
+  return (
+    <span
+      className={cn(
+        'flex items-center gap-1 rounded-[5px] border px-1.5 py-0.5 text-[11px] font-semibold',
+        dark
+          ? 'border-[#2a2a2e] bg-[#1a1a1e] text-white'
+          : 'border-[#e6e6e6] bg-white text-black',
+      )}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+      Aa
+    </span>
+  )
+}
+
+const THEME_OPTIONS: DropOption[] = [
+  { value: 'light', label: 'Light', swatch: <ThemeSwatch dark={false} /> },
+  { value: 'dark', label: 'Dark', swatch: <ThemeSwatch dark /> },
+]
+
+// ── individual setting pages ─────────────────────────────────────────────────
+function PreferencesPage() {
+  const { theme, setTheme, preferences, setPreference } = useStoreShallow((s) => ({
+    theme: s.theme,
+    setTheme: s.setTheme,
+    preferences: s.preferences,
+    setPreference: s.setPreference,
+  }))
+  const p = preferences
+  const set = <K extends keyof Preferences>(key: K) => (v: Preferences[K]) =>
+    setPreference(key, v)
+  return (
+    <Page title="Preferences">
+      <Section title="General">
+        <PrefCard>
+          <PrefRow
+            title="Default home view"
+            description="Select which view to display when launching Linear"
+            control={
+              <PrefDropdown
+                value={p.homeView}
+                onSelect={(v) => set('homeView')(v as Preferences['homeView'])}
+                options={[
+                  { value: 'active', label: 'Active issues' },
+                  { value: 'my-issues', label: 'My issues' },
+                  { value: 'inbox', label: 'Inbox' },
+                ]}
+              />
+            }
+          />
+          <PrefRow
+            title="Display names"
+            description="Select how names are displayed in the Linear interface"
+            control={
+              <PrefDropdown
+                value={p.displayNames}
+                onSelect={(v) => set('displayNames')(v as Preferences['displayNames'])}
+                options={[
+                  { value: 'full', label: 'Full name' },
+                  { value: 'first', label: 'First name' },
+                ]}
+              />
+            }
+          />
+          <PrefRow
+            title="First day of the week"
+            description="Used for date pickers"
+            control={
+              <PrefDropdown
+                value={p.firstDayOfWeek}
+                onSelect={(v) =>
+                  set('firstDayOfWeek')(v as Preferences['firstDayOfWeek'])
+                }
+                options={[
+                  { value: 'sunday', label: 'Sunday' },
+                  { value: 'monday', label: 'Monday' },
+                ]}
+              />
+            }
+          />
+          <PrefRow
+            title="Convert text emoticons into emojis"
+            description="Strings like :) will be converted to 🙂"
+            control={
+              <Toggle on={p.convertEmoticons} onChange={set('convertEmoticons')} />
+            }
+          />
+          <PrefRow
+            title="Send comment on..."
+            description="Choose which key press is used to submit a comment"
+            control={
+              <PrefDropdown
+                value={p.sendCommentOn}
+                onSelect={(v) =>
+                  set('sendCommentOn')(v as Preferences['sendCommentOn'])
+                }
+                options={[
+                  { value: 'enter', label: 'Enter' },
+                  { value: 'mod-enter', label: '⌘ + Enter' },
+                ]}
+              />
+            }
+          />
+        </PrefCard>
+      </Section>
+
+      <Section title="Interface and theme">
+        <PrefCard>
+          <PrefRow
+            title="App sidebar"
+            description="Customize sidebar item visibility, ordering, and badge style"
+            control={
+              <span className="text-[13px] font-medium text-muted">Customize</span>
+            }
+          />
+          <PrefRow
+            title="Font size"
+            description="Adjust the size of text across the app"
+            control={
+              <PrefDropdown
+                value={p.fontSize}
+                onSelect={(v) => set('fontSize')(v as Preferences['fontSize'])}
+                options={[
+                  { value: 'small', label: 'Small' },
+                  { value: 'default', label: 'Default' },
+                  { value: 'large', label: 'Large' },
+                ]}
+              />
+            }
+          />
+          <PrefRow
+            title="Use pointer cursors"
+            description="Change the cursor to a pointer when hovering over any interactive elements"
+            control={
+              <Toggle on={p.pointerCursors} onChange={set('pointerCursors')} />
+            }
+          />
+        </PrefCard>
+
+        <div className="mt-3" />
+        <PrefCard>
+          <PrefRow
+            title="Interface theme"
+            description="Select or customize your interface color scheme"
+            control={
+              <PrefDropdown
+                value={theme}
+                onSelect={(v) => setTheme(v as ThemeMode)}
+                options={[
+                  {
+                    value: 'system',
+                    label: 'System preference',
+                    swatch: <ThemeSwatch dark={false} />,
+                  },
+                  {
+                    value: 'light',
+                    label: 'Light',
+                    swatch: <ThemeSwatch dark={false} />,
+                  },
+                  { value: 'dark', label: 'Dark', swatch: <ThemeSwatch dark /> },
+                ]}
+              />
+            }
+          />
+          <PrefRow
+            title="Light"
+            description="Theme to use for light system appearance"
+            control={
+              <PrefDropdown
+                value={p.lightTheme}
+                onSelect={(v) => set('lightTheme')(v as Preferences['lightTheme'])}
+                options={THEME_OPTIONS}
+              />
+            }
+          />
+          <PrefRow
+            title="Dark"
+            description="Theme to use for dark system appearance"
+            control={
+              <PrefDropdown
+                value={p.darkTheme}
+                onSelect={(v) => set('darkTheme')(v as Preferences['darkTheme'])}
+                options={THEME_OPTIONS}
+              />
+            }
+          />
+        </PrefCard>
+      </Section>
+
+      <Section title="Desktop application">
+        <PrefCard>
+          <PrefRow
+            title="Open in desktop app"
+            description="Automatically open links in desktop app when possible"
+            control={<Toggle on={p.openInDesktop} onChange={set('openInDesktop')} />}
+          />
+        </PrefCard>
+      </Section>
+
+      <Section title="Automations and workflows">
+        <PrefCard>
+          <PrefRow
+            title="Auto-assign to self"
+            description="When creating new issues, always assign them to yourself by default"
+            control={<Toggle on={p.autoAssignSelf} onChange={set('autoAssignSelf')} />}
+          />
+          <PrefRow
+            title="On move to started status, assign to yourself"
+            description="When you move an unassigned issue to started, it will be automatically assigned to you"
+            control={
+              <Toggle on={p.assignSelfOnStart} onChange={set('assignSelfOnStart')} />
+            }
+          />
+        </PrefCard>
       </Section>
     </Page>
   )

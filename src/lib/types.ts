@@ -416,3 +416,31 @@ export interface Favorite {
 }
 
 export type ThemeMode = 'light' | 'dark' | 'system'
+
+/** Settings → Preferences. Persisted; mirrors Linear's account preferences. */
+export interface Preferences {
+  /** Default home view — which screen "/" lands on. */
+  homeView: 'active' | 'my-issues' | 'inbox'
+  /** How names render in the interface. */
+  displayNames: 'full' | 'first'
+  /** First day of the week — used for date pickers. */
+  firstDayOfWeek: 'sunday' | 'monday'
+  /** Convert text emoticons like :) into emojis. */
+  convertEmoticons: boolean
+  /** Which key press submits a comment. */
+  sendCommentOn: 'enter' | 'mod-enter'
+  /** Font scale across the app. */
+  fontSize: 'small' | 'default' | 'large'
+  /** Pointer cursor on interactive elements. */
+  pointerCursors: boolean
+  /** Theme to use for light system appearance. */
+  lightTheme: 'light' | 'dark'
+  /** Theme to use for dark system appearance. */
+  darkTheme: 'light' | 'dark'
+  /** Automatically open links in the desktop app. */
+  openInDesktop: boolean
+  /** Assign new issues to yourself by default. */
+  autoAssignSelf: boolean
+  /** When moving an unassigned issue to a started state, assign it to you. */
+  assignSelfOnStart: boolean
+}

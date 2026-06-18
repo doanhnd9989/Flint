@@ -212,3 +212,12 @@ textarea {
 .animate-toast {
   animation: toast-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* Preferences → "Use pointer cursors": pointer on interactive elements. */
+.pointer-cursors button:not(:disabled),
+.pointer-cursors a,
+.pointer-cursors [role='button'],
+.pointer-cursors summary,
+.pointer-cursors select {
+  cursor: pointer;
+}

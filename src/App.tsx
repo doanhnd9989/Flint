@@ -18,7 +18,7 @@ import { AddLinkModal } from '@/components/AddLinkModal'
 import { HelpOverlay } from '@/components/HelpOverlay'
 import { RelationPicker } from '@/components/RelationPicker'
 import { Toaster } from '@/components/Toaster'
-import { useThemeEffect } from '@/lib/useTheme'
+import { useThemeEffect, usePreferenceEffect } from '@/lib/useTheme'
 import { useShortcuts } from '@/lib/useShortcuts'
 import { useStore } from '@/lib/store'
 import { IssuesView } from '@/views/IssuesView'
@@ -39,6 +39,7 @@ import { SearchView } from '@/views/SearchView'
 
 function Shell() {
   useThemeEffect()
+  usePreferenceEffect()
   useShortcuts()
   const location = useLocation()
   // Clear bulk selection + keyboard row focus when navigating between views.
@@ -70,7 +71,14 @@ function Shell() {
 
 function DefaultRedirect() {
   const teamKey = useStore((s) => s.teams[0].key)
-  return <Navigate to={`/team/${teamKey}/active`} replace />
+  const homeView = useStore((s) => s.preferences.homeView)
+  const to =
+    homeView === 'my-issues'
+      ? '/my-issues'
+      : homeView === 'inbox'
+        ? '/inbox'
+        : `/team/${teamKey}/active`
+  return <Navigate to={to} replace />
 }
 
 export default function App() {
