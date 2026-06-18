@@ -82,6 +82,7 @@ export default function App() {
           <Route path="/search" element={<SearchView />} />
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/my-issues" element={<MyIssues />} />
+          <Route path="/my-issues/:tab" element={<MyIssues />} />
           <Route path="/projects" element={<ProjectsView />} />
           <Route path="/project/:id" element={<ProjectDetail />} />
           <Route path="/initiatives" element={<InitiativesView />} />

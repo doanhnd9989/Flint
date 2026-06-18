@@ -1,28 +1,280 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import {
+  ChevronRight,
+  MessageSquare,
+  GitBranch,
+  Flag,
+  Tag,
+  PenLine,
+  CircleDashed,
+  Link2,
+  Diamond,
+  IterationCw,
+  FolderClosed,
+  UserRound,
+} from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { groupIssues, sortIssues } from '@/lib/selectors'
+import type { Activity, ActivityKind } from '@/lib/types'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { ViewHeader } from '@/components/ViewHeader'
+import { StatusIcon } from '@/components/StatusIcon'
+import { PriorityIcon } from '@/components/PriorityIcon'
+import { EmptyState, CheckIllustration } from '@/components/EmptyState'
+import { cn } from '@/lib/utils'
+
+const TABS = ['assigned', 'created', 'subscribed', 'activity'] as const
+type Tab = (typeof TABS)[number]
+
+function isTab(v: string | undefined): v is Tab {
+  return (TABS as readonly string[]).includes(v ?? '')
+}
+
+/** Empty-state copy per tab, matching Linear's wording. */
+const EMPTY: Record<Exclude<Tab, 'activity'>, { title: string; description: string }> = {
+  assigned: {
+    title: 'No issues assigned to you',
+    description: 'Issues assigned to you will show up here.',
+  },
+  created: {
+    title: 'No issues created by you',
+    description: 'Issues you create will show up here.',
+  },
+  subscribed: {
+    title: 'No subscribed issues',
+    description: "Issues you're subscribed to will show up here.",
+  },
+}
 
 export function MyIssues() {
   const data = useStore()
+  const navigate = useNavigate()
+  const params = useParams<{ tab?: string }>()
+  const tab: Tab = isTab(params.tab) ? params.tab : 'assigned'
+
   const groups = useMemo(() => {
-    const mine = data.issues.filter((i) => i.assigneeId === data.currentUserId)
+    if (tab === 'activity') return []
+    const me = data.currentUserId
+    const mine = data.issues.filter((i) => {
+      if (i.triage) return false
+      if (tab === 'assigned') return i.assigneeId === me
+      if (tab === 'created') return i.creatorId === me
+      return i.subscriberIds.includes(me) // subscribed
+    })
     return groupIssues(sortIssues(mine, 'priority', data), 'status', data)
-  }, [data])
+  }, [data, tab])
 
   return (
     <div className="flex h-full flex-col">
       <ViewHeader title="My Issues" />
-      <GroupedIssueList
-        groups={groups}
-        groupBy="status"
-        empty={{
-          title: 'No issues assigned to you',
-          description:
-            'Issues assigned to you will show up here. Create one to get started.',
-        }}
+
+      {/* Tabs (Linear-style pill sub-nav) */}
+      <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-1.5">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => navigate(`/my-issues/${t}`)}
+            className={cn(
+              'rounded-md px-2.5 py-1 text-[13px] capitalize text-muted hover:bg-bg-hover',
+              tab === t && 'bg-bg-selected font-medium text-fg',
+            )}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'activity' ? (
+        <ActivityFeed />
+      ) : (
+        <GroupedIssueList groups={groups} groupBy="status" empty={EMPTY[tab]} />
+      )}
+    </div>
+  )
+}
+
+// ── Activity tab ───────────────────────────────────────────────
+
+const VERB: Record<ActivityKind | 'comment', string> = {
+  comment: 'commented',
+  created: 'created the issue',
+  status: 'changed status',
+  priority: 'changed priority',
+  assignee: 'changed assignee',
+  label: 'updated labels',
+  project: 'changed project',
+  milestone: 'changed milestone',
+  cycle: 'changed cycle',
+  title: 'renamed the issue',
+  estimate: 'changed estimate',
+  dueDate: 'changed the due date',
+  link: 'added a link',
+  parent: 'changed the parent',
+}
+
+function KindIcon({ kind }: { kind: ActivityKind | 'comment' }) {
+  const c = 'text-faint'
+  const s = 13
+  switch (kind) {
+    case 'comment':
+      return <MessageSquare size={s} className={c} />
+    case 'status':
+      return <CircleDashed size={s} className={c} />
+    case 'priority':
+      return <Flag size={s} className={c} />
+    case 'assignee':
+      return <UserRound size={s} className={c} />
+    case 'label':
+      return <Tag size={s} className={c} />
+    case 'project':
+      return <FolderClosed size={s} className={c} />
+    case 'milestone':
+      return <Diamond size={s} className={c} />
+    case 'cycle':
+      return <IterationCw size={s} className={c} />
+    case 'title':
+    case 'created':
+      return <PenLine size={s} className={c} />
+    case 'link':
+      return <Link2 size={s} className={c} />
+    case 'parent':
+      return <GitBranch size={s} className={c} />
+    default:
+      return <PenLine size={s} className={c} />
+  }
+}
+
+/** "Jun 17, 21:41:26" — matches Linear's per-row timestamp. */
+function eventTime(iso: string): string {
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+}
+
+/** Day-bucket label like Linear ("Today" / "Yesterday" / "Jun 12"). */
+function dayLabel(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const same = d.toDateString() === now.toDateString()
+  if (same) return 'Today'
+  const yest = new Date(now)
+  yest.setDate(now.getDate() - 1)
+  if (d.toDateString() === yest.toDateString()) return 'Yesterday'
+  return d.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    ...(d.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
+  })
+}
+
+interface Event {
+  id: string
+  issueId: string
+  kind: ActivityKind | 'comment'
+  createdAt: string
+}
+
+function ActivityFeed() {
+  const data = useStore()
+  const setPeek = useStore((s) => s.setPeek)
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+
+  // The current user's own actions across all issues (activities + comments).
+  const events = useMemo<Event[]>(() => {
+    const me = data.currentUserId
+    const acts: Event[] = data.activities
+      .filter((a: Activity) => a.userId === me)
+      .map((a) => ({ id: a.id, issueId: a.issueId, kind: a.kind, createdAt: a.createdAt }))
+    const comments: Event[] = data.comments
+      .filter((c) => c.userId === me)
+      .map((c) => ({ id: c.id, issueId: c.issueId, kind: 'comment' as const, createdAt: c.createdAt }))
+    return [...acts, ...comments].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+  }, [data])
+
+  // Group consecutive events into day buckets (already newest-first).
+  const days = useMemo(() => {
+    const out: { label: string; events: Event[] }[] = []
+    for (const e of events) {
+      const label = dayLabel(e.createdAt)
+      const last = out[out.length - 1]
+      if (last && last.label === label) last.events.push(e)
+      else out.push({ label, events: [e] })
+    }
+    return out
+  }, [events])
+
+  if (events.length === 0) {
+    return (
+      <EmptyState
+        illustration={<CheckIllustration />}
+        title="No activity yet"
+        description="Your recent issue activity will show up here."
       />
+    )
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      {days.map((day) => {
+        const open = !collapsed[day.label]
+        return (
+          <div key={day.label}>
+            <button
+              type="button"
+              onClick={() =>
+                setCollapsed((c) => ({ ...c, [day.label]: !c[day.label] }))
+              }
+              className="flex w-full items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium text-fg hover:bg-bg-hover"
+            >
+              <ChevronRight
+                size={14}
+                className={cn('text-faint transition-transform', open && 'rotate-90')}
+              />
+              <span>{day.label}</span>
+              <span className="text-faint">{day.events.length}</span>
+            </button>
+            {open &&
+              day.events.map((e) => {
+                const issue = data.issues.find((i) => i.id === e.issueId)
+                if (!issue) return null
+                const state = data.states.find((s) => s.id === issue.stateId)
+                return (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => setPeek(issue.id)}
+                    className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-[13px] hover:bg-bg-hover"
+                  >
+                    <PriorityIcon priority={issue.priority} />
+                    {state && (
+                      <StatusIcon type={state.type} color={state.color} size={14} />
+                    )}
+                    <span className="shrink-0 font-mono text-[12px] text-muted">
+                      {issue.identifier}
+                    </span>
+                    <span className="truncate text-fg">{issue.title}</span>
+                    <span className="ml-auto flex shrink-0 items-center gap-1.5 text-faint">
+                      <KindIcon kind={e.kind} />
+                      <span>
+                        you {VERB[e.kind]} {eventTime(e.createdAt)}
+                      </span>
+                    </span>
+                  </button>
+                )
+              })}
+          </div>
+        )
+      })}
     </div>
   )
 }

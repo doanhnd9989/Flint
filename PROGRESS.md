@@ -2,6 +2,40 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #72: My Issues — Assigned / Created / Subscribed / Activity tabs
+
+Backlog fully ticked and `tsc -b` + `npm run build` already green, so this loop
+added a new Linear surface: **My Issues tabs**.
+
+Soi'd Linear's My Issues page (Chrome, workspace "Claude Test App"): a two-row
+header — title **"My issues"**, then a pill sub-nav **Assigned · Created ·
+Subscribed · Activity** (active = light gray pill) with Add filter / Display
+options / Open details on the right — and each tab is its own route
+(`/my-issues/{tab}`). Assigned/Created/Subscribed are the normal status-grouped
+issue list filtered differently; **Activity** is a day-bucketed feed of *my own*
+actions — collapsible **Today / Yesterday / weekday** group headers with an
+event count, each row showing priority + status icon + `CLA-N` + title and a
+right-aligned **{glyph} you {verb} {Mon D, HH:MM:SS}** (e.g. "you commented",
+"you created the issue", "you changed the parent"). Reproduced 1:1:
+
+- `MyIssues.tsx` — rewritten from a single list into the tabbed view. Reads the
+  `tab` route param (default `assigned`); Assigned/Created/Subscribed filter
+  `issues` by `assigneeId` / `creatorId` / `subscriberIds` (triage excluded) and
+  reuse `GroupedIssueList` with per-tab empty-state copy; a new `ActivityFeed`
+  merges `activities` + `comments` authored by `currentUserId`, sorts
+  newest-first, groups into day buckets (`dayLabel`), renders the verb/glyph per
+  `ActivityKind` (+ comment) with an `eventTime` timestamp, and opens the issue
+  in the peek (`setPeek`) on click.
+- `App.tsx` — added `/my-issues/:tab` alongside `/my-issues` (the sidebar
+  NavLink stays active on the sub-routes by prefix match).
+
+Verified live (localhost:5199): Activity shows "Today 9" / "Yesterday 12" with
+faithful per-row verbs + timestamps; the pill tabs switch routes (Assigned →
+Todo/In-Progress groups); console clean; `tsc -b` + `npm run build` green.
+_(The header's Add filter / Display options / Open-details buttons aren't wired
+on this view yet; the Activity feed is the current user's own actions only — no
+"others' activity on my issues" stream.)_
+
 ## 2026-06-18 — Loop #71: Custom date filter — Month/Quarter/Half-year/Year + "in" range
 
 Backlog fully ticked and `tsc -b` + `npm run build` already green, so this loop
