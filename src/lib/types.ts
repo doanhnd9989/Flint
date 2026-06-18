@@ -365,6 +365,48 @@ export interface Notification {
 
 export type NotificationPrefs = Record<NotificationType, boolean>
 
+// ── Settings → Notifications ────────────────────────────────────────────────
+// Mirrors Linear's account Notifications page (workspace "Claude Test App"):
+// four delivery channels (each with a master enable + a per-event matrix) plus
+// the "Updates from Linear" product/marketing toggles.
+export type NotificationChannel = 'desktop' | 'mobile' | 'email' | 'slack'
+
+/** The per-event toggle rows shown inside a channel's detail page, in order. */
+export type NotificationEvent =
+  | 'assignments'
+  | 'statusChanges'
+  | 'comments'
+  | 'mentions'
+  | 'reactions'
+  | 'subscriptions'
+  | 'documentChanges'
+  | 'updates'
+  | 'remindersDeadlines'
+  | 'appsIntegrations'
+  | 'billing'
+  | 'triage'
+
+export interface ChannelSettings {
+  enabled: boolean
+  events: Record<NotificationEvent, boolean>
+}
+
+export interface NotificationSettings {
+  channels: Record<NotificationChannel, ChannelSettings>
+  /** Email-only: group emails into a digest vs. send individually. */
+  emailDigest: boolean
+  /** Email-only digest behaviours. */
+  emailDelayLowPriority: boolean
+  emailUrgentImmediate: boolean
+  // "Updates from Linear" — product announcements / marketing toggles.
+  showUpdatesInSidebar: boolean
+  changelogNewsletter: boolean
+  marketingOnboarding: boolean
+  inviteAccepted: boolean
+  privacyLegal: boolean
+  dpa: boolean
+}
+
 export type FavoriteType = 'issue' | 'project' | 'view'
 
 export interface Favorite {

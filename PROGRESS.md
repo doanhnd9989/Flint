@@ -2,6 +2,48 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #77: Settings → Notifications page (Linear 1:1)
+
+Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop built out
+the **Settings → Notifications** page — previously a `ComingSoon` placeholder, and
+the home for the per-type notification prefs that loop #85 moved out of the Inbox.
+
+Soi'd Linear's real account Notifications page (Chrome, workspace "Claude Test App",
+`/settings/account/notifications` + the `/email` channel sub-page). The page is:
+
+- **Notification channels** — a bordered card of four clickable rows (**Desktop ›
+  Mobile › Email › Slack**), each = channel icon + name + a status line (green/red
+  dot + **"Disabled"** / **"Enabled for all notifications"**). Defaults match the
+  real workspace: Desktop/Slack off, Mobile/Email on. Clicking a row drills into a
+  **channel detail page** (breadcrumb "Notifications" + title, a master **Enable {x}
+  notifications** toggle, then the per-event matrix grouped **General notifications**
+  [Assignments · Status changes · Comments and replies · Mentions · Reactions ·
+  Subscriptions · Document changes · Updates · Reminders and deadlines · Apps and
+  integrations · Billing] / **Feature notifications** [Triage] with each row's exact
+  label + helper text). Email additionally gets **Notification format** (Digest) +
+  **Email digest settings** (delay-low-priority / urgent-immediate). When the master
+  toggle is off the dependent rows grey out + go inert.
+- **Updates from Linear** — Changelog (**Show updates in sidebar** / **Changelog
+  newsletter**), Marketing (**Marketing and onboarding**), Other updates (**Invite
+  accepted** / **Privacy and legal updates** / **Data processing agreement (DPA)**),
+  reproduced 1:1 with the exact labels + helper copy.
+
+Built a persisted `notificationSettings` store slice (`NotificationSettings` type:
+per-channel `{enabled, events}` matrix + email-digest + Updates-from-Linear booleans),
+`DEFAULT_NOTIFICATION_SETTINGS` + `NOTIFICATION_CHANNELS`/`NOTIFICATION_EVENT_GROUPS`
+constants, three store actions (`setNotificationChannelEnabled` /
+`setNotificationEvent` / `updateNotificationSettings`), a deep merge-backfill so
+older persisted workspaces load, and a new `NotificationsSettings` component
+(overview ⇄ channel-detail via local state) wired into `SettingsView`.
+
+Verified live (`vite preview` :4955, since dev :5173/5174 are occupied by another
+project): overview matches Linear 1:1 (channel card + Updates sections), Email drills
+in with the digest sections + event matrix, disabling the master toggle greys the
+dependent rows, console clean; `tsc -b` + `npm run build` green. _(Slack channel uses
+a `MessageSquare` stand-in — lucide dropped its brand `Slack` icon; the Digest /
+delay / urgent toggles are booleans rather than Linear's select+time-range UI; the
+"Updates from Linear" toggles are cosmetic with no real email backend.)_
+
 ## 2026-06-18 — Loop #76: Inbox keyboard shortcuts (Linear 1:1)
 
 Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop added the

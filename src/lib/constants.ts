@@ -1,6 +1,9 @@
 import type {
   DisplayProperty,
   InitiativeStatus,
+  NotificationChannel,
+  NotificationEvent,
+  NotificationSettings,
   Priority,
   ProjectStatus,
   StatusType,
@@ -124,6 +127,81 @@ export const DEFAULT_DISPLAY_PROPERTIES: Record<DisplayProperty, boolean> = {
   timeInStatus: false,
   created: true,
   updated: false,
+}
+
+// ── Settings → Notifications ────────────────────────────────────────────────
+// The per-event toggle rows on a channel's detail page, split into Linear's two
+// groups (General / Feature), each row's exact label + helper text.
+export const NOTIFICATION_CHANNELS: {
+  id: NotificationChannel
+  label: string
+}[] = [
+  { id: 'desktop', label: 'Desktop' },
+  { id: 'mobile', label: 'Mobile' },
+  { id: 'email', label: 'Email' },
+  { id: 'slack', label: 'Slack' },
+]
+
+export const NOTIFICATION_EVENT_GROUPS: {
+  header: string
+  events: { id: NotificationEvent; label: string; hint: string }[]
+}[] = [
+  {
+    header: 'General notifications',
+    events: [
+      { id: 'assignments', label: 'Assignments', hint: 'Assignments, unassignments, and membership changes' },
+      { id: 'statusChanges', label: 'Status changes', hint: 'Changes to the status, priority, and blocking relationships of issues' },
+      { id: 'comments', label: 'Comments and replies', hint: 'Comments, replies, and thread resolutions' },
+      { id: 'mentions', label: 'Mentions', hint: 'Mentions in comments or content' },
+      { id: 'reactions', label: 'Reactions', hint: 'Emoji reactions to your content' },
+      { id: 'subscriptions', label: 'Subscriptions', hint: "Issues, projects, initiatives, teams, and views you're subscribed to" },
+      { id: 'documentChanges', label: 'Document changes', hint: 'Changes to document content, location, and subscriptions' },
+      { id: 'updates', label: 'Updates', hint: 'New project & initiative updates and reminders to post an update' },
+      { id: 'remindersDeadlines', label: 'Reminders and deadlines', hint: 'Reminders, due dates, and SLA updates' },
+      { id: 'appsIntegrations', label: 'Apps and integrations', hint: 'Requests related to OAuth apps and integrations' },
+      { id: 'billing', label: 'Billing', hint: 'Usage credit balance alerts' },
+    ],
+  },
+  {
+    header: 'Feature notifications',
+    events: [
+      { id: 'triage', label: 'Triage', hint: 'Issues added to triage' },
+    ],
+  },
+]
+
+const ALL_EVENTS_ON: Record<NotificationEvent, boolean> = {
+  assignments: true,
+  statusChanges: true,
+  comments: true,
+  mentions: true,
+  reactions: true,
+  subscriptions: true,
+  documentChanges: true,
+  updates: true,
+  remindersDeadlines: true,
+  appsIntegrations: true,
+  billing: true,
+  triage: true,
+}
+
+// Defaults match the real workspace: Desktop/Slack off, Mobile/Email on.
+export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  channels: {
+    desktop: { enabled: false, events: { ...ALL_EVENTS_ON } },
+    mobile: { enabled: true, events: { ...ALL_EVENTS_ON } },
+    email: { enabled: true, events: { ...ALL_EVENTS_ON } },
+    slack: { enabled: false, events: { ...ALL_EVENTS_ON } },
+  },
+  emailDigest: true,
+  emailDelayLowPriority: true,
+  emailUrgentImmediate: true,
+  showUpdatesInSidebar: true,
+  changelogNewsletter: false,
+  marketingOnboarding: true,
+  inviteAccepted: true,
+  privacyLegal: true,
+  dpa: true,
 }
 
 export const STORAGE_KEY = 'linear-clone-store-v1'

@@ -9,6 +9,7 @@ import { StatesSettings } from '@/components/StatesSettings'
 import { TemplatesSettings } from '@/components/TemplatesSettings'
 import { TeamsSettings } from '@/components/TeamsSettings'
 import { ImportExportSettings } from '@/components/ImportExportSettings'
+import { NotificationsSettings } from '@/components/NotificationsSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
 import type { ThemeMode } from '@/lib/types'
@@ -258,6 +259,8 @@ function SettingsContent({ page }: { page: string }) {
       return <PreferencesPage />
     case 'profile':
       return <ProfilePage />
+    case 'notifications':
+      return <NotificationsSettings />
     case 'issue-labels':
       return (
         <Page title="Labels" description="Labels can be used to organize and filter issues.">

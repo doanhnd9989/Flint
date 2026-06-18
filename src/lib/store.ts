@@ -5,7 +5,12 @@ import { nanoid } from 'nanoid'
 import { buildSeed } from './seed'
 import type { WorkspaceData } from './seed'
 import { nowIso } from './utils'
-import { STORAGE_KEY, STATUS_TYPE_ORDER, DEFAULT_DISPLAY_PROPERTIES } from './constants'
+import {
+  STORAGE_KEY,
+  STATUS_TYPE_ORDER,
+  DEFAULT_DISPLAY_PROPERTIES,
+  DEFAULT_NOTIFICATION_SETTINGS,
+} from './constants'
 import { parsePriority, type ImportRow } from './importExport'
 import type {
   Activity,
@@ -23,6 +28,9 @@ import type {
   Notification,
   NotificationPrefs,
   NotificationType,
+  NotificationSettings,
+  NotificationChannel,
+  NotificationEvent,
   Priority,
   Project,
   ProjectHealth,
@@ -93,6 +101,8 @@ interface UIState {
   favorites: Favorite[]
   /** Per-type notification preferences (persisted). */
   notificationPrefs: NotificationPrefs
+  /** Settings → Notifications: channels + per-event matrix + product updates (persisted). */
+  notificationSettings: NotificationSettings
   /** Dismissed "Try" onboarding step keys (persisted). */
   onboardingDismissed: string[]
   /** Which properties show on issue rows — Linear's Display options (persisted). */
@@ -200,6 +210,14 @@ export interface Store extends WorkspaceData, UIState {
   deleteAllNotifications: () => void
   deleteAllReadNotifications: () => void
   setNotificationPref: (type: NotificationType, on: boolean) => void
+  /** Toggle a notification delivery channel's master enable. */
+  setNotificationChannelEnabled: (channel: NotificationChannel, enabled: boolean) => void
+  /** Toggle one per-event row inside a channel. */
+  setNotificationEvent: (channel: NotificationChannel, event: NotificationEvent, on: boolean) => void
+  /** Patch the top-level notification settings (email digest + "Updates from Linear"). */
+  updateNotificationSettings: (
+    patch: Partial<Omit<NotificationSettings, 'channels'>>,
+  ) => void
 
   // ── ui ───────────────────────────────────────────────────────
   setTheme: (t: ThemeMode) => void
@@ -311,6 +329,7 @@ export const useStore = create<Store>()(
       },
       onboardingDismissed: [],
       displayProperties: { ...DEFAULT_DISPLAY_PROPERTIES },
+      notificationSettings: structuredClone(DEFAULT_NOTIFICATION_SETTINGS),
 
       createIssue: (input) => {
         const s = get()
@@ -1131,6 +1150,36 @@ export const useStore = create<Store>()(
           notificationPrefs: { ...s.notificationPrefs, [type]: on },
         })),
 
+      setNotificationChannelEnabled: (channel, enabled) =>
+        set((s) => ({
+          notificationSettings: {
+            ...s.notificationSettings,
+            channels: {
+              ...s.notificationSettings.channels,
+              [channel]: { ...s.notificationSettings.channels[channel], enabled },
+            },
+          },
+        })),
+
+      setNotificationEvent: (channel, event, on) =>
+        set((s) => {
+          const ch = s.notificationSettings.channels[channel]
+          return {
+            notificationSettings: {
+              ...s.notificationSettings,
+              channels: {
+                ...s.notificationSettings.channels,
+                [channel]: { ...ch, events: { ...ch.events, [event]: on } },
+              },
+            },
+          }
+        }),
+
+      updateNotificationSettings: (patch) =>
+        set((s) => ({
+          notificationSettings: { ...s.notificationSettings, ...patch },
+        })),
+
       setTheme: (theme) => set({ theme }),
       toggleSidebar: () =>
         set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -1420,6 +1469,22 @@ export const useStore = create<Store>()(
         merged.displayProperties = {
           ...DEFAULT_DISPLAY_PROPERTIES,
           ...(merged.displayProperties ?? {}),
+        }
+        // Backfill notification settings (added later); deep-fill missing keys
+        // so workspaces persisted before this slice existed still load.
+        {
+          const d = DEFAULT_NOTIFICATION_SETTINGS
+          const ns = merged.notificationSettings
+          merged.notificationSettings = {
+            ...d,
+            ...(ns ?? {}),
+            channels: {
+              desktop: { ...d.channels.desktop, events: { ...d.channels.desktop.events, ...(ns?.channels?.desktop?.events ?? {}) }, ...(ns?.channels?.desktop ? { enabled: ns.channels.desktop.enabled } : {}) },
+              mobile: { ...d.channels.mobile, events: { ...d.channels.mobile.events, ...(ns?.channels?.mobile?.events ?? {}) }, ...(ns?.channels?.mobile ? { enabled: ns.channels.mobile.enabled } : {}) },
+              email: { ...d.channels.email, events: { ...d.channels.email.events, ...(ns?.channels?.email?.events ?? {}) }, ...(ns?.channels?.email ? { enabled: ns.channels.email.enabled } : {}) },
+              slack: { ...d.channels.slack, events: { ...d.channels.slack.events, ...(ns?.channels?.slack?.events ?? {}) }, ...(ns?.channels?.slack ? { enabled: ns.channels.slack.enabled } : {}) },
+            },
+          }
         }
         // Backfill issue links for workspaces persisted before they existed.
         if (!Array.isArray(merged.issueLinks)) {
