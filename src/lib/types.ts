@@ -303,6 +303,8 @@ export interface FilterState {
   // Optional so saved views persisted before these dimensions existed still load.
   creatorIds?: string[]
   subscriberIds?: string[]
+  cycleIds?: string[]
+  milestoneIds?: string[]
 }
 
 export interface SavedView {

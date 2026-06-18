@@ -55,6 +55,16 @@ export function filterIssues(
       !i.subscriberIds.some((s) => filters.subscriberIds!.includes(s))
     )
       return false
+    if (
+      filters.cycleIds?.length &&
+      !(i.cycleId && filters.cycleIds.includes(i.cycleId))
+    )
+      return false
+    if (
+      filters.milestoneIds?.length &&
+      !(i.milestoneId && filters.milestoneIds.includes(i.milestoneId))
+    )
+      return false
     return true
   })
 }

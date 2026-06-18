@@ -2,6 +2,34 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #67: Filter by Cycle & Milestone
+
+Backlog fully ticked and `tsc -b` + `npm run build` were already green, so this
+loop continued the filter-bar parity push (loop #66 added Creator/Subscribers).
+Soi'd Linear's **Filter** popover (Chrome, workspace "Claude Test App"): the
+dimension list is Status · Assignee · Creator · Priority · Label · Project ·
+**Cycle** (iteration icon → submenu of the team's cycles) · **Milestone**
+(diamond icon → submenu of project milestones) · Subscribers. We stored
+`Issue.cycleId` and `Issue.milestoneId` already but neither was filterable.
+
+Added the two dimensions:
+- `FilterBar` — new `cycleIds` / `milestoneIds` dims, ordered to match Linear
+  (Cycle + Milestone after Project, before Subscribers). Cycle options = all
+  cycles sorted newest-first (`name ?? Cycle N`, `IterationCw` icon); Milestone
+  options = all milestones sorted by `sortOrder` (`Diamond` icon).
+  `emptyFilters()` seeds both.
+- `FilterState` — gains optional `cycleIds?` / `milestoneIds?` (kept optional so
+  SavedViews persisted before this round still deserialize).
+- `filterIssues` (selectors) — filters by exact `cycleId` and exact
+  `milestoneId`, both `?.length`-guarded.
+
+Verified live (localhost:5199 — dev port 5173 was occupied by an unrelated
+"Hubneo" app this run): the Filter menu lists Cycle/Milestone in Linear's order;
+the Cycle submenu shows Cycle 2 / Cycle 1 with the iteration icon; selecting
+`Cycle = Cycle 1` filters the Todo group 4→2 and shows a `Cycle · Cycle 1 · ×`
+chip + Clear; console clean; `tsc -b` + `npm run build` green. _(Dates filter
+dim + "no cycle"/negative filters still TODO.)_
+
 ## 2026-06-18 — Loop #66: Filter by Creator & Subscribers
 
 Backlog was fully ticked and `tsc -b` + `npm run build` were already green, so

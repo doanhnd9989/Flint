@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Filter, X, Plus } from 'lucide-react'
+import { Filter, X, Plus, IterationCw, Diamond } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { Popover } from './ui/Popover'
 import { StatusIcon } from './StatusIcon'
@@ -18,6 +18,8 @@ type Dim =
   | 'priorities'
   | 'labelIds'
   | 'projectIds'
+  | 'cycleIds'
+  | 'milestoneIds'
   | 'subscriberIds'
 
 const DIMS: { id: Dim; label: string }[] = [
@@ -27,6 +29,8 @@ const DIMS: { id: Dim; label: string }[] = [
   { id: 'priorities', label: 'Priority' },
   { id: 'labelIds', label: 'Label' },
   { id: 'projectIds', label: 'Project' },
+  { id: 'cycleIds', label: 'Cycle' },
+  { id: 'milestoneIds', label: 'Milestone' },
   { id: 'subscriberIds', label: 'Subscribers' },
 ]
 
@@ -39,6 +43,8 @@ export function emptyFilters(): FilterState {
     projectIds: [],
     creatorIds: [],
     subscriberIds: [],
+    cycleIds: [],
+    milestoneIds: [],
   }
 }
 
@@ -57,6 +63,8 @@ function useDimOptions(): Record<Dim, ValueOption[]> {
   const users = useStore((s) => s.users)
   const labels = useStore((s) => s.labels)
   const projects = useStore((s) => s.projects)
+  const cycles = useStore((s) => s.cycles)
+  const milestones = useStore((s) => s.milestones)
 
   return {
     statusIds: [...states]
@@ -72,6 +80,20 @@ function useDimOptions(): Record<Dim, ValueOption[]> {
     })),
     labelIds: labels.filter((l) => !l.isGroup).map((l) => ({ id: l.id, label: l.name, icon: <LabelDot color={l.color} /> })),
     projectIds: projects.map((p) => ({ id: p.id, label: p.name, icon: <span>{p.icon}</span> })),
+    cycleIds: [...cycles]
+      .sort((a, b) => b.number - a.number)
+      .map((c) => ({
+        id: c.id,
+        label: c.name ?? `Cycle ${c.number}`,
+        icon: <IterationCw size={14} className="text-faint" />,
+      })),
+    milestoneIds: [...milestones]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((m) => ({
+        id: m.id,
+        label: m.name,
+        icon: <Diamond size={12} className="text-faint" />,
+      })),
   }
 }
 
