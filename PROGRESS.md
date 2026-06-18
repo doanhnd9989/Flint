@@ -2,6 +2,37 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #73: My Issues — wire Add filter + Display options
+
+Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop closed
+the TODO left in loop #72: the **My Issues** header controls (Add filter /
+Display options) weren't wired on the Assigned / Created / Subscribed tabs.
+
+Soi'd Linear's My Issues page: those three tabs behave exactly like the team
+Issues view — a **Display options** popover on the right of the pill sub-nav and
+a **Filter** bar beneath it (chips `dimension · operator · value · ×` + Clear),
+while the **Activity** tab has neither. Reproduced 1:1 by lifting `IssuesView`'s
+view-state into `MyIssues`:
+
+- `MyIssues.tsx` — now holds local `layout` / `groupBy` / `subGroupBy` /
+  `orderBy` / `orderCompletedByRecency` / `showSubIssues` / `nestedSubIssues` /
+  `showEmptyGroups` / `filters` state (persists across the three issue tabs, as
+  Linear does); a `DisplayMenu` is mounted to the right of the tab row for the
+  issue tabs only. A new `IssueTab` subcomponent scopes by the per-tab predicate
+  (`assigneeId` / `creatorId` / `subscriberIds`, triage excluded) and then runs
+  the **same** `filterIssues → sortIssues → groupIssues` pipeline as the team
+  view — nested sub-issues, sub-grouping, board swimlanes, empty groups, and
+  manual drag-reorder (→ switches Ordering to Manual) all included — rendering
+  `FilterBar` + `GroupedIssueList` / `IssueBoard`. The Activity tab is unchanged.
+
+Verified live (vite preview :4910, port 5173 was another project): Assigned →
+Filter → Priority → Urgent narrows to CLA-5 with a `Priority · is · Urgent · ×`
+chip + Clear; the Display pill sits on the right; the Activity tab hides both
+controls and still shows the Today 11 / Yesterday 8 feed; console clean;
+`tsc -b` + `npm run build` green. _(View state is local like the team Issues
+view — not yet persisted to a saved view; Linear's "Open details" header button
+isn't reproduced.)_
+
 ## 2026-06-18 — Loop #72: My Issues — Assigned / Created / Subscribed / Activity tabs
 
 Backlog fully ticked and `tsc -b` + `npm run build` already green, so this loop

@@ -15,9 +15,19 @@ import {
   UserRound,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import { groupIssues, sortIssues } from '@/lib/selectors'
-import type { Activity, ActivityKind } from '@/lib/types'
+import { filterIssues, groupIssues, sortIssues } from '@/lib/selectors'
+import type {
+  Activity,
+  ActivityKind,
+  GroupBy,
+  Issue,
+  OrderBy,
+  ViewLayout,
+} from '@/lib/types'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
+import { IssueBoard } from '@/components/IssueBoard'
+import { DisplayMenu } from '@/components/DisplayMenu'
+import { FilterBar, emptyFilters } from '@/components/FilterBar'
 import { ViewHeader } from '@/components/ViewHeader'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
@@ -48,28 +58,27 @@ const EMPTY: Record<Exclude<Tab, 'activity'>, { title: string; description: stri
 }
 
 export function MyIssues() {
-  const data = useStore()
   const navigate = useNavigate()
   const params = useParams<{ tab?: string }>()
   const tab: Tab = isTab(params.tab) ? params.tab : 'assigned'
 
-  const groups = useMemo(() => {
-    if (tab === 'activity') return []
-    const me = data.currentUserId
-    const mine = data.issues.filter((i) => {
-      if (i.triage) return false
-      if (tab === 'assigned') return i.assigneeId === me
-      if (tab === 'created') return i.creatorId === me
-      return i.subscriberIds.includes(me) // subscribed
-    })
-    return groupIssues(sortIssues(mine, 'priority', data), 'status', data)
-  }, [data, tab])
+  // Display + filter state, held here so it persists across the issue tabs
+  // (Linear applies the same display options across Assigned/Created/Subscribed).
+  const [layout, setLayout] = useState<ViewLayout>('list')
+  const [groupBy, setGroupBy] = useState<GroupBy>('status')
+  const [subGroupBy, setSubGroupBy] = useState<GroupBy>('none')
+  const [orderBy, setOrderBy] = useState<OrderBy>('priority')
+  const [orderCompletedByRecency, setOrderCompletedByRecency] = useState(false)
+  const [showSubIssues, setShowSubIssues] = useState(true)
+  const [nestedSubIssues, setNestedSubIssues] = useState(false)
+  const [showEmptyGroups, setShowEmptyGroups] = useState(false)
+  const [filters, setFilters] = useState(emptyFilters())
 
   return (
     <div className="flex h-full flex-col">
       <ViewHeader title="My Issues" />
 
-      {/* Tabs (Linear-style pill sub-nav) */}
+      {/* Tabs (Linear-style pill sub-nav) + Display options on the right */}
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-1.5">
         {TABS.map((t) => (
           <button
@@ -84,14 +93,165 @@ export function MyIssues() {
             {t}
           </button>
         ))}
+        {tab !== 'activity' && (
+          <div className="ml-auto">
+            <DisplayMenu
+              layout={layout}
+              groupBy={groupBy}
+              orderBy={orderBy}
+              onLayout={setLayout}
+              onGroupBy={setGroupBy}
+              onOrderBy={setOrderBy}
+              subGroupBy={subGroupBy}
+              onSubGroupBy={setSubGroupBy}
+              orderCompletedByRecency={orderCompletedByRecency}
+              onOrderCompletedByRecency={setOrderCompletedByRecency}
+              showSubIssues={showSubIssues}
+              onShowSubIssues={setShowSubIssues}
+              nestedSubIssues={nestedSubIssues}
+              onNestedSubIssues={setNestedSubIssues}
+              showEmptyGroups={showEmptyGroups}
+              onShowEmptyGroups={setShowEmptyGroups}
+            />
+          </div>
+        )}
       </div>
 
       {tab === 'activity' ? (
         <ActivityFeed />
       ) : (
-        <GroupedIssueList groups={groups} groupBy="status" empty={EMPTY[tab]} />
+        <IssueTab
+          tab={tab}
+          layout={layout}
+          groupBy={groupBy}
+          subGroupBy={subGroupBy}
+          orderBy={orderBy}
+          orderCompletedByRecency={orderCompletedByRecency}
+          showSubIssues={showSubIssues}
+          nestedSubIssues={nestedSubIssues}
+          showEmptyGroups={showEmptyGroups}
+          filters={filters}
+          onFilters={setFilters}
+          onManualReorder={() => setOrderBy('manual')}
+        />
       )}
     </div>
+  )
+}
+
+// ── Issue tabs (Assigned / Created / Subscribed) ───────────────
+
+interface IssueTabProps {
+  tab: Exclude<Tab, 'activity'>
+  layout: ViewLayout
+  groupBy: GroupBy
+  subGroupBy: GroupBy
+  orderBy: OrderBy
+  orderCompletedByRecency: boolean
+  showSubIssues: boolean
+  nestedSubIssues: boolean
+  showEmptyGroups: boolean
+  filters: ReturnType<typeof emptyFilters>
+  onFilters: (f: ReturnType<typeof emptyFilters>) => void
+  onManualReorder: () => void
+}
+
+function IssueTab({
+  tab,
+  layout,
+  groupBy,
+  subGroupBy,
+  orderBy,
+  orderCompletedByRecency,
+  showSubIssues,
+  nestedSubIssues,
+  showEmptyGroups,
+  filters,
+  onFilters,
+  onManualReorder,
+}: IssueTabProps) {
+  const data = useStore()
+
+  // Nesting only makes sense in the list view with sub-issues shown.
+  const nested = layout === 'list' && showSubIssues && nestedSubIssues
+
+  const { groups, childrenByParent, rows } = useMemo(() => {
+    const me = data.currentUserId
+    let scoped = data.issues.filter((i) => {
+      if (i.triage) return false
+      if (tab === 'assigned') return i.assigneeId === me
+      if (tab === 'created') return i.creatorId === me
+      return i.subscriberIds.includes(me) // subscribed
+    })
+
+    if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
+
+    const filtered = filterIssues(scoped, filters)
+    const sorted = sortIssues(filtered, orderBy, data, orderCompletedByRecency)
+
+    let childrenByParent: Record<string, Issue[]> | undefined
+    let forGrouping = sorted
+    if (nested) {
+      const visible = new Set(sorted.map((i) => i.id))
+      const map: Record<string, Issue[]> = {}
+      for (const i of sorted) {
+        if (i.parentId && visible.has(i.parentId)) (map[i.parentId] ??= []).push(i)
+      }
+      childrenByParent = map
+      forGrouping = sorted.filter((i) => !i.parentId || !visible.has(i.parentId))
+    }
+
+    const top = groupIssues(
+      forGrouping,
+      layout === 'board' ? 'status' : groupBy,
+      data,
+      showEmptyGroups,
+    )
+    const groups =
+      subGroupBy !== 'none'
+        ? top.map((g) => ({
+            ...g,
+            subGroups: groupIssues(g.issues, subGroupBy, data, showEmptyGroups),
+          }))
+        : top
+    const rows =
+      layout === 'board' && subGroupBy !== 'none'
+        ? groupIssues(forGrouping, subGroupBy, data, true)
+        : undefined
+    return { groups, childrenByParent, rows }
+  }, [
+    data,
+    tab,
+    groupBy,
+    subGroupBy,
+    orderBy,
+    orderCompletedByRecency,
+    layout,
+    filters,
+    showSubIssues,
+    nested,
+    showEmptyGroups,
+  ])
+
+  return (
+    <>
+      <FilterBar filters={filters} onChange={onFilters} />
+      {layout === 'board' ? (
+        <IssueBoard groups={groups} rows={rows} subGroupBy={subGroupBy} />
+      ) : (
+        <GroupedIssueList
+          groups={groups}
+          groupBy={groupBy}
+          subGroupBy={subGroupBy}
+          childrenByParent={nested ? childrenByParent : undefined}
+          empty={EMPTY[tab]}
+          onReorder={(id, sortOrder) => {
+            data.setIssueSortOrder(id, sortOrder)
+            onManualReorder()
+          }}
+        />
+      )}
+    </>
   )
 }
 
