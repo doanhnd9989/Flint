@@ -25,46 +25,62 @@ export function filterIssues(
   issues: Issue[],
   filters: FilterState,
 ): Issue[] {
+  const neg = filters.negate ?? {}
   return issues.filter((i) => {
-    if (filters.statusIds.length && !filters.statusIds.includes(i.stateId))
-      return false
-    if (
-      filters.assigneeIds.length &&
-      !(i.assigneeId && filters.assigneeIds.includes(i.assigneeId))
-    )
-      return false
-    if (filters.priorities.length && !filters.priorities.includes(i.priority))
-      return false
-    if (
-      filters.labelIds.length &&
-      !i.labelIds.some((l) => filters.labelIds.includes(l))
-    )
-      return false
-    if (
-      filters.projectIds.length &&
-      !(i.projectId && filters.projectIds.includes(i.projectId))
-    )
-      return false
-    if (
-      filters.creatorIds?.length &&
-      !filters.creatorIds.includes(i.creatorId)
-    )
-      return false
-    if (
-      filters.subscriberIds?.length &&
-      !i.subscriberIds.some((s) => filters.subscriberIds!.includes(s))
-    )
-      return false
-    if (
-      filters.cycleIds?.length &&
-      !(i.cycleId && filters.cycleIds.includes(i.cycleId))
-    )
-      return false
-    if (
-      filters.milestoneIds?.length &&
-      !(i.milestoneId && filters.milestoneIds.includes(i.milestoneId))
-    )
-      return false
+    // Each entry: [is this dimension active?, does the issue match it?, dimension key].
+    // A negated dimension excludes matching issues; otherwise it keeps only matches.
+    const dims: [boolean, boolean, keyof typeof neg][] = [
+      [
+        filters.statusIds.length > 0,
+        filters.statusIds.includes(i.stateId),
+        'statusIds',
+      ],
+      [
+        filters.assigneeIds.length > 0,
+        !!(i.assigneeId && filters.assigneeIds.includes(i.assigneeId)),
+        'assigneeIds',
+      ],
+      [
+        filters.priorities.length > 0,
+        filters.priorities.includes(i.priority),
+        'priorities',
+      ],
+      [
+        filters.labelIds.length > 0,
+        i.labelIds.some((l) => filters.labelIds.includes(l)),
+        'labelIds',
+      ],
+      [
+        filters.projectIds.length > 0,
+        !!(i.projectId && filters.projectIds.includes(i.projectId)),
+        'projectIds',
+      ],
+      [
+        !!filters.creatorIds?.length,
+        !!filters.creatorIds?.includes(i.creatorId),
+        'creatorIds',
+      ],
+      [
+        !!filters.subscriberIds?.length,
+        i.subscriberIds.some((s) => filters.subscriberIds!.includes(s)),
+        'subscriberIds',
+      ],
+      [
+        !!filters.cycleIds?.length,
+        !!(i.cycleId && filters.cycleIds!.includes(i.cycleId)),
+        'cycleIds',
+      ],
+      [
+        !!filters.milestoneIds?.length,
+        !!(i.milestoneId && filters.milestoneIds!.includes(i.milestoneId)),
+        'milestoneIds',
+      ],
+    ]
+    for (const [active, matches, key] of dims) {
+      if (!active) continue
+      const ok = neg[key] ? !matches : matches
+      if (!ok) return false
+    }
     return true
   })
 }

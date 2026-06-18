@@ -305,6 +305,12 @@ export interface FilterState {
   subscriberIds?: string[]
   cycleIds?: string[]
   milestoneIds?: string[]
+  /**
+   * Per-dimension "is not" operator. When `negate[dim]` is true, that
+   * dimension excludes matching issues instead of including them. Optional so
+   * saved views persisted before operators existed still load.
+   */
+  negate?: Partial<Record<keyof Omit<FilterState, 'negate'>, boolean>>
 }
 
 export interface SavedView {

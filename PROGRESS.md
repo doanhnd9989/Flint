@@ -2,6 +2,35 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #68: Filter operators (is / is not)
+
+Backlog fully ticked and `tsc -b` + `npm run build` already green, so this loop
+advanced filter-bar parity again (loops #66/#67 added dimensions; this one adds
+the **operator**). Soi'd Linear's filter chip (Chrome, workspace "Claude Test
+App"): a chip is **dimension · operator · value(s) · ×**, and the operator
+segment is a dropdown — **is** / **is not** with one value, **is any of** / **is
+not** once 2+ values are picked. "is not" inverts the dimension (`Status is not
+Todo` shows everything except Todo). Our chips only did "is".
+
+Implemented:
+- `FilterState.negate?` — optional `Partial<Record<dimKey, boolean>>` (kept
+  optional so SavedViews persisted before operators still deserialize).
+- `filterIssues` (selectors) — refactored the per-dimension checks into a
+  `[active, matches, key]` table; a dimension with `negate[key]` set inverts its
+  membership test (negated multi-value label/subscriber dims → "has none of").
+- `FilterBar` — the chip gains an operator `Popover` between the dimension label
+  and the value picker (`OperatorMenu`: `is`/`is any of` + `is not`, check on
+  current, closes on select). New `operatorLabel()` (positive flips to "is any
+  of" at 2+ values), `setNegate`/`clearDim` helpers; the chip `×` and the
+  empty-value paths drop the lingering operator.
+
+Verified live (localhost:5199 — 5173 still held by the unrelated "Hubneo" app):
+`Status is Todo` shows the 4 Todo issues; the chip reads **Status · is · Todo ·
+×**; opening the operator menu shows `is ✓` / `is not`; choosing **is not**
+inverts the list to In Progress/In Review/Done with the chip now **Status · is
+not · Todo**; console clean; `tsc -b` + `npm run build` green. _(Dates filter
+dim + Linear's "2 statuses" overlapping-icon value summary still TODO.)_
+
 ## 2026-06-18 — Loop #67: Filter by Cycle & Milestone
 
 Backlog fully ticked and `tsc -b` + `npm run build` were already green, so this

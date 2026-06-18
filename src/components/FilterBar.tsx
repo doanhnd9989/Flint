@@ -108,6 +108,72 @@ function setValues(f: FilterState, dim: Dim, ids: string[]): FilterState {
   return { ...f, [dim]: ids }
 }
 
+function isNegated(f: FilterState, dim: Dim): boolean {
+  return !!f.negate?.[dim]
+}
+
+function setNegate(f: FilterState, dim: Dim, neg: boolean): FilterState {
+  const next = { ...(f.negate ?? {}) }
+  if (neg) next[dim] = true
+  else delete next[dim]
+  return { ...f, negate: next }
+}
+
+/** Removing a dimension's chip drops both its values and its operator. */
+function clearDim(f: FilterState, dim: Dim): FilterState {
+  return setNegate(setValues(f, dim, []), dim, false)
+}
+
+/** Linear's operator wording: positive flips to "is any of" with 2+ values. */
+function operatorLabel(negated: boolean, count: number): string {
+  if (negated) return 'is not'
+  return count > 1 ? 'is any of' : 'is'
+}
+
+const CheckMark = (
+  <svg width="14" height="14" viewBox="0 0 16 16" className="text-accent">
+    <path
+      d="M3.5 8.5l3 3 6-6.5"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
+function OperatorMenu({
+  negated,
+  count,
+  onSelect,
+}: {
+  negated: boolean
+  count: number
+  onSelect: (negated: boolean) => void
+}) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => onSelect(false)}
+        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+      >
+        {count > 1 ? 'is any of' : 'is'}
+        {!negated && CheckMark}
+      </button>
+      <button
+        type="button"
+        onClick={() => onSelect(true)}
+        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+      >
+        is not
+        {negated && CheckMark}
+      </button>
+    </div>
+  )
+}
+
 function ValueList({
   options,
   selected,
@@ -152,7 +218,8 @@ function AddFilterPanel({
   function toggle(d: Dim, id: string) {
     const cur = valuesOf(filters, d)
     const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
-    onChange(setValues(filters, d, next))
+    const f = setValues(filters, d, next)
+    onChange(next.length ? f : setNegate(f, d, false))
   }
 
   if (!dim) {
@@ -211,9 +278,31 @@ function Chip({
     .filter(Boolean) as string[]
   const display = names.length <= 2 ? names.join(', ') : `${names.length} selected`
 
+  const negated = isNegated(filters, dim)
+
   return (
     <div className="flex items-center overflow-hidden rounded-md border border-border text-[12px]">
       <span className="px-2 py-1 text-faint">{DIMS.find((d) => d.id === dim)!.label}</span>
+      <Popover
+        align="start"
+        width={160}
+        trigger={
+          <span className="border-l border-border bg-bg px-2 py-1 text-muted hover:bg-bg-hover">
+            {operatorLabel(negated, selected.length)}
+          </span>
+        }
+      >
+        {(close) => (
+          <OperatorMenu
+            negated={negated}
+            count={selected.length}
+            onSelect={(n) => {
+              onChange(setNegate(filters, dim, n))
+              close()
+            }}
+          />
+        )}
+      </Popover>
       <Popover
         align="start"
         width={220}
@@ -230,14 +319,15 @@ function Chip({
             onToggle={(id) => {
               const cur = valuesOf(filters, dim)
               const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
-              onChange(setValues(filters, dim, next))
+              const f = setValues(filters, dim, next)
+              onChange(next.length ? f : setNegate(f, dim, false))
             }}
           />
         )}
       </Popover>
       <button
         type="button"
-        onClick={() => onChange(setValues(filters, dim, []))}
+        onClick={() => onChange(clearDim(filters, dim))}
         className="border-l border-border px-1.5 py-1 text-faint hover:bg-bg-hover hover:text-fg"
       >
         <X size={12} />
