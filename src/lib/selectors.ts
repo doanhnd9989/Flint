@@ -1,4 +1,6 @@
 import type {
+  DateField,
+  DateFilter,
   FilterState,
   GroupBy,
   Issue,
@@ -21,11 +23,64 @@ export interface IssueGroup {
   subGroups?: IssueGroup[]
 }
 
+/** The issue timestamp a date filter compares against (undefined when unset). */
+function issueDate(i: Issue, field: DateField): string | undefined {
+  switch (field) {
+    case 'due':
+      return i.dueDate
+    case 'created':
+      return i.createdAt
+    case 'updated':
+      return i.updatedAt
+    case 'completed':
+      return i.completedAt
+  }
+}
+
+/** Resolve a relative period token (e.g. "1w") to an absolute cutoff Date. */
+export function resolveDateCutoff(value: string): Date {
+  const d = new Date()
+  switch (value) {
+    case '1d':
+      d.setDate(d.getDate() - 1)
+      break
+    case '3d':
+      d.setDate(d.getDate() - 3)
+      break
+    case '1w':
+      d.setDate(d.getDate() - 7)
+      break
+    case '1m':
+      d.setMonth(d.getMonth() - 1)
+      break
+    case '3m':
+      d.setMonth(d.getMonth() - 3)
+      break
+    case '6m':
+      d.setMonth(d.getMonth() - 6)
+      break
+    case '1y':
+      d.setFullYear(d.getFullYear() - 1)
+      break
+  }
+  return d
+}
+
+/** Does an issue satisfy a single date filter? */
+function matchesDate(i: Issue, f: DateFilter): boolean {
+  const raw = issueDate(i, f.field)
+  if (!raw) return false
+  const when = new Date(raw).getTime()
+  const cutoff = resolveDateCutoff(f.value).getTime()
+  return f.op === 'before' ? when <= cutoff : when >= cutoff
+}
+
 export function filterIssues(
   issues: Issue[],
   filters: FilterState,
 ): Issue[] {
   const neg = filters.negate ?? {}
+  const dateFilters = filters.dates ?? []
   return issues.filter((i) => {
     // Each entry: [is this dimension active?, does the issue match it?, dimension key].
     // A negated dimension excludes matching issues; otherwise it keeps only matches.
@@ -80,6 +135,10 @@ export function filterIssues(
       if (!active) continue
       const ok = neg[key] ? !matches : matches
       if (!ok) return false
+    }
+    // Date filters are ANDed (Linear's "Created after X" + "Created before Y").
+    for (const df of dateFilters) {
+      if (!matchesDate(i, df)) return false
     }
     return true
   })

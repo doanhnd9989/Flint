@@ -2,6 +2,39 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #69: Filter by Dates
+
+Backlog fully ticked and `tsc -b` + `npm run build` already green, so this loop
+closed the **Dates filter dimension** TODO carried since loops #66–68. Soi'd
+Linear's Filter popover (Chrome, workspace "Claude Test App"): a bottom **Dates**
+entry (calendar icon) → field submenu (**Due / Created / Updated / Started /
+Completed / Triaged date · Time in current status**) → relative quick-pick list
+(**1 day · 3 days · 1 week · 1 month · 3 months · 6 months · 1 year ago** +
+Custom). The chip is **{field} · {before/after} · {period} · ×** with a
+**before/after** operator dropdown (default **after**).
+
+Implemented the slice we can back with real timestamps — the four fields we
+track (**Due / Created / Updated / Completed**):
+- `types.ts` — `DateField` + `DateFilter {field, op:'before'|'after', value}`
+  and an optional `FilterState.dates?: DateFilter[]` (optional → older SavedViews
+  still deserialize).
+- `selectors.ts` — `resolveDateCutoff(token)` maps `1d/3d/1w/1m/3m/6m/1y` to an
+  absolute cutoff `Date`; `filterIssues` ANDs each date filter (`before` = ≤,
+  `after` = ≥) against the issue's timestamp; issues missing that date never
+  match (mirrors Linear).
+- `FilterBar.tsx` — root **Dates** entry (multi-level `nav` state) → field list →
+  period list (picking a period appends `{op:'after'}` and closes via the
+  popover `close`), plus a `DateChip` (calendar icon + field label · before/after
+  `Popover` · period `Popover` · ×).
+
+Verified live (localhost:5199 — 5173 still held by the unrelated "Hubneo" app):
+`Dates → Created date → 1 week ago` → chip **📅 Created date · after · 1 week
+ago**, all seed issues (created yesterday) remain; flipping the operator menu
+(**before ✓ / after**) to **before** empties the list to the "No issues" state;
+console clean; `tsc -b` + `npm run build` green. _(Started/Triaged/Time-in-status
+fields + "Custom date or timeframe…" / "No due date" values still TODO — no
+backing data / calendar wiring this round.)_
+
 ## 2026-06-18 — Loop #68: Filter operators (is / is not)
 
 Backlog fully ticked and `tsc -b` + `npm run build` already green, so this loop

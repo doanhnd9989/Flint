@@ -294,6 +294,20 @@ export type DisplayProperty =
   | 'created'
   | 'updated'
 
+/** Which issue timestamp a date filter compares against. */
+export type DateField = 'due' | 'created' | 'updated' | 'completed'
+
+/**
+ * A single date filter, mirroring Linear's Dates dimension: a field, a
+ * before/after operator, and a relative-period value (e.g. "1w" = 1 week ago).
+ */
+export interface DateFilter {
+  field: DateField
+  op: 'before' | 'after'
+  /** Relative period token: 1d · 3d · 1w · 1m · 3m · 6m · 1y. */
+  value: string
+}
+
 export interface FilterState {
   statusIds: string[]
   assigneeIds: string[]
@@ -305,6 +319,8 @@ export interface FilterState {
   subscriberIds?: string[]
   cycleIds?: string[]
   milestoneIds?: string[]
+  /** Date filters (Linear's "Dates" dimension). Optional for back-compat. */
+  dates?: DateFilter[]
   /**
    * Per-dimension "is not" operator. When `negate[dim]` is true, that
    * dimension excludes matching issues instead of including them. Optional so

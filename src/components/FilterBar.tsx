@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Filter, X, Plus, IterationCw, Diamond } from 'lucide-react'
+import { Filter, X, Plus, IterationCw, Diamond, CalendarDays } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { Popover } from './ui/Popover'
 import { StatusIcon } from './StatusIcon'
@@ -7,7 +7,7 @@ import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { PRIORITY_LABELS, PRIORITY_ORDER, STATUS_TYPE_ORDER } from '@/lib/constants'
-import type { FilterState, Priority } from '@/lib/types'
+import type { DateField, DateFilter, FilterState, Priority } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
 
@@ -34,6 +34,33 @@ const DIMS: { id: Dim; label: string }[] = [
   { id: 'subscriberIds', label: 'Subscribers' },
 ]
 
+/** Linear's Dates submenu — we back the four fields we track timestamps for. */
+const DATE_FIELDS: { id: DateField; label: string }[] = [
+  { id: 'due', label: 'Due date' },
+  { id: 'created', label: 'Created date' },
+  { id: 'updated', label: 'Updated date' },
+  { id: 'completed', label: 'Completed date' },
+]
+
+/** Linear's relative quick-pick periods, in order. */
+const DATE_PERIODS: { value: string; label: string }[] = [
+  { value: '1d', label: '1 day ago' },
+  { value: '3d', label: '3 days ago' },
+  { value: '1w', label: '1 week ago' },
+  { value: '1m', label: '1 month ago' },
+  { value: '3m', label: '3 months ago' },
+  { value: '6m', label: '6 months ago' },
+  { value: '1y', label: '1 year ago' },
+]
+
+function dateFieldLabel(field: DateField): string {
+  return DATE_FIELDS.find((f) => f.id === field)?.label ?? field
+}
+
+function datePeriodLabel(value: string): string {
+  return DATE_PERIODS.find((p) => p.value === value)?.label ?? value
+}
+
 export function emptyFilters(): FilterState {
   return {
     statusIds: [],
@@ -45,11 +72,15 @@ export function emptyFilters(): FilterState {
     subscriberIds: [],
     cycleIds: [],
     milestoneIds: [],
+    dates: [],
   }
 }
 
 export function hasActiveFilters(f: FilterState): boolean {
-  return DIMS.some((d) => ((f[d.id] as unknown[]) ?? []).length > 0)
+  return (
+    DIMS.some((d) => ((f[d.id] as unknown[]) ?? []).length > 0) ||
+    (f.dates ?? []).length > 0
+  )
 }
 
 interface ValueOption {
@@ -205,14 +236,24 @@ function ValueList({
   )
 }
 
+/** Append a date filter (default operator "after", matching Linear). */
+function addDateFilter(f: FilterState, field: DateField, value: string): FilterState {
+  const next: DateFilter = { field, op: 'after', value }
+  return { ...f, dates: [...(f.dates ?? []), next] }
+}
+
 function AddFilterPanel({
   filters,
   onChange,
+  onPicked,
 }: {
   filters: FilterState
   onChange: (f: FilterState) => void
+  onPicked: () => void
 }) {
-  const [dim, setDim] = useState<Dim | null>(null)
+  // null = root · Dim = that dimension's value list · 'dates' = date-field list ·
+  // DateField = that field's relative-period list.
+  const [nav, setNav] = useState<Dim | 'dates' | DateField | null>(null)
   const dimOptions = useDimOptions()
 
   function toggle(d: Dim, id: string) {
@@ -222,14 +263,15 @@ function AddFilterPanel({
     onChange(next.length ? f : setNegate(f, d, false))
   }
 
-  if (!dim) {
+  // Root menu.
+  if (nav === null) {
     return (
       <div>
         {DIMS.map((d) => (
           <button
             key={d.id}
             type="button"
-            onClick={() => setDim(d.id)}
+            onClick={() => setNav(d.id)}
             className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
           >
             {d.label}
@@ -238,15 +280,80 @@ function AddFilterPanel({
             )}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setNav('dates')}
+          className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+        >
+          <span className="flex items-center gap-2">
+            <CalendarDays size={14} className="text-faint" /> Dates
+          </span>
+        </button>
       </div>
     )
   }
 
+  // Date-field list.
+  if (nav === 'dates') {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setNav(null)}
+          className="mb-1 flex items-center gap-1 px-2 py-1 text-[11px] text-faint hover:text-fg"
+        >
+          ‹ Dates
+        </button>
+        {DATE_FIELDS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setNav(f.id)}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+          >
+            <CalendarDays size={14} className="text-faint" /> {f.label}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  // A date field is selected → show its relative-period list.
+  if (nav === 'due' || nav === 'created' || nav === 'updated' || nav === 'completed') {
+    const field = nav
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setNav('dates')}
+          className="mb-1 flex items-center gap-1 px-2 py-1 text-[11px] text-faint hover:text-fg"
+        >
+          ‹ {dateFieldLabel(field)}
+        </button>
+        {DATE_PERIODS.map((p) => (
+          <button
+            key={p.value}
+            type="button"
+            onClick={() => {
+              onChange(addDateFilter(filters, field, p.value))
+              onPicked()
+            }}
+            className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  // A regular dimension is selected → value list.
+  const dim = nav
   return (
     <div>
       <button
         type="button"
-        onClick={() => setDim(null)}
+        onClick={() => setNav(null)}
         className="mb-1 flex items-center gap-1 px-2 py-1 text-[11px] text-faint hover:text-fg"
       >
         ‹ {DIMS.find((d) => d.id === dim)!.label}
@@ -336,6 +443,102 @@ function Chip({
   )
 }
 
+/** One date filter, rendered like Linear: field · before/after · period · ×. */
+function DateChip({
+  index,
+  filters,
+  onChange,
+}: {
+  index: number
+  filters: FilterState
+  onChange: (f: FilterState) => void
+}) {
+  const df = filters.dates?.[index]
+  if (!df) return null
+
+  function patch(next: Partial<DateFilter>) {
+    const dates = [...(filters.dates ?? [])]
+    dates[index] = { ...dates[index], ...next }
+    onChange({ ...filters, dates })
+  }
+
+  function remove() {
+    const dates = (filters.dates ?? []).filter((_, i) => i !== index)
+    onChange({ ...filters, dates })
+  }
+
+  return (
+    <div className="flex items-center overflow-hidden rounded-md border border-border text-[12px]">
+      <span className="flex items-center gap-1 px-2 py-1 text-faint">
+        <CalendarDays size={12} /> {dateFieldLabel(df.field)}
+      </span>
+      <Popover
+        align="start"
+        width={140}
+        trigger={
+          <span className="border-l border-border bg-bg px-2 py-1 text-muted hover:bg-bg-hover">
+            {df.op}
+          </span>
+        }
+      >
+        {(close) => (
+          <div>
+            {(['before', 'after'] as const).map((op) => (
+              <button
+                key={op}
+                type="button"
+                onClick={() => {
+                  patch({ op })
+                  close()
+                }}
+                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+              >
+                {op}
+                {df.op === op && CheckMark}
+              </button>
+            ))}
+          </div>
+        )}
+      </Popover>
+      <Popover
+        align="start"
+        width={180}
+        trigger={
+          <span className="border-l border-border bg-bg px-2 py-1 text-fg hover:bg-bg-hover">
+            {datePeriodLabel(df.value)}
+          </span>
+        }
+      >
+        {(close) => (
+          <div>
+            {DATE_PERIODS.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => {
+                  patch({ value: p.value })
+                  close()
+                }}
+                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+              >
+                {p.label}
+                {df.value === p.value && CheckMark}
+              </button>
+            ))}
+          </div>
+        )}
+      </Popover>
+      <button
+        type="button"
+        onClick={remove}
+        className="border-l border-border px-1.5 py-1 text-faint hover:bg-bg-hover hover:text-fg"
+      >
+        <X size={12} />
+      </button>
+    </div>
+  )
+}
+
 export function FilterBar({
   filters,
   onChange,
@@ -361,11 +564,17 @@ export function FilterBar({
           </span>
         }
       >
-        {() => <AddFilterPanel filters={filters} onChange={onChange} />}
+        {(close) => (
+          <AddFilterPanel filters={filters} onChange={onChange} onPicked={close} />
+        )}
       </Popover>
 
       {DIMS.map((d) => (
         <Chip key={d.id} dim={d.id} filters={filters} onChange={onChange} />
+      ))}
+
+      {(filters.dates ?? []).map((_, i) => (
+        <DateChip key={i} index={i} filters={filters} onChange={onChange} />
       ))}
 
       {active && (
