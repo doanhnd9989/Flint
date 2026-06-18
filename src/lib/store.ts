@@ -196,6 +196,7 @@ export interface Store extends WorkspaceData, UIState {
   snoozeNotification: (id: string, untilIso: string) => void
   unsnoozeNotification: (id: string) => void
   deleteNotification: (id: string) => void
+  deleteAllNotifications: () => void
   setNotificationPref: (type: NotificationType, on: boolean) => void
 
   // ── ui ───────────────────────────────────────────────────────
@@ -1108,6 +1109,8 @@ export const useStore = create<Store>()(
         set((s) => ({
           notifications: s.notifications.filter((n) => n.id !== id),
         })),
+
+      deleteAllNotifications: () => set({ notifications: [] }),
 
       setNotificationPref: (type, on) =>
         set((s) => ({

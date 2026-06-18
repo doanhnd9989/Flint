@@ -1,13 +1,38 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCheck, Clock, X, Settings2, AlarmClock } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import {
+  Clock,
+  X,
+  AlarmClock,
+  MoreHorizontal,
+  ListFilter,
+  SlidersHorizontal,
+  CheckCheck,
+  Trash2,
+  Bell,
+  UserPlus,
+  Box,
+  BarChart3,
+  Circle,
+  Check,
+  ChevronLeft,
+} from 'lucide-react'
 import { EmptyState, InboxIllustration } from '@/components/EmptyState'
-import { useStore, useStoreShallow } from '@/lib/store'
+import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { Popover } from '@/components/ui/Popover'
+import { PriorityIcon } from '@/components/PriorityIcon'
+import { StatusIcon } from '@/components/StatusIcon'
+import { PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
 import { timeAgo, cn } from '@/lib/utils'
-import type { NotificationType } from '@/lib/types'
+import type {
+  NotificationType,
+  Priority,
+  StatusType,
+  Notification,
+} from '@/lib/types'
 
 const TYPE_LABEL: Record<NotificationType, string> = {
   assigned: 'Assignments',
@@ -17,62 +42,528 @@ const TYPE_LABEL: Record<NotificationType, string> = {
   subscribed: 'Subscribed updates',
 }
 
+const STATUS_TYPE_LABEL: Record<StatusType, string> = {
+  backlog: 'Backlog',
+  unstarted: 'Todo',
+  started: 'In Progress',
+  completed: 'Done',
+  canceled: 'Canceled',
+}
+const STATUS_TYPE_COLOR: Record<StatusType, string> = {
+  backlog: 'var(--text-faint)',
+  unstarted: 'var(--text-muted)',
+  started: 'var(--priority-medium, #f2c94c)',
+  completed: 'var(--accent)',
+  canceled: 'var(--text-faint)',
+}
+const STATUS_TYPES: StatusType[] = [
+  'backlog',
+  'unstarted',
+  'started',
+  'completed',
+  'canceled',
+]
+
 function isSnoozed(until: string | undefined, now: number) {
   return !!until && new Date(until).getTime() > now
 }
 
-function NotificationPrefsMenu() {
-  const { notificationPrefs, setNotificationPref } = useStoreShallow((s) => ({
-    notificationPrefs: s.notificationPrefs,
-    setNotificationPref: s.setNotificationPref,
-  }))
+// ── view + filter state (local, like the Issues view's display options) ──────
+type Ordering = 'newest' | 'oldest'
+interface InboxDisplay {
+  ordering: Ordering
+  showSnoozed: boolean
+  showRead: boolean
+  showUnreadFirst: boolean
+}
+const DEFAULT_DISPLAY: InboxDisplay = {
+  ordering: 'newest',
+  showSnoozed: false,
+  showRead: true,
+  showUnreadFirst: false,
+}
+interface InboxFilters {
+  types: NotificationType[]
+  from: string[]
+  projects: string[]
+  priorities: Priority[]
+  statusTypes: StatusType[]
+}
+const EMPTY_FILTERS: InboxFilters = {
+  types: [],
+  from: [],
+  projects: [],
+  priorities: [],
+  statusTypes: [],
+}
+function toggle<T>(arr: T[], v: T): T[] {
+  return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]
+}
+function anyFilter(f: InboxFilters) {
+  return (
+    f.types.length > 0 ||
+    f.from.length > 0 ||
+    f.projects.length > 0 ||
+    f.priorities.length > 0 ||
+    f.statusTypes.length > 0
+  )
+}
+
+// ── ⋯ options menu ───────────────────────────────────────────────────────────
+function InboxOptionsMenu({ onDeleteAll }: { onDeleteAll: () => void }) {
+  const markAll = useStore((s) => s.markAllNotificationsRead)
   return (
     <Popover
-      align="end"
-      width={240}
+      align="start"
+      width={200}
       trigger={
-        <span className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover">
-          <Settings2 size={13} /> Preferences
+        <span className="flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg">
+          <MoreHorizontal size={15} />
         </span>
       }
     >
-      {() => (
+      {(close) => (
         <div>
-          <div className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-faint">
-            Notify me about
-          </div>
-          {(Object.keys(TYPE_LABEL) as NotificationType[]).map((t) => (
-            <label
-              key={t}
-              className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-[13px] text-fg hover:bg-bg-hover"
-            >
-              {TYPE_LABEL[t]}
-              <input
-                type="checkbox"
-                checked={notificationPrefs[t]}
-                onChange={(e) => setNotificationPref(t, e.target.checked)}
-                className="accent-[var(--accent)]"
-              />
-            </label>
-          ))}
+          <button
+            onClick={() => {
+              markAll()
+              close()
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+          >
+            <CheckCheck size={14} className="text-faint" /> Mark all as read
+          </button>
+          <div className="my-1 border-t border-border" />
+          <button
+            onClick={() => {
+              close()
+              onDeleteAll()
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+          >
+            <Trash2 size={14} className="text-faint" /> Delete all
+          </button>
         </div>
       )}
     </Popover>
   )
 }
 
+// ── filter popover (dimension → values) ──────────────────────────────────────
+type Dim = 'types' | 'from' | 'projects' | 'priorities' | 'statusTypes'
+const DIMS: { id: Dim; label: string; icon: typeof Bell }[] = [
+  { id: 'types', label: 'Notification type', icon: Bell },
+  { id: 'from', label: 'From', icon: UserPlus },
+  { id: 'projects', label: 'Project', icon: Box },
+  { id: 'priorities', label: 'Issue priority', icon: BarChart3 },
+  { id: 'statusTypes', label: 'Issue status type', icon: Circle },
+]
+
+function ValueRow({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+    >
+      <span className="flex h-3.5 w-3.5 items-center justify-center">
+        {active && <Check size={13} className="text-accent" />}
+      </span>
+      {children}
+    </button>
+  )
+}
+
+function InboxFilterMenu({
+  filters,
+  setFilters,
+}: {
+  filters: InboxFilters
+  setFilters: (f: InboxFilters) => void
+}) {
+  const { users, projects } = useStore()
+  const [dim, setDim] = useState<Dim | null>(null)
+
+  return (
+    <Popover
+      align="end"
+      width={232}
+      trigger={
+        <span
+          className={cn(
+            'flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg',
+            anyFilter(filters) && 'text-fg',
+          )}
+        >
+          <ListFilter size={15} />
+        </span>
+      }
+    >
+      {() => {
+        if (!dim) {
+          return (
+            <div>
+              <input
+                autoFocus
+                readOnly
+                placeholder="Add Filter..."
+                className="mb-1 w-full bg-transparent px-2 py-1 text-[13px] text-fg outline-none placeholder:text-faint"
+              />
+              {DIMS.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => setDim(d.id)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                >
+                  <d.icon size={14} className="text-faint" /> {d.label}
+                </button>
+              ))}
+            </div>
+          )
+        }
+        return (
+          <div>
+            <button
+              onClick={() => setDim(null)}
+              className="mb-1 flex items-center gap-1 px-2 py-1 text-[11px] text-faint hover:text-fg"
+            >
+              <ChevronLeft size={12} /> {DIMS.find((d) => d.id === dim)!.label}
+            </button>
+            {dim === 'types' &&
+              (Object.keys(TYPE_LABEL) as NotificationType[]).map((t) => (
+                <ValueRow
+                  key={t}
+                  active={filters.types.includes(t)}
+                  onClick={() =>
+                    setFilters({ ...filters, types: toggle(filters.types, t) })
+                  }
+                >
+                  {TYPE_LABEL[t]}
+                </ValueRow>
+              ))}
+            {dim === 'from' &&
+              users.map((u) => (
+                <ValueRow
+                  key={u.id}
+                  active={filters.from.includes(u.id)}
+                  onClick={() =>
+                    setFilters({ ...filters, from: toggle(filters.from, u.id) })
+                  }
+                >
+                  <Avatar user={u} size={16} /> {u.name}
+                </ValueRow>
+              ))}
+            {dim === 'projects' &&
+              projects.map((p) => (
+                <ValueRow
+                  key={p.id}
+                  active={filters.projects.includes(p.id)}
+                  onClick={() =>
+                    setFilters({
+                      ...filters,
+                      projects: toggle(filters.projects, p.id),
+                    })
+                  }
+                >
+                  <span>{p.icon}</span> {p.name}
+                </ValueRow>
+              ))}
+            {dim === 'priorities' &&
+              PRIORITY_ORDER.map((p) => (
+                <ValueRow
+                  key={p}
+                  active={filters.priorities.includes(p)}
+                  onClick={() =>
+                    setFilters({
+                      ...filters,
+                      priorities: toggle(filters.priorities, p),
+                    })
+                  }
+                >
+                  <PriorityIcon priority={p} /> {PRIORITY_LABELS[p]}
+                </ValueRow>
+              ))}
+            {dim === 'statusTypes' &&
+              STATUS_TYPES.map((t) => (
+                <ValueRow
+                  key={t}
+                  active={filters.statusTypes.includes(t)}
+                  onClick={() =>
+                    setFilters({
+                      ...filters,
+                      statusTypes: toggle(filters.statusTypes, t),
+                    })
+                  }
+                >
+                  <StatusIcon type={t} color={STATUS_TYPE_COLOR[t]} />{' '}
+                  {STATUS_TYPE_LABEL[t]}
+                </ValueRow>
+              ))}
+          </div>
+        )
+      }}
+    </Popover>
+  )
+}
+
+// ── display options popover ──────────────────────────────────────────────────
+function ToggleRow({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between px-2 py-1.5">
+      <span className="text-[13px] text-fg">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'relative h-4 w-7 rounded-full transition-colors',
+          checked ? 'bg-accent' : 'bg-bg-tertiary',
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform',
+            checked ? 'translate-x-3.5' : 'translate-x-0.5',
+          )}
+        />
+      </button>
+    </div>
+  )
+}
+
+function InboxDisplayMenu({
+  display,
+  setDisplay,
+}: {
+  display: InboxDisplay
+  setDisplay: (d: InboxDisplay) => void
+}) {
+  return (
+    <Popover
+      align="end"
+      width={252}
+      trigger={
+        <span className="flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg">
+          <SlidersHorizontal size={15} />
+        </span>
+      }
+    >
+      {() => (
+        <div>
+          <div className="flex items-center justify-between px-2 py-1.5">
+            <span className="text-[13px] text-fg">Ordering</span>
+            <select
+              value={display.ordering}
+              onChange={(e) =>
+                setDisplay({ ...display, ordering: e.target.value as Ordering })
+              }
+              className="rounded-md border border-border bg-bg px-2 py-1 text-[12px] text-fg outline-none"
+            >
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+            </select>
+          </div>
+          <div className="my-1 border-t border-border" />
+          <ToggleRow
+            label="Show snoozed"
+            checked={display.showSnoozed}
+            onChange={(v) => setDisplay({ ...display, showSnoozed: v })}
+          />
+          <ToggleRow
+            label="Show read"
+            checked={display.showRead}
+            onChange={(v) => setDisplay({ ...display, showRead: v })}
+          />
+          <ToggleRow
+            label="Show unread first"
+            checked={display.showUnreadFirst}
+            onChange={(v) => setDisplay({ ...display, showUnreadFirst: v })}
+          />
+        </div>
+      )}
+    </Popover>
+  )
+}
+
+// ── active-filter chips ──────────────────────────────────────────────────────
+function FilterChips({
+  filters,
+  setFilters,
+}: {
+  filters: InboxFilters
+  setFilters: (f: InboxFilters) => void
+}) {
+  const { users, projects } = useStore()
+  const chips: { key: Dim; label: string; clear: () => void }[] = []
+  if (filters.types.length)
+    chips.push({
+      key: 'types',
+      label: `Type · ${filters.types.map((t) => TYPE_LABEL[t]).join(', ')}`,
+      clear: () => setFilters({ ...filters, types: [] }),
+    })
+  if (filters.from.length)
+    chips.push({
+      key: 'from',
+      label: `From · ${filters.from
+        .map((id) => users.find((u) => u.id === id)?.name ?? '?')
+        .join(', ')}`,
+      clear: () => setFilters({ ...filters, from: [] }),
+    })
+  if (filters.projects.length)
+    chips.push({
+      key: 'projects',
+      label: `Project · ${filters.projects
+        .map((id) => projects.find((p) => p.id === id)?.name ?? '?')
+        .join(', ')}`,
+      clear: () => setFilters({ ...filters, projects: [] }),
+    })
+  if (filters.priorities.length)
+    chips.push({
+      key: 'priorities',
+      label: `Priority · ${filters.priorities
+        .map((p) => PRIORITY_LABELS[p])
+        .join(', ')}`,
+      clear: () => setFilters({ ...filters, priorities: [] }),
+    })
+  if (filters.statusTypes.length)
+    chips.push({
+      key: 'statusTypes',
+      label: `Status · ${filters.statusTypes
+        .map((t) => STATUS_TYPE_LABEL[t])
+        .join(', ')}`,
+      clear: () => setFilters({ ...filters, statusTypes: [] }),
+    })
+  if (!chips.length) return null
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-4 py-2">
+      {chips.map((c) => (
+        <span
+          key={c.key}
+          className="flex items-center overflow-hidden rounded-md border border-border text-[12px]"
+        >
+          <span className="px-2 py-1 text-fg">{c.label}</span>
+          <button
+            onClick={c.clear}
+            className="border-l border-border px-1.5 py-1 text-faint hover:bg-bg-hover hover:text-fg"
+          >
+            <X size={12} />
+          </button>
+        </span>
+      ))}
+      <button
+        onClick={() => setFilters(EMPTY_FILTERS)}
+        className="px-1.5 py-1 text-[12px] text-muted hover:text-fg"
+      >
+        Clear
+      </button>
+    </div>
+  )
+}
+
+// ── delete-all confirm dialog ────────────────────────────────────────────────
+function ConfirmDeleteAll({
+  onCancel,
+  onConfirm,
+}: {
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
+      onMouseDown={onCancel}
+    >
+      <div
+        data-overlay
+        onMouseDown={(e) => e.stopPropagation()}
+        className="w-[380px] rounded-xl border border-border bg-bg-elevated p-5 shadow-xl"
+      >
+        <div className="text-[15px] font-medium text-fg">
+          Delete all notifications?
+        </div>
+        <div className="mt-1.5 text-[13px] text-muted">
+          You cannot undo this action.
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-border px-3 py-1.5 text-[13px] text-fg hover:bg-bg-hover"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="rounded-md bg-[var(--priority-urgent)] px-3 py-1.5 text-[13px] font-medium text-white hover:opacity-90"
+          >
+            Delete all
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 export function Inbox() {
   const navigate = useNavigate()
   const store = useStore()
-  const [tab, setTab] = useState<'inbox' | 'snoozed'>('inbox')
+  const [display, setDisplay] = useState<InboxDisplay>(DEFAULT_DISPLAY)
+  const [filters, setFilters] = useState<InboxFilters>(EMPTY_FILTERS)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const now = Date.now()
 
-  const all = [...store.notifications].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
-  )
-  const list = all.filter((n) =>
-    tab === 'snoozed' ? isSnoozed(n.snoozedUntil, now) : !isSnoozed(n.snoozedUntil, now),
-  )
+  const statusTypeOf = (issueId: string): StatusType | undefined => {
+    const issue = store.issues.find((i) => i.id === issueId)
+    if (!issue) return undefined
+    return store.states.find((st) => st.id === issue.stateId)?.type
+  }
+
+  const list = store.notifications
+    .filter((n) => {
+      const snoozed = isSnoozed(n.snoozedUntil, now)
+      if (snoozed && !display.showSnoozed) return false
+      if (!display.showRead && n.read) return false
+      const issue = store.issues.find((i) => i.id === n.issueId)
+      if (filters.types.length && !filters.types.includes(n.type)) return false
+      if (filters.from.length && !filters.from.includes(n.actorId)) return false
+      if (
+        filters.projects.length &&
+        !(issue?.projectId && filters.projects.includes(issue.projectId))
+      )
+        return false
+      if (
+        filters.priorities.length &&
+        !(issue && filters.priorities.includes(issue.priority))
+      )
+        return false
+      if (filters.statusTypes.length) {
+        const t = statusTypeOf(n.issueId)
+        if (!t || !filters.statusTypes.includes(t)) return false
+      }
+      return true
+    })
+    .sort((a, b) => {
+      if (display.showUnreadFirst && a.read !== b.read) return a.read ? 1 : -1
+      return display.ordering === 'newest'
+        ? b.createdAt.localeCompare(a.createdAt)
+        : a.createdAt.localeCompare(b.createdAt)
+    })
 
   const snooze = (id: string, ms: number) =>
     store.snoozeNotification(id, new Date(now + ms).toISOString())
@@ -82,131 +573,152 @@ export function Inbox() {
       <ViewHeader
         title="Inbox"
         right={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={store.markAllNotificationsRead}
-              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover"
-            >
-              <CheckCheck size={13} /> Mark all read
-            </button>
-            <NotificationPrefsMenu />
+          <div className="flex items-center gap-1">
+            <InboxFilterMenu filters={filters} setFilters={setFilters} />
+            <InboxDisplayMenu display={display} setDisplay={setDisplay} />
           </div>
         }
       >
-        <div className="flex items-center gap-1">
-          {(['inbox', 'snoozed'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={cn(
-                'rounded-md px-2.5 py-1 text-[12px] capitalize text-muted hover:bg-bg-hover',
-                tab === t && 'bg-bg-selected text-fg font-medium',
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        <InboxOptionsMenu onDeleteAll={() => setConfirmDelete(true)} />
       </ViewHeader>
+
+      <FilterChips filters={filters} setFilters={setFilters} />
 
       <div className="flex-1 overflow-y-auto">
         {list.length === 0 && (
           <EmptyState
             illustration={<InboxIllustration />}
-            title={tab === 'snoozed' ? 'Nothing snoozed' : 'Inbox'}
+            title="Inbox"
             description={
-              tab === 'snoozed'
-                ? 'Snoozed notifications will reappear here when they return.'
+              anyFilter(filters)
+                ? 'No notifications match your filters.'
                 : "You're all caught up. New notifications will show up here."
             }
           />
         )}
-        {list.map((n) => {
-          const actor = store.users.find((u) => u.id === n.actorId)
-          const issue = store.issues.find((i) => i.id === n.issueId)
-          return (
-            <div
-              key={n.id}
-              className="group flex items-center gap-3 border-b border-border px-4 py-3 hover:bg-bg-hover"
-            >
-              {!n.read && tab === 'inbox' ? (
-                <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
-              ) : (
-                <span className="h-2 w-2 shrink-0" />
-              )}
-              <button
-                onClick={() => {
-                  store.markNotificationRead(n.id)
-                  if (issue) navigate(`/issue/${issue.identifier}`)
-                }}
-                className="flex flex-1 items-center gap-3 text-left"
-              >
-                <Avatar user={actor} size={24} />
-                <div className="flex-1">
-                  <div className={cn('text-[13px]', n.read ? 'text-muted' : 'text-fg')}>
-                    <span className="font-medium">{actor?.name}</span> {n.body}{' '}
-                    <span className="text-muted">{issue?.title}</span>
-                  </div>
-                  <div className="text-[11px] text-faint">
-                    {issue?.identifier} · {timeAgo(n.createdAt)}
-                    {isSnoozed(n.snoozedUntil, now) &&
-                      ` · snoozed until ${new Date(n.snoozedUntil!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric' })}`}
-                  </div>
-                </div>
-              </button>
+        {list.map((n) => (
+          <NotificationRow
+            key={n.id}
+            n={n}
+            now={now}
+            onOpen={() => {
+              store.markNotificationRead(n.id)
+              const issue = store.issues.find((i) => i.id === n.issueId)
+              if (issue) navigate(`/issue/${issue.identifier}`)
+            }}
+            onSnooze={snooze}
+            onUnsnooze={store.unsnoozeNotification}
+            onDelete={store.deleteNotification}
+          />
+        ))}
+      </div>
 
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
-                {tab === 'snoozed' ? (
+      {confirmDelete && (
+        <ConfirmDeleteAll
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            store.deleteAllNotifications()
+            setConfirmDelete(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function NotificationRow({
+  n,
+  now,
+  onOpen,
+  onSnooze,
+  onUnsnooze,
+  onDelete,
+}: {
+  n: Notification
+  now: number
+  onOpen: () => void
+  onSnooze: (id: string, ms: number) => void
+  onUnsnooze: (id: string) => void
+  onDelete: (id: string) => void
+}) {
+  const store = useStore()
+  const actor = store.users.find((u) => u.id === n.actorId)
+  const issue = store.issues.find((i) => i.id === n.issueId)
+  const snoozed = isSnoozed(n.snoozedUntil, now)
+
+  return (
+    <div className="group flex items-center gap-3 border-b border-border px-4 py-3 hover:bg-bg-hover">
+      {!n.read ? (
+        <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
+      ) : (
+        <span className="h-2 w-2 shrink-0" />
+      )}
+      <button onClick={onOpen} className="flex flex-1 items-center gap-3 text-left">
+        <Avatar user={actor} size={24} />
+        <div className="flex-1">
+          <div className={cn('text-[13px]', n.read ? 'text-muted' : 'text-fg')}>
+            <span className="font-medium">{actor?.name}</span> {n.body}{' '}
+            <span className="text-muted">{issue?.title}</span>
+          </div>
+          <div className="text-[11px] text-faint">
+            {issue?.identifier} · {timeAgo(n.createdAt)}
+            {snoozed &&
+              ` · snoozed until ${new Date(n.snoozedUntil!).toLocaleDateString(
+                'en-US',
+                { month: 'short', day: 'numeric', hour: 'numeric' },
+              )}`}
+          </div>
+        </div>
+      </button>
+
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+        {snoozed ? (
+          <button
+            onClick={() => onUnsnooze(n.id)}
+            title="Unsnooze"
+            className="flex h-7 w-7 items-center justify-center rounded text-faint hover:bg-bg-selected hover:text-fg"
+          >
+            <AlarmClock size={15} />
+          </button>
+        ) : (
+          <Popover
+            align="end"
+            width={160}
+            trigger={
+              <span className="flex h-7 w-7 items-center justify-center rounded text-faint hover:bg-bg-selected hover:text-fg">
+                <Clock size={15} />
+              </span>
+            }
+          >
+            {(close) => (
+              <div>
+                {[
+                  { label: 'In 1 hour', ms: 3_600_000 },
+                  { label: 'Tomorrow', ms: 86_400_000 },
+                  { label: 'Next week', ms: 7 * 86_400_000 },
+                ].map((o) => (
                   <button
-                    onClick={() => store.unsnoozeNotification(n.id)}
-                    title="Unsnooze"
-                    className="flex h-7 w-7 items-center justify-center rounded text-faint hover:bg-bg-selected hover:text-fg"
+                    key={o.label}
+                    onClick={() => {
+                      onSnooze(n.id, o.ms)
+                      close()
+                    }}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
                   >
-                    <AlarmClock size={15} />
+                    <Clock size={13} className="text-faint" /> {o.label}
                   </button>
-                ) : (
-                  <Popover
-                    align="end"
-                    width={160}
-                    trigger={
-                      <span className="flex h-7 w-7 items-center justify-center rounded text-faint hover:bg-bg-selected hover:text-fg">
-                        <Clock size={15} />
-                      </span>
-                    }
-                  >
-                    {(close) => (
-                      <div>
-                        {[
-                          { label: 'In 1 hour', ms: 3_600_000 },
-                          { label: 'Tomorrow', ms: 86_400_000 },
-                          { label: 'Next week', ms: 7 * 86_400_000 },
-                        ].map((o) => (
-                          <button
-                            key={o.label}
-                            onClick={() => {
-                              snooze(n.id, o.ms)
-                              close()
-                            }}
-                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
-                          >
-                            <Clock size={13} className="text-faint" /> {o.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </Popover>
-                )}
-                <button
-                  onClick={() => store.deleteNotification(n.id)}
-                  title="Delete"
-                  className="flex h-7 w-7 items-center justify-center rounded text-faint hover:bg-bg-selected hover:text-[var(--priority-urgent)]"
-                >
-                  <X size={15} />
-                </button>
+                ))}
               </div>
-            </div>
-          )
-        })}
+            )}
+          </Popover>
+        )}
+        <button
+          onClick={() => onDelete(n.id)}
+          title="Delete"
+          className="flex h-7 w-7 items-center justify-center rounded text-faint hover:bg-bg-selected hover:text-[var(--priority-urgent)]"
+        >
+          <X size={15} />
+        </button>
       </div>
     </div>
   )

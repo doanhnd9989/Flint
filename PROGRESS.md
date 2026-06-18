@@ -2,6 +2,42 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-18 — Loop #74: Inbox header — ⋯ / Filter / Display options (Linear 1:1)
+
+Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop rebuilt
+the **Inbox header** to match Linear's real layout. Soi'd Linear's Inbox in
+Chrome (workspace "Claude Test App"): the header is `Inbox` + a **⋯ menu**
+(Mark all as read · ─ · Delete all), then far-right a **Filter** funnel and a
+**Display options** sliders icon — and crucially **no inbox/snoozed tabs**
+(snoozed/read are display toggles, not tabs).
+
+- **Filter** popover ("Add Filter…") — Notification type · From · Project ·
+  Issue priority · Issue status type, each drilling into a checkable value list
+  (back chevron header). Active filters render as `Type · Comments · ×` chips +
+  Clear below the header.
+- **Display options** popover — Ordering (Newest/Oldest) + toggles Show snoozed
+  (default off) / Show read (default on) / Show unread first.
+- **⋯ menu** — Mark all as read + Delete all (behind a "Delete all
+  notifications? · You cannot undo this action." confirm dialog).
+
+Reproduced 1:1: rewrote `Inbox.tsx` — dropped the tabs + the old Preferences
+button, added the three header menus, local `display`/`filters` state (like the
+Issues view's display options), a filtering pipeline that resolves each
+notification's issue for the From/Project/Priority/Status-type dims and honours
+the display toggles (Show snoozed adds snoozed rows; Show read off hides read
+ones; Show unread first is a secondary sort), and a new `deleteAllNotifications`
+store action. Per-row snooze/unsnooze/delete affordances preserved.
+
+Verified live (vite preview :4930): the header + all three menus match Linear,
+Show read off hides the read "Jordan Lee mentioned you" row, `Type → Comments`
+narrows to the single comment notification with a chip + Clear, console clean;
+`tsc -b` + `npm run build` green. _(Linear's Display-properties pills (ID /
+Status and icon) + the two-pane reading view omitted — our rows render no
+ID/status column and the real workspace has one welcome notification to soi the
+reading pane; notification Preferences moved out of the inbox header — TODO:
+wire into Settings → Notifications; filter/display state is local like the team
+Issues view.)_
+
 ## 2026-06-18 — Loop #73: My Issues — wire Add filter + Display options
 
 Backlog fully ticked and `tsc -b` + `npm run build` green, so this loop closed
