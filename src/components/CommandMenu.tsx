@@ -26,6 +26,7 @@ import {
   Keyboard,
   Map,
   Goal,
+  FileText,
   User,
   Tag,
   FolderPlus,
@@ -474,6 +475,23 @@ export function CommandMenu() {
         icon: <Map size={15} />,
         keywords: 'roadmap timeline',
         run: () => navigate('/roadmap'),
+      },
+      {
+        id: 'go-documents',
+        label: 'Go to Documents',
+        icon: <FileText size={15} />,
+        keywords: 'documents docs notes specs',
+        run: () => navigate('/documents'),
+      },
+      {
+        id: 'new-document',
+        label: 'Create new document',
+        icon: <FileText size={15} />,
+        keywords: 'add create document doc new note',
+        run: () => {
+          const doc = store.createDocument()
+          navigate(`/document/${doc.id}`)
+        },
       },
       {
         id: 'go-settings',

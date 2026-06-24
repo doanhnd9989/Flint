@@ -1,5 +1,6 @@
 import type {
   DisplayProperty,
+  EstimationType,
   InitiativeStatus,
   NotificationChannel,
   NotificationEvent,
@@ -93,6 +94,60 @@ export const LABEL_COLORS = [
 ] as const
 
 export const ESTIMATE_SCALE = [0, 1, 2, 3, 5, 8] as const
+
+// ── Team estimation (Linear's team "Estimates" setting) ──────────────────────
+/** The non-zero point values each estimation type offers, in order. */
+const ESTIMATION_VALUES: Record<Exclude<EstimationType, 'notUsed'>, number[]> = {
+  linear: [1, 2, 3, 4, 5],
+  exponential: [1, 2, 4, 8, 16],
+  fibonacci: [1, 2, 3, 5, 8],
+  tshirt: [1, 2, 3, 4, 5],
+}
+
+/** T-shirt sizes map each value 1..5 to a size label. */
+const TSHIRT_LABELS: Record<number, string> = {
+  1: 'XS',
+  2: 'S',
+  3: 'M',
+  4: 'L',
+  5: 'XL',
+}
+
+/** Dropdown labels + example scale shown on the team Estimates setting. */
+export const ESTIMATION_TYPES: { id: EstimationType; label: string; example: string }[] = [
+  { id: 'notUsed', label: 'Not used', example: '' },
+  { id: 'linear', label: 'Linear', example: '0, 1, 2, 3, 4, 5' },
+  { id: 'exponential', label: 'Exponential', example: '0, 1, 2, 4, 8, 16' },
+  { id: 'fibonacci', label: 'Fibonacci', example: '0, 1, 2, 3, 5, 8' },
+  { id: 'tshirt', label: 'T-shirt sizes', example: 'XS, S, M, L, XL' },
+]
+
+/** A team's effective estimation type — defaults to fibonacci when unset. */
+export function teamEstimationType(team?: { estimationType?: EstimationType }): EstimationType {
+  return team?.estimationType ?? 'fibonacci'
+}
+
+/** The selectable point values for a team (optionally prefixed with 0). */
+export function estimatePoints(team?: {
+  estimationType?: EstimationType
+  estimationAllowZero?: boolean
+}): number[] {
+  const type = teamEstimationType(team)
+  if (type === 'notUsed') return []
+  const values = ESTIMATION_VALUES[type]
+  return team?.estimationAllowZero ? [0, ...values] : values
+}
+
+/** Renders an estimate value using the team's scale (t-shirt → size labels). */
+export function estimateLabel(
+  value: number | undefined,
+  team?: { estimationType?: EstimationType },
+): string {
+  if (!value) return 'No estimate'
+  const type = teamEstimationType(team)
+  if (type === 'tshirt') return TSHIRT_LABELS[value] ?? `${value}`
+  return `${value} point${value > 1 ? 's' : ''}`
+}
 
 /**
  * Issue-row display properties, in Linear's exact order/labels. Toggled from the

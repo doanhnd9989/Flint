@@ -22,7 +22,12 @@ import { CommentThread } from './CommentThread'
 import { ActivityItem } from './ActivityItem'
 import { DatePicker } from './DatePicker'
 import { subIssueProgress, cycleState } from '@/lib/selectors'
-import { PRIORITY_LABELS, ESTIMATE_SCALE } from '@/lib/constants'
+import {
+  PRIORITY_LABELS,
+  estimatePoints,
+  estimateLabel,
+  teamEstimationType,
+} from '@/lib/constants'
 import {
   cn,
   formatDate,
@@ -76,6 +81,7 @@ export function IssueDetailBody({
   const [commentBody, setCommentBody] = useState('')
 
   const state = store.states.find((s) => s.id === issue.stateId)!
+  const team = store.teams.find((t) => t.id === issue.teamId)
   const assignee = store.users.find((u) => u.id === issue.assigneeId)
   const project = store.projects.find((p) => p.id === issue.projectId)
   const projectMilestones = issue.projectId
@@ -399,24 +405,33 @@ export function IssueDetailBody({
               />
             </PropRow>
           )}
-          <PropRow label="Estimate">
-            <SelectMenu
-              options={ESTIMATE_SCALE.map((n) => ({
-                id: String(n),
-                label: n === 0 ? 'No estimate' : `${n} point${n > 1 ? 's' : ''}`,
-                selected: issue.estimate === n,
-              }))}
-              onSelect={(id) =>
-                store.setIssueEstimate(issue.id, Number(id) || undefined)
-              }
-              trigger={
-                <span className={triggerCls}>
-                  <GitBranch size={14} className="text-faint" />
-                  {issue.estimate ? `${issue.estimate} pts` : 'No estimate'}
-                </span>
-              }
-            />
-          </PropRow>
+          {teamEstimationType(team) !== 'notUsed' && (
+            <PropRow label="Estimate">
+              <SelectMenu
+                options={[
+                  { id: '0', label: 'No estimate', selected: !issue.estimate },
+                  ...estimatePoints(team)
+                    .filter((n) => n !== 0)
+                    .map((n) => ({
+                      id: String(n),
+                      label: estimateLabel(n, team),
+                      selected: issue.estimate === n,
+                    })),
+                ]}
+                onSelect={(id) =>
+                  store.setIssueEstimate(issue.id, Number(id) || undefined)
+                }
+                trigger={
+                  <span className={triggerCls}>
+                    <GitBranch size={14} className="text-faint" />
+                    {issue.estimate
+                      ? estimateLabel(issue.estimate, team)
+                      : 'No estimate'}
+                  </span>
+                }
+              />
+            </PropRow>
+          )}
           <PropRow label="Due date">
             <DatePicker
               value={issue.dueDate}

@@ -17,6 +17,7 @@ import type {
   ActivityKind,
   Comment,
   CreatePrefill,
+  Document,
   Favorite,
   FavoriteType,
   Initiative,
@@ -42,6 +43,7 @@ import type {
   RelationPickerKind,
   SavedView,
   Preferences,
+  Team,
   ThemeMode,
   User,
   UserRole,
@@ -130,6 +132,7 @@ interface NewIssueInput {
 export interface Store extends WorkspaceData, UIState {
   // ── issue mutations ──────────────────────────────────────────
   createIssue: (input: NewIssueInput) => Issue
+  duplicateIssue: (id: string) => Issue | undefined
   updateIssue: (id: string, patch: Partial<Issue>) => void
   deleteIssue: (id: string) => void
   setIssueStatus: (id: string, stateId: string) => void
@@ -191,6 +194,16 @@ export interface Store extends WorkspaceData, UIState {
   createTemplate: (t: Omit<IssueTemplate, 'id'>) => IssueTemplate
   deleteTemplate: (id: string) => void
   toggleTeamMember: (teamId: string, userId: string) => void
+  /** Update a team's estimation settings (team Estimates settings page). */
+  setTeamEstimation: (teamId: string, patch: Partial<Pick<Team, 'estimationType' | 'estimationAllowZero'>>) => void
+  /** Enable / disable cycles for a team (team Cycles settings page). */
+  setTeamCyclesEnabled: (teamId: string, enabled: boolean) => void
+
+  // ── documents (Linear's Documents feature) ───────────────────
+  createDocument: (input?: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId'>>) => Document
+  updateDocument: (id: string, patch: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId'>>) => void
+  deleteDocument: (id: string) => void
+
   setUserRole: (id: string, role: UserRole) => void
   inviteMember: (email: string, role: UserRole) => void
   removeUser: (id: string) => void
@@ -387,6 +400,40 @@ export const useStore = create<Store>()(
           activities: [...s.activities, logActivity(s, issue.id, 'created')],
         })
         return issue
+      },
+
+      duplicateIssue: (id) => {
+        const s = get()
+        const src = s.issues.find((i) => i.id === id)
+        if (!src) return undefined
+        const teamIssues = s.issues.filter((i) => i.teamId === src.teamId)
+        const number =
+          teamIssues.reduce((max, i) => Math.max(max, i.number), 0) + 1
+        const team = s.teams.find((t) => t.id === src.teamId)!
+        const maxSort = s.issues.reduce((m, i) => Math.max(m, i.sortOrder), 0)
+        const ts = nowIso()
+        // Copy the core properties; the duplicate starts its own thread
+        // (no comments / relations / sub-issues), matching Linear's default.
+        const dupe: Issue = {
+          ...src,
+          id: `i_${nanoid(8)}`,
+          number,
+          identifier: `${team.key}-${number}`,
+          parentId: undefined,
+          subscriberIds: [s.currentUserId],
+          creatorId: s.currentUserId,
+          sortOrder: maxSort + 100,
+          createdAt: ts,
+          updatedAt: ts,
+          completedAt: undefined,
+          canceledAt: undefined,
+          triage: false,
+        }
+        set({
+          issues: [...s.issues, dupe],
+          activities: [...s.activities, logActivity(s, dupe.id, 'created')],
+        })
+        return dupe
       },
 
       updateIssue: (id, patch) =>
@@ -1034,6 +1081,47 @@ export const useStore = create<Store>()(
           ),
         })),
 
+      setTeamEstimation: (teamId, patch) =>
+        set((s) => ({
+          teams: s.teams.map((t) => (t.id === teamId ? { ...t, ...patch } : t)),
+        })),
+
+      setTeamCyclesEnabled: (teamId, enabled) =>
+        set((s) => ({
+          teams: s.teams.map((t) =>
+            t.id === teamId ? { ...t, cyclesEnabled: enabled } : t,
+          ),
+        })),
+
+      createDocument: (input) => {
+        const s = get()
+        const ts = nowIso()
+        const maxSort = s.documents.reduce((m, d) => Math.max(m, d.sortOrder), 0)
+        const doc: Document = {
+          id: `doc_${nanoid(8)}`,
+          title: input?.title ?? '',
+          icon: input?.icon ?? '📄',
+          content: input?.content ?? '',
+          creatorId: s.currentUserId,
+          projectId: input?.projectId,
+          createdAt: ts,
+          updatedAt: ts,
+          sortOrder: maxSort + 100,
+        }
+        set({ documents: [...s.documents, doc] })
+        return doc
+      },
+
+      updateDocument: (id, patch) =>
+        set((s) => ({
+          documents: s.documents.map((d) =>
+            d.id === id ? { ...d, ...patch, updatedAt: nowIso() } : d,
+          ),
+        })),
+
+      deleteDocument: (id) =>
+        set((s) => ({ documents: s.documents.filter((d) => d.id !== id) })),
+
       setUserRole: (id, role) =>
         set((s) => ({
           users: s.users.map((u) => (u.id === id ? { ...u, role } : u)),
@@ -1520,6 +1608,19 @@ export const useStore = create<Store>()(
         // Backfill issue links for workspaces persisted before they existed.
         if (!Array.isArray(merged.issueLinks)) {
           merged.issueLinks = seed.issueLinks
+        }
+        // Backfill documents for workspaces persisted before they existed.
+        if (!Array.isArray(merged.documents)) {
+          merged.documents = seed.documents
+        }
+        // Backfill team estimation / cycle defaults for older workspaces.
+        if (Array.isArray(merged.teams)) {
+          merged.teams = merged.teams.map((t) => ({
+            estimationType: 'fibonacci' as const,
+            estimationAllowZero: false,
+            cyclesEnabled: true,
+            ...t,
+          }))
         }
         // Backfill initiatives for workspaces persisted before they existed.
         // Also link the seed projects so the seeded initiative isn't empty.

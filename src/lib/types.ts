@@ -38,6 +38,18 @@ export interface Label {
   groupId?: string // when set, this label belongs to the group with this id
 }
 
+/**
+ * How a team estimates issues — Linear's team "Estimates" setting. Each maps to
+ * a point scale (see {@link estimatePoints}); `tshirt` renders the points as
+ * XS / S / M / L / XL labels. `notUsed` hides the estimate property.
+ */
+export type EstimationType =
+  | 'notUsed'
+  | 'linear'
+  | 'exponential'
+  | 'fibonacci'
+  | 'tshirt'
+
 export interface Team {
   id: string
   name: string
@@ -46,6 +58,28 @@ export interface Team {
   color: string
   private?: boolean
   memberIds: string[]
+  /** Estimation scale for this team. Optional (defaults to fibonacci). */
+  estimationType?: EstimationType
+  /** Whether 0 is an allowed estimate value. */
+  estimationAllowZero?: boolean
+  /** Whether cycles are enabled for this team. Optional (defaults to true). */
+  cyclesEnabled?: boolean
+}
+
+/**
+ * A workspace document — Linear's Documents feature. A titled rich-text doc
+ * (Markdown body) optionally attached to a project.
+ */
+export interface Document {
+  id: string
+  title: string
+  icon: string // emoji
+  content: string
+  creatorId: string
+  projectId?: string
+  createdAt: string
+  updatedAt: string
+  sortOrder: number
 }
 
 export type ProjectStatus =

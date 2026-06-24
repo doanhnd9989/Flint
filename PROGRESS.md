@@ -2,6 +2,53 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-24 — Loop #84: Documents + team Estimates/Cycles settings + Duplicate issue
+
+A batch run: shipped the workspace **Documents** feature, **per-team Estimates &
+Cycles settings** (with a proper per-team settings page), and **Duplicate issue**.
+
+**Features shipped (Phase 1):**
+- 🔴 **Documents** — Linear's workspace docs. New `Document` model + `documents`
+  store slice (`createDocument` / `updateDocument` / `deleteDocument`, persist-merge
+  backfill, two seeded docs — "Product requirements" linked to MVP Launch, "Brand
+  guidelines"). New `/documents` list view (icon + title + "Updated {ago} by {name}"
+  rows, project chip, "New document" button, EmptyState w/ create action) and
+  `/document/:id` editor (40px emoji icon + quick-pick popover, inline title input,
+  author/updated meta, inline `ProjectPicker`, shared `MarkdownEditor` body,
+  delete-with-confirm). Sidebar "Documents" entry (Workspace section) + ⌘K
+  "Go to Documents" / "Create new document".
+- 🟡 **Team Estimates** — `EstimationType` (Not used / Linear / Exponential /
+  Fibonacci / T-shirt) + Allow-zero on `Team`; `setTeamEstimation` action; pure
+  `estimatePoints` / `estimateLabel` / `teamEstimationType` helpers. The issue
+  Estimate picker (detail + peek) now uses the team's scale — t-shirt → XS–XL,
+  `notUsed` hides the row, Allow-zero toggles the 0 option.
+- 🟡 **Team Cycles settings + per-team Settings page** — rebuilt "Your teams →
+  {team}" into General / Estimates / Cycles / Workflow sections; **Enable cycles**
+  toggle (`Team.cyclesEnabled` + `setTeamCyclesEnabled`) hides that team's sidebar
+  Cycles entry when off.
+- 🟡 **Duplicate issue** — `duplicateIssue(id)` clones core props into a fresh
+  same-team identifier (no copied comments/relations/sub-issues, cleared
+  completed/canceled/triage — Linear's default); a **Duplicate** row in the
+  right-click context menu opens the copy.
+
+**Phase 2 (bug hunt):** swept Documents (list/detail/create), team settings,
+issue detail, sidebar. No confirmed bugs — changes are additive and well-scoped;
+console clean throughout, no infinite-loop/selector regressions. (No candidates
+survived adversarial reproduction.)
+
+**Phase 3 (polish):** verified the new Documents surfaces in **both light and dark
+themes** (tokens only — rows, project chip, editor all render correctly in dark).
+
+**Verification:** Preview MCP live at the dev URL — Documents list + Markdown
+editor (headings/bold/bullets/task checkboxes) render, New-document creates &
+opens a blank doc, team Estimates/Cycles page matches Linear, disabling cycles
+removes the sidebar entry (CLA→0, ENG stays), issue detail intact. Also added
+`server.port` honoring `PORT` to `vite.config.ts` so the preview harness can bind
+the dev server. `tsc -b` ✅ · `npm run build` ✅ · console clean.
+
+Next: continue Linear parity — top remaining gaps include **Convert issue to /
+Move to team**, **Reminders ("Remind me" ⇧H)**, and **Customer requests / Pulse**.
+
 ## 2026-06-18 — Loop #83: Right-click context menu → Linear's full list-row menu (1:1)
 
 Soi'd Linear's issue list-row right-click menu in Chrome (workspace "Claude Test

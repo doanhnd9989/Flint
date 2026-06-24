@@ -13,7 +13,8 @@ import { ImportExportSettings } from '@/components/ImportExportSettings'
 import { NotificationsSettings } from '@/components/NotificationsSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
-import type { Preferences, ThemeMode } from '@/lib/types'
+import { ESTIMATION_TYPES } from '@/lib/constants'
+import type { EstimationType, Preferences, ThemeMode } from '@/lib/types'
 
 // ── Settings navigation — mirrors Linear's Settings sidebar 1:1 ──────────────
 // (workspace "Claude Test App"): groups Personal / Issues / Projects / Features
@@ -520,6 +521,103 @@ function WorkspacePage() {
   )
 }
 
+/**
+ * Per-team settings — Linear's "Your teams → {team}" page. General summary +
+ * Estimates (scale + allow-zero) + Cycles (enable) + Workflow statuses.
+ */
+function TeamPage({ teamId }: { teamId: string }) {
+  const { teams, issues, setTeamEstimation, setTeamCyclesEnabled } =
+    useStoreShallow((s) => ({
+      teams: s.teams,
+      issues: s.issues,
+      setTeamEstimation: s.setTeamEstimation,
+      setTeamCyclesEnabled: s.setTeamCyclesEnabled,
+    }))
+  const team = teams.find((t) => t.id === teamId)
+  if (!team) return <ComingSoon title="Team" />
+  const issueCount = issues.filter((i) => i.teamId === team.id).length
+  const type: EstimationType = team.estimationType ?? 'fibonacci'
+
+  return (
+    <Page title={team.name} description="Manage this team's settings.">
+      <Section title="General">
+        <PrefCard>
+          <PrefRow
+            title="Team icon & name"
+            description={`${team.name} · ${issueCount} issues`}
+            control={
+              <span className="flex items-center gap-2 text-[20px]">
+                {team.icon}
+              </span>
+            }
+          />
+          <PrefRow
+            title="Identifier"
+            description="Prefixed to every issue created in this team"
+            control={
+              <span className="rounded-md bg-bg-tertiary px-2 py-0.5 text-[13px] font-medium text-fg">
+                {team.key}
+              </span>
+            }
+          />
+        </PrefCard>
+      </Section>
+
+      <Section title="Estimates">
+        <PrefCard>
+          <PrefRow
+            title="Estimation type"
+            description="Choose the scale used to estimate issues in this team"
+            control={
+              <PrefDropdown
+                value={type}
+                onSelect={(v) =>
+                  setTeamEstimation(team.id, { estimationType: v as EstimationType })
+                }
+                options={ESTIMATION_TYPES.map((e) => ({
+                  value: e.id,
+                  label: e.example ? `${e.label} · ${e.example}` : e.label,
+                }))}
+              />
+            }
+          />
+          <PrefRow
+            title="Allow zero"
+            description="Offer 0 as a selectable estimate value"
+            control={
+              <Toggle
+                on={!!team.estimationAllowZero}
+                onChange={(v) =>
+                  setTeamEstimation(team.id, { estimationAllowZero: v })
+                }
+              />
+            }
+          />
+        </PrefCard>
+      </Section>
+
+      <Section title="Cycles">
+        <PrefCard>
+          <PrefRow
+            title="Enable cycles"
+            description="Cycles are time-boxed sprints of issues for this team"
+            control={
+              <Toggle
+                on={team.cyclesEnabled ?? true}
+                onChange={(v) => setTeamCyclesEnabled(team.id, v)}
+              />
+            }
+          />
+        </PrefCard>
+      </Section>
+
+      <Section title="Workflow">
+        <StatesSettings />
+      </Section>
+    </Page>
+  )
+}
+
 function ComingSoon({ title }: { title: string }) {
   return (
     <div className="flex h-full flex-col">
@@ -665,9 +763,7 @@ export function SettingsView() {
       {/* Content pane */}
       <div className="flex-1 overflow-y-auto bg-bg-secondary">
         {page.startsWith('team-') ? (
-          <Page title="Workflow" description="Statuses for this team's issues.">
-            <StatesSettings />
-          </Page>
+          <TeamPage teamId={page.slice('team-'.length)} />
         ) : (
           <SettingsContent page={page} />
         )}

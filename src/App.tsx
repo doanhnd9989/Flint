@@ -32,6 +32,8 @@ import { ProjectDetail } from '@/views/ProjectDetail'
 import { InitiativesView } from '@/views/InitiativesView'
 import { InitiativeDetail } from '@/views/InitiativeDetail'
 import { RoadmapView } from '@/views/RoadmapView'
+import { DocumentsView } from '@/views/DocumentsView'
+import { DocumentDetail } from '@/views/DocumentDetail'
 import { SettingsView } from '@/views/SettingsView'
 import { ViewsView } from '@/views/ViewsView'
 import { SavedViewScreen } from '@/views/SavedViewScreen'
@@ -96,6 +98,8 @@ export default function App() {
           <Route path="/initiatives" element={<InitiativesView />} />
           <Route path="/initiative/:id" element={<InitiativeDetail />} />
           <Route path="/roadmap" element={<RoadmapView />} />
+          <Route path="/documents" element={<DocumentsView />} />
+          <Route path="/document/:id" element={<DocumentDetail />} />
           <Route path="/views" element={<ViewsView />} />
           <Route path="/view/:id" element={<SavedViewScreen />} />
           <Route path="/team/:teamKey/active" element={<IssuesView />} />

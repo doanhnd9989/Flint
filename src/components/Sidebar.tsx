@@ -13,6 +13,7 @@ import {
   IterationCw,
   Ticket,
   Goal,
+  FileText,
   Map as MapIcon,
   Copy,
   Plus,
@@ -301,6 +302,7 @@ export function Sidebar() {
         <Section title="Workspace">
           <Item to="/initiatives" icon={<Goal size={15} />} label="Initiatives" />
           <Item to="/projects" icon={<Box size={15} />} label="Projects" />
+          <Item to="/documents" icon={<FileText size={15} />} label="Documents" />
           <Item to="/roadmap" icon={<MapIcon size={15} />} label="Roadmap" />
           <Item to="/views" icon={<LayersIcon size={15} />} label="Views" />
         </Section>
@@ -318,11 +320,13 @@ export function Sidebar() {
               icon={<Layers3 size={15} />}
               label="Issues"
             />
-            <Item
-              to={`/team/${team.key}/cycles`}
-              icon={<IterationCw size={15} />}
-              label="Cycles"
-            />
+            {(team.cyclesEnabled ?? true) && (
+              <Item
+                to={`/team/${team.key}/cycles`}
+                icon={<IterationCw size={15} />}
+                label="Cycles"
+              />
+            )}
             <Item
               to={`/team/${team.key}/projects`}
               icon={<FolderKanban size={15} />}

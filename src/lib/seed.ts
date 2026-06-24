@@ -2,6 +2,7 @@ import type {
   Activity,
   Comment,
   Cycle,
+  Document,
   Initiative,
   Issue,
   IssueLink,
@@ -41,6 +42,7 @@ export interface WorkspaceData {
   activities: Activity[]
   notifications: Notification[]
   savedViews: SavedView[]
+  documents: Document[]
 }
 
 export function buildSeed(): WorkspaceData {
@@ -56,10 +58,12 @@ export function buildSeed(): WorkspaceData {
     {
       id: 't_cla', name: 'Claude Test App', key: 'CLA', icon: '🧩', color: '#5e6ad2',
       memberIds: ['u_me', 'u_avery', 'u_jordan', 'u_sam'],
+      estimationType: 'fibonacci', estimationAllowZero: false, cyclesEnabled: true,
     },
     {
       id: 't_eng', name: 'Engineering', key: 'ENG', icon: '⚙️', color: '#4ea7fc',
       memberIds: ['u_me', 'u_kai'],
+      estimationType: 'fibonacci', estimationAllowZero: false, cyclesEnabled: true,
     },
   ]
 
@@ -417,6 +421,32 @@ export function buildSeed(): WorkspaceData {
     },
   ]
 
+  const documents: Document[] = [
+    {
+      id: 'doc_prd',
+      title: 'Product requirements',
+      icon: '📄',
+      content:
+        '# Product requirements\n\nThis document captures the **scope and goals** for the MVP launch.\n\n## Goals\n\n- Ship a keyboard-first issue tracker\n- Match Linear\'s look and feel\n- Fast, offline-first\n\n## Non-goals\n\n- Real-time multiplayer (post-launch)\n\n## Open questions\n\n- [ ] Pricing model\n- [ ] Mobile parity\n',
+      creatorId: 'u_me',
+      projectId: 'p_mvp',
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      sortOrder: 100,
+    },
+    {
+      id: 'doc_brand',
+      title: 'Brand guidelines',
+      icon: '🎨',
+      content:
+        '# Brand guidelines\n\nOur voice is **calm, confident, and concise**.\n\n## Colors\n\n- Accent: indigo\n- Keep contrast high in both themes\n\n## Typography\n\nUse the system font stack for speed.\n',
+      creatorId: 'u_avery',
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      sortOrder: 200,
+    },
+  ]
+
   return {
     workspaceName: 'Claude Test App',
     users,
@@ -438,5 +468,6 @@ export function buildSeed(): WorkspaceData {
     activities,
     notifications,
     savedViews,
+    documents,
   }
 }

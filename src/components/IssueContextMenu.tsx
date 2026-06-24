@@ -331,6 +331,15 @@ export function IssueContextMenu() {
         <div className="my-1 h-px bg-border" />
 
         <ActionRow
+          icon={<CopyPlus size={14} />}
+          label="Duplicate"
+          onClick={() => {
+            const dupe = store.duplicateIssue(issue.id)
+            close()
+            if (dupe) navigate(`/issue/${dupe.identifier}`)
+          }}
+        />
+        <ActionRow
           icon={<Trash2 size={14} />}
           label="Delete"
           hint="⌘⌫"
