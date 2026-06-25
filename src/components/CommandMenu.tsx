@@ -25,6 +25,7 @@ import {
   Monitor,
   Keyboard,
   Map,
+  BarChart3,
   Goal,
   FileText,
   User,
@@ -482,6 +483,13 @@ export function CommandMenu() {
         icon: <FileText size={15} />,
         keywords: 'documents docs notes specs',
         run: () => navigate('/documents'),
+      },
+      {
+        id: 'go-insights',
+        label: 'Go to Insights',
+        icon: <BarChart3 size={15} />,
+        keywords: 'insights analytics charts metrics reports stats',
+        run: () => navigate('/insights'),
       },
       {
         id: 'new-document',

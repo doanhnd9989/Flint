@@ -15,6 +15,7 @@ import {
   Goal,
   FileText,
   Map as MapIcon,
+  BarChart3,
   Copy,
   Plus,
   X,
@@ -304,6 +305,7 @@ export function Sidebar() {
           <Item to="/projects" icon={<Box size={15} />} label="Projects" />
           <Item to="/documents" icon={<FileText size={15} />} label="Documents" />
           <Item to="/roadmap" icon={<MapIcon size={15} />} label="Roadmap" />
+          <Item to="/insights" icon={<BarChart3 size={15} />} label="Insights" />
           <Item to="/views" icon={<LayersIcon size={15} />} label="Views" />
         </Section>
 
