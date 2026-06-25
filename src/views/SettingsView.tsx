@@ -27,6 +27,11 @@ import { CustomerRequestsSettings } from '@/components/CustomerRequestsSettings'
 import { ReleasesSettings } from '@/components/ReleasesSettings'
 import { PulseSettings } from '@/components/PulseSettings'
 import { AsksSettings } from '@/components/AsksSettings'
+import { ProjectTemplatesSettings } from '@/components/ProjectTemplatesSettings'
+import { ProjectUpdatesSettings } from '@/components/ProjectUpdatesSettings'
+import { ProjectLabelsSettings } from '@/components/ProjectLabelsSettings'
+import { InitiativesSettings } from '@/components/InitiativesSettings'
+import { DocumentsSettings } from '@/components/DocumentsSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
 import { ESTIMATION_TYPES } from '@/lib/constants'
@@ -718,6 +723,16 @@ function SettingsContent({ page }: { page: string }) {
       return <PulseSettings />
     case 'asks':
       return <AsksSettings />
+    case 'project-templates':
+      return <ProjectTemplatesSettings />
+    case 'project-updates':
+      return <ProjectUpdatesSettings />
+    case 'project-labels':
+      return <ProjectLabelsSettings />
+    case 'initiatives':
+      return <InitiativesSettings />
+    case 'documents':
+      return <DocumentsSettings />
     default: {
       const label = NAV.flatMap((g) => g.items).find((i) => i.id === page)?.label ?? 'Settings'
       return <ComingSoon title={label} />
