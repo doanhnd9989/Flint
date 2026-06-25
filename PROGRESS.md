@@ -2335,3 +2335,64 @@ Scaffolded the Linear clone and shipped a working MVP, verified in the browser:
 - `npx tsc -b` ✅ · `npm run build` ✅ · browser verified (row nav + ⌘K working).
 
 Next: see top of `BACKLOG.md` → **Filtering bar**.
+
+
+## 2026-06-26 — Loop #85: 22 features (every settings stub → real, + Insights) + bug pass + Insights polish
+
+A high-volume run that closed out Linear's **Settings** surface and added a new
+analytics view. Added one tiny persisted store slice up front —
+`featureSettings: Record<string, boolean>` + `setFeatureSetting(key,on)`
+(auto-persisted; namespaced keys like `integrations.github`, `security.twoFactor`)
+— so the new settings pages have real, reloading toggle state without per-page
+store churn. Shared-file integration (the `SettingsView` switch, `App` routes,
+`Sidebar`, ⌘K) was done in single deterministic passes by the main agent; each
+feature lived in its own new component/view file (no write collisions).
+
+**Wave 1 — 8 settings pages** (`SettingsView` switch cases + components):
+Integrations, Billing (real seat count), API (keys + webhooks), Security (admin),
+Connected accounts, Emojis, SLAs, Applications.
+
+**Wave 2 — 8 feature/personal settings pages:** Code & reviews, Security & access
+(personal), Agent personalization, AI & Agents, Customer requests, Releases,
+Pulse, Asks.
+
+**Wave 3 — 5 Projects/Features settings pages:** Project templates, Project
+updates, Project labels, Initiatives, Documents. The entire Settings nav now
+renders real content — no "Coming soon" stubs remain.
+
+**Wave 4 — Insights** (1 substantial interactive view): new `/insights` route +
+`InsightsView` computing live from the store — summary stat cards
+(total / completed / in-progress / backlog / total points + completion %) and
+By-status / By-priority / By-assignee / By-project / By-label breakdown bars,
+each colored by its category (status uses the workflow state's own color,
+priority uses the priority palette, labels their label color); a team-filter
+segmented control (All teams / per-team) recomputes everything. Wired into the
+sidebar Workspace section and ⌘K ("Go to Insights"). Total: **22 features**.
+
+**Phase 2 — bug hunt (find → adversarially verify → fix):** swept all 21 settings
+pages + Insights + core routes (issues/board/triage/cycles/projects/initiatives/
+roadmap/documents/views/my-issues/inbox/search) with live `console.error`
+capture, and exercised interactions (SLA master-toggle gating reveals rules,
+toggle state persists to localStorage across reload, API "new key" form, emoji
+add, Insights team filter 16→14). One candidate — a "<CommandMenu> component
+error" warning in the buffer — was **adversarially verified as NOT-A-BUG**: it
+was a transient HMR-only artifact from editing CommandMenu (I added the
+`go-insights` command one edit before its `BarChart3` import; HMR rendered the
+in-between state). The committed code throws nothing — confirmed by a fresh hard
+reload + opening ⌘K + navigating with `console.error` capture (zero), plus
+`tsc -b` and `npm run build` both green. **0 confirmed bugs.**
+
+**Phase 3 — polish (Insights, both themes):** verified the new settings pages and
+Insights render with correct tokens in light **and** dark (Releases card +
+status pills, Insights bars/cards all parity-correct). Improvement: added
+Linear's small colored category dot before each Insights breakdown-row label
+(row label also brightens to `text-fg` on hover). The app is desktop-first (the
+240px sidebar never collapses — no view is mobile-responsive), so Insights
+matches the rest of the app at narrow widths; not a regression.
+
+Verified in-browser via the Preview MCP at the dev URL throughout: zero console
+errors, no "Maximum update depth". `tsc -b ✅ · build ✅ · console clean`.
+
+Next: top remaining BACKLOG item — continue Linear parity on interactive
+surfaces (e.g. Insights "completed over time" trend, per-project Insights, or
+team-level integration settings).

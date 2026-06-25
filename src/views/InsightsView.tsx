@@ -30,9 +30,13 @@ function BarChart({ bars, max }: { bars: Bar[]; max: number }) {
   return (
     <div className="space-y-2.5">
       {bars.map((b) => (
-        <div key={b.key} className="flex items-center gap-3">
-          <div className="w-28 shrink-0 truncate text-[12px] text-muted" title={b.label}>
-            {b.label}
+        <div key={b.key} className="group flex items-center gap-3">
+          <div className="flex w-28 shrink-0 items-center gap-1.5" title={b.label}>
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: b.color }}
+            />
+            <span className="truncate text-[12px] text-muted group-hover:text-fg">{b.label}</span>
           </div>
           <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
             <div

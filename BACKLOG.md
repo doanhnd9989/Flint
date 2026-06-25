@@ -114,3 +114,31 @@ _(loop appends new Linear features it notices here)_
 - [x] 🟡 **Team Estimates settings** — soi'd Linear's per-team **Estimates** setting: an `EstimationType` (`notUsed` / `linear` 0-5 / `exponential` 0,1,2,4,8,16 / `fibonacci` / `tshirt` XS-XL) + **Allow zero** on `Team`, a `setTeamEstimation` store action, and pure `estimatePoints(team)` / `estimateLabel(value, team)` / `teamEstimationType()` helpers in `constants.ts`. The issue **Estimate** property picker (shared by detail + peek) now uses the team's scale — t-shirt renders XS/S/M/L/XL, `notUsed` hides the row entirely; "Allow zero" toggles whether 0 is offered. Defaults fibonacci (matches the prior fixed scale). Verified live: settings page shows "Fibonacci · 0, 1, 2, 3, 5, 8" + Allow-zero off, issue estimate row renders, console clean.
 - [x] 🟡 **Team Cycles settings + per-team Settings page** — restructured "Your teams → {team}" from a bare Workflow-states page into a proper team settings page (Linear-style): **General** (icon + name + issue count, read-only **Identifier** chip), **Estimates** (the new estimation type + allow-zero), **Cycles** (an **Enable cycles** toggle wired to `Team.cyclesEnabled` + `setTeamCyclesEnabled`), and **Workflow** (statuses). Disabling cycles now hides that team's **Cycles** entry from the sidebar (verified: toggling CLA off drops its sidebar Cycles row, ENG's stays). Verified live: toggle on/off works, sidebar updates, console clean.
 - [x] 🟡 **Duplicate issue** — a `duplicateIssue(id)` store action clones an issue's core properties into a fresh same-team identifier (new `CLA-N`, own subscriber/creator, no copied comments/relations/sub-issues, cleared completed/canceled/triage — matching Linear's default) and a **Duplicate** row in the right-click `IssueContextMenu` (above Delete) that creates the copy and opens it. Verified: `duplicateIssue` mirrors the proven `createIssue` path; tsc + build green.
+
+## Loop #85 — shipped (settings parity + Insights)
+
+Every previously-stubbed ("Coming soon") Settings page is now a real, faithful
+Linear surface, plus a new workspace **Insights** analytics view.
+
+- [x] 🟡 **Settings → Integrations** — searchable grid of ~11 integration cards (GitHub, GitLab, Slack, Figma, Sentry, Zendesk, Discord, Notion, Google, Zapier, Jira) with Connect/Connected state persisted to `featureSettings`.
+- [x] 🟡 **Settings → Billing** — current-plan card (Business, seats-used bar driven by real `users.length`), Monthly/Annually cycle toggle, Seats, Payment method, Billing history.
+- [x] 🟡 **Settings → API** — personal API keys list (create reveals token once / revoke) + webhooks section.
+- [x] 🟡 **Settings → Security (admin)** — auth (2FA/SAML/SCIM), access (allowed domains / public sharing), session controls — toggles persisted to `featureSettings`.
+- [x] 🟡 **Settings → Connected accounts** — link GitHub/Google/Slack/Figma, persisted connect state.
+- [x] 🟢 **Settings → Emojis** — custom-emoji grid with search + inline add/delete.
+- [x] 🟡 **Settings → SLAs** — master enable gating SLA priority→target rules (add/remove).
+- [x] 🟡 **Settings → Applications** — authorized OAuth apps list (revoke) + developer section.
+- [x] 🟡 **Settings → Code & reviews** — connected code host + PR-automation toggles + branch format.
+- [x] 🟡 **Settings → Security & access (personal)** — 2FA, passkeys list, active sessions, password.
+- [x] 🟡 **Settings → Agent personalization** — assistance toggles, response tone, custom instructions.
+- [x] 🟡 **Settings → AI & Agents** — AI feature toggles + agents list (Active/Paused).
+- [x] 🟡 **Settings → Customer requests** — master enable → sources + ARR-weighted prioritization.
+- [x] 🟡 **Settings → Releases** — master enable → versioned releases list + changelog toggles.
+- [x] 🟡 **Settings → Pulse** — AI digest cadence/content toggles + preview card.
+- [x] 🟡 **Settings → Asks** — internal help-desk channels, request types, automation.
+- [x] 🟡 **Settings → Project templates** — project template list (new/duplicate/delete).
+- [x] 🟡 **Settings → Project updates** — update reminder cadence + delivery + health requirement.
+- [x] 🟢 **Settings → Project labels** — project-scoped label manager (search + create/delete + swatches).
+- [x] 🟡 **Settings → Initiatives** — enable + display/update-cadence options.
+- [x] 🟡 **Settings → Documents** — enable + permissions + editing options.
+- [x] 🔴 **Insights** — workspace analytics view (`/insights`): summary stats (total/completed/in-progress/backlog/points + completion %) and By status / priority / assignee / project / label breakdown bars with a team filter; reachable from the sidebar Workspace section and ⌘K ("Go to Insights").
