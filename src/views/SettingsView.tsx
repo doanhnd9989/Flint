@@ -19,6 +19,14 @@ import { ConnectedAccountsSettings } from '@/components/ConnectedAccountsSetting
 import { EmojiSettings } from '@/components/EmojiSettings'
 import { SlaSettings } from '@/components/SlaSettings'
 import { ApplicationsSettings } from '@/components/ApplicationsSettings'
+import { CodeReviewsSettings } from '@/components/CodeReviewsSettings'
+import { SecurityAccessSettings } from '@/components/SecurityAccessSettings'
+import { AgentPersonalizationSettings } from '@/components/AgentPersonalizationSettings'
+import { AiAgentsSettings } from '@/components/AiAgentsSettings'
+import { CustomerRequestsSettings } from '@/components/CustomerRequestsSettings'
+import { ReleasesSettings } from '@/components/ReleasesSettings'
+import { PulseSettings } from '@/components/PulseSettings'
+import { AsksSettings } from '@/components/AsksSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
 import { ESTIMATION_TYPES } from '@/lib/constants'
@@ -694,6 +702,22 @@ function SettingsContent({ page }: { page: string }) {
       return <SlaSettings />
     case 'applications':
       return <ApplicationsSettings />
+    case 'code-and-reviews':
+      return <CodeReviewsSettings />
+    case 'security-access':
+      return <SecurityAccessSettings />
+    case 'agent-personalization':
+      return <AgentPersonalizationSettings />
+    case 'ai-agents':
+      return <AiAgentsSettings />
+    case 'customer-requests':
+      return <CustomerRequestsSettings />
+    case 'releases':
+      return <ReleasesSettings />
+    case 'pulse':
+      return <PulseSettings />
+    case 'asks':
+      return <AsksSettings />
     default: {
       const label = NAV.flatMap((g) => g.items).find((i) => i.id === page)?.label ?? 'Settings'
       return <ComingSoon title={label} />
