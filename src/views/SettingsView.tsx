@@ -11,6 +11,14 @@ import { TemplatesSettings } from '@/components/TemplatesSettings'
 import { TeamsSettings } from '@/components/TeamsSettings'
 import { ImportExportSettings } from '@/components/ImportExportSettings'
 import { NotificationsSettings } from '@/components/NotificationsSettings'
+import { IntegrationsSettings } from '@/components/IntegrationsSettings'
+import { BillingSettings } from '@/components/BillingSettings'
+import { ApiSettings } from '@/components/ApiSettings'
+import { SecuritySettings } from '@/components/SecuritySettings'
+import { ConnectedAccountsSettings } from '@/components/ConnectedAccountsSettings'
+import { EmojiSettings } from '@/components/EmojiSettings'
+import { SlaSettings } from '@/components/SlaSettings'
+import { ApplicationsSettings } from '@/components/ApplicationsSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
 import { ESTIMATION_TYPES } from '@/lib/constants'
@@ -670,6 +678,22 @@ function SettingsContent({ page }: { page: string }) {
           <MembersSettings />
         </Page>
       )
+    case 'integrations':
+      return <IntegrationsSettings />
+    case 'billing':
+      return <BillingSettings />
+    case 'api':
+      return <ApiSettings />
+    case 'security':
+      return <SecuritySettings />
+    case 'connected-accounts':
+      return <ConnectedAccountsSettings />
+    case 'emojis':
+      return <EmojiSettings />
+    case 'slas':
+      return <SlaSettings />
+    case 'applications':
+      return <ApplicationsSettings />
     default: {
       const label = NAV.flatMap((g) => g.items).find((i) => i.id === page)?.label ?? 'Settings'
       return <ComingSoon title={label} />

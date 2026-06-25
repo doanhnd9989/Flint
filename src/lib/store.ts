@@ -112,6 +112,13 @@ interface UIState {
   onboardingDismissed: string[]
   /** Which properties show on issue rows — Linear's Display options (persisted). */
   displayProperties: Record<DisplayProperty, boolean>
+  /**
+   * Generic on/off settings for the workspace/feature settings pages — keyed by
+   * a namespaced string (e.g. `integrations.github`, `security.twoFactor`).
+   * Persisted; pages read a key with a default and flip it via
+   * {@link Store.setFeatureSetting}.
+   */
+  featureSettings: Record<string, boolean>
 }
 
 interface NewIssueInput {
@@ -266,6 +273,7 @@ export interface Store extends WorkspaceData, UIState {
   toggleFavorite: (type: FavoriteType, id: string) => void
   dismissOnboardingStep: (key: string) => void
   toggleDisplayProperty: (prop: DisplayProperty) => void
+  setFeatureSetting: (key: string, on: boolean) => void
 
   // ── bulk selection ───────────────────────────────────────────
   toggleSelectIssue: (id: string) => void
@@ -359,6 +367,7 @@ export const useStore = create<Store>()(
         subscribed: true,
       },
       onboardingDismissed: [],
+      featureSettings: {},
       displayProperties: { ...DEFAULT_DISPLAY_PROPERTIES },
       notificationSettings: structuredClone(DEFAULT_NOTIFICATION_SETTINGS),
 
@@ -1379,6 +1388,8 @@ export const useStore = create<Store>()(
             [prop]: !s.displayProperties[prop],
           },
         })),
+      setFeatureSetting: (key, on) =>
+        set((s) => ({ featureSettings: { ...s.featureSettings, [key]: on } })),
 
       toggleSelectIssue: (id) =>
         set((s) => ({
