@@ -56,6 +56,44 @@ interface TeamStats {
   projects: number // projects that include this team
 }
 
+/** A team's most-active member: who, and how many of the team's issues they own. */
+interface ActiveMember {
+  user: User
+  count: number
+}
+
+/**
+ * Hover popover listing a team's most active members — the top assignees by
+ * issue count within the team, with their assigned totals. Reveals on row hover
+ * (and focus, for keyboard users), mirroring Linear's contributor peek.
+ */
+function MostActiveMembers({ members }: { members: ActiveMember[] }) {
+  if (members.length === 0) return null
+  return (
+    <div
+      className="pointer-events-none absolute right-0 top-full z-20 mt-1 hidden w-56 rounded-lg border border-border bg-bg p-2 text-left shadow-lg group-hover:block group-focus-visible:block"
+      role="tooltip"
+    >
+      <div className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-faint">
+        Most active
+      </div>
+      <div className="flex flex-col gap-0.5">
+        {members.map(({ user, count }) => (
+          <div key={user.id} className="flex items-center gap-2 rounded px-1 py-1">
+            <Avatar user={user} size={20} />
+            <span className="min-w-0 flex-1 truncate text-[12px] text-fg">
+              {user.name}
+            </span>
+            <span className="shrink-0 text-[11px] tabular-nums text-muted">
+              {count} issue{count === 1 ? '' : 's'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /**
  * Teams directory — Linear's workspace Teams list. Browse every team with its
  * key, members, and issue/project counts; click through to the team overview.
@@ -108,6 +146,36 @@ export function TeamsDirectoryView() {
     for (const u of users) m.set(u.id, u)
     return m
   }, [users])
+
+  // teamId → top 3 assignees by issue count within that team (most active).
+  const topMembersByTeam = useMemo(() => {
+    // teamId → (assigneeId → count)
+    const counts = new Map<string, Map<string, number>>()
+    for (const i of issues as Issue[]) {
+      if (i.triage || i.archivedAt || !i.assigneeId) continue
+      let inner = counts.get(i.teamId)
+      if (!inner) {
+        inner = new Map<string, number>()
+        counts.set(i.teamId, inner)
+      }
+      inner.set(i.assigneeId, (inner.get(i.assigneeId) ?? 0) + 1)
+    }
+    const m = new Map<string, ActiveMember[]>()
+    for (const t of teams) {
+      const inner = counts.get(t.id)
+      if (!inner) {
+        m.set(t.id, [])
+        continue
+      }
+      const ranked = [...inner.entries()]
+        .map(([id, count]) => ({ user: userById.get(id), count }))
+        .filter((x): x is ActiveMember => !!x.user)
+        .sort((a, b) => b.count - a.count || a.user.name.localeCompare(b.user.name))
+        .slice(0, 3)
+      m.set(t.id, ranked)
+    }
+    return m
+  }, [issues, teams, userById])
 
   // Summary strip: total teams + grand total of issues + members across teams.
   const summary = useMemo(() => {
@@ -246,7 +314,7 @@ export function TeamsDirectoryView() {
 
           {/* List layout */}
           {sorted.length > 0 && layout === 'list' && (
-            <div className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
+            <div className="mt-3 divide-y divide-border rounded-lg border border-border [&>*:first-child]:rounded-t-lg [&>*:last-child]:rounded-b-lg">
               {sorted.map((team: Team) => {
                 const stats = statsByTeam.get(team.id) ?? {
                   total: 0,
@@ -264,7 +332,7 @@ export function TeamsDirectoryView() {
                     key={team.id}
                     type="button"
                     onClick={() => navigate(`/team/${team.key}/overview`)}
-                    className="group flex w-full items-center gap-3 bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover"
+                    className="group relative flex w-full items-center gap-3 bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover"
                   >
                     {/* Icon */}
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-bg-secondary text-[15px]">
@@ -331,6 +399,11 @@ export function TeamsDirectoryView() {
                     <ChevronRight
                       size={15}
                       className="shrink-0 text-faint transition-colors group-hover:text-muted"
+                    />
+
+                    {/* Most-active-members peek (reveals on row hover/focus) */}
+                    <MostActiveMembers
+                      members={topMembersByTeam.get(team.id) ?? []}
                     />
                   </button>
                 )

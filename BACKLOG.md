@@ -337,3 +337,12 @@ _Wave 2 (projects · cycles · initiatives · team):_
 - [x] 🟡 **Triage cycle picker** — `TriageView` cards gain a Cycle chip (active+upcoming + "No cycle") wired to `setIssueCycle`; hidden when the team has no cycles.
 - [x] 🟢 **Team Overview member activity** — `TeamOverviewView` Members card sorts roster by last-7-days completions and shows a 5-cell mini bar + count per member.
 - [x] 🟢 **Members directory "Last active"** — `MembersDirectoryView` adds a Last-active column (max createdAt across activities/comments/created issues, as relative time).
+
+_Wave 3 (workspace dirs · inbox · recent):_
+- [x] 🟢 **Profile keyboard-shortcuts panel** — `ProfileView` collapsible card listing real app shortcuts grouped Navigation/Issues/Help as label + kbd chips.
+- [x] 🟡 **Label page inline rename** — `LabelView` header name is click-to-rename, saving via `updateLabel`; Esc cancels, empty reverts, color dot preserved.
+- [x] 🟢 **Labels co-occurrence panel** — `LabelsDirectoryView` per-row Details opens a right panel of the labels most often applied to the same issues (top 6 + counts), derived from issue labelIds.
+- [x] 🟢 **Teams directory most-active popover** — `TeamsDirectoryView` row hover reveals the team's top-3 members by assignment (avatar + name + count).
+- [x] 🟡 **Inbox bulk select + actions** — `Inbox` per-row + master checkbox and a floating Mark-read / Snooze / Delete bar over the selection; Esc + route change clear.
+- [x] 🟢 **Recent sort menu** — `RecentView` sort dropdown (Recency / Title A–Z / Priority) applied in the same memo feeding j/k nav.
+- [x] 🟡 **Archive bulk restore/delete** — `ArchiveView` per-row + master checkboxes and a sticky Restore / Delete bar over the selection; Esc clears, selection auto-prunes.

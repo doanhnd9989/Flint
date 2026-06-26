@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, Search } from 'lucide-react'
+import { ArrowUpDown, ChevronDown, Search } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
@@ -8,7 +8,17 @@ import { StatusIcon } from '@/components/StatusIcon'
 import { EmptyState, IssuesIllustration } from '@/components/EmptyState'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
+import { PRIORITY_SORT } from '@/lib/constants'
 import type { Issue } from '@/lib/types'
+
+/** How the recently-viewed list is ordered on top of the recency history. */
+type SortKey = 'recency' | 'title' | 'priority'
+
+const SORT_LABELS: Record<SortKey, string> = {
+  recency: 'Recency',
+  title: 'Title A–Z',
+  priority: 'Priority (High→Low)',
+}
 
 /**
  * Recently viewed — the issues you've opened most recently, newest first.
@@ -30,6 +40,7 @@ export function RecentView() {
   // recency order so newest-first is always preserved.
   const [query, setQuery] = useState('')
   const [teamFilter, setTeamFilter] = useState('all')
+  const [sortKey, setSortKey] = useState<SortKey>('recency')
 
   // Resolve ids → issues in recency order, dropping ids that no longer resolve.
   const recent = useMemo(() => {
@@ -39,10 +50,12 @@ export function RecentView() {
       .filter((i): i is Issue => Boolean(i) && !i!.archivedAt)
   }, [recentIssueIds, issues])
 
-  // Apply the team + search filters while keeping the newest-first order intact.
+  // Apply the team + search filters, then the chosen sort. Recency order is the
+  // base (and the stable tiebreaker for the other sorts), so j/k navigation and
+  // the rendered rows always agree on the same ordering.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return recent.filter((i) => {
+    const matched = recent.filter((i) => {
       if (teamFilter !== 'all' && i.teamId !== teamFilter) return false
       if (
         q &&
@@ -52,7 +65,18 @@ export function RecentView() {
         return false
       return true
     })
-  }, [recent, query, teamFilter])
+    if (sortKey === 'title') {
+      return [...matched].sort((a, b) =>
+        a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
+      )
+    }
+    if (sortKey === 'priority') {
+      return [...matched].sort(
+        (a, b) => PRIORITY_SORT[a.priority] - PRIORITY_SORT[b.priority],
+      )
+    }
+    return matched
+  }, [recent, query, teamFilter, sortKey])
 
   // Team filter options: "All teams" + every team in the workspace.
   const teamOptions = useMemo<SelectOption[]>(
@@ -66,6 +90,17 @@ export function RecentView() {
       })),
     ],
     [teams, teamFilter],
+  )
+
+  // Sort options for the order menu next to the team filter.
+  const sortOptions = useMemo<SelectOption[]>(
+    () =>
+      (Object.keys(SORT_LABELS) as SortKey[]).map((key) => ({
+        id: key,
+        label: SORT_LABELS[key],
+        selected: sortKey === key,
+      })),
+    [sortKey],
   )
 
   // Label for the team-filter trigger chip.
@@ -164,6 +199,20 @@ export function RecentView() {
               trigger={
                 <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
                   <span className="max-w-[120px] truncate">{teamFilterLabel}</span>
+                  <ChevronDown size={13} className="shrink-0 text-faint" />
+                </span>
+              }
+            />
+            <SelectMenu
+              width={200}
+              align="end"
+              options={sortOptions}
+              onSelect={(id) => setSortKey(id as SortKey)}
+              placeholder="Sort by…"
+              trigger={
+                <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
+                  <ArrowUpDown size={13} className="shrink-0 text-faint" />
+                  <span className="max-w-[120px] truncate">{SORT_LABELS[sortKey]}</span>
                   <ChevronDown size={13} className="shrink-0 text-faint" />
                 </span>
               }

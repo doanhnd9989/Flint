@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   Inbox as InboxIcon,
   Maximize2,
+  Minus,
 } from 'lucide-react'
 import { EmptyState, InboxIllustration } from '@/components/EmptyState'
 import { useStore, useDisplayName } from '@/lib/store'
@@ -550,6 +551,8 @@ export function Inbox() {
   const [filters, setFilters] = useState<InboxFilters>(EMPTY_FILTERS)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Bulk-select set (the checkboxes), independent from the reading-pane focus.
+  const [checked, setChecked] = useState<Set<string>>(() => new Set())
   const now = Date.now()
 
   const statusTypeOf = (issueId: string): StatusType | undefined => {
@@ -607,6 +610,29 @@ export function Inbox() {
     setSelectedId(next ? next.id : null)
   }
 
+  // ── bulk selection (checkboxes) ──────────────────────────────────────────
+  // Keep the checked set pruned to the currently-visible rows so toggle-all and
+  // the action-bar count never reference notifications hidden by the filters.
+  const visibleIds = list.map((n) => n.id)
+  const checkedVisible = visibleIds.filter((id) => checked.has(id))
+  const allChecked = list.length > 0 && checkedVisible.length === list.length
+  const someChecked = checkedVisible.length > 0
+  const toggleChecked = (id: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  const toggleAll = () =>
+    setChecked(allChecked ? new Set() : new Set(visibleIds))
+  const clearChecked = () => setChecked(new Set())
+  // Run a store action over every checked notification, then drop the selection.
+  const bulkAct = (act: (id: string) => void) => {
+    checkedVisible.forEach((id) => act(id))
+    if (selectedId && checkedVisible.includes(selectedId)) setSelectedId(null)
+    clearChecked()
+  }
+
   // Inbox keyboard shortcuts (soi'd Linear's shortcut reference, workspace
   // "Claude Test App"): ↑/↓ + j/k move the selection · Esc clears it ·
   // ⌫ mark as done · ⇧⌫ delete all read · U mark read/unread · ⌥U mark all
@@ -641,9 +667,10 @@ export function Inbox() {
       select((idx <= 0 ? items[0] : items[idx - 1]).id)
       return
     }
-    if (e.key === 'Escape' && selectedId) {
+    if (e.key === 'Escape' && (selectedId || someChecked)) {
       own()
       setSelectedId(null)
+      clearChecked()
       return
     }
 
@@ -711,7 +738,36 @@ export function Inbox() {
 
         <FilterChips filters={filters} setFilters={setFilters} />
 
-        <div className="flex-1 overflow-y-auto">
+        {/* select-all bar — Linear reveals a master checkbox above the list */}
+        {list.length > 0 && (
+          <div className="flex h-8 shrink-0 items-center gap-2.5 border-b border-border px-3">
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={allChecked ? true : someChecked ? 'mixed' : false}
+              onClick={toggleAll}
+              className={cn(
+                'flex h-4 w-4 items-center justify-center rounded-[4px] border transition-colors',
+                allChecked || someChecked
+                  ? 'border-accent bg-accent text-white'
+                  : 'border-border text-transparent hover:border-faint',
+              )}
+            >
+              {allChecked ? (
+                <Check size={11} strokeWidth={3} />
+              ) : someChecked ? (
+                <Minus size={11} strokeWidth={3} />
+              ) : null}
+            </button>
+            <span className="text-[12px] text-faint">
+              {someChecked
+                ? `${checkedVisible.length} selected`
+                : 'Select all'}
+            </span>
+          </div>
+        )}
+
+        <div className="relative flex-1 overflow-y-auto">
           {list.length === 0 && (
             <div className="px-4 py-10 text-center text-[13px] text-faint">
               {anyFilter(filters)
@@ -745,6 +801,9 @@ export function Inbox() {
                   n={n}
                   now={now}
                   selected={n.id === selectedId}
+                  checked={checked.has(n.id)}
+                  anyChecked={someChecked}
+                  onToggleCheck={() => toggleChecked(n.id)}
                   onOpen={() => select(n.id)}
                   onSnooze={(id, ms) => actThenAdvance(id, (x) => snooze(x, ms))}
                   onUnsnooze={store.unsnoozeNotification}
@@ -753,6 +812,72 @@ export function Inbox() {
               </div>
             )
           })}
+
+          {/* ── bulk action bar — floats over the list while rows are checked ── */}
+          {someChecked && (
+            <div className="sticky bottom-2 z-20 mx-3 mt-2 flex items-center gap-1 rounded-lg border border-border bg-bg-elevated px-1.5 py-1.5 shadow-lg">
+              <span className="px-1.5 text-[12px] font-medium text-fg">
+                {checkedVisible.length}
+              </span>
+              <button
+                onClick={() => bulkAct(store.markNotificationRead)}
+                title="Mark as read"
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-fg hover:bg-bg-hover"
+              >
+                <CheckCheck size={14} className="text-faint" /> Mark read
+              </button>
+              <Popover
+                align="start"
+                width={160}
+                trigger={
+                  <span className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-fg hover:bg-bg-hover">
+                    <Clock size={14} className="text-faint" /> Snooze
+                  </span>
+                }
+              >
+                {(close) => (
+                  <div>
+                    {[
+                      { label: 'In 1 hour', ms: 3_600_000 },
+                      { label: 'Tomorrow', ms: 86_400_000 },
+                      { label: 'Next week', ms: 7 * 86_400_000 },
+                    ].map((o) => (
+                      <button
+                        key={o.label}
+                        onClick={() => {
+                          bulkAct((id) =>
+                            store.snoozeNotification(
+                              id,
+                              new Date(now + o.ms).toISOString(),
+                            ),
+                          )
+                          close()
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                      >
+                        <Clock size={13} className="text-faint" /> {o.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Popover>
+              <button
+                onClick={() => bulkAct(store.deleteNotification)}
+                title="Delete"
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-fg hover:bg-bg-hover"
+              >
+                <Trash2 size={14} className="text-faint" /> Delete
+              </button>
+              <div className="mx-0.5 h-4 w-px bg-border" />
+              <button
+                onClick={clearChecked}
+                title="Clear selection (Esc)"
+                className="flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -919,6 +1044,9 @@ function NotificationRow({
   n,
   now,
   selected,
+  checked,
+  anyChecked,
+  onToggleCheck,
   onOpen,
   onSnooze,
   onUnsnooze,
@@ -927,6 +1055,9 @@ function NotificationRow({
   n: Notification
   now: number
   selected: boolean
+  checked: boolean
+  anyChecked: boolean
+  onToggleCheck: () => void
   onOpen: () => void
   onSnooze: (id: string, ms: number) => void
   onUnsnooze: (id: string) => void
@@ -948,8 +1079,35 @@ function NotificationRow({
         selected ? 'bg-bg-selected' : 'hover:bg-bg-hover',
       )}
     >
-      <span className="mt-1.5 flex w-2 shrink-0 justify-center">
-        {!n.read && <span className="h-2 w-2 rounded-full bg-accent" />}
+      {/* leading slot: unread dot, swapped for a checkbox on hover / when any
+          row is checked — Linear reveals the checkbox the same way */}
+      <span className="relative mt-1 flex h-4 w-4 shrink-0 items-center justify-center">
+        {/* unread dot — hidden whenever the checkbox is showing */}
+        {!n.read && (
+          <span
+            className={cn(
+              'h-2 w-2 rounded-full bg-accent',
+              checked || anyChecked ? 'hidden' : 'group-hover:hidden',
+            )}
+          />
+        )}
+        <span
+          role="checkbox"
+          aria-checked={checked}
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleCheck()
+          }}
+          className={cn(
+            'absolute inset-0 flex h-4 w-4 cursor-pointer items-center justify-center rounded-[4px] border transition-colors',
+            checked
+              ? 'border-accent bg-accent text-white'
+              : 'border-border text-transparent hover:border-faint',
+            checked || anyChecked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+          )}
+        >
+          {checked && <Check size={11} strokeWidth={3} />}
+        </span>
       </span>
       <Avatar user={actor} size={20} />
       <div className="min-w-0 flex-1">

@@ -12,6 +12,8 @@ import {
   PenLine,
   Link2,
   GitBranch,
+  Keyboard,
+  ChevronRight,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
@@ -350,6 +352,123 @@ function PeriodToggle({ value, onChange }: { value: Period; onChange: (p: Period
   )
 }
 
+// ── Keyboard shortcuts reference ─────────────────────────────────────────────
+
+/** A single keyboard-key chip (border + secondary surface), Linear-style. */
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border bg-secondary px-1 font-mono text-[11px] font-medium leading-none text-muted">
+      {children}
+    </kbd>
+  )
+}
+
+/** One shortcut row: its key chips on the left, a description on the right. */
+interface Shortcut {
+  /** Sequence of key chips (e.g. ['G', 'I'] for the G-then-I chord). */
+  keys: string[]
+  /** Joiner between chips: 'then' for chords, undefined for combos. */
+  then?: boolean
+  label: string
+}
+
+interface ShortcutGroup {
+  title: string
+  items: Shortcut[]
+}
+
+// Mirrors the real bindings registered in src/lib/useShortcuts.ts.
+const SHORTCUT_GROUPS: ShortcutGroup[] = [
+  {
+    title: 'Navigation',
+    items: [
+      { keys: ['G', 'I'], then: true, label: 'Go to Inbox' },
+      { keys: ['G', 'M'], then: true, label: 'Go to My Issues' },
+      { keys: ['G', 'B'], then: true, label: 'Go to Board (active)' },
+      { keys: ['G', 'C'], then: true, label: 'Go to Cycles' },
+      { keys: ['G', 'P'], then: true, label: 'Go to Projects' },
+      { keys: ['G', 'V'], then: true, label: 'Go to Views' },
+      { keys: ['J'], label: 'Move focus down' },
+      { keys: ['K'], label: 'Move focus up' },
+      { keys: ['↵'], label: 'Open focused issue' },
+      { keys: ['C'], label: 'Create new issue' },
+      { keys: ['⌘', 'K'], label: 'Open command menu' },
+      { keys: ['/'], label: 'Search issues' },
+    ],
+  },
+  {
+    title: 'Issues',
+    items: [
+      { keys: ['S'], label: 'Change status' },
+      { keys: ['P'], label: 'Change priority' },
+      { keys: ['A'], label: 'Change assignee' },
+      { keys: ['L'], label: 'Change labels' },
+      { keys: ['X'], label: 'Select / deselect issue' },
+    ],
+  },
+  {
+    title: 'Help',
+    items: [{ keys: ['?'], label: 'Show all keyboard shortcuts' }],
+  },
+]
+
+/**
+ * Collapsible reference of the app's real keyboard shortcuts. Presentational
+ * only — a local toggle expands a tidy grouped grid of key chips. Mirrors the
+ * bindings in useShortcuts.ts so the Profile doubles as a cheat sheet.
+ */
+function ShortcutsReference() {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className="rounded-xl border border-border bg-bg">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-5 py-4 text-left"
+      >
+        <Keyboard size={15} className="text-faint" />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[13px] font-semibold text-fg">Keyboard shortcuts</h2>
+          <p className="mt-0.5 text-[12px] text-muted">A quick reference for getting around faster</p>
+        </div>
+        <ChevronRight
+          size={16}
+          className={`shrink-0 text-faint transition-transform ${open ? 'rotate-90' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className="grid grid-cols-1 gap-x-8 gap-y-6 border-t border-border px-5 py-5 sm:grid-cols-2">
+          {SHORTCUT_GROUPS.map((group) => (
+            <div key={group.title}>
+              <div className="mb-2.5 text-[11px] font-medium uppercase tracking-wide text-faint">
+                {group.title}
+              </div>
+              <div className="space-y-1.5">
+                {group.items.map((sc) => (
+                  <div key={sc.label} className="flex items-center justify-between gap-3">
+                    <span className="truncate text-[12px] text-muted">{sc.label}</span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      {sc.keys.map((k, i) => (
+                        <span key={i} className="flex items-center gap-1">
+                          {i > 0 && sc.then && (
+                            <span className="text-[10px] text-faint">then</span>
+                          )}
+                          <Kbd>{k}</Kbd>
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 /**
  * Profile / "Your work" — a personal dashboard for the current user: their
  * profile header, a row of work stats, an open-issues-by-status breakdown, and
@@ -547,6 +666,11 @@ export function ProfileView() {
             <Card title="Contribution activity" subtitle="Your issue activity over the last 3 months">
               <ContributionHeatmap weeks={heatmap.weeks} total={heatmap.total} />
             </Card>
+          </div>
+
+          {/* Keyboard shortcuts — collapsible cheat sheet of the app's bindings. */}
+          <div className="mt-6">
+            <ShortcutsReference />
           </div>
 
           {/* Breakdowns + activity */}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { boardColumnGroupBy, groupIssues, sortIssues } from '@/lib/selectors'
@@ -29,7 +29,25 @@ export function LabelView() {
   const [orderDir, setOrderDir] = useState<OrderDir>('asc')
   const [showEmptyGroups, setShowEmptyGroups] = useState(false)
 
+  // Inline rename state for the header — Linear lets you click a label's name on
+  // its page and edit it in place. `editing` holds the draft; null means idle.
+  const [editing, setEditing] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const label = data.labels.find((l) => l.id === id)
+
+  // Focus + select the input whenever rename opens.
+  useEffect(() => {
+    if (editing !== null) inputRef.current?.select()
+  }, [editing])
+
+  // Commit the draft: trim, then save via the store. Empty names revert.
+  const commitRename = () => {
+    if (!label || editing === null) return
+    const next = editing.trim()
+    if (next && next !== label.name) data.updateLabel(label.id, { name: next })
+    setEditing(null)
+  }
 
   // The set of label ids that "count" for this view: the label itself, plus all
   // child labels when it is a group.
@@ -127,7 +145,33 @@ export function LabelView() {
             className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
             style={{ background: label.color }}
           />
-          <span className="font-medium text-fg">{label.name}</span>
+          {editing !== null ? (
+            <input
+              ref={inputRef}
+              value={editing}
+              onChange={(e) => setEditing(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  commitRename()
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setEditing(null)
+                }
+              }}
+              className="w-44 rounded border border-border bg-bg px-1.5 py-0.5 text-[13px] font-medium text-fg outline-none focus:border-accent"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditing(label.name)}
+              title="Rename label"
+              className="-mx-1 rounded px-1 py-0.5 font-medium text-fg hover:bg-bg-hover"
+            >
+              {label.name}
+            </button>
+          )}
         </span>
       </ViewHeader>
 

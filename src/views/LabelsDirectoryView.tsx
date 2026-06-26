@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Tag, Search, ArrowUpDown, ChevronRight } from 'lucide-react'
+import { Tag, Search, ArrowUpDown, ChevronRight, X } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
-import { LabelDot } from '@/components/LabelChip'
+import { LabelChip, LabelDot } from '@/components/LabelChip'
 import { EmptyState } from '@/components/EmptyState'
 import { SelectMenu, type SelectOption } from '@/components/ui/SelectMenu'
 import type { Label } from '@/lib/types'
@@ -27,37 +27,142 @@ function LabelGroupIcon({ colors }: { colors: string[] }) {
   )
 }
 
-/** A clickable label row → navigates to that label's issues view (/label/:id). */
+/**
+ * A clickable label row → navigates to that label's issues view (/label/:id).
+ * A "Details" affordance (revealed on hover) instead opens the co-occurrence
+ * panel for that label without leaving the directory. `active` highlights the
+ * row whose details panel is currently open.
+ */
 function LabelRow({
   label,
   count,
   indented,
+  active,
   onClick,
+  onDetails,
 }: {
   label: Label
   count: number
   indented?: boolean
+  active?: boolean
   onClick: () => void
+  onDetails: () => void
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group relative flex w-full items-center gap-2.5 bg-bg px-3 py-2.5 text-left transition-colors hover:bg-bg-hover"
+    <div
+      className={`group relative flex w-full items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-bg-hover ${
+        active ? 'bg-bg-hover' : 'bg-bg'
+      }`}
     >
       {indented && (
         <span className="absolute left-3 top-0 h-1/2 w-3 border-b border-l border-border" />
       )}
-      <span className={indented ? 'pl-4' : undefined}>
-        <LabelDot color={label.color} size={10} />
-      </span>
-      <span className="min-w-0 flex-1 truncate text-[13px] text-fg group-hover:text-fg">
-        {label.name}
-      </span>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+      >
+        <span className={indented ? 'pl-4' : undefined}>
+          <LabelDot color={label.color} size={10} />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-fg">
+          {label.name}
+        </span>
+      </button>
+      {/* Details opener — hidden until the row is hovered or active */}
+      <button
+        type="button"
+        onClick={onDetails}
+        className={`shrink-0 rounded border border-border px-1.5 py-0.5 text-[11px] text-muted transition-opacity hover:bg-bg-secondary hover:text-fg ${
+          active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
+      >
+        Details
+      </button>
       <span className="shrink-0 text-right text-[12px] tabular-nums text-faint">
         {count}
       </span>
-    </button>
+    </div>
+  )
+}
+
+/**
+ * Co-occurrence detail panel — the labels most frequently applied to the same
+ * issues as the selected one. Counts are derived live by scanning every
+ * non-archived issue's `labelIds`; nothing here mutates state.
+ */
+function LabelDetailPanel({
+  label,
+  total,
+  related,
+  onClose,
+  onOpen,
+}: {
+  label: Label
+  total: number
+  related: { label: Label; count: number }[]
+  onClose: () => void
+  onOpen: (id: string) => void
+}) {
+  return (
+    <aside className="w-64 shrink-0 self-start rounded-lg border border-border bg-bg">
+      {/* Panel header — the selected label + its overall usage */}
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+        <LabelDot color={label.color} size={10} />
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-fg">
+          {label.name}
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close details"
+          className="shrink-0 rounded p-0.5 text-faint hover:bg-bg-hover hover:text-fg"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="px-3 py-2.5">
+        <div className="flex items-baseline justify-between">
+          <span className="text-[12px] text-muted">Used on</span>
+          <span className="text-[13px] tabular-nums text-fg">
+            {total} {total === 1 ? 'issue' : 'issues'}
+          </span>
+        </div>
+      </div>
+
+      {/* Most-paired labels, descending by shared-issue count */}
+      <div className="border-t border-border px-3 py-2.5">
+        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint">
+          Often used with
+        </div>
+        {related.length === 0 ? (
+          <p className="text-[12px] text-faint">
+            No other labels share an issue with this one.
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {related.map(({ label: r, count }) => (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(r.id)}
+                  className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-bg-hover"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    <LabelChip label={r} />
+                  </span>
+                  <span className="shrink-0 text-[12px] tabular-nums text-faint">
+                    {count}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+    </aside>
   )
 }
 
@@ -88,6 +193,9 @@ export function LabelsDirectoryView() {
       return next
     })
 
+  // Co-occurrence detail panel: the label whose related-labels panel is open.
+  const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null)
+
   // labelId → number of non-archived issues carrying it.
   const counts = useMemo(() => {
     const m = new Map<string, number>()
@@ -99,6 +207,40 @@ export function LabelsDirectoryView() {
   }, [issues])
 
   const usage = (id: string) => counts.get(id) ?? 0
+
+  const labelById = useMemo(() => {
+    const m = new Map<string, Label>()
+    for (const l of labels) m.set(l.id, l)
+    return m
+  }, [labels])
+
+  // Live co-occurrence for the selected label: for every non-archived issue
+  // that carries it, tally each *other* label on that same issue. The result is
+  // the top labels most frequently paired with the selection (descending), plus
+  // the selection's own total usage. Purely derived — no mutations.
+  const detail = useMemo(() => {
+    if (!selectedLabelId) return null
+    const label = labelById.get(selectedLabelId)
+    if (!label) return null
+    const pair = new Map<string, number>()
+    let total = 0
+    for (const i of issues) {
+      if (i.archivedAt) continue
+      if (!i.labelIds.includes(selectedLabelId)) continue
+      total += 1
+      for (const lid of i.labelIds) {
+        if (lid === selectedLabelId) continue
+        pair.set(lid, (pair.get(lid) ?? 0) + 1)
+      }
+    }
+    const related = [...pair.entries()]
+      .map(([id, count]) => ({ label: labelById.get(id), count }))
+      // Drop any dangling ids and groups (groups aren't applied to issues).
+      .filter((r): r is { label: Label; count: number } => !!r.label && !r.label.isGroup)
+      .sort((a, b) => b.count - a.count || a.label.name.localeCompare(b.label.name))
+      .slice(0, 6)
+    return { label, total, related }
+  }, [selectedLabelId, labelById, issues])
 
   // Header count = every non-group label (groups are containers, not labels).
   const labelCount = useMemo(
@@ -235,7 +377,8 @@ export function LabelsDirectoryView() {
               No labels match “{query}”.
             </div>
           ) : (
-            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+            <div className="flex items-start gap-4">
+            <div className="min-w-0 flex-1 divide-y divide-border overflow-hidden rounded-lg border border-border">
               {/* Groups first, each with its nested child labels. An active
                   search force-expands every group so matches stay visible. */}
               {groups.map(({ group: g, kids }) => {
@@ -271,7 +414,9 @@ export function LabelsDirectoryView() {
                           label={k}
                           count={usage(k.id)}
                           indented
+                          active={selectedLabelId === k.id}
                           onClick={() => navigate(`/label/${k.id}`)}
+                          onDetails={() => setSelectedLabelId(k.id)}
                         />
                       ))}
                   </div>
@@ -284,9 +429,23 @@ export function LabelsDirectoryView() {
                   key={l.id}
                   label={l}
                   count={usage(l.id)}
+                  active={selectedLabelId === l.id}
                   onClick={() => navigate(`/label/${l.id}`)}
+                  onDetails={() => setSelectedLabelId(l.id)}
                 />
               ))}
+            </div>
+
+            {/* Right-side co-occurrence panel for the selected label */}
+            {detail && (
+              <LabelDetailPanel
+                label={detail.label}
+                total={detail.total}
+                related={detail.related}
+                onClose={() => setSelectedLabelId(null)}
+                onOpen={(id) => navigate(`/label/${id}`)}
+              />
+            )}
             </div>
           )}
         </div>
