@@ -92,6 +92,62 @@ const SECTIONS: { title: string; items: Shortcut[] }[] = [
     ],
   },
   {
+    title: 'Selection',
+    items: [
+      { keys: <Kbd>X</Kbd>, label: 'Select / deselect focused issue' },
+      { keys: <><Kbd>⇧</Kbd> <Kbd>↓</Kbd></>, label: 'Extend selection down' },
+      { keys: <><Kbd>⇧</Kbd> <Kbd>↑</Kbd></>, label: 'Extend selection up' },
+      { keys: <><Kbd>⇧</Kbd> <Kbd>Click</Kbd></>, label: 'Select a range of issues' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>A</Kbd></>, label: 'Select all issues' },
+      { keys: <Kbd>Esc</Kbd>, label: 'Clear selection' },
+    ],
+  },
+  {
+    title: 'Board',
+    items: [
+      { keys: <><Kbd>←</Kbd> <Kbd>→</Kbd></>, label: 'Move focus between columns' },
+      { keys: <><Kbd>↑</Kbd> <Kbd>↓</Kbd></>, label: 'Move focus within a column' },
+      { keys: <><Kbd>⇧</Kbd> <Kbd>←</Kbd></>, label: 'Move card to previous column' },
+      { keys: <><Kbd>⇧</Kbd> <Kbd>→</Kbd></>, label: 'Move card to next column' },
+      { keys: <Kbd>Drag</Kbd>, label: 'Move card across columns' },
+      { keys: <Kbd>↵</Kbd>, label: 'Open focused card' },
+    ],
+  },
+  {
+    title: 'Editor',
+    items: [
+      { keys: <><Kbd>⌘</Kbd> <Kbd>B</Kbd></>, label: 'Bold' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>I</Kbd></>, label: 'Italic' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>E</Kbd></>, label: 'Inline code' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>⇧</Kbd> <Kbd>X</Kbd></>, label: 'Strikethrough' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>K</Kbd></>, label: 'Insert link' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>⌥</Kbd> <Kbd>1</Kbd></>, label: 'Heading 1' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>⌥</Kbd> <Kbd>2</Kbd></>, label: 'Heading 2' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>⌥</Kbd> <Kbd>3</Kbd></>, label: 'Heading 3' },
+      { keys: <Kbd>/</Kbd>, label: 'Open the command menu' },
+    ],
+  },
+  {
+    title: 'Display',
+    items: [
+      { keys: <Kbd>V</Kbd>, label: 'Toggle list / board view' },
+      { keys: <Kbd>F</Kbd>, label: 'Open filter menu' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>F</Kbd></>, label: 'Filter issues' },
+      { keys: <Kbd>O</Kbd>, label: 'Open display options' },
+      { keys: <Kbd>G</Kbd>, label: 'Change grouping' },
+      { keys: <Kbd>R</Kbd>, label: 'Change ordering' },
+    ],
+  },
+  {
+    title: 'History',
+    items: [
+      { keys: <><Kbd>⌘</Kbd> <Kbd>[</Kbd></>, label: 'Navigate back' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>]</Kbd></>, label: 'Navigate forward' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>Z</Kbd></>, label: 'Undo last change' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>⇧</Kbd> <Kbd>Z</Kbd></>, label: 'Redo last change' },
+    ],
+  },
+  {
     title: 'Inbox',
     items: [
       { keys: <><Kbd>↓</Kbd> <Kbd>J</Kbd></>, label: 'Next notification' },

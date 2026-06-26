@@ -4,6 +4,7 @@ import {
   ArrowDownUp,
   Check,
   ChevronDown,
+  Clock,
   Copy,
   IterationCw,
   MoreHorizontal,
@@ -41,6 +42,41 @@ const SORT_LABELS: Record<SortKey, string> = {
   priority: 'Priority high→low',
 }
 
+/** Snooze presets — each resolves to an ISO timestamp relative to now. Snoozing
+ * sets issue.snoozedUntil, which hides the card from active lists and pulls it
+ * out of the immediate triage focus until the chosen moment. */
+const SNOOZE_PRESETS: { id: string; label: string; resolve: () => string }[] = [
+  {
+    id: 'later',
+    label: 'Later today',
+    resolve: () => {
+      const d = new Date()
+      d.setHours(d.getHours() + 4, 0, 0, 0)
+      return d.toISOString()
+    },
+  },
+  {
+    id: 'tomorrow',
+    label: 'Tomorrow',
+    resolve: () => {
+      const d = new Date()
+      d.setDate(d.getDate() + 1)
+      d.setHours(9, 0, 0, 0)
+      return d.toISOString()
+    },
+  },
+  {
+    id: 'next-week',
+    label: 'Next week',
+    resolve: () => {
+      const d = new Date()
+      d.setDate(d.getDate() + 7)
+      d.setHours(9, 0, 0, 0)
+      return d.toISOString()
+    },
+  },
+]
+
 export function TriageView() {
   const { teamKey } = useParams()
   const store = useStore()
@@ -69,7 +105,13 @@ export function TriageView() {
   const allQueue = useMemo(
     () =>
       store.issues.filter(
-        (i) => i.teamId === team.id && i.triage && !i.archivedAt,
+        (i) =>
+          i.teamId === team.id &&
+          i.triage &&
+          !i.archivedAt &&
+          // Snoozed issues (snoozedUntil still in the future) drop out of the
+          // immediate triage focus until the snooze elapses — like active lists.
+          !(i.snoozedUntil && new Date(i.snoozedUntil).getTime() > Date.now()),
       ),
     [store.issues, team.id],
   )
@@ -149,6 +191,20 @@ export function TriageView() {
     setSelected(new Set())
   }
 
+  // Snooze an issue out of the immediate triage focus until the given ISO time
+  // (a snoozedUntil in the future hides it from active lists). Mirrors Linear's
+  // "remind me later" — the card leaves the queue, so we keep the cursor on the
+  // same slot to advance onto the next issue, and drop it from any selection.
+  const snoozeIssue = (id: string, iso: string) => {
+    store.setIssueSnooze(id, iso)
+    setSelected((prev) => {
+      if (!prev.has(id)) return prev
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+  }
+
   // Scroll the active card into view whenever the cursor moves.
   useEffect(() => {
     cardRefs.current[cursor]?.scrollIntoView({ block: 'nearest' })
@@ -212,6 +268,20 @@ export function TriageView() {
       own()
       if (selected.size) declineSelected()
       else if (cur) store.declineTriage(cur.id)
+      return
+    }
+    // Snooze (H) — push the issue out of triage focus until tomorrow (Linear's
+    // default snooze). Acts on the whole selection when one exists, else the
+    // active card, which leaves the queue so the cursor lands on the next one.
+    if (e.code === 'KeyH') {
+      own()
+      const iso = SNOOZE_PRESETS[1].resolve()
+      if (selected.size) {
+        selectedIssues.forEach((i) => snoozeIssue(i.id, iso))
+        setSelected(new Set())
+      } else if (cur) {
+        snoozeIssue(cur.id, iso)
+      }
       return
     }
   }
@@ -430,6 +500,29 @@ export function TriageView() {
                                 }
                               />
                             )}
+                            {/* Snooze — pick a preset to push this issue out of
+                                the immediate triage focus until later. */}
+                            <SelectMenu
+                              width={200}
+                              options={SNOOZE_PRESETS.map((p) => ({
+                                id: p.id,
+                                label: p.label,
+                              }))}
+                              placeholder="Snooze until…"
+                              onSelect={(id) => {
+                                const preset = SNOOZE_PRESETS.find(
+                                  (p) => p.id === id,
+                                )
+                                if (preset) snoozeIssue(issue.id, preset.resolve())
+                                close()
+                              }}
+                              trigger={
+                                <span className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-bg-hover">
+                                  <Clock size={14} className="text-faint" />
+                                  Snooze…
+                                </span>
+                              }
+                            />
                             <button
                               onClick={() => {
                                 store.openRelationPicker(issue.id, 'duplicateOf')
@@ -544,6 +637,9 @@ export function TriageView() {
               </span>
               <span>
                 <Kbd>X</Kbd> select
+              </span>
+              <span>
+                <Kbd>H</Kbd> snooze
               </span>
               <span>
                 <Kbd>↵</Kbd> open

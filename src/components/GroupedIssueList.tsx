@@ -134,6 +134,7 @@ export function GroupedIssueList({
   empty,
   hasActiveFilters,
   onClearFilters,
+  totalCount,
 }: {
   groups: IssueGroup[]
   groupBy: GroupBy
@@ -151,6 +152,9 @@ export function GroupedIssueList({
   hasActiveFilters?: boolean
   /** Wires a "Clear filters" accent action onto the filtered-empty state. */
   onClearFilters?: () => void
+  /** Unfiltered issue count for this view. When provided alongside active
+   *  filters, the summary bar reports how many rows were filtered out. */
+  totalCount?: number
 }) {
   const setCreateOpen = useStore((s) => s.setCreateOpen)
   const openCreateWith = useStore((s) => s.openCreateWith)
@@ -248,12 +252,51 @@ export function GroupedIssueList({
     )
   }
 
+  // Matched-row count across all groups. With active filters, Linear surfaces a
+  // quiet summary line — "N issues" plus how many were filtered out (only when
+  // a reliable unfiltered total is supplied). Computed before the windowed
+  // early-return so the bar shows for large filtered lists too.
+  const matchedCount = groups.reduce((n, g) => n + g.count, 0)
+  const filteredOut =
+    totalCount != null && totalCount > matchedCount ? totalCount - matchedCount : 0
+  const showSummary = !!hasActiveFilters && matchedCount > 0
+  const summaryBar = showSummary ? (
+    <div className="flex items-center gap-1.5 px-4 pt-2 pb-1 text-[12px] text-faint">
+      <span>
+        {matchedCount} {matchedCount === 1 ? 'issue' : 'issues'}
+      </span>
+      {filteredOut > 0 && (
+        <>
+          <span aria-hidden className="text-border-strong">
+            ·
+          </span>
+          <span>{filteredOut} filtered out</span>
+        </>
+      )}
+      {onClearFilters && (
+        <button
+          type="button"
+          onClick={onClearFilters}
+          className="ml-1 text-accent hover:underline"
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  ) : null
+
   // Above a size threshold, switch to a windowed renderer (drag-reorder and
   // collapse are dropped — the right trade-off for very large lists). Skipped
   // when sub-grouping is active — the nested layout renders in full.
   const totalRows = groups.reduce((n, g) => n + 1 + g.issues.length, 0)
   if (!subGrouped && !nested && totalRows > 50) {
-    return <VirtualIssueList groups={groups} groupBy={groupBy} />
+    if (!summaryBar) return <VirtualIssueList groups={groups} groupBy={groupBy} />
+    return (
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {summaryBar}
+        <VirtualIssueList groups={groups} groupBy={groupBy} />
+      </div>
+    )
   }
 
   // Nested-sub-issues render: a parent row + its expanded sub-issues, recursively.
@@ -314,6 +357,7 @@ export function GroupedIssueList({
 
   const body = (
     <div className="flex-1 overflow-y-auto">
+      {summaryBar}
       {!subGrouped && groups.length > 1 && (
         <div className="flex items-center px-4 py-1.5">
           <button

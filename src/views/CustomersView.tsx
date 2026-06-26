@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, Download, Minus, Plus, Search, Trash2, X } from 'lucide-react'
+import { Check, ChevronRight, Download, Minus, Plus, Search, Trash2, X } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
@@ -11,6 +11,7 @@ import type { CustomerTier } from '@/lib/types'
 
 type SortKey = 'arr' | 'name' | 'requests'
 type TierFilter = CustomerTier | 'all'
+type GroupKey = 'none' | 'tier' | 'health'
 
 /** Account-health buckets, derived from linked-request activity recency. */
 type Health = 'healthy' | 'at-risk' | 'churned'
@@ -20,6 +21,13 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: 'arr', label: 'ARR' },
   { key: 'name', label: 'Name' },
   { key: 'requests', label: 'Requests' },
+]
+
+/** "Group by" segmented options — None / Tier / Health. */
+const GROUPS: { key: GroupKey; label: string }[] = [
+  { key: 'none', label: 'None' },
+  { key: 'tier', label: 'Tier' },
+  { key: 'health', label: 'Health' },
 ]
 
 /** Health badge meta — label + token-driven colours, ordered worst-last. */
@@ -101,6 +109,9 @@ export function CustomersView() {
   const deleteCustomer = useStore((s) => s.deleteCustomer)
 
   const [sort, setSort] = useState<SortKey>('arr')
+  const [groupBy, setGroupBy] = useState<GroupKey>('none')
+  /** Section ids the user has collapsed; only meaningful while grouped. */
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
   const [tierFilter, setTierFilter] = useState<TierFilter>('all')
   const [healthFilter, setHealthFilter] = useState<HealthFilter>('all')
   const [query, setQuery] = useState('')
@@ -168,6 +179,51 @@ export function CustomersView() {
     }
     return { count: sorted.length, arr, requests }
   }, [sorted, requestCounts])
+
+  /**
+   * Split the visible (filtered + sorted) rows into ordered sections for the
+   * active "Group by". Tier sections follow the canonical tier order; health
+   * sections run Healthy → At risk → Churned. Row order *within* each section
+   * preserves the active sort. "None" collapses to a single anonymous section
+   * so the render path stays uniform. Empty buckets are dropped.
+   */
+  const sections = useMemo(() => {
+    if (groupBy === 'none') {
+      return [{ id: 'all', label: '', color: undefined as string | undefined, rows: sorted }]
+    }
+    const buckets = new Map<string, typeof sorted>()
+    for (const c of sorted) {
+      const key = groupBy === 'tier' ? c.tier : health[c.id]
+      const list = buckets.get(key)
+      if (list) list.push(c)
+      else buckets.set(key, [c])
+    }
+    const order: { id: string; label: string; color: string }[] =
+      groupBy === 'tier'
+        ? CUSTOMER_TIER_ORDER.map((t) => ({
+            id: t,
+            label: CUSTOMER_TIERS[t].label,
+            color: CUSTOMER_TIERS[t].color,
+          }))
+        : (Object.keys(HEALTH_META) as Health[]).map((h) => ({
+            id: h,
+            label: HEALTH_META[h].label,
+            color: HEALTH_META[h].color,
+          }))
+    return order
+      .filter((o) => buckets.has(o.id))
+      .map((o) => ({ id: o.id, label: o.label, color: o.color, rows: buckets.get(o.id)! }))
+  }, [groupBy, sorted, health])
+
+  /** Toggle a section's collapsed state. */
+  function toggleSection(id: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   /**
    * Selection counted against the *visible* rows only — a row hidden by the
@@ -338,8 +394,32 @@ export function CustomersView() {
               <span className="text-muted">requests</span>
             </span>
 
+            {/* Segmented group-by */}
+            <div className="ml-auto flex items-center gap-1.5">
+              <span className="text-[11px] font-medium tracking-wide text-faint uppercase">
+                Group
+              </span>
+              <div className="flex items-center rounded-md border border-border p-0.5">
+                {GROUPS.map((g) => (
+                  <button
+                    key={g.key}
+                    type="button"
+                    onClick={() => setGroupBy(g.key)}
+                    className={cn(
+                      'rounded px-2 py-0.5 text-[12px] font-medium',
+                      groupBy === g.key
+                        ? 'bg-bg-selected text-fg'
+                        : 'text-muted hover:text-fg',
+                    )}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Segmented sort */}
-            <div className="ml-auto flex items-center rounded-md border border-border p-0.5">
+            <div className="flex items-center rounded-md border border-border p-0.5">
               {SORTS.map((s) => (
                 <button
                   key={s.key}
@@ -506,98 +586,136 @@ export function CustomersView() {
                 .
               </div>
             )}
-            {sorted.map((c) => {
-              const owner = users.find((u) => u.id === c.ownerId)
-              const tier = CUSTOMER_TIERS[c.tier]
-              const reqs = requestCounts[c.id] ?? 0
-              const hm = HEALTH_META[health[c.id]]
-              const isSelected = selected.has(c.id)
+            {sections.map((section) => {
+              const isCollapsed = groupBy !== 'none' && collapsed.has(section.id)
               return (
-                <div
-                  key={c.id}
-                  className={cn(
-                    'group flex w-full items-center border-b border-border transition-colors',
-                    isSelected ? 'bg-bg-selected' : 'hover:bg-bg-hover',
-                  )}
-                >
-                  {/* Leading select checkbox — sibling of the nav button so we
-                      never nest interactive elements; hidden until hover/select. */}
-                  <button
-                    type="button"
-                    onClick={() => toggleOne(c.id)}
-                    aria-label={isSelected ? 'Deselect customer' : 'Select customer'}
-                    aria-pressed={isSelected}
-                    className={cn(
-                      'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
-                      isSelected
-                        ? 'border-accent bg-accent text-white'
-                        : 'border-border text-transparent opacity-0 hover:border-muted group-hover:opacity-100',
-                    )}
-                    style={{ marginLeft: 16, marginRight: -4 }}
-                  >
-                    {isSelected && <Check size={11} strokeWidth={3} />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/customer/${c.id}`)}
-                    className="flex min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left"
-                  >
-                  {/* Square avatar tile */}
-                  <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[13px] font-semibold text-white select-none"
-                    style={{ background: c.color }}
-                  >
-                    {c.name.charAt(0).toUpperCase()}
-                  </span>
-
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-[13px] font-medium text-fg">
-                      {c.name}
-                    </span>
-                    {c.domain && (
-                      <span className="truncate text-[12px] text-muted">
-                        {c.domain}
+                <div key={section.id}>
+                  {/* Collapsible group header — only while grouped */}
+                  {groupBy !== 'none' && (
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(section.id)}
+                      aria-expanded={!isCollapsed}
+                      className="flex w-full items-center gap-2 border-b border-border bg-bg-secondary/60 px-4 py-1.5 text-left hover:bg-bg-hover"
+                    >
+                      <ChevronRight
+                        size={13}
+                        className={cn(
+                          'shrink-0 text-faint transition-transform',
+                          !isCollapsed && 'rotate-90',
+                        )}
+                      />
+                      {section.color && (
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: section.color }}
+                        />
+                      )}
+                      <span className="text-[12px] font-medium text-fg">
+                        {section.label}
                       </span>
-                    )}
-                  </span>
+                      <span className="text-[12px] text-faint tabular-nums">
+                        {section.rows.length}
+                      </span>
+                    </button>
+                  )}
 
-                  {/* Tier chip */}
-                  <span className="ml-1 flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-[12px] text-muted">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ background: tier.color }}
-                    />
-                    {tier.label}
-                  </span>
+                  {!isCollapsed &&
+                    section.rows.map((c) => {
+                      const owner = users.find((u) => u.id === c.ownerId)
+                      const tier = CUSTOMER_TIERS[c.tier]
+                      const reqs = requestCounts[c.id] ?? 0
+                      const hm = HEALTH_META[health[c.id]]
+                      const isSelected = selected.has(c.id)
+                      return (
+                        <div
+                          key={c.id}
+                          className={cn(
+                            'group flex w-full items-center border-b border-border transition-colors',
+                            isSelected ? 'bg-bg-selected' : 'hover:bg-bg-hover',
+                          )}
+                        >
+                          {/* Leading select checkbox — sibling of the nav button so we
+                      never nest interactive elements; hidden until hover/select. */}
+                          <button
+                            type="button"
+                            onClick={() => toggleOne(c.id)}
+                            aria-label={isSelected ? 'Deselect customer' : 'Select customer'}
+                            aria-pressed={isSelected}
+                            className={cn(
+                              'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
+                              isSelected
+                                ? 'border-accent bg-accent text-white'
+                                : 'border-border text-transparent opacity-0 hover:border-muted group-hover:opacity-100',
+                            )}
+                            style={{ marginLeft: 16, marginRight: -4 }}
+                          >
+                            {isSelected && <Check size={11} strokeWidth={3} />}
+                          </button>
 
-                  {/* Health badge — coloured dot + tinted label */}
-                  <span
-                    className="flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-medium"
-                    style={{
-                      color: hm.color,
-                      background: `color-mix(in srgb, ${hm.color} 14%, transparent)`,
-                    }}
-                  >
-                    <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: hm.color }}
-                    />
-                    {hm.label}
-                  </span>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/customer/${c.id}`)}
+                            className="flex min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left"
+                          >
+                            {/* Square avatar tile */}
+                            <span
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[13px] font-semibold text-white select-none"
+                              style={{ background: c.color }}
+                            >
+                              {c.name.charAt(0).toUpperCase()}
+                            </span>
 
-                  <div className="ml-auto flex items-center gap-4 text-[12px] text-muted">
-                    <span className="w-20 text-right tabular-nums">
-                      {reqs} {reqs === 1 ? 'request' : 'requests'}
-                    </span>
-                    <span className="w-14 text-right font-medium text-fg tabular-nums">
-                      {c.arr ? formatArr(c.arr) : '—'}
-                    </span>
-                    <span title={owner ? fmt(owner.name) : undefined}>
-                      <Avatar user={owner} size={20} />
-                    </span>
-                  </div>
-                  </button>
+                            <span className="flex min-w-0 flex-col">
+                              <span className="truncate text-[13px] font-medium text-fg">
+                                {c.name}
+                              </span>
+                              {c.domain && (
+                                <span className="truncate text-[12px] text-muted">
+                                  {c.domain}
+                                </span>
+                              )}
+                            </span>
+
+                            {/* Tier chip */}
+                            <span className="ml-1 flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-[12px] text-muted">
+                              <span
+                                className="h-2 w-2 rounded-full"
+                                style={{ background: tier.color }}
+                              />
+                              {tier.label}
+                            </span>
+
+                            {/* Health badge — coloured dot + tinted label */}
+                            <span
+                              className="flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-medium"
+                              style={{
+                                color: hm.color,
+                                background: `color-mix(in srgb, ${hm.color} 14%, transparent)`,
+                              }}
+                            >
+                              <span
+                                className="h-1.5 w-1.5 rounded-full"
+                                style={{ background: hm.color }}
+                              />
+                              {hm.label}
+                            </span>
+
+                            <div className="ml-auto flex items-center gap-4 text-[12px] text-muted">
+                              <span className="w-20 text-right tabular-nums">
+                                {reqs} {reqs === 1 ? 'request' : 'requests'}
+                              </span>
+                              <span className="w-14 text-right font-medium text-fg tabular-nums">
+                                {c.arr ? formatArr(c.arr) : '—'}
+                              </span>
+                              <span title={owner ? fmt(owner.name) : undefined}>
+                                <Avatar user={owner} size={20} />
+                              </span>
+                            </div>
+                          </button>
+                        </div>
+                      )
+                    })}
                 </div>
               )
             })}

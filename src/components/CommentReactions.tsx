@@ -1,10 +1,14 @@
+import { SmilePlus } from 'lucide-react'
 import { useStoreShallow, useDisplayName } from '@/lib/store'
+import { Popover } from '@/components/ui/Popover'
+import { EmojiPicker } from '@/components/EmojiPicker'
 import { cn } from '@/lib/utils'
 
 /**
  * The reaction pills shown under a comment (emoji + count, highlighted when you
- * reacted, reactor names on hover). The add-reaction picker lives in the
- * comment's hover toolbar (`CommentActions`), matching Linear.
+ * reacted, reactor names on hover) followed by a trailing ghost "+" button that
+ * opens the searchable emoji picker. Mirrors Linear, where the add-reaction
+ * affordance sits at the end of the pill row once a comment has reactions.
  */
 export function CommentReactions({ commentId }: { commentId: string }) {
   const { comments, users, currentUserId, toggleReaction } = useStoreShallow((s) => ({
@@ -18,6 +22,8 @@ export function CommentReactions({ commentId }: { commentId: string }) {
   if (!comment) return null
   const reactions = comment.reactions ?? {}
   const entries = Object.entries(reactions).filter(([, ids]) => ids.length > 0)
+  // No pills yet → the hover toolbar's picker (CommentActions) is the entry
+  // point; we only render the inline row once there's at least one reaction.
   if (entries.length === 0) return null
 
   const namesOf = (ids: string[]) =>
@@ -45,6 +51,27 @@ export function CommentReactions({ commentId }: { commentId: string }) {
           </button>
         )
       })}
+
+      <Popover
+        width={264}
+        trigger={
+          <span
+            className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-border text-faint hover:bg-bg-hover hover:text-fg"
+            title="Add reaction"
+          >
+            <SmilePlus size={13} />
+          </span>
+        }
+      >
+        {(close) => (
+          <EmojiPicker
+            onPick={(emoji) => {
+              toggleReaction(commentId, emoji)
+              close()
+            }}
+          />
+        )}
+      </Popover>
     </div>
   )
 }

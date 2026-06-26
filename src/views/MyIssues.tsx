@@ -17,6 +17,10 @@ import {
   Columns3,
   CalendarClock,
   ChevronDown,
+  CircleDot,
+  Circle,
+  ListChecks,
+  AlertTriangle,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
@@ -269,7 +273,7 @@ function IssueTab({
   // Nesting only makes sense in the list view with sub-issues shown.
   const nested = layout === 'list' && showSubIssues && nestedSubIssues
 
-  const { groups, childrenByParent, rows } = useMemo(() => {
+  const { groups, childrenByParent, rows, stats } = useMemo(() => {
     const me = data.currentUserId
     let scoped = data.issues.filter((i) => {
       if (i.triage) return false
@@ -282,6 +286,22 @@ function IssueTab({
     if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
 
     const filtered = filterIssues(scoped, filters)
+
+    // At-a-glance workload counts over the same scoped+filtered set the list
+    // renders (status-type buckets + overdue deadlines), like Linear's strip.
+    const stats = { inProgress: 0, todo: 0, open: 0, overdue: 0 }
+    for (const i of filtered) {
+      const stType = i.stateId
+        ? data.states.find((s) => s.id === i.stateId)?.type
+        : undefined
+      const closed = stType === 'completed' || stType === 'canceled'
+      if (stType === 'started') stats.inProgress++
+      if (stType === 'unstarted' || stType === 'backlog') stats.todo++
+      if (!closed) {
+        stats.open++
+        if (isOverdue(i.dueDate)) stats.overdue++
+      }
+    }
     const sorted = sortIssues(
       filtered,
       orderBy,
@@ -321,7 +341,7 @@ function IssueTab({
       layout === 'board' && subGroupBy !== 'none'
         ? groupIssues(forGrouping, subGroupBy, data, true, dn)
         : undefined
-    return { groups, childrenByParent, rows }
+    return { groups, childrenByParent, rows, stats }
   }, [
     data,
     tab,
@@ -366,6 +386,7 @@ function IssueTab({
   return (
     <>
       <FilterBar filters={filters} onChange={onFilters} />
+      <SummaryStrip stats={stats} />
       {layout === 'list' && dueSoon.length > 0 && <DueSoon issues={dueSoon} />}
       {layout === 'board' ? (
         <IssueBoard
@@ -388,6 +409,49 @@ function IssueTab({
         />
       )}
     </>
+  )
+}
+
+// ── Summary strip ──────────────────────────────────────────────
+
+interface Stats {
+  inProgress: number
+  todo: number
+  open: number
+  overdue: number
+}
+
+/**
+ * Thin at-a-glance workload strip pinned under the tabs, derived from the same
+ * scoped+filtered issue set the list renders. Mirrors Linear's compact counts:
+ * In Progress / Todo / open total, plus an Overdue flag when deadlines slip.
+ */
+function SummaryStrip({ stats }: { stats: Stats }) {
+  return (
+    <div className="flex shrink-0 items-center gap-4 border-b border-border px-4 py-1.5 text-[12px] text-muted">
+      <span className="flex items-center gap-1.5">
+        <CircleDot size={13} className="text-faint" />
+        <span className="tabular-nums text-fg">{stats.inProgress}</span>
+        <span>In Progress</span>
+      </span>
+      <span className="flex items-center gap-1.5">
+        <Circle size={13} className="text-faint" />
+        <span className="tabular-nums text-fg">{stats.todo}</span>
+        <span>Todo</span>
+      </span>
+      <span className="flex items-center gap-1.5">
+        <ListChecks size={13} className="text-faint" />
+        <span className="tabular-nums text-fg">{stats.open}</span>
+        <span>Open</span>
+      </span>
+      {stats.overdue > 0 && (
+        <span className="flex items-center gap-1.5 text-red-500">
+          <AlertTriangle size={13} />
+          <span className="tabular-nums">{stats.overdue}</span>
+          <span>Overdue</span>
+        </span>
+      )}
+    </div>
   )
 }
 
