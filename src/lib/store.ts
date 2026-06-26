@@ -187,6 +187,8 @@ export interface Store extends WorkspaceData, UIState {
   setIssueReminder: (id: string, remindAt?: string) => void
   /** Set / clear the note shown on a reminder row. */
   setReminderNote: (id: string, note?: string) => void
+  /** Snooze an issue until an ISO time (or clear it). Hidden from active lists until then. */
+  setIssueSnooze: (id: string, snoozedUntil?: string) => void
   /** Record an issue as recently viewed (newest first, deduped, capped). */
   pushRecentIssue: (id: string) => void
 
@@ -918,6 +920,13 @@ export const useStore = create<Store>()(
         set((s) => ({
           issues: s.issues.map((i) =>
             i.id === id ? { ...i, remindAt, updatedAt: nowIso() } : i,
+          ),
+        })),
+
+      setIssueSnooze: (id, snoozedUntil) =>
+        set((s) => ({
+          issues: s.issues.map((i) =>
+            i.id === id ? { ...i, snoozedUntil, updatedAt: nowIso() } : i,
           ),
         })),
 

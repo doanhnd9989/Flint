@@ -143,6 +143,10 @@ export function filterIssues(
   return issues.filter((i) => {
     // Archived issues never appear in active lists — they live in /archive only.
     if (i.archivedAt) return false
+    // Snoozed issues (snoozedUntil still in the future) are hidden from active
+    // lists until the snooze elapses — Linear's snooze behaviour.
+    if (i.snoozedUntil && new Date(i.snoozedUntil).getTime() > Date.now())
+      return false
     // Each entry: [is this dimension active?, does the issue match it?, dimension key].
     // A negated dimension excludes matching issues; otherwise it keeps only matches.
     const dims: [boolean, boolean, keyof typeof neg][] = [
@@ -163,7 +167,9 @@ export function filterIssues(
       ],
       [
         filters.labelIds.length > 0,
-        i.labelIds.some((l) => filters.labelIds.includes(l)),
+        filters.labelMatchAll
+          ? filters.labelIds.every((l) => i.labelIds.includes(l))
+          : i.labelIds.some((l) => filters.labelIds.includes(l)),
         'labelIds',
       ],
       [
@@ -196,6 +202,12 @@ export function filterIssues(
       if (!active) continue
       const ok = neg[key] ? !matches : matches
       if (!ok) return false
+    }
+    // Free-text content filter: title or description substring (case-insensitive).
+    const text = filters.text?.trim().toLowerCase()
+    if (text) {
+      const hay = (i.title + ' ' + i.description).toLowerCase()
+      if (!hay.includes(text)) return false
     }
     // Date filters are ANDed (Linear's "Created after X" + "Created before Y").
     for (const df of dateFilters) {

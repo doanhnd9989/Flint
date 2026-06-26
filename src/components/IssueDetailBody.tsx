@@ -23,10 +23,15 @@ import { IssueCustomers } from './IssueCustomers'
 import { IssueSimilarIssues } from './IssueSimilarIssues'
 import { IssueReactions } from './IssueReactions'
 import { IssueReminders } from './IssueReminders'
+import { IssueSnooze } from './IssueSnooze'
+import { IssueBlockedBanner } from './IssueBlockedBanner'
+import { IssueAgeChip } from './IssueAgeChip'
+import { IssueDescriptionMeta } from './IssueDescriptionMeta'
+import { SubIssueCreator } from './SubIssueCreator'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MentionInput } from './MentionInput'
 import { CommentThread } from './CommentThread'
-import { ActivityItem } from './ActivityItem'
+import { ActivityGroup } from './ActivityGroup'
 import { DatePicker } from './DatePicker'
 import { subIssueProgress, cycleState } from '@/lib/selectors'
 import {
@@ -96,6 +101,8 @@ export function IssueDetailBody({
   const [commentBody, setCommentBody] = useState('')
   // Activity-feed filter, mirroring Linear's feed header (All / Comments / Updates).
   const [feedFilter, setFeedFilter] = useState<'all' | 'comments' | 'updates'>('all')
+  // The inline "Create new sub-issue" composer (replaces the modal flow).
+  const [subCreatorOpen, setSubCreatorOpen] = useState(false)
 
   const state = store.states.find((s) => s.id === issue.stateId)!
   const team = store.teams.find((t) => t.id === issue.teamId)
@@ -183,6 +190,7 @@ export function IssueDetailBody({
               </button>
             </div>
           )}
+          <IssueBlockedBanner issue={issue} onOpenIssue={onOpenIssue} />
           {parent && (
             <div className="group/parent mb-2 flex items-center gap-0.5">
               <button
@@ -230,7 +238,9 @@ export function IssueDetailBody({
             value={issue.description}
             onChange={(v) => store.setIssueDescription(issue.id, v)}
           />
+          <IssueDescriptionMeta issue={issue} />
           <IssueReactions issue={issue} />
+          <IssueAgeChip issue={issue} />
 
           {/* Sub-issues */}
           <div className="mt-6">
@@ -255,12 +265,8 @@ export function IssueDetailBody({
                 options={addSubIssueOptions}
                 onSelect={(id) => {
                   if (id === '__new') {
-                    store.createIssue({
-                      title: 'New sub-issue',
-                      teamId: issue.teamId,
-                      parentId: issue.id,
-                      projectId: issue.projectId,
-                    })
+                    // Open the inline composer rather than the modal flow.
+                    setSubCreatorOpen(true)
                   } else {
                     store.setIssueParent(id, issue.id)
                   }
@@ -273,9 +279,9 @@ export function IssueDetailBody({
                 }
               />
             </div>
-            {subIssues.length === 0 ? (
+            {subIssues.length === 0 && !subCreatorOpen ? (
               <div className="text-[12px] text-faint">No sub-issues yet.</div>
-            ) : (
+            ) : subIssues.length === 0 ? null : (
               <div className="divide-y divide-border rounded-md border border-border">
                 {subIssues.map((sub) => {
                   const sst = store.states.find((s) => s.id === sub.stateId)!
@@ -380,6 +386,14 @@ export function IssueDetailBody({
                 })}
               </div>
             )}
+            {subCreatorOpen && (
+              <div className="mt-1.5">
+                <SubIssueCreator
+                  parent={issue}
+                  onClose={() => setSubCreatorOpen(false)}
+                />
+              </div>
+            )}
           </div>
 
           {/* Resources (external links) */}
@@ -438,10 +452,7 @@ export function IssueDetailBody({
               </button>
             </div>
             <div className="space-y-3">
-              {feedFilter !== 'comments' &&
-                activities.map((a) => (
-                  <ActivityItem key={a.id} activity={a} />
-                ))}
+              {feedFilter !== 'comments' && <ActivityGroup activities={activities} />}
               {feedFilter !== 'updates' &&
                 threads.map((c) => (
                   <CommentThread
@@ -623,6 +634,9 @@ export function IssueDetailBody({
           </PropRow>
           <PropRow label="Reminder">
             <IssueReminders issue={issue} />
+          </PropRow>
+          <PropRow label="Snooze">
+            <IssueSnooze issue={issue} />
           </PropRow>
         </div>
 

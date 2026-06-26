@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Type,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { Popover } from './ui/Popover'
@@ -118,7 +119,8 @@ export function emptyFilters(): FilterState {
 export function hasActiveFilters(f: FilterState): boolean {
   return (
     DIMS.some((d) => ((f[d.id] as unknown[]) ?? []).length > 0) ||
-    (f.dates ?? []).length > 0
+    (f.dates ?? []).length > 0 ||
+    !!f.text?.trim()
   )
 }
 
@@ -192,13 +194,34 @@ function setNegate(f: FilterState, dim: Dim, neg: boolean): FilterState {
 
 /** Removing a dimension's chip drops both its values and its operator. */
 function clearDim(f: FilterState, dim: Dim): FilterState {
-  return setNegate(setValues(f, dim, []), dim, false)
+  const cleared = setNegate(setValues(f, dim, []), dim, false)
+  // The Label dimension also carries an "includes all of" operator.
+  return dim === 'labelIds' ? setLabelMatchAll(cleared, false) : cleared
 }
 
 /** Linear's operator wording: positive flips to "is any of" with 2+ values. */
 function operatorLabel(negated: boolean, count: number): string {
   if (negated) return 'is not'
   return count > 1 ? 'is any of' : 'is'
+}
+
+/** Whether the Label dimension requires an issue to carry ALL selected labels. */
+function isLabelMatchAll(f: FilterState): boolean {
+  return !!f.labelMatchAll
+}
+
+function setLabelMatchAll(f: FilterState, all: boolean): FilterState {
+  return { ...f, labelMatchAll: all }
+}
+
+/**
+ * Linear's Label operator wording. The "includes all of" toggle is only
+ * meaningful when not negated; with a single value all three read the same.
+ */
+function labelOperatorLabel(negated: boolean, matchAll: boolean, count: number): string {
+  if (negated) return 'is not'
+  if (matchAll && count > 1) return 'includes all of'
+  return count > 1 ? 'includes any of' : 'includes'
 }
 
 const CheckMark = (
@@ -236,6 +259,53 @@ function OperatorMenu({
       <button
         type="button"
         onClick={() => onSelect(true)}
+        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+      >
+        is not
+        {negated && CheckMark}
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Label dimension operator menu: Linear offers "includes any of" / "includes
+ * all of" (the AND operator) / "is not". `matchAll` and `negated` are mutually
+ * exclusive selections.
+ */
+function LabelOperatorMenu({
+  negated,
+  matchAll,
+  count,
+  onSelect,
+}: {
+  negated: boolean
+  matchAll: boolean
+  count: number
+  onSelect: (op: { negated: boolean; matchAll: boolean }) => void
+}) {
+  const isAny = !negated && !matchAll
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => onSelect({ negated: false, matchAll: false })}
+        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+      >
+        {count > 1 ? 'includes any of' : 'includes'}
+        {isAny && CheckMark}
+      </button>
+      <button
+        type="button"
+        onClick={() => onSelect({ negated: false, matchAll: true })}
+        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+      >
+        includes all of
+        {!negated && matchAll && CheckMark}
+      </button>
+      <button
+        type="button"
+        onClick={() => onSelect({ negated: true, matchAll: false })}
         className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
       >
         is not
@@ -300,15 +370,15 @@ function AddFilterPanel({
   onCustom: (req: CustomReq) => void
 }) {
   // null = root · Dim = that dimension's value list · 'dates' = date-field list ·
-  // DateField = that field's relative-period list.
-  const [nav, setNav] = useState<Dim | 'dates' | DateField | null>(null)
+  // DateField = that field's relative-period list · 'text' = content text input.
+  const [nav, setNav] = useState<Dim | 'dates' | DateField | 'text' | null>(null)
   // Type-to-filter query, shared by the root dimension menu and each value list
   // (Linear's filter popover always opens focused on this input). Cleared on
   // every navigation so each level starts fresh.
   const [query, setQuery] = useState('')
   const dimOptions = useDimOptions()
 
-  function go(to: Dim | 'dates' | DateField | null) {
+  function go(to: Dim | 'dates' | DateField | 'text' | null) {
     setQuery('')
     setNav(to)
   }
@@ -325,6 +395,7 @@ function AddFilterPanel({
     const q = query.trim().toLowerCase()
     const dims = q ? DIMS.filter((d) => d.label.toLowerCase().includes(q)) : DIMS
     const showDates = !q || 'dates'.includes(q)
+    const showText = !q || 'content'.includes(q) || 'text'.includes(q)
     return (
       <div>
         <input
@@ -348,6 +419,17 @@ function AddFilterPanel({
             )}
           </button>
         ))}
+        {showText && (
+          <button
+            type="button"
+            onClick={() => go('text')}
+            className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+          >
+            <span className="flex items-center gap-2">
+              <Type size={14} className="text-faint" /> Content
+            </span>
+          </button>
+        )}
         {showDates && (
           <button
             type="button"
@@ -359,9 +441,34 @@ function AddFilterPanel({
             </span>
           </button>
         )}
-        {dims.length === 0 && !showDates && (
+        {dims.length === 0 && !showDates && !showText && (
           <div className="px-2 py-3 text-center text-[12px] text-faint">No results</div>
         )}
+      </div>
+    )
+  }
+
+  // Content text filter — a free-text input matched against title + description.
+  if (nav === 'text') {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => go(null)}
+          className="mb-1 flex items-center gap-1 px-2 py-1 text-[11px] text-faint hover:text-fg"
+        >
+          ‹ Content
+        </button>
+        <input
+          autoFocus
+          value={filters.text ?? ''}
+          onChange={(e) => onChange({ ...filters, text: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onPicked()
+          }}
+          placeholder="Title or description contains…"
+          className="w-full rounded-md bg-bg px-2 py-1.5 text-[13px] text-fg outline-none placeholder:text-faint"
+        />
       </div>
     )
   }
@@ -479,29 +586,45 @@ function Chip({
   const display = names.length <= 2 ? names.join(', ') : `${names.length} selected`
 
   const negated = isNegated(filters, dim)
+  const isLabel = dim === 'labelIds'
+  const matchAll = isLabel && isLabelMatchAll(filters)
 
   return (
     <div className="flex items-center overflow-hidden rounded-md border border-border text-[12px]">
       <span className="px-2 py-1 text-faint">{DIMS.find((d) => d.id === dim)!.label}</span>
       <Popover
         align="start"
-        width={160}
+        width={isLabel ? 180 : 160}
         trigger={
           <span className="border-l border-border bg-bg px-2 py-1 text-muted hover:bg-bg-hover">
-            {operatorLabel(negated, selected.length)}
+            {isLabel
+              ? labelOperatorLabel(negated, matchAll, selected.length)
+              : operatorLabel(negated, selected.length)}
           </span>
         }
       >
-        {(close) => (
-          <OperatorMenu
-            negated={negated}
-            count={selected.length}
-            onSelect={(n) => {
-              onChange(setNegate(filters, dim, n))
-              close()
-            }}
-          />
-        )}
+        {(close) =>
+          isLabel ? (
+            <LabelOperatorMenu
+              negated={negated}
+              matchAll={matchAll}
+              count={selected.length}
+              onSelect={({ negated: n, matchAll: all }) => {
+                onChange(setLabelMatchAll(setNegate(filters, dim, n), all))
+                close()
+              }}
+            />
+          ) : (
+            <OperatorMenu
+              negated={negated}
+              count={selected.length}
+              onSelect={(n) => {
+                onChange(setNegate(filters, dim, n))
+                close()
+              }}
+            />
+          )
+        }
       </Popover>
       <Popover
         align="start"
@@ -1043,6 +1166,55 @@ function DateChip({
   )
 }
 
+/** The free-text content filter chip: "Content · contains · <text> · ×". */
+function TextChip({
+  filters,
+  onChange,
+}: {
+  filters: FilterState
+  onChange: (f: FilterState) => void
+}) {
+  const text = filters.text ?? ''
+  if (!text.trim()) return null
+  return (
+    <div className="flex items-center overflow-hidden rounded-md border border-border text-[12px]">
+      <span className="flex items-center gap-1 px-2 py-1 text-faint">
+        <Type size={12} /> Content
+      </span>
+      <span className="border-l border-border bg-bg px-2 py-1 text-muted">contains</span>
+      <Popover
+        align="start"
+        width={220}
+        trigger={
+          <span className="max-w-[180px] truncate border-l border-border bg-bg px-2 py-1 text-fg hover:bg-bg-hover">
+            {text}
+          </span>
+        }
+      >
+        {(close) => (
+          <input
+            autoFocus
+            value={filters.text ?? ''}
+            onChange={(e) => onChange({ ...filters, text: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') close()
+            }}
+            placeholder="Title or description contains…"
+            className="w-full rounded-md bg-bg px-2 py-1.5 text-[13px] text-fg outline-none placeholder:text-faint"
+          />
+        )}
+      </Popover>
+      <button
+        type="button"
+        onClick={() => onChange({ ...filters, text: '' })}
+        className="border-l border-border px-1.5 py-1 text-faint hover:bg-bg-hover hover:text-fg"
+      >
+        <X size={12} />
+      </button>
+    </div>
+  )
+}
+
 export function FilterBar({
   filters,
   onChange,
@@ -1095,6 +1267,8 @@ export function FilterBar({
       {DIMS.map((d) => (
         <Chip key={d.id} dim={d.id} filters={filters} onChange={onChange} />
       ))}
+
+      <TextChip filters={filters} onChange={onChange} />
 
       {(filters.dates ?? []).map((_, i) => (
         <DateChip key={i} index={i} filters={filters} onChange={onChange} onCustom={setCustom} />

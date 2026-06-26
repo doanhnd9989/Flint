@@ -86,6 +86,12 @@ const EMOTICONS: Record<string, string> = {
 }
 const EMOTICON_KEYS = Object.keys(EMOTICONS).sort((a, b) => b.length - a.length)
 
+/** Matches a single bare URL (http/https) — used for paste-to-autolink. */
+const URL_RE = /^(https?:\/\/[^\s]+)$/i
+
+/** A pending upload — the placeholder text we inserted and its data/object URL. */
+let uploadSeq = 0
+
 /** Textarea with inline @-mention and /-command autocompletes, like Linear. */
 export function MentionInput({
   value,
@@ -227,6 +233,159 @@ export function MentionInput({
     })
   }
 
+  /**
+   * Rewrite `value` and reposition the caret/selection in one shot, the way
+   * Linear's editor does after a formatting shortcut. `selStart`/`selEnd` are
+   * absolute offsets into the new string; pass them equal to collapse the caret.
+   */
+  function rewrite(next: string, selStart: number, selEnd = selStart) {
+    onChange(next)
+    requestAnimationFrame(() => {
+      const el = ref.current
+      if (!el) return
+      el.selectionStart = selStart
+      el.selectionEnd = selEnd
+      el.focus()
+    })
+  }
+
+  /**
+   * Wrap the current selection in a pair of markers (e.g. `**` for bold). If
+   * nothing is selected we drop the markers in and place the caret between them
+   * so the user can type. If the selection is already wrapped we unwrap it, so
+   * the shortcut toggles — exactly like Linear.
+   */
+  function wrapSelection(open: string, close: string) {
+    const el = ref.current
+    if (!el) return
+    const start = el.selectionStart ?? value.length
+    const end = el.selectionEnd ?? start
+    const sel = value.slice(start, end)
+    // Toggle off when the selection is already surrounded by the markers.
+    const outerStart = start - open.length
+    const outerEnd = end + close.length
+    if (
+      outerStart >= 0 &&
+      outerEnd <= value.length &&
+      value.slice(outerStart, start) === open &&
+      value.slice(end, outerEnd) === close
+    ) {
+      const next = value.slice(0, outerStart) + sel + value.slice(outerEnd)
+      rewrite(next, outerStart, outerStart + sel.length)
+      return
+    }
+    const next = value.slice(0, start) + open + sel + close + value.slice(end)
+    if (sel) {
+      rewrite(next, start + open.length, start + open.length + sel.length)
+    } else {
+      const caret = start + open.length
+      rewrite(next, caret)
+    }
+  }
+
+  /** ⌘K — wrap the selection as a markdown link, caret landing in the URL. */
+  function wrapLink() {
+    const el = ref.current
+    if (!el) return
+    const start = el.selectionStart ?? value.length
+    const end = el.selectionEnd ?? start
+    const sel = value.slice(start, end)
+    const inserted = `[${sel}](https://)`
+    const next = value.slice(0, start) + inserted + value.slice(end)
+    // Place the caret just inside the empty url, after `https://`.
+    const urlCaret = start + sel.length + 3 + 'https://'.length // [ ] ( = 3 chars before url
+    rewrite(next, urlCaret)
+  }
+
+  /**
+   * ⌘⌥1/2/3 — set the heading level of the current line, replacing any existing
+   * leading `#`s. Toggling the same level back off clears the heading.
+   */
+  function setHeading(level: number) {
+    const el = ref.current
+    if (!el) return
+    const caret = el.selectionStart ?? value.length
+    const lineStart = value.lastIndexOf('\n', caret - 1) + 1
+    let lineEnd = value.indexOf('\n', caret)
+    if (lineEnd === -1) lineEnd = value.length
+    const line = value.slice(lineStart, lineEnd)
+    const existing = line.match(/^(#{1,6})\s+/)
+    const body = existing ? line.slice(existing[0].length) : line
+    const prefix = '#'.repeat(level) + ' '
+    // Toggle off if the line is already at this exact level.
+    const nextLine = existing && existing[1].length === level ? body : prefix + body
+    const next = value.slice(0, lineStart) + nextLine + value.slice(lineEnd)
+    const delta = nextLine.length - line.length
+    rewrite(next, Math.max(lineStart, caret + delta))
+  }
+
+  /** Insert markdown at the caret, replacing any current selection. */
+  function insertAt(text: string, selStart: number, selEnd: number, caretInText: number) {
+    const next = value.slice(0, selStart) + text + value.slice(selEnd)
+    rewrite(next, selStart + caretInText)
+  }
+
+  /** Read a pasted/dropped file and resolve its placeholder to a data URL. */
+  function uploadFile(file: File, selStart: number, selEnd: number) {
+    const id = ++uploadSeq
+    const placeholder = `![Uploading ${file.name}…]()`
+    insertAt(placeholder, selStart, selEnd, placeholder.length)
+    const reader = new FileReader()
+    reader.onload = () => {
+      const url = typeof reader.result === 'string' ? reader.result : ''
+      // Resolve the placeholder in place — find it in the latest value via the
+      // textarea (value prop may be stale inside this async callback).
+      const el = ref.current
+      const current = el?.value ?? value
+      const idx = current.indexOf(placeholder)
+      const resolved = `![${file.name}](${url})`
+      if (idx === -1) return // placeholder was edited away; drop silently
+      const next = current.slice(0, idx) + resolved + current.slice(idx + placeholder.length)
+      const caret = idx + resolved.length
+      // Only steal the caret if our placeholder is still the last thing we touched.
+      if (id === uploadSeq) rewrite(next, caret)
+      else onChange(next)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  /** Paste — image files become uploads; a URL onto a selection auto-links. */
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    if (mentionOpen || slashOpen) return
+    const el = e.currentTarget
+    const start = el.selectionStart ?? value.length
+    const end = el.selectionEnd ?? start
+    // 1) Image/file paste → placeholder upload.
+    const file = Array.from(e.clipboardData.files).find((f) => f.type.startsWith('image/'))
+    if (file) {
+      e.preventDefault()
+      uploadFile(file, start, end)
+      return
+    }
+    // 2) URL paste onto a selection → wrap as a markdown link.
+    const text = e.clipboardData.getData('text/plain').trim()
+    if (URL_RE.test(text)) {
+      e.preventDefault()
+      const sel = value.slice(start, end)
+      if (sel) {
+        const inserted = `[${sel}](${text})`
+        insertAt(inserted, start, end, inserted.length)
+      } else {
+        insertAt(text, start, end, text.length)
+      }
+    }
+  }
+
+  /** Drop — image files dropped onto the editor become placeholder uploads. */
+  function handleDrop(e: React.DragEvent<HTMLTextAreaElement>) {
+    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'))
+    if (!file) return
+    e.preventDefault()
+    const el = e.currentTarget
+    const caret = el.selectionStart ?? value.length
+    uploadFile(file, caret, caret)
+  }
+
   function handleKey(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (mentionOpen) {
       if (e.key === 'ArrowDown') {
@@ -275,6 +434,44 @@ export function MentionInput({
         return
       }
     }
+    // Markdown formatting shortcuts — only when no autocomplete is open, so they
+    // never clash with menu navigation. Mirrors Linear's editor bindings.
+    const mod = e.metaKey || e.ctrlKey
+    if (mod) {
+      // ⌘⌥1/2/3 — heading levels (⌥ distinguishes from list shortcuts).
+      if (e.altKey && (e.key === '1' || e.key === '2' || e.key === '3')) {
+        e.preventDefault()
+        setHeading(Number(e.key))
+        return
+      }
+      if (!e.altKey) {
+        if (e.key.toLowerCase() === 'b' && !e.shiftKey) {
+          e.preventDefault()
+          wrapSelection('**', '**')
+          return
+        }
+        if (e.key.toLowerCase() === 'i' && !e.shiftKey) {
+          e.preventDefault()
+          wrapSelection('_', '_')
+          return
+        }
+        if (e.key.toLowerCase() === 'e' && !e.shiftKey) {
+          e.preventDefault()
+          wrapSelection('`', '`')
+          return
+        }
+        if (e.key.toLowerCase() === 'x' && e.shiftKey) {
+          e.preventDefault()
+          wrapSelection('~~', '~~')
+          return
+        }
+        if (e.key.toLowerCase() === 'k' && !e.shiftKey) {
+          e.preventDefault()
+          wrapLink()
+          return
+        }
+      }
+    }
     onKeyDown?.(e)
   }
 
@@ -315,6 +512,8 @@ export function MentionInput({
           detect(el.value, el.selectionStart ?? el.value.length)
         }}
         onKeyDown={handleKey}
+        onPaste={handlePaste}
+        onDrop={handleDrop}
         spellCheck={spellCheck}
         onBlur={() => {
           // let a click on a menu item land first

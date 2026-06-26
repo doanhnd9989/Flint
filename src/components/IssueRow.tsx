@@ -9,6 +9,7 @@ import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { StatusPicker, PriorityPicker, AssigneePicker } from './pickers'
 import { ProgressDonut } from './ProgressDonut'
+import { IssueRowActions } from './IssueRowActions'
 import { cn, formatDate, isDueSoon, isOverdue, timeAgo } from '@/lib/utils'
 
 // The last row whose checkbox was toggled (an issue identifier) — anchors
@@ -359,6 +360,7 @@ export function IssueRow({
             }
           />
         )}
+        <IssueRowActions issue={issue} />
       </div>
     </div>
   )

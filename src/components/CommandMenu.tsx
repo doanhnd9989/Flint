@@ -15,6 +15,7 @@ import {
 } from 'date-fns'
 import {
   Search,
+  Plus,
   PlusCircle,
   Inbox,
   CircleDot,
@@ -75,7 +76,7 @@ import {
 import { cycleState } from '@/lib/selectors'
 import { branchName, cn, issueUrl, formatDate } from '@/lib/utils'
 import { copyToClipboard, copyToast } from '@/lib/toast'
-import type { Priority } from '@/lib/types'
+import type { Issue, Priority } from '@/lib/types'
 import type { ReactNode } from 'react'
 
 /** A sub-page the menu can drill into for the issue currently in context. */
@@ -90,6 +91,8 @@ type Page =
   | 'milestone'
   | 'estimate'
   | 'moveTeam'
+  /** Global quick-create drill-in (New issue / project / document / view / …). */
+  | 'create'
 
 interface Command {
   id: string
@@ -120,6 +123,7 @@ const PAGE_PLACEHOLDER: Record<Page, string> = {
   milestone: 'Set milestone…',
   estimate: 'Set estimate…',
   moveTeam: 'Move to team…',
+  create: 'Create…',
 }
 
 /**
@@ -129,15 +133,75 @@ const PAGE_PLACEHOLDER: Record<Page, string> = {
  */
 function groupOf(id: string): string {
   if (id.startsWith('ctx-')) return 'Issue actions'
+  if (id.startsWith('recent-')) return 'Recently viewed'
   if (id.startsWith('issue-')) return 'Issues'
   if (id.startsWith('switch-team-')) return 'Teams'
   if (id.startsWith('theme-') || id.startsWith('toggle-')) return 'Preferences'
   if (id === 'go-settings' || id === 'help') return 'Settings'
-  if (id.startsWith('new-')) return 'Create'
+  if (id.startsWith('new-') || id === 'create') return 'Create'
+  // Navigate-straight-to-an-entity commands (typing a project / cycle / label /
+  // member / initiative name jumps there) — Linear buckets these by type.
+  if (id.startsWith('nav-project-')) return 'Projects'
+  if (id.startsWith('nav-cycle-')) return 'Cycles'
+  if (id.startsWith('nav-label-')) return 'Labels'
+  if (id.startsWith('nav-initiative-')) return 'Initiatives'
+  if (id.startsWith('nav-member-')) return 'Members'
   if (id.startsWith('go-')) return 'Navigation'
-  // Sub-page options (st-, pr-, as-, pj-, lb-, due-, cy-, ms-, es-, mt-) —
+  // Sub-page options (st-, pr-, as-, pj-, lb-, due-, cy-, ms-, es-, mt-, cr-) —
   // single ungrouped list.
   return ''
+}
+
+/**
+ * Fuzzy scorer ranking a command's searchable text against the query. Linear's
+ * palette ranks an exact prefix first, then word-boundary initials ("gtp" →
+ * "Go to Projects"), then a contiguous substring, then a scattered subsequence;
+ * non-matches score 0 and are filtered out. Higher is better.
+ */
+function scoreMatch(query: string, text: string): number {
+  const q = query.toLowerCase().trim()
+  const t = text.toLowerCase()
+  if (!q) return 1
+  // Exact / prefix — the strongest signal.
+  if (t === q) return 1000
+  if (t.startsWith(q)) return 900 - t.length
+
+  // Word-boundary initials: gather the first letter of each word and match the
+  // query against them ("go to projects" → "gtp").
+  const initials = t
+    .split(/[^a-z0-9]+/i)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join('')
+  if (initials.startsWith(q)) return 800 - t.length
+  if (initials.includes(q)) return 700 - t.length
+
+  // Contiguous substring (mid-word).
+  const idx = t.indexOf(q)
+  if (idx >= 0) return 600 - idx - t.length * 0.1
+
+  // Scattered subsequence — every query char appears in order. Reward matches
+  // that start on word boundaries and sit close together.
+  let ti = 0
+  let prev = -1
+  let gaps = 0
+  let boundaryHits = 0
+  for (let qi = 0; qi < q.length; qi++) {
+    const ch = q[qi]
+    let found = -1
+    for (let k = ti; k < t.length; k++) {
+      if (t[k] === ch) {
+        found = k
+        break
+      }
+    }
+    if (found < 0) return 0
+    if (found === 0 || /[^a-z0-9]/i.test(t[found - 1])) boundaryHits++
+    if (prev >= 0) gaps += found - prev - 1
+    prev = found
+    ti = found + 1
+  }
+  return Math.max(1, 400 + boundaryHits * 10 - gaps)
 }
 
 /**
@@ -232,6 +296,64 @@ export function CommandMenu() {
 
   const commands = useMemo<Command[]>(() => {
     const team = store.teams[0]
+
+    // —— Global sub-page: quick-create drill-in (no issue context needed) ——
+    if (page === 'create') {
+      return [
+        {
+          id: 'cr-issue',
+          label: 'New issue',
+          icon: <PlusCircle size={15} />,
+          hint: 'C',
+          keywords: 'new issue task bug create',
+          run: () => store.setCreateOpen(true),
+        },
+        {
+          id: 'cr-project',
+          label: 'New project',
+          icon: <Box size={15} />,
+          keywords: 'new project create',
+          // No standalone create-project modal yet — open the issue composer's
+          // sibling create-project flow if the integrator wires one, else seed a
+          // fresh project and jump to it (matches Linear's "Untitled project").
+          run: () => {
+            const project = store.createProject({
+              name: 'New Project',
+              icon: '📁',
+              color: team?.color ?? '#5e6ad2',
+              status: 'backlog',
+              memberIds: me ? [me.id] : [],
+              teamIds: team ? [team.id] : [],
+            })
+            navigate(`/project/${project.id}`)
+          },
+        },
+        {
+          id: 'cr-document',
+          label: 'New document',
+          icon: <FileText size={15} />,
+          keywords: 'new document doc note spec create',
+          run: () => {
+            const doc = store.createDocument()
+            navigate(`/document/${doc.id}`)
+          },
+        },
+        {
+          id: 'cr-view',
+          label: 'New view',
+          icon: <Layers3 size={15} />,
+          keywords: 'new view saved filter create',
+          run: () => navigate('/views'),
+        },
+        {
+          id: 'cr-initiative',
+          label: 'New initiative',
+          icon: <Goal size={15} />,
+          keywords: 'new initiative strategy goal create',
+          run: () => store.setCreateInitiativeOpen(true),
+        },
+      ]
+    }
 
     // —— Sub-page: options for one property of the current issue ——
     if (page && currentIssue) {
@@ -681,6 +803,13 @@ export function CommandMenu() {
 
     const base: Command[] = [
       {
+        id: 'create',
+        label: 'Create…',
+        icon: <Plus size={15} />,
+        keywords: 'create new add issue project document view initiative',
+        goPage: 'create' as Page,
+      },
+      {
         id: 'new-issue',
         label: 'Create new issue',
         icon: <PlusCircle size={15} />,
@@ -932,21 +1061,110 @@ export function CommandMenu() {
       }
     })
 
-    return [...contextual, ...base, ...issueCommands]
-  }, [store, navigate, page, currentIssue, me, query])
+    // —— Recently viewed (newest first) — shown at the top when the query is
+    // empty, mirroring Linear's ⌘K landing state. Drops archived / deleted ids.
+    const recentCommands: Command[] = store.recentIssueIds
+      .map((id) => store.issues.find((i) => i.id === id))
+      .filter((i): i is Issue => !!i && !i.archivedAt)
+      .slice(0, 5)
+      .map((i) => {
+        const st = store.states.find((s) => s.id === i.stateId)!
+        return {
+          id: `recent-${i.id}`,
+          label: i.title,
+          icon: <StatusIcon type={st.type} color={st.color} />,
+          hint: i.identifier,
+          keywords: `${i.identifier} ${i.title}`,
+          run: () => navigate(`/issue/${i.identifier}`),
+        }
+      })
+
+    // —— Navigate-straight-to-an-entity — typing a project / cycle / label /
+    // member / initiative name jumps directly there. ──────────────────────────
+    const entityCommands: Command[] = [
+      ...store.projects.map((p) => ({
+        id: `nav-project-${p.id}`,
+        label: p.name,
+        icon: <span>{p.icon}</span>,
+        keywords: `project ${p.name}`,
+        run: () => navigate(`/project/${p.id}`),
+      })),
+      ...store.cycles.map((c) => {
+        const cycleTeam = store.teams.find((t) => t.id === c.teamId)
+        return {
+          id: `nav-cycle-${c.id}`,
+          label: c.name ?? `Cycle ${c.number}`,
+          icon: <IterationCw size={15} />,
+          hint: cycleTeam?.key,
+          keywords: `cycle ${c.number} ${c.name ?? ''} ${cycleTeam?.name ?? ''}`,
+          run: () => navigate(`/team/${cycleTeam?.key ?? team.key}/cycles`),
+        }
+      }),
+      ...store.labels
+        .filter((l) => !l.isGroup)
+        .map((l) => ({
+          id: `nav-label-${l.id}`,
+          label: l.name,
+          icon: <LabelDot color={l.color} />,
+          keywords: `label ${l.name}`,
+          run: () => navigate(`/label/${l.id}`),
+        })),
+      ...store.initiatives.map((init) => ({
+        id: `nav-initiative-${init.id}`,
+        label: init.name,
+        icon: <Goal size={15} />,
+        keywords: `initiative ${init.name}`,
+        run: () => navigate(`/initiative/${init.id}`),
+      })),
+      ...store.users.map((u) => ({
+        id: `nav-member-${u.id}`,
+        label: fmt(u.name),
+        icon: <Avatar user={u} size={16} />,
+        keywords: `member ${u.name} ${u.email ?? ''}`,
+        run: () => navigate(u.isMe ? '/profile' : '/members'),
+      })),
+    ]
+
+    return [
+      ...contextual,
+      ...recentCommands,
+      ...base,
+      ...entityCommands,
+      ...issueCommands,
+    ]
+  }, [store, navigate, fmt, page, currentIssue, me, query])
 
   const filtered = useMemo(() => {
     // The due-date page bakes the query into its own suggestions — show as-is.
     if (page === 'dueDate') return commands
-    if (!query) return page ? commands : commands.slice(0, 8)
-    const q = query.toLowerCase()
-    return commands
-      .filter(
+    if (!query) {
+      // Inside a sub-page show every option; on the root, the landing state is
+      // the "Recently viewed" rows followed by a short slice of root commands —
+      // the long entity-nav / per-issue lists only surface once you type.
+      if (page) return commands
+      const recent = commands.filter((c) => c.id.startsWith('recent-'))
+      const roots = commands.filter(
         (c) =>
-          c.label.toLowerCase().includes(q) ||
-          (c.keywords ?? '').toLowerCase().includes(q),
+          !c.id.startsWith('recent-') &&
+          !c.id.startsWith('nav-') &&
+          !c.id.startsWith('issue-'),
       )
+      return [...recent, ...roots.slice(0, 8)]
+    }
+    // Fuzzy-score every command against the query and rank best-first; ties keep
+    // their source order (recent → root → entities → issues) via the index.
+    return commands
+      .map((c, i) => {
+        const score = Math.max(
+          scoreMatch(query, c.label),
+          scoreMatch(query, c.keywords ?? '') * 0.9,
+        )
+        return { c, score, i }
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score || a.i - b.i)
       .slice(0, 40)
+      .map((x) => x.c)
   }, [commands, query, page])
 
   useEffect(() => {

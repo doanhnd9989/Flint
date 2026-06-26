@@ -325,6 +325,8 @@ export interface Issue {
   remindAt?: string
   /** Short note attached to the reminder ("follow up on…"). Optional. */
   remindNote?: string
+  /** Snoozed until this ISO time — hidden from active lists, resurfaces after. Optional. */
+  snoozedUntil?: string
 }
 
 /**
@@ -502,6 +504,13 @@ export interface FilterState {
   milestoneIds?: string[]
   /** Date filters (Linear's "Dates" dimension). Optional for back-compat. */
   dates?: DateFilter[]
+  /** Free-text content filter — matches issue title + description (substring, case-insensitive). Optional for back-compat. */
+  text?: string
+  /**
+   * Label dimension operator: when true the issue must carry ALL selected
+   * labels ("includes all of") instead of any. Optional for back-compat.
+   */
+  labelMatchAll?: boolean
   /**
    * Per-dimension "is not" operator. When `negate[dim]` is true, that
    * dimension excludes matching issues instead of including them. Optional so
