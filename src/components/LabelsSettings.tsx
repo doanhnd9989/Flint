@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Trash2, Plus, ChevronRight } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import { LABEL_COLORS } from '@/lib/constants'
@@ -76,6 +77,7 @@ function LabelRow({
   onUpdate: (patch: Partial<Pick<Label, 'name' | 'color'>>) => void
   onDelete: () => void
 }) {
+  const navigate = useNavigate()
   return (
     <div
       className={cn(
@@ -93,7 +95,14 @@ function LabelRow({
         onChange={(e) => onUpdate({ name: e.target.value })}
         className="flex-1 bg-transparent text-[13px] text-fg outline-none"
       />
-      <span className="text-[11px] text-faint">{usage} issues</span>
+      <button
+        type="button"
+        title="View issues with this label"
+        onClick={() => navigate(`/label/${label.id}`)}
+        className="rounded px-1 text-[11px] text-faint hover:text-fg hover:underline"
+      >
+        {usage} issues
+      </button>
       <button
         type="button"
         onClick={onDelete}

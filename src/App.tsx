@@ -33,6 +33,10 @@ import { InitiativesView } from '@/views/InitiativesView'
 import { InitiativeDetail } from '@/views/InitiativeDetail'
 import { RoadmapView } from '@/views/RoadmapView'
 import { InsightsView } from '@/views/InsightsView'
+import { ActiveCyclesView } from '@/views/ActiveCyclesView'
+import { PulseView } from '@/views/PulseView'
+import { LabelView } from '@/views/LabelView'
+import { TeamOverviewView } from '@/views/TeamOverviewView'
 import { DocumentsView } from '@/views/DocumentsView'
 import { DocumentDetail } from '@/views/DocumentDetail'
 import { SettingsView } from '@/views/SettingsView'
@@ -100,10 +104,14 @@ export default function App() {
           <Route path="/initiative/:id" element={<InitiativeDetail />} />
           <Route path="/roadmap" element={<RoadmapView />} />
           <Route path="/insights" element={<InsightsView />} />
+          <Route path="/cycles" element={<ActiveCyclesView />} />
+          <Route path="/pulse" element={<PulseView />} />
+          <Route path="/label/:id" element={<LabelView />} />
           <Route path="/documents" element={<DocumentsView />} />
           <Route path="/document/:id" element={<DocumentDetail />} />
           <Route path="/views" element={<ViewsView />} />
           <Route path="/view/:id" element={<SavedViewScreen />} />
+          <Route path="/team/:teamKey/overview" element={<TeamOverviewView />} />
           <Route path="/team/:teamKey/active" element={<IssuesView />} />
           <Route path="/team/:teamKey/triage" element={<TriageView />} />
           <Route path="/team/:teamKey/cycles" element={<CyclesView />} />

@@ -16,6 +16,8 @@ import {
   FileText,
   Map as MapIcon,
   BarChart3,
+  Activity,
+  Home,
   Copy,
   Plus,
   X,
@@ -305,12 +307,19 @@ export function Sidebar() {
           <Item to="/projects" icon={<Box size={15} />} label="Projects" />
           <Item to="/documents" icon={<FileText size={15} />} label="Documents" />
           <Item to="/roadmap" icon={<MapIcon size={15} />} label="Roadmap" />
+          <Item to="/cycles" icon={<IterationCw size={15} />} label="Cycles" />
+          <Item to="/pulse" icon={<Activity size={15} />} label="Pulse" />
           <Item to="/insights" icon={<BarChart3 size={15} />} label="Insights" />
           <Item to="/views" icon={<LayersIcon size={15} />} label="Views" />
         </Section>
 
         {teams.map((team) => (
           <Section key={team.id} title={team.name}>
+            <Item
+              to={`/team/${team.key}/overview`}
+              icon={<Home size={15} />}
+              label="Overview"
+            />
             <Item
               to={`/team/${team.key}/triage`}
               icon={<Ticket size={15} />}
