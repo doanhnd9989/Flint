@@ -317,3 +317,14 @@ surface, plus one new data feature (project dependencies), then 4 bug fixes.
 - [x] 🟡 **Cycle velocity** — each active-cycle card shows velocity (rolling avg completed scope over the team's last 6 finished cycles).
 - [x] 🟡 **Favorites grouped/flat toggle** — switch between type-grouped sections and a flat alphabetical list.
 - [x] 🟡 **Projects initiative filter** — an Initiative facet in the Projects filter popover (owning initiatives + "No initiative") with removable pills, AND-composed.
+
+## Loop #92 — wave-shipped single-file features
+
+_Wave 1 (issues core + detail):_
+- [x] 🟡 **Time-in-status badge** — `IssueRow` honors the previously-inert "Time in status" Display property: a Clock badge showing compact duration (12d/3h) since the issue entered its current state, derived from the latest into-state `status` activity (fallback createdAt).
+- [x] 🟡 **Quick-filter preset pills** — `IssuesView` shows Linear's quick filters (Assigned to me · Created by me · Not started · Completed); one-active-at-a-time, composes on top of the chip-filter pipeline.
+- [x] 🟢 **Collapse / expand all groups** — `GroupedIssueList` header toggle that collapses or expands every group at once (shown with 2+ groups, sub-grouping off).
+- [x] 🟢 **Archived-issue banner + Restore** — `IssueDetailBody` shows a banner (Archive icon + archived date + Restore → `unarchiveIssue`) atop the body when `archivedAt` is set; shared by detail + peek.
+- [x] 🟢 **Board card blocked/blocking indicator** — `IssueBoard` cards show a red CircleSlash when blocked by others ("Blocked by N") or a muted slash when blocking ("Blocks N"), derived from `relations`.
+- [x] 🟢 **Peek keyboard legend** — `IssuePeek` footer shows kbd chips (Esc Close · ↵ Open · ↑↓ Navigate), matching Linear's peek.
+- [x] 🟡 **Projects compare mode** — `ProjectsView` Compare toggle swaps the list for a two-column side-by-side comparison (Status/Health/Lead/Progress/Scope/Dates/Teams/Members) with per-column project pickers; read-only derived.

@@ -54,6 +54,7 @@ import {
   Plus,
   X,
   Copy,
+  Archive,
 } from 'lucide-react'
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -162,6 +163,21 @@ export function IssueDetailBody({
       {/* Main content */}
       <div className="flex-1 overflow-y-auto">
         <div className={compact ? 'px-6 py-6' : 'mx-auto max-w-3xl px-10 py-8'}>
+          {issue.archivedAt && (
+            <div className="mb-4 flex items-center gap-2.5 rounded-md border border-border bg-bg-secondary px-3 py-2.5">
+              <Archive size={15} className="shrink-0 text-faint" />
+              <div className="flex-1 text-[13px] text-fg">
+                This issue is archived
+                <span className="ml-1.5 text-muted">{timeAgo(issue.archivedAt)}</span>
+              </div>
+              <button
+                onClick={() => store.unarchiveIssue(issue.id)}
+                className="rounded-md border border-border px-2.5 py-1 text-[12px] font-medium text-fg hover:bg-bg-hover"
+              >
+                Restore
+              </button>
+            </div>
+          )}
           {parent && (
             <div className="group/parent mb-2 flex items-center gap-0.5">
               <button

@@ -208,6 +208,32 @@ export function IssuePeek() {
             if (next) store.setPeek(next.id)
           }}
         />
+
+        {/* Keyboard legend — like Linear's peek, a quiet footer surfacing the
+            key affordances. Purely presentational; the shortcuts live elsewhere. */}
+        <footer className="flex h-8 shrink-0 items-center gap-3 border-t border-border px-3 text-[11px] text-faint">
+          <span className="flex items-center gap-1.5">
+            <kbd className="rounded border border-border bg-secondary px-1 py-px font-mono text-[10px] leading-none">
+              Esc
+            </kbd>
+            <span>Close</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <kbd className="rounded border border-border bg-secondary px-1 py-px font-mono text-[10px] leading-none">
+              ↵
+            </kbd>
+            <span>Open</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <kbd className="rounded border border-border bg-secondary px-1 py-px font-mono text-[10px] leading-none">
+              ↑
+            </kbd>
+            <kbd className="rounded border border-border bg-secondary px-1 py-px font-mono text-[10px] leading-none">
+              ↓
+            </kbd>
+            <span>Navigate</span>
+          </span>
+        </footer>
       </div>
     </div>,
     document.body,

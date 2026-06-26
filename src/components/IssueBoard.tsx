@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronsRightLeft, Plus, IterationCw, Diamond } from 'lucide-react'
+import { ChevronDown, ChevronsRightLeft, Plus, IterationCw, Diamond, CircleSlash } from 'lucide-react'
 import {
   DndContext,
   PointerSensor,
@@ -43,6 +43,35 @@ function EstimateBadge({ issues }: { issues: Issue[] }) {
   )
 }
 
+/**
+ * Tiny block indicator for a board card's footer — mirrors Linear, which marks
+ * cards that participate in a 'blocks' relation. A red-tinted slash means the
+ * issue is blocked by others (it's the target of a blocks relation); a muted
+ * slash means it blocks others. The title summarizes the counts.
+ */
+function BlockIndicator({ issue }: { issue: Issue }) {
+  const relations = useStore((s) => s.relations)
+  // 'blocks': fromIssue blocks toIssue → this issue is blocked when it's the
+  // toIssue, and blocks others when it's the fromIssue.
+  const blockedBy = relations.filter(
+    (r) => r.type === 'blocks' && r.toIssueId === issue.id,
+  ).length
+  const blocking = relations.filter(
+    (r) => r.type === 'blocks' && r.fromIssueId === issue.id,
+  ).length
+  if (blockedBy === 0 && blocking === 0) return null
+  // Blocked-by takes visual priority (red); otherwise it's a muted "blocks".
+  const title =
+    blockedBy > 0
+      ? `Blocked by ${blockedBy}${blocking > 0 ? ` · Blocks ${blocking}` : ''}`
+      : `Blocks ${blocking}`
+  return (
+    <span title={title} className="flex items-center">
+      <CircleSlash size={13} color={blockedBy > 0 ? '#eb5757' : undefined} />
+    </span>
+  )
+}
+
 function Card({ issue, dragging }: { issue: Issue; dragging?: boolean }) {
   const setPeek = useStore((s) => s.setPeek)
   const { users, labels } = useStoreShallow((s) => ({ users: s.users, labels: s.labels }))
@@ -66,10 +95,11 @@ function Card({ issue, dragging }: { issue: Issue; dragging?: boolean }) {
       </div>
       <div className="text-[13px] text-fg leading-snug">{issue.title}</div>
       <div className="mt-2 flex items-center justify-between">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5 text-faint">
           {issueLabels.slice(0, 2).map((l) => (
             <LabelDot key={l!.id} color={l!.color} />
           ))}
+          <BlockIndicator issue={issue} />
         </div>
         <Avatar user={assignee} size={18} />
       </div>

@@ -244,8 +244,36 @@ export function GroupedIssueList({
       ))
     )
 
+  // Collapse/expand-all toggle — Linear lets you fold every group at once.
+  // "All collapsed" only counts the top-level groups currently on screen.
+  const allCollapsed = groups.length > 0 && groups.every((g) => collapsed[g.key])
+  const toggleAll = () =>
+    setCollapsed((c) => {
+      const next = { ...c }
+      groups.forEach((g) => {
+        next[g.key] = !allCollapsed
+      })
+      return next
+    })
+
   const body = (
     <div className="flex-1 overflow-y-auto">
+      {!subGrouped && groups.length > 1 && (
+        <div className="flex items-center px-4 py-1.5">
+          <button
+            type="button"
+            onClick={toggleAll}
+            title={allCollapsed ? 'Expand all groups' : 'Collapse all groups'}
+            className="flex items-center gap-1.5 text-[12px] text-faint hover:text-fg"
+          >
+            <ChevronDown
+              size={13}
+              className={cn('transition-transform', allCollapsed && '-rotate-90')}
+            />
+            {allCollapsed ? 'Expand all' : 'Collapse all'}
+          </button>
+        </div>
+      )}
       {groups.map((group) => {
         const isCollapsed = collapsed[group.key]
         const groupIds = group.issues.map((i) => i.id)

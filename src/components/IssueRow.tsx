@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { CalendarClock, ChevronRight, Diamond, IterationCw, Link2, MessageSquare, Gauge } from 'lucide-react'
+import { CalendarClock, ChevronRight, Clock, Diamond, IterationCw, Link2, MessageSquare, Gauge } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import type { Issue } from '@/lib/types'
 import { estimateLabel, teamEstimationType } from '@/lib/constants'
@@ -9,7 +9,7 @@ import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { StatusPicker, PriorityPicker, AssigneePicker } from './pickers'
 import { ProgressDonut } from './ProgressDonut'
-import { cn, formatDate, isDueSoon, isOverdue } from '@/lib/utils'
+import { cn, formatDate, isDueSoon, isOverdue, timeAgo } from '@/lib/utils'
 
 // The last row whose checkbox was toggled (an issue identifier) — anchors
 // shift-click range selection, exactly like Linear's list.
@@ -29,7 +29,7 @@ export function IssueRow({
   expand?: { hasChildren: boolean; expanded: boolean; onToggle: () => void }
 }) {
   const {
-    states, users, labels, issues, projects, milestones, cycles, teams, issueLinks, comments, displayProperties, selectedIssueIds, focusedIssueId, navIssueIds,
+    states, users, labels, issues, projects, milestones, cycles, teams, issueLinks, comments, activities, displayProperties, selectedIssueIds, focusedIssueId, navIssueIds,
     setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue, setSelectedIssues, setFocusedIssue, openContextMenu,
   } = useStoreShallow((s) => ({
     states: s.states,
@@ -42,6 +42,7 @@ export function IssueRow({
     teams: s.teams,
     issueLinks: s.issueLinks,
     comments: s.comments,
+    activities: s.activities,
     displayProperties: s.displayProperties,
     selectedIssueIds: s.selectedIssueIds,
     focusedIssueId: s.focusedIssueId,
@@ -93,6 +94,15 @@ export function IssueRow({
   const childPercent = children.length
     ? Math.round((childDone / children.length) * 100)
     : 0
+
+  // How long the issue has sat in its current state — anchored on the most
+  // recent 'status' activity that moved it *into* the present stateId, falling
+  // back to creation when no such transition has been logged.
+  const enteredStatusAt =
+    activities
+      .filter((a) => a.issueId === issue.id && a.kind === 'status' && a.to === issue.stateId)
+      .reduce<string | null>((latest, a) => (!latest || a.createdAt > latest ? a.createdAt : latest), null) ??
+    issue.createdAt
 
   return (
     <div
@@ -286,6 +296,15 @@ export function IssueRow({
           >
             <MessageSquare size={11} />
             {commentCount}
+          </span>
+        )}
+        {dp.timeInStatus && (
+          <span
+            className="flex items-center gap-0.5 text-[11px] text-faint"
+            title={`In current status since ${formatDate(enteredStatusAt)}`}
+          >
+            <Clock size={11} />
+            {timeAgo(enteredStatusAt)}
           </span>
         )}
         {dp.created && (

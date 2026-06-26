@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, ListFilter, Check, X } from 'lucide-react'
+import { ChevronRight, ListFilter, Check, X, Columns2, ChevronDown } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { projectProgress } from '@/lib/selectors'
@@ -11,6 +11,7 @@ import { ProgressDonut } from '@/components/ProgressDonut'
 import { HealthBadge } from '@/components/ProjectUpdates'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { Popover } from '@/components/ui/Popover'
+import { SelectMenu } from '@/components/ui/SelectMenu'
 import {
   ProjectsDisplayMenu,
   DEFAULT_PROJECT_PROPERTIES,
@@ -51,6 +52,12 @@ export function ProjectsView() {
     DEFAULT_PROJECT_PROPERTIES,
   )
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+
+  // Compare mode — Linear's side-by-side project comparison. Holds the two
+  // project ids shown in the left/right columns; defaults to the first two.
+  const [compare, setCompare] = useState(false)
+  const [cmpA, setCmpA] = useState<string | undefined>(projects[0]?.id)
+  const [cmpB, setCmpB] = useState<string | undefined>(projects[1]?.id)
 
   // Active filters — Linear's project filter bar (Status / Health / Lead).
   // A project must match within every active facet (AND across facets, OR within).
@@ -262,6 +269,17 @@ export function ProjectsView() {
         title="Projects"
         right={
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCompare((c) => !c)}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] hover:bg-bg-hover',
+                compare ? 'bg-bg-selected text-fg' : 'text-muted',
+              )}
+            >
+              <Columns2 size={13} />
+              Compare
+            </button>
             <Popover
               width={232}
               align="end"
@@ -391,6 +409,14 @@ export function ProjectsView() {
             title="Projects"
             description="Projects are larger units of work with a clear outcome, such as a new feature you want to ship. They can be shared across multiple teams and are comprised of issues and optional documents."
           />
+        ) : compare ? (
+          <CompareGrid
+            projects={projects}
+            aId={cmpA}
+            bId={cmpB}
+            onA={setCmpA}
+            onB={setCmpB}
+          />
         ) : sorted.length === 0 ? (
           <EmptyState
             illustration={<StackIllustration />}
@@ -478,6 +504,224 @@ export function ProjectsView() {
             </div>
           ))
         )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Compare mode — Linear's side-by-side project comparison. Two columns, each
+ * with a project picker on top; aligned rows below contrast key properties.
+ * Read-only: every value is derived from existing store data and selectors.
+ */
+function CompareGrid({
+  projects,
+  aId,
+  bId,
+  onA,
+  onB,
+}: {
+  projects: Project[]
+  aId?: string
+  bId?: string
+  onA: (id: string) => void
+  onB: (id: string) => void
+}) {
+  const { issues, users, teams, initiatives } = useStoreShallow((s) => ({
+    issues: s.issues,
+    users: s.users,
+    teams: s.teams,
+    initiatives: s.initiatives,
+    projectUpdates: s.projectUpdates,
+  }))
+  const data = useStore()
+  const fmt = useDisplayName()
+
+  // Latest health update per project (most recent wins) — mirrors the list view.
+  const healthById = useMemo(() => {
+    const map: Record<string, ProjectHealth> = {}
+    for (const u of [...data.projectUpdates].sort((a, b) =>
+      a.createdAt.localeCompare(b.createdAt),
+    )) {
+      map[u.projectId] = u.health
+    }
+    return map
+  }, [data.projectUpdates])
+
+  const a = projects.find((p) => p.id === aId)
+  const b = projects.find((p) => p.id === bId)
+
+  const options = projects.map((p) => ({
+    id: p.id,
+    label: p.name,
+    icon: <span className="text-[13px]">{p.icon}</span>,
+  }))
+
+  /** The picker header that sits atop each column. */
+  function Picker({
+    project,
+    onSelect,
+  }: {
+    project?: Project
+    onSelect: (id: string) => void
+  }) {
+    return (
+      <SelectMenu
+        options={options.map((o) => ({ ...o, selected: o.id === project?.id }))}
+        onSelect={onSelect}
+        placeholder="Select a project…"
+        align="start"
+        width={280}
+        trigger={
+          <span className="flex w-full items-center gap-2 rounded-md border border-border bg-bg-secondary px-2.5 py-2 text-[13px] font-medium text-fg hover:bg-bg-hover">
+            {project ? (
+              <>
+                <ProjectStatusIcon status={project.status} />
+                <span className="text-[14px]">{project.icon}</span>
+                <span className="truncate">{project.name}</span>
+              </>
+            ) : (
+              <span className="text-muted">Select a project…</span>
+            )}
+            <ChevronDown size={14} className="ml-auto text-faint" />
+          </span>
+        }
+      />
+    )
+  }
+
+  /** All comparable rows for one project, keyed so columns stay aligned. */
+  function rows(p?: Project): Record<string, React.ReactNode> {
+    if (!p) {
+      const empty = <span className="text-faint">—</span>
+      return {
+        status: empty,
+        health: empty,
+        lead: empty,
+        progress: empty,
+        scope: empty,
+        dates: empty,
+        teams: empty,
+        members: empty,
+      }
+    }
+    const prog = projectProgress(p.id, issues, data)
+    const lead = users.find((u) => u.id === p.leadId)
+    const health = healthById[p.id]
+    const teamNames = p.teamIds
+      .map((tid) => teams.find((t) => t.id === tid)?.name)
+      .filter(Boolean)
+      .join(', ')
+    const initiative = initiatives.find((i) => i.id === p.initiativeId)
+    return {
+      status: (
+        <span className="flex items-center gap-1.5">
+          <ProjectStatusIcon status={p.status} />
+          {PROJECT_STATUS[p.status].label}
+        </span>
+      ),
+      health: health ? (
+        <HealthBadge health={health} />
+      ) : (
+        <span className="text-faint">No update</span>
+      ),
+      lead: lead ? (
+        <span className="flex items-center gap-1.5">
+          <Avatar user={lead} size={18} />
+          {fmt(lead.name)}
+        </span>
+      ) : (
+        <span className="text-faint">No lead</span>
+      ),
+      progress:
+        prog.total > 0 ? (
+          <span className="flex items-center gap-1.5">
+            <ProgressDonut percent={prog.percent} />
+            {prog.percent}%
+          </span>
+        ) : (
+          <span className="text-faint">—</span>
+        ),
+      scope: (
+        <span className="tabular-nums">
+          {prog.done}/{prog.total} {prog.total === 1 ? 'issue' : 'issues'}
+        </span>
+      ),
+      dates: (
+        <span className="tabular-nums">
+          {p.startDate ? formatDate(p.startDate) : '—'}
+          {' → '}
+          {p.targetDate ? formatDate(p.targetDate) : '—'}
+        </span>
+      ),
+      teams: teamNames ? (
+        <span className="truncate">{teamNames}</span>
+      ) : (
+        <span className="text-faint">—</span>
+      ),
+      members: (
+        <span className="flex items-center gap-1.5">
+          {p.memberIds.length > 0 && (
+            <span className="flex -space-x-1">
+              {p.memberIds
+                .slice(0, 3)
+                .map((mid) => users.find((u) => u.id === mid))
+                .filter(Boolean)
+                .map((m) => (
+                  <span key={m!.id} className="rounded-full ring-2 ring-bg">
+                    <Avatar user={m!} size={18} />
+                  </span>
+                ))}
+            </span>
+          )}
+          {p.memberIds.length}
+          {initiative && (
+            <span className="ml-1 text-faint">· {initiative.name}</span>
+          )}
+        </span>
+      ),
+    }
+  }
+
+  // Each property row: a label plus the value cell for both columns.
+  const FIELDS: { key: string; label: string }[] = [
+    { key: 'status', label: 'Status' },
+    { key: 'health', label: 'Health' },
+    { key: 'lead', label: 'Lead' },
+    { key: 'progress', label: 'Progress' },
+    { key: 'scope', label: 'Scope' },
+    { key: 'dates', label: 'Start → Target' },
+    { key: 'teams', label: 'Teams' },
+    { key: 'members', label: 'Members' },
+  ]
+  const ra = rows(a)
+  const rb = rows(b)
+
+  return (
+    <div className="mx-auto max-w-4xl p-4">
+      <div className="grid grid-cols-[140px_1fr_1fr] gap-px overflow-hidden rounded-lg border border-border bg-border">
+        {/* Picker header row */}
+        <div className="bg-bg" />
+        <div className="bg-bg p-2">
+          <Picker project={a} onSelect={onA} />
+        </div>
+        <div className="bg-bg p-2">
+          <Picker project={b} onSelect={onB} />
+        </div>
+        {/* One aligned row per comparable property. */}
+        {FIELDS.map((f) => (
+          <Fragment key={f.key}>
+            <div className="flex items-center bg-bg px-3 py-2.5 text-[12px] font-medium text-muted">
+              {f.label}
+            </div>
+            <div className="flex items-center bg-bg px-3 py-2.5 text-[13px] text-fg">
+              {ra[f.key]}
+            </div>
+            <div className="flex items-center bg-bg px-3 py-2.5 text-[13px] text-fg">
+              {rb[f.key]}
+            </div>
+          </Fragment>
+        ))}
       </div>
     </div>
   )
