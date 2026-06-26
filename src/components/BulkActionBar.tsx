@@ -14,7 +14,7 @@ import { PRIORITY_ORDER, PRIORITY_LABELS, STATUS_TYPE_ORDER } from '@/lib/consta
 import type { Priority } from '@/lib/types'
 
 const btn =
-  'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg'
+  'flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg'
 
 /** Floating bulk-action bar, shown while one or more issues are selected. */
 export function BulkActionBar() {
@@ -171,11 +171,11 @@ export function BulkActionBar() {
           <Bell size={14} /> {allSubscribed ? 'Unsubscribe' : 'Subscribe'}
         </button>
         <button
-          onClick={() => bulkFavorite(ids)}
+          onClick={() => bulkFavorite(ids, !allFavorited)}
           className={btn}
-          title="Add to favorites"
+          title={allFavorited ? 'Remove from favorites' : 'Add to favorites'}
         >
-          <Star size={14} fill={allFavorited ? 'currentColor' : 'none'} className={allFavorited ? 'text-[var(--status-started)]' : ''} /> Favorite
+          <Star size={14} fill={allFavorited ? 'currentColor' : 'none'} className={allFavorited ? 'text-[var(--status-started)]' : ''} /> {allFavorited ? 'Unfavorite' : 'Favorite'}
         </button>
 
         <button onClick={() => bulkArchive(ids)} className={btn} title="Archive selected">

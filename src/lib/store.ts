@@ -339,7 +339,7 @@ export interface Store extends WorkspaceData, UIState {
   bulkSetDueDate: (ids: string[], dueDate?: string) => void
   bulkSetEstimate: (ids: string[], estimate?: number) => void
   bulkSubscribe: (ids: string[], subscribe: boolean) => void
-  bulkFavorite: (ids: string[]) => void
+  bulkFavorite: (ids: string[], favorite: boolean) => void
   bulkArchive: (ids: string[]) => void
   bulkDelete: (ids: string[]) => void
 
@@ -1755,8 +1755,16 @@ export const useStore = create<Store>()(
             }),
           }
         }),
-      bulkFavorite: (ids) =>
+      bulkFavorite: (ids, favorite) =>
         set((s) => {
+          if (!favorite) {
+            const set_ = new Set(ids)
+            return {
+              favorites: s.favorites.filter(
+                (f) => !(f.type === 'issue' && set_.has(f.id)),
+              ),
+            }
+          }
           const existing = new Set(
             s.favorites.filter((f) => f.type === 'issue').map((f) => f.id),
           )
