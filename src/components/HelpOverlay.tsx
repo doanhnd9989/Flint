@@ -35,6 +35,7 @@ const SECTIONS: { title: string; items: Shortcut[] }[] = [
     title: 'General',
     items: [
       { keys: <Kbd>C</Kbd>, label: 'Create new issue' },
+      { keys: <><Kbd>⌘</Kbd> <Kbd>/</Kbd></>, label: 'Toggle sidebar' },
       { keys: <><Kbd>⌘</Kbd> <Kbd>↵</Kbd></>, label: 'Submit (create / comment)' },
       { keys: <Kbd>?</Kbd>, label: 'Open this shortcuts help' },
       { keys: <Kbd>Esc</Kbd>, label: 'Close dialogs / peek / selection' },

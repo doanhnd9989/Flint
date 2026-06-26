@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { CalendarClock, ChevronRight, Diamond, IterationCw, Link2 } from 'lucide-react'
+import { CalendarClock, ChevronRight, Diamond, IterationCw, Link2, MessageSquare } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import type { Issue } from '@/lib/types'
 import { StatusIcon } from './StatusIcon'
@@ -24,7 +24,7 @@ export function IssueRow({
   expand?: { hasChildren: boolean; expanded: boolean; onToggle: () => void }
 }) {
   const {
-    states, users, labels, issues, projects, milestones, cycles, issueLinks, displayProperties, selectedIssueIds, focusedIssueId,
+    states, users, labels, issues, projects, milestones, cycles, issueLinks, comments, displayProperties, selectedIssueIds, focusedIssueId,
     setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue, setFocusedIssue, openContextMenu,
   } = useStoreShallow((s) => ({
     states: s.states,
@@ -35,6 +35,7 @@ export function IssueRow({
     milestones: s.milestones,
     cycles: s.cycles,
     issueLinks: s.issueLinks,
+    comments: s.comments,
     displayProperties: s.displayProperties,
     selectedIssueIds: s.selectedIssueIds,
     focusedIssueId: s.focusedIssueId,
@@ -67,6 +68,7 @@ export function IssueRow({
     .map((id) => labels.find((l) => l.id === id))
     .filter(Boolean)
   const linkCount = issueLinks.filter((l) => l.issueId === issue.id).length
+  const commentCount = comments.filter((c) => c.issueId === issue.id).length
   const children = issues.filter((i) => i.parentId === issue.id)
   const childDone = children.filter((i) => {
     const st = states.find((s) => s.id === i.stateId)
@@ -234,6 +236,15 @@ export function IssueRow({
           >
             <Link2 size={11} />
             {linkCount}
+          </span>
+        )}
+        {commentCount > 0 && (
+          <span
+            className="flex items-center gap-0.5 text-[11px] text-faint"
+            title={`${commentCount} comment${commentCount > 1 ? 's' : ''}`}
+          >
+            <MessageSquare size={11} />
+            {commentCount}
           </span>
         )}
         {dp.created && (
