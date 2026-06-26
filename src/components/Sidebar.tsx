@@ -21,6 +21,7 @@ import {
   Building2,
   Rocket,
   Users,
+  Megaphone,
   Copy,
   Plus,
   X,
@@ -313,6 +314,7 @@ export function Sidebar() {
           <Item to="/members" icon={<Users size={15} />} label="Members" />
           <Item to="/documents" icon={<FileText size={15} />} label="Documents" />
           <Item to="/roadmap" icon={<MapIcon size={15} />} label="Roadmap" />
+          <Item to="/changelog" icon={<Megaphone size={15} />} label="Changelog" />
           <Item to="/cycles" icon={<IterationCw size={15} />} label="Cycles" />
           <Item to="/pulse" icon={<Activity size={15} />} label="Pulse" />
           <Item to="/insights" icon={<BarChart3 size={15} />} label="Insights" />

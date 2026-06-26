@@ -31,6 +31,7 @@ import {
   Building2,
   Rocket,
   Users,
+  Megaphone,
   Goal,
   FileText,
   User,
@@ -523,6 +524,13 @@ export function CommandMenu() {
         icon: <Users size={15} />,
         keywords: 'members people directory users team',
         run: () => navigate('/members'),
+      },
+      {
+        id: 'go-changelog',
+        label: 'Go to Changelog',
+        icon: <Megaphone size={15} />,
+        keywords: 'changelog shipped releases whats new timeline',
+        run: () => navigate('/changelog'),
       },
       {
         id: 'go-insights',

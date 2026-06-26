@@ -41,6 +41,9 @@ import { CustomersView } from '@/views/CustomersView'
 import { CustomerDetail } from '@/views/CustomerDetail'
 import { ReleasesView } from '@/views/ReleasesView'
 import { MembersDirectoryView } from '@/views/MembersDirectoryView'
+import { ChangelogView } from '@/views/ChangelogView'
+import { ShareIssueModal } from '@/components/ShareIssueModal'
+import { MoveIssueModal } from '@/components/MoveIssueModal'
 import { DocumentsView } from '@/views/DocumentsView'
 import { DocumentDetail } from '@/views/DocumentDetail'
 import { SettingsView } from '@/views/SettingsView'
@@ -73,6 +76,8 @@ function Shell() {
       <BulkActionBar />
       <IssueContextMenu />
       <AddLinkModal />
+      <ShareIssueModal />
+      <MoveIssueModal />
       <HelpOverlay />
       <RelationPicker />
       <Toaster />
@@ -115,6 +120,7 @@ export default function App() {
           <Route path="/customer/:id" element={<CustomerDetail />} />
           <Route path="/releases" element={<ReleasesView />} />
           <Route path="/members" element={<MembersDirectoryView />} />
+          <Route path="/changelog" element={<ChangelogView />} />
           <Route path="/documents" element={<DocumentsView />} />
           <Route path="/document/:id" element={<DocumentDetail />} />
           <Route path="/views" element={<ViewsView />} />

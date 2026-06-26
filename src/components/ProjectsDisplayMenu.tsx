@@ -1,7 +1,8 @@
-import { SlidersHorizontal, LayoutList } from 'lucide-react'
+import { SlidersHorizontal, LayoutList, LayoutGrid } from 'lucide-react'
 import { Popover } from './ui/Popover'
 import { cn } from '@/lib/utils'
 
+export type ProjectLayout = 'list' | 'board'
 export type ProjectGroupBy = 'none' | 'status' | 'health' | 'lead'
 export type ProjectOrderBy = 'manual' | 'name' | 'targetDate' | 'created'
 export type ProjectProperty =
@@ -78,19 +79,28 @@ function Seg<T extends string>({
 }
 
 interface Props {
+  layout: ProjectLayout
   groupBy: ProjectGroupBy
   orderBy: ProjectOrderBy
   properties: Record<ProjectProperty, boolean>
+  onLayout: (l: ProjectLayout) => void
   onGroupBy: (g: ProjectGroupBy) => void
   onOrderBy: (o: ProjectOrderBy) => void
   onToggleProperty: (p: ProjectProperty) => void
 }
 
+const LAYOUTS = [
+  { value: 'list' as const, label: 'List', icon: <LayoutList size={13} /> },
+  { value: 'board' as const, label: 'Board', icon: <LayoutGrid size={13} /> },
+]
+
 /** Display options popover for the Projects view — mirrors Linear's. */
 export function ProjectsDisplayMenu({
+  layout,
   groupBy,
   orderBy,
   properties,
+  onLayout,
   onGroupBy,
   onOrderBy,
   onToggleProperty,
@@ -109,9 +119,23 @@ export function ProjectsDisplayMenu({
       {() => (
         <div>
           <Row label="Layout">
-            <span className="flex items-center gap-1 rounded-md bg-bg-selected px-2 py-1 text-[12px] text-fg">
-              <LayoutList size={13} /> List
-            </span>
+            <div className="flex gap-1">
+              {LAYOUTS.map((l) => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => onLayout(l.value)}
+                  className={
+                    'flex items-center gap-1 rounded-md px-2 py-1 text-[12px] ' +
+                    (layout === l.value
+                      ? 'bg-bg-selected text-fg'
+                      : 'text-muted hover:bg-bg-hover')
+                  }
+                >
+                  {l.icon} {l.label}
+                </button>
+              ))}
+            </div>
           </Row>
           <Row label="Grouping">
             <Seg value={groupBy} options={GROUPS} onChange={onGroupBy} />

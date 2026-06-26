@@ -13,10 +13,12 @@ import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import {
   ProjectsDisplayMenu,
   DEFAULT_PROJECT_PROPERTIES,
+  type ProjectLayout,
   type ProjectGroupBy,
   type ProjectOrderBy,
   type ProjectProperty,
 } from '@/components/ProjectsDisplayMenu'
+import { ProjectsBoard } from '@/components/ProjectsBoard'
 import { formatDate, cn } from '@/lib/utils'
 import type { Project, ProjectHealth } from '@/lib/types'
 
@@ -37,6 +39,7 @@ export function ProjectsView() {
   const data = useStore()
   const fmt = useDisplayName()
 
+  const [layout, setLayout] = useState<ProjectLayout>('list')
   const [groupBy, setGroupBy] = useState<ProjectGroupBy>('none')
   const [orderBy, setOrderBy] = useState<ProjectOrderBy>('manual')
   const [props, setProps] = useState<Record<ProjectProperty, boolean>>(
@@ -130,22 +133,26 @@ export function ProjectsView() {
         title="Projects"
         right={
           <ProjectsDisplayMenu
+            layout={layout}
             groupBy={groupBy}
             orderBy={orderBy}
             properties={props}
+            onLayout={setLayout}
             onGroupBy={setGroupBy}
             onOrderBy={setOrderBy}
             onToggleProperty={toggleProperty}
           />
         }
       />
-      <div className="flex-1 overflow-y-auto">
+      <div className={cn('flex-1', layout === 'board' ? 'overflow-hidden' : 'overflow-y-auto')}>
         {projects.length === 0 ? (
           <EmptyState
             illustration={<StackIllustration />}
             title="Projects"
             description="Projects are larger units of work with a clear outcome, such as a new feature you want to ship. They can be shared across multiple teams and are comprised of issues and optional documents."
           />
+        ) : layout === 'board' ? (
+          <ProjectsBoard projects={sorted} onOpen={(id) => navigate(`/project/${id}`)} />
         ) : (
           groups.map((g) => (
             <div key={g.key}>

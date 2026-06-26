@@ -21,6 +21,8 @@ import {
   BellOff,
   Trash2,
   ArrowRightLeft,
+  ArrowLeftRight,
+  Share2,
   GitFork,
 } from 'lucide-react'
 
@@ -275,6 +277,25 @@ export function IssueOptionsMenu({
                   onClick={() => copy(branchName(issue.identifier, issue.title, me), copyToast.branch())}
                 />
               </SubRow>
+
+              <div className="my-1 h-px bg-border" />
+
+              <Row
+                icon={<Share2 size={14} />}
+                label="Share…"
+                onClick={() => {
+                  close()
+                  store.openShareIssue(issue.id)
+                }}
+              />
+              <Row
+                icon={<ArrowLeftRight size={14} />}
+                label="Move to team…"
+                onClick={() => {
+                  close()
+                  store.openMoveIssue(issue.id)
+                }}
+              />
 
               <div className="my-1 h-px bg-border" />
 

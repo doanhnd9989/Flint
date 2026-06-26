@@ -98,6 +98,12 @@ interface UIState {
   focusedIssueId: string | null
   /** Right-click context menu target + position (transient). */
   contextMenu: { issueId: string; x: number; y: number } | null
+  /** Issue currently shown in the Share modal (transient). */
+  shareIssueId: string | null
+  /** Issue currently shown in the Move-to-team modal (transient). */
+  moveIssueId: string | null
+  /** Issues shared publicly (a read-only public link). Persisted. */
+  publicIssueIds: string[]
   /**
    * Add/edit-link modal target (transient). `editId` is set when editing an
    * existing link, null when adding a new one.
@@ -315,6 +321,16 @@ export interface Store extends WorkspaceData, UIState {
   openLinkModal: (issueId: string, editId?: string) => void
   closeLinkModal: () => void
 
+  // ── share / move modals ──────────────────────────────────────
+  openShareIssue: (issueId: string) => void
+  closeShareIssue: () => void
+  /** Toggle whether an issue has a public read-only share link. */
+  toggleIssuePublic: (issueId: string) => void
+  openMoveIssue: (issueId: string) => void
+  closeMoveIssue: () => void
+  /** Move an issue to a different team (re-numbers its identifier). */
+  moveIssueToTeam: (issueId: string, teamId: string) => void
+
   resetWorkspace: () => void
 
   // ── import ───────────────────────────────────────────────────
@@ -379,6 +395,9 @@ export const useStore = create<Store>()(
       focusedIssueId: null,
       contextMenu: null,
       linkModal: null,
+      shareIssueId: null,
+      moveIssueId: null,
+      publicIssueIds: [],
       recentSearches: [],
       favorites: [],
       notificationPrefs: {
@@ -1602,6 +1621,44 @@ export const useStore = create<Store>()(
         set({ linkModal: { issueId, editId: editId ?? null } }),
       closeLinkModal: () => set({ linkModal: null }),
 
+      openShareIssue: (issueId) => set({ shareIssueId: issueId }),
+      closeShareIssue: () => set({ shareIssueId: null }),
+      toggleIssuePublic: (issueId) =>
+        set((s) => ({
+          publicIssueIds: s.publicIssueIds.includes(issueId)
+            ? s.publicIssueIds.filter((x) => x !== issueId)
+            : [...s.publicIssueIds, issueId],
+        })),
+      openMoveIssue: (issueId) => set({ moveIssueId: issueId }),
+      closeMoveIssue: () => set({ moveIssueId: null }),
+      moveIssueToTeam: (issueId, teamId) =>
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === issueId)
+          if (!issue || issue.teamId === teamId) return {}
+          const team = s.teams.find((t) => t.id === teamId)
+          if (!team) return {}
+          // Next number within the destination team.
+          const number =
+            s.issues
+              .filter((i) => i.teamId === teamId)
+              .reduce((max, i) => Math.max(max, i.number), 0) + 1
+          return {
+            issues: s.issues.map((i) =>
+              i.id === issueId
+                ? {
+                    ...i,
+                    teamId,
+                    number,
+                    identifier: `${team.key}-${number}`,
+                    // Cycles are team-specific — drop the old one on a move.
+                    cycleId: undefined,
+                    updatedAt: nowIso(),
+                  }
+                : i,
+            ),
+          }
+        }),
+
       resetWorkspace: () => {
         const fresh = buildSeed()
         set({ ...fresh })
@@ -1707,6 +1764,8 @@ export const useStore = create<Store>()(
           focusedIssueId: _foc,
           contextMenu: _cm,
           linkModal: _lm,
+          shareIssueId: _sh,
+          moveIssueId: _mv,
           ...rest
         } = s
         void _c
@@ -1720,6 +1779,8 @@ export const useStore = create<Store>()(
         void _foc
         void _cm
         void _lm
+        void _sh
+        void _mv
         return rest as Store
       },
       merge: (persisted, current) => {
@@ -1754,6 +1815,7 @@ export const useStore = create<Store>()(
           merged.documents = seed.documents
         }
         // Backfill customers / releases / attachments (added later).
+        if (!Array.isArray(merged.publicIssueIds)) merged.publicIssueIds = []
         if (!Array.isArray(merged.customers)) merged.customers = seed.customers
         if (!Array.isArray(merged.releases)) merged.releases = seed.releases
         if (!Array.isArray(merged.attachments)) merged.attachments = seed.attachments
