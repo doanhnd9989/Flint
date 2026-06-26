@@ -199,6 +199,15 @@ function clearDim(f: FilterState, dim: Dim): FilterState {
   return dim === 'labelIds' ? setLabelMatchAll(cleared, false) : cleared
 }
 
+/**
+ * When a dimension's value set is emptied by deselection (not the × button),
+ * also drop its operators so a re-added set starts from Linear's defaults.
+ */
+function clearOnEmpty(f: FilterState, dim: Dim): FilterState {
+  const cleared = setNegate(f, dim, false)
+  return dim === 'labelIds' ? setLabelMatchAll(cleared, false) : cleared
+}
+
 /** Linear's operator wording: positive flips to "is any of" with 2+ values. */
 function operatorLabel(negated: boolean, count: number): string {
   if (negated) return 'is not'
@@ -387,7 +396,7 @@ function AddFilterPanel({
     const cur = valuesOf(filters, d)
     const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
     const f = setValues(filters, d, next)
-    onChange(next.length ? f : setNegate(f, d, false))
+    onChange(next.length ? f : clearOnEmpty(f, d))
   }
 
   // Root menu — type-to-filter across every dimension (incl. Dates).
@@ -643,7 +652,7 @@ function Chip({
               const cur = valuesOf(filters, dim)
               const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
               const f = setValues(filters, dim, next)
-              onChange(next.length ? f : setNegate(f, dim, false))
+              onChange(next.length ? f : clearOnEmpty(f, dim))
             }}
           />
         )}
@@ -1131,7 +1140,12 @@ function DateChip({
                 key={p.value}
                 type="button"
                 onClick={() => {
-                  patch({ value: p.value })
+                  // Relative tokens can't represent the 'in' range operator —
+                  // normalize a stale 'in' to 'after' so chip/menu/filter agree.
+                  patch({
+                    value: p.value,
+                    ...(df.op === 'in' ? { op: 'after' as const } : {}),
+                  })
                   close()
                 }}
                 className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"

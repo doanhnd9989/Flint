@@ -142,6 +142,9 @@ export function useShortcuts() {
         store.commandOpen ||
         store.createOpen ||
         store.createInitiativeOpen ||
+        store.createProjectOpen ||
+        store.createDocumentOpen ||
+        !!store.viewModalConfig ||
         store.helpOpen ||
         !!document.querySelector('[data-overlay]')
 
@@ -251,6 +254,9 @@ export function useShortcuts() {
         store.setHelpOpen(true)
         return
       }
+      // An open modal / command menu / popover owns the keyboard — single-key
+      // shortcuts (c, plain letters) must not leak through to the page behind it.
+      if (overlayOpen) return
       switch (key) {
         case 'c': {
           // ⇧C moves the current issue to a cycle; plain C opens the create modal.

@@ -101,7 +101,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
 }
 
 const INLINE_RE =
-  /(@\[([^\]]+)\]\(([^)\s]+)\))|(!\[([^\]]*)\]\(([^)\s]+)\))|(\*\*([^*]+)\*\*)|(__([^_]+)__)|(\*([^*]+)\*)|(_([^_]+)_)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)\s]+)\))/g
+  /(@\[([^\]]+)\]\(([^)\s]+)\))|(!\[([^\]]*)\]\(([^)\s]+)\))|(\*\*([^*]+)\*\*)|(__([^_]+)__)|(\*([^*]+)\*)|(_([^_]+)_)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)\s]+)\))|(~~([^~]+)~~)/g
 
 function renderInline(text: string, key: string): ReactNode[] {
   const nodes: ReactNode[] = []
@@ -161,7 +161,12 @@ function renderInline(text: string, key: string): ReactNode[] {
           </a>,
         )
       else nodes.push(m[18])
-    }
+    } else if (m[20])
+      nodes.push(
+        <del key={`${key}-${i}`} className="line-through">
+          {m[21]}
+        </del>,
+      )
     last = m.index + m[0].length
     i++
   }
