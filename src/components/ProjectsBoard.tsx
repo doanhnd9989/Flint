@@ -40,7 +40,12 @@ export function ProjectsBoard({ projects, onOpen }: Props) {
     return map
   }, [data.projectUpdates])
 
-  /** Bucket the passed-in projects by status (every status renders a column). */
+  /**
+   * Bucket the passed-in projects by status (every status renders a column),
+   * and roll up each column's completion across its projects' issues — the
+   * union of all scoped issues, with percent = done / total (the same weighted
+   * rollup Linear shows as a column subtotal).
+   */
   const columns = useMemo(() => {
     const byStatus: Record<ProjectStatus, Project[]> = {
       backlog: [],
@@ -51,21 +56,50 @@ export function ProjectsBoard({ projects, onOpen }: Props) {
       canceled: [],
     }
     for (const p of projects) byStatus[p.status]?.push(p)
-    return PROJECT_STATUS_ORDER.map((s) => ({ status: s, items: byStatus[s] }))
-  }, [projects])
+    return PROJECT_STATUS_ORDER.map((s) => {
+      const items = byStatus[s]
+      let total = 0
+      let done = 0
+      for (const p of items) {
+        const prog = projectProgress(p.id, issues, data)
+        total += prog.total
+        done += prog.done
+      }
+      const percent = total ? Math.round((done / total) * 100) : 0
+      return { status: s, items, total, percent }
+    })
+  }, [projects, issues, data])
 
   return (
     <div className="flex h-full gap-3 overflow-x-auto p-3">
-      {columns.map(({ status, items }) => (
+      {columns.map(({ status, items, total, percent }) => (
         <div
           key={status}
           className="flex h-full w-[280px] shrink-0 flex-col rounded-md bg-bg-secondary"
         >
-          <div className="flex items-center gap-1.5 px-3 py-2.5 text-[12px] font-medium text-fg">
+          <div className="flex items-center gap-1.5 px-3 pt-2.5 text-[12px] font-medium text-fg">
             <ProjectStatusIcon status={status} />
             <span>{PROJECT_STATUS[status].label}</span>
             <span className="text-faint">{items.length}</span>
           </div>
+          {/* Rolled-up column subtotal — donut + completion % across the
+              column's projects, plus the total scoped issue count. */}
+          {items.length > 0 && (
+            <div className="flex items-center gap-1.5 px-3 pb-2 pt-1 text-[11px] text-muted">
+              {total > 0 ? (
+                <>
+                  <ProgressDonut percent={percent} />
+                  <span className="tabular-nums">{percent}%</span>
+                  <span className="text-faint">·</span>
+                  <span className="tabular-nums">
+                    {total} {total === 1 ? 'issue' : 'issues'}
+                  </span>
+                </>
+              ) : (
+                <span>No issues</span>
+              )}
+            </div>
+          )}
           <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
             {items.map((p) => {
               const prog = projectProgress(p.id, issues, data)

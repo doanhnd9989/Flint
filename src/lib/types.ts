@@ -137,6 +137,8 @@ export interface Project {
   icon: string
   color: string
   status: ProjectStatus
+  /** Project priority (No priority / Urgent / High / Medium / Low). Optional for back-compat. */
+  priority?: Priority
   leadId?: string
   memberIds: string[]
   teamIds: string[]

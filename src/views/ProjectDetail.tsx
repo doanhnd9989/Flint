@@ -9,6 +9,8 @@ import {
   Users,
   Diamond,
   MoreHorizontal,
+  Link2,
+  Copy,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { sortIssues, projectProgress, milestoneProgress } from '@/lib/selectors'
@@ -19,6 +21,7 @@ import { IssueRow } from '@/components/IssueRow'
 import { Avatar } from '@/components/Avatar'
 import { ProjectUpdates, HealthBadge } from '@/components/ProjectUpdates'
 import { ProjectStatusIcon } from '@/components/ProjectStatusIcon'
+import { PriorityIcon } from '@/components/PriorityIcon'
 import { ProgressDonut } from '@/components/ProgressDonut'
 import { AssigneePicker } from '@/components/pickers'
 import { DatePicker } from '@/components/DatePicker'
@@ -30,9 +33,19 @@ import {
   PROJECT_STATUS,
   PROJECT_STATUS_ORDER,
   STATUS_TYPE_ORDER,
+  PRIORITY_ORDER,
+  PRIORITY_LABELS,
 } from '@/lib/constants'
+import { copyToClipboard } from '@/lib/toast'
 import { formatFullDate, cn } from '@/lib/utils'
-import type { Issue, Milestone, Project, ProjectStatus, WorkflowState } from '@/lib/types'
+import type {
+  Issue,
+  Milestone,
+  Priority,
+  Project,
+  ProjectStatus,
+  WorkflowState,
+} from '@/lib/types'
 
 const triggerCls =
   'flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] text-fg hover:bg-bg-hover'
@@ -423,6 +436,8 @@ export function ProjectDetail() {
     )
   }
 
+  const deleteProject = data.deleteProject
+
   const lead = data.users.find((u) => u.id === project.leadId)
   const prog = projectProgress(project.id, data.issues, data)
   const noMilestone = scoped.filter((i) => !i.milestoneId)
@@ -436,6 +451,15 @@ export function ProjectDetail() {
     label: PROJECT_STATUS[s].label,
     icon: <ProjectStatusIcon status={s} />,
     selected: s === project.status,
+  }))
+
+  // Project priority defaults to "No priority" (0) when unset on older data.
+  const priority = project.priority ?? 0
+  const priorityOptions: SelectOption[] = PRIORITY_ORDER.map((p) => ({
+    id: String(p),
+    label: PRIORITY_LABELS[p],
+    icon: <PriorityIcon priority={p} />,
+    selected: p === priority,
   }))
 
   function addMilestone() {
@@ -457,6 +481,53 @@ export function ProjectDetail() {
         </span>
         <div className="flex-1" />
         <StarButton type="project" id={project.id} />
+        <Popover
+          align="end"
+          width={200}
+          trigger={
+            <span className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg">
+              <MoreHorizontal size={16} />
+            </span>
+          }
+        >
+          {(close) => (
+            <div className="flex flex-col">
+              <button
+                type="button"
+                onClick={() => {
+                  copyToClipboard(window.location.href, 'Project link copied to clipboard')
+                  close()
+                }}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+              >
+                <Link2 size={14} className="text-faint" /> Copy link
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  copyToClipboard(project.id, 'Project ID copied to clipboard')
+                  close()
+                }}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+              >
+                <Copy size={14} className="text-faint" /> Copy ID
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Delete project "${project.name}"?`)) {
+                    deleteProject(project.id)
+                    navigate('/projects')
+                  }
+                  close()
+                }}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-red hover:bg-bg-hover"
+              >
+                <Trash2 size={14} /> Delete project
+              </button>
+            </div>
+          )}
+        </Popover>
       </header>
 
       {/* Tabs */}
@@ -606,6 +677,23 @@ export function ProjectDetail() {
                   <span className={triggerCls}>
                     <ProjectStatusIcon status={project.status} />
                     {PROJECT_STATUS[project.status].label}
+                  </span>
+                }
+              />
+            </PropRow>
+            <PropRow label="Priority">
+              <SelectMenu
+                options={priorityOptions}
+                onSelect={(p) =>
+                  data.updateProject(project.id, {
+                    priority: Number(p) as Priority,
+                  })
+                }
+                placeholder="Set priority…"
+                trigger={
+                  <span className={triggerCls}>
+                    <PriorityIcon priority={priority} />
+                    {PRIORITY_LABELS[priority]}
                   </span>
                 }
               />

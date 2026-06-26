@@ -11,6 +11,7 @@ import type { Project } from '@/lib/types'
 import { useStore } from '@/lib/store'
 import { projectProgress } from '@/lib/selectors'
 import { ProjectStatusIcon } from './ProjectStatusIcon'
+import { DatePicker } from './DatePicker'
 
 const MONTH_W = 120
 const NAME_W = 240
@@ -39,6 +40,7 @@ export function ProjectsTimeline({
   // it needs — typed as Pick to stay honest without dragging in WorkspaceData.
   const issues = useStore((s) => s.issues)
   const states = useStore((s) => s.states)
+  const updateProject = useStore((s) => s.updateProject)
   const progressData = useMemo(
     () => ({ states }) as Parameters<typeof projectProgress>[2],
     [states],
@@ -166,9 +168,27 @@ export function ProjectsTimeline({
                       </span>
                     </button>
                   ) : (
-                    <span className="absolute top-1/2 left-2 -translate-y-1/2 text-[11px] text-faint">
-                      No dates
-                    </span>
+                    // Undated project: a DatePicker-backed "Set dates" button.
+                    // Picking a start date seeds a default 30-day target so the
+                    // bar lands on the timeline immediately (mirrors Linear's
+                    // schedule affordance for unscheduled projects).
+                    <DatePicker
+                      value={p.startDate}
+                      onChange={(iso) =>
+                        updateProject(p.id, {
+                          startDate: iso,
+                          targetDate: iso
+                            ? addMonths(new Date(iso), 1).toISOString()
+                            : undefined,
+                        })
+                      }
+                      align="start"
+                      trigger={
+                        <span className="absolute top-1/2 left-2 -translate-y-1/2 rounded px-1.5 py-0.5 text-[11px] text-faint hover:bg-bg-hover hover:text-muted">
+                          Set dates
+                        </span>
+                      }
+                    />
                   )}
                 </div>
               </div>

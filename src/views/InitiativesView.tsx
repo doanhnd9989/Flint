@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, LayoutGrid, List, Plus } from 'lucide-react'
+import { ChevronDown, LayoutGrid, List, Plus, Search } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState, InitiativeIllustration } from '@/components/EmptyState'
 import { SelectMenu } from '@/components/ui/SelectMenu'
+import { HEALTH } from '@/components/ProjectUpdates'
 import { initiativeProgress } from '@/lib/selectors'
 import { INITIATIVE_STATUS } from '@/lib/constants'
-import type { InitiativeStatus } from '@/lib/types'
+import type { InitiativeStatus, ProjectHealth } from '@/lib/types'
 import { formatDate, cn } from '@/lib/utils'
 
 type Tab = 'active' | 'planned' | 'completed'
@@ -30,6 +31,17 @@ const SORTS: { id: Sort; label: string }[] = [
   { id: 'projects', label: 'Projects' },
 ]
 
+// Health facet — the three real ProjectHealth values plus a synthetic
+// "none" bucket for initiatives that have never posted an update.
+type HealthFilter = 'all' | ProjectHealth | 'none'
+
+const HEALTH_FILTERS: { id: HealthFilter; label: string; color?: string }[] = [
+  { id: 'on-track', label: HEALTH['on-track'].label, color: HEALTH['on-track'].color },
+  { id: 'at-risk', label: HEALTH['at-risk'].label, color: HEALTH['at-risk'].color },
+  { id: 'off-track', label: HEALTH['off-track'].label, color: HEALTH['off-track'].color },
+  { id: 'none', label: 'No update' },
+]
+
 /** Small colored ring matching the initiative's lifecycle status. */
 function StatusRing({ status }: { status: InitiativeStatus }) {
   return (
@@ -46,12 +58,16 @@ export function InitiativesView() {
   const [layout, setLayout] = useState<Layout>('list')
   const [sort, setSort] = useState<Sort>('name')
   const [ownerId, setOwnerId] = useState<string>('all')
-  const { initiatives, projects, issues, users } = useStoreShallow((s) => ({
-    initiatives: s.initiatives,
-    projects: s.projects,
-    issues: s.issues,
-    users: s.users,
-  }))
+  const [query, setQuery] = useState('')
+  const [health, setHealth] = useState<HealthFilter>('all')
+  const { initiatives, projects, issues, users, initiativeUpdates } =
+    useStoreShallow((s) => ({
+      initiatives: s.initiatives,
+      projects: s.projects,
+      issues: s.issues,
+      users: s.users,
+      initiativeUpdates: s.initiativeUpdates,
+    }))
   const data = useStore()
   const setCreateInitiativeOpen = useStore((s) => s.setCreateInitiativeOpen)
 
@@ -63,11 +79,34 @@ export function InitiativesView() {
     return users.filter((u) => ids.has(u.id))
   }, [initiatives, users])
 
+  // Latest health per initiative, taken from the most recent update — mirrors
+  // the badge logic in InitiativeDetail. Initiatives without any update are
+  // absent from the map and treated as the synthetic "No update" facet.
+  const latestHealth = useMemo(() => {
+    const map = new Map<string, ProjectHealth>()
+    const newest = new Map<string, string>()
+    for (const u of initiativeUpdates) {
+      const prev = newest.get(u.initiativeId)
+      if (!prev || u.createdAt.localeCompare(prev) > 0) {
+        newest.set(u.initiativeId, u.createdAt)
+        map.set(u.initiativeId, u.health)
+      }
+    }
+    return map
+  }, [initiativeUpdates])
+
   // Pre-compute aggregate progress per shown initiative so sort can reuse it.
+  const q = query.trim().toLowerCase()
   const shown = useMemo(() => {
     const rows = initiatives
       .filter((i) => activeTab.match.includes(i.status))
       .filter((i) => ownerId === 'all' || i.ownerId === ownerId)
+      .filter((i) => {
+        if (health === 'all') return true
+        const h = latestHealth.get(i.id)
+        return health === 'none' ? !h : h === health
+      })
+      .filter((i) => !q || i.name.toLowerCase().includes(q))
       .map((i) => ({ initiative: i, prog: initiativeProgress(i.id, projects, issues, data) }))
     rows.sort((a, b) => {
       switch (sort) {
@@ -85,9 +124,13 @@ export function InitiativesView() {
       }
     })
     return rows
-  }, [initiatives, activeTab, ownerId, sort, projects, issues, data])
+  }, [initiatives, activeTab, ownerId, health, latestHealth, q, sort, projects, issues, data])
 
   const sortLabel = SORTS.find((s) => s.id === sort)!.label
+  const healthLabel =
+    health === 'all'
+      ? 'All health'
+      : (HEALTH_FILTERS.find((h) => h.id === health)?.label ?? 'All health')
   const ownerLabel =
     ownerId === 'all'
       ? 'All owners'
@@ -159,6 +202,51 @@ export function InitiativesView() {
             <LayoutGrid size={14} />
           </button>
         </div>
+        {/* Name search — narrows the list as you type */}
+        <div className="flex h-7 items-center gap-1.5 rounded-md px-2 text-muted focus-within:text-fg">
+          <Search size={13} className="shrink-0" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search initiatives…"
+            className="w-40 bg-transparent text-[13px] text-fg placeholder:text-faint focus:outline-none"
+          />
+        </div>
+        {/* Health facet — filters by each initiative's latest update health */}
+        <SelectMenu
+          align="end"
+          width={180}
+          options={HEALTH_FILTERS.map((h) => ({
+            id: h.id,
+            label: h.label,
+            icon: (
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ background: h.color ?? 'var(--text-faint)' }}
+              />
+            ),
+            selected: health === h.id,
+          }))}
+          header={
+            <button
+              type="button"
+              onClick={() => setHealth('all')}
+              className={cn(
+                'flex w-full items-center gap-2 border-b border-border px-2.5 py-1.5 text-left text-[13px] text-fg',
+                health === 'all' && 'bg-bg-hover',
+              )}
+            >
+              All health
+            </button>
+          }
+          onSelect={(id) => setHealth(id as HealthFilter)}
+          trigger={
+            <span className="flex h-7 items-center gap-1 rounded-md px-2 text-[13px] text-muted hover:bg-bg-hover hover:text-fg">
+              {healthLabel}
+              <ChevronDown size={13} />
+            </span>
+          }
+        />
         <SelectMenu
           align="end"
           width={200}
@@ -222,7 +310,7 @@ export function InitiativesView() {
             <EmptyState
               illustration={<InitiativeIllustration />}
               title="No matching initiatives"
-              description="No initiatives match the selected tab or owner filter."
+              description="No initiatives match the current search, health or owner filters."
             />
           )
         ) : layout === 'board' ? (

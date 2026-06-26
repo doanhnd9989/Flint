@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import {
   cycleBurndown,
@@ -9,7 +9,9 @@ import {
   groupIssues,
   sortIssues,
 } from '@/lib/selectors'
+import type { GroupBy } from '@/lib/types'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
+import { SelectMenu } from '@/components/ui/SelectMenu'
 import { CycleBurndown } from '@/components/CycleBurndown'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
@@ -21,6 +23,18 @@ const STATUS_BADGE: Record<string, string> = {
   active: 'bg-[var(--status-started)]/20 text-[var(--status-started)]',
   upcoming: 'bg-accent-subtle text-accent',
   past: 'bg-bg-tertiary text-faint',
+}
+
+// Group-by options for the cycle issue list — the subset of GroupBy keys that
+// make sense within a single cycle (no per-cycle grouping). Mirrors Linear's
+// cycle "Group by" menu. Default is Status.
+const CYCLE_GROUP_BYS = ['status', 'assignee', 'priority', 'project', 'none'] as const
+const GROUP_LABEL: Record<(typeof CYCLE_GROUP_BYS)[number], string> = {
+  status: 'Status',
+  assignee: 'Assignee',
+  priority: 'Priority',
+  project: 'Project',
+  none: 'No grouping',
 }
 
 export function CyclesView() {
@@ -47,11 +61,24 @@ export function CyclesView() {
   const [selectedId, setSelectedId] = useState<string | undefined>(activeId)
   const current = cycles.find((c) => c.id === (selectedId ?? activeId))
 
+  // How the cycle issue list is grouped — Status / Assignee / Priority /
+  // Project / No grouping. Defaults to Status, matching Linear.
+  const [groupBy, setGroupBy] = useState<GroupBy>('status')
+  const groupOptions = useMemo(
+    () =>
+      CYCLE_GROUP_BYS.map((g) => ({
+        id: g,
+        label: GROUP_LABEL[g],
+        selected: groupBy === g,
+      })),
+    [groupBy],
+  )
+
   const groups = useMemo(() => {
     if (!current) return []
     const scoped = data.issues.filter((i) => i.cycleId === current.id && !i.archivedAt)
-    return groupIssues(sortIssues(scoped, 'priority', data), 'status', data)
-  }, [data, current])
+    return groupIssues(sortIssues(scoped, 'priority', data), groupBy, data)
+  }, [data, current, groupBy])
 
   // Cycle directory: every cycle for this team partitioned into Active /
   // Upcoming / Completed sections, each carrying its own progress so the rail
@@ -372,7 +399,27 @@ export function CyclesView() {
         )}
       </div>
 
-          <GroupedIssueList groups={groups} groupBy="status" />
+          {/* Issue-list toolbar — group-by picker for the cycle's issues. */}
+          <div className="flex items-center justify-end border-b border-border px-6 py-2">
+            <SelectMenu
+              width={180}
+              align="end"
+              options={groupOptions}
+              onSelect={(id) => setGroupBy(id as GroupBy)}
+              placeholder="Group by…"
+              trigger={
+                <span className="flex items-center gap-1 rounded-md border border-border bg-bg-secondary px-2 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-fg">
+                  <span className="text-faint">Group:</span>
+                  <span className="max-w-[100px] truncate">
+                    {GROUP_LABEL[groupBy as (typeof CYCLE_GROUP_BYS)[number]]}
+                  </span>
+                  <ChevronDown size={13} className="shrink-0 text-faint" />
+                </span>
+              }
+            />
+          </div>
+
+          <GroupedIssueList groups={groups} groupBy={groupBy} />
         </div>
       </div>
     </div>

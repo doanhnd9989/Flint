@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, X } from 'lucide-react'
+import { CalendarRange, Plus, Trash2, X } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { Avatar } from '@/components/Avatar'
+import { DatePicker } from '@/components/DatePicker'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { HealthBadge } from '@/components/ProjectUpdates'
 import { InitiativeUpdates } from '@/components/InitiativeUpdates'
@@ -26,6 +27,10 @@ export function InitiativeDetail() {
   // Like Linear's initiative overview, projects can be shown as a flat list or
   // grouped into status sections (Backlog / Planned / In Progress / …).
   const [groupByStatus, setGroupByStatus] = useState(false)
+  // Click-to-edit the initiative description inline, the way Linear lets you
+  // edit an initiative's summary in place. `descDraft` holds the in-flight text.
+  const [editingDesc, setEditingDesc] = useState(false)
+  const [descDraft, setDescDraft] = useState('')
   const { initiatives, projects, issues, users, initiativeUpdates } = useStoreShallow((s) => ({
     initiatives: s.initiatives,
     projects: s.projects,
@@ -192,10 +197,38 @@ export function InitiativeDetail() {
           </span>
           <div className="flex-1">
             <h1 className="text-[18px] font-semibold text-fg">{initiative.name}</h1>
-            {initiative.description && (
-              <p className="mt-1 max-w-2xl text-[13px] text-muted">
-                {initiative.description}
-              </p>
+            {editingDesc ? (
+              <textarea
+                autoFocus
+                value={descDraft}
+                onChange={(e) => setDescDraft(e.target.value)}
+                onBlur={() => {
+                  updateInitiative(initiative.id, { description: descDraft.trim() })
+                  setEditingDesc(false)
+                }}
+                onKeyDown={(e) => {
+                  // ⌘↵ / Ctrl+↵ commits and closes the editor.
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault()
+                    e.currentTarget.blur()
+                  }
+                }}
+                placeholder="Add a description…"
+                className="mt-1 min-h-[60px] w-full max-w-2xl resize-none rounded-md bg-transparent text-[13px] text-muted outline-none"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setDescDraft(initiative.description ?? '')
+                  setEditingDesc(true)
+                }}
+                className="mt-1 block w-full max-w-2xl whitespace-pre-wrap text-left text-[13px] text-muted"
+              >
+                {initiative.description || (
+                  <span className="text-faint">Add a description…</span>
+                )}
+              </button>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted">
               <SelectMenu
@@ -230,11 +263,20 @@ export function InitiativeDetail() {
                 }
               />
               {latestUpdate && <HealthBadge health={latestUpdate.health} />}
-              {initiative.targetDate && (
-                <span className="rounded-md border border-border px-2 py-1">
-                  Target {formatFullDate(initiative.targetDate)}
-                </span>
-              )}
+              <DatePicker
+                value={initiative.targetDate}
+                onChange={(iso) => updateInitiative(initiative.id, { targetDate: iso })}
+                trigger={
+                  <span className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 hover:bg-bg-hover">
+                    <CalendarRange size={14} className="text-faint" />
+                    {initiative.targetDate ? (
+                      <>Target {formatFullDate(initiative.targetDate)}</>
+                    ) : (
+                      <span className="text-faint">Set target</span>
+                    )}
+                  </span>
+                }
+              />
               <span className="rounded-md border border-border px-2 py-1">
                 {prog.done}/{prog.total} issues · {prog.percent}%
               </span>

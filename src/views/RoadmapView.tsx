@@ -20,7 +20,7 @@ import { HEALTH } from '@/components/ProjectUpdates'
 import { Avatar } from '@/components/Avatar'
 import { projectProgress } from '@/lib/selectors'
 import { PROJECT_STATUS, PROJECT_STATUS_ORDER } from '@/lib/constants'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 
 const NAME_W = 200
 /** Per-month column width by zoom level — Linear's Compact / Default / Wide. */
@@ -386,12 +386,22 @@ export function RoadmapView() {
                 />
               ),
             )}
-            {/* Today line */}
+            {/* Today line + a "Today" pill anchored to its top, mirroring
+                Linear's timeline marker. The pill is centred on the rule and
+                sits flush at the top of the rows band. */}
             {todayLeft >= 0 && todayLeft <= totalWidth && (
-              <div
-                className="pointer-events-none absolute top-0 bottom-0 z-0 w-px bg-[var(--priority-urgent)]/60"
-                style={{ left: NAME_W + todayLeft }}
-              />
+              <>
+                <div
+                  className="pointer-events-none absolute top-0 bottom-0 z-0 w-px bg-[var(--priority-urgent)]/60"
+                  style={{ left: NAME_W + todayLeft }}
+                />
+                <span
+                  className="pointer-events-none absolute top-1 z-[2] -translate-x-1/2 rounded-full bg-[var(--priority-urgent)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-white"
+                  style={{ left: NAME_W + todayLeft }}
+                >
+                  Today
+                </span>
+              </>
             )}
             {groups.map((group) => {
               const isCollapsed = collapsed.has(group.key)
@@ -482,6 +492,24 @@ export function RoadmapView() {
                                 {p.name} · {prog.percent}%
                               </span>
                             </button>
+                            {/* Start / target date captions flanking the bar —
+                                placed just outside each end so they never overlap
+                                the in-bar name label. Hidden when they'd fall off
+                                the left edge of the track. */}
+                            {left > 44 && (
+                              <span
+                                className="pointer-events-none absolute top-1/2 -translate-x-full -translate-y-1/2 pr-1.5 text-[10px] tabular-nums text-faint"
+                                style={{ left }}
+                              >
+                                {formatDate(start.toISOString())}
+                              </span>
+                            )}
+                            <span
+                              className="pointer-events-none absolute top-1/2 -translate-y-1/2 pl-1.5 text-[10px] tabular-nums text-faint"
+                              style={{ left: left + width }}
+                            >
+                              {formatDate(target.toISOString())}
+                            </span>
                             {/* Milestone markers — a thin diamond on the bar axis at
                                 each dated milestone's targetDate, with a name tooltip. */}
                             {datedMilestones.map((m) => {

@@ -214,6 +214,8 @@ export interface Store extends WorkspaceData, UIState {
   setProjectInitiative: (projectId: string, initiativeId?: string) => void
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
   updateProject: (id: string, patch: Partial<Project>) => void
+  /** Delete a project; detaches its issues, milestones, updates and dependency links. */
+  deleteProject: (id: string) => void
   /** Add `dependsOnId` as a project this project is blocked by (cycle-guarded). */
   addProjectDependency: (projectId: string, dependsOnId: string) => void
   removeProjectDependency: (projectId: string, dependsOnId: string) => void
@@ -1094,6 +1096,29 @@ export const useStore = create<Store>()(
         set((s) => ({
           projects: s.projects.map((p) =>
             p.id === id ? { ...p, ...patch } : p,
+          ),
+        })),
+
+      deleteProject: (id) =>
+        set((s) => ({
+          projects: s.projects
+            .filter((p) => p.id !== id)
+            // drop the deleted project from any dependency lists
+            .map((p) =>
+              p.dependsOn?.includes(id)
+                ? { ...p, dependsOn: p.dependsOn.filter((d) => d !== id) }
+                : p,
+            ),
+          // detach issues (and clear their now-orphaned milestone) rather than delete them
+          issues: s.issues.map((i) =>
+            i.projectId === id
+              ? { ...i, projectId: undefined, milestoneId: undefined }
+              : i,
+          ),
+          milestones: s.milestones.filter((m) => m.projectId !== id),
+          projectUpdates: s.projectUpdates.filter((u) => u.projectId !== id),
+          favorites: s.favorites.filter(
+            (f) => !(f.type === 'project' && f.id === id),
           ),
         })),
 
