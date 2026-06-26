@@ -4,11 +4,22 @@ import { ChevronRight, MoreHorizontal, Plus, Rocket, X } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
+import { ProgressDonut } from '@/components/ProgressDonut'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { RELEASE_STATUS, RELEASE_STATUS_ORDER } from '@/lib/constants'
 import { formatDate, timeAgo, cn } from '@/lib/utils'
-import type { Project, ReleaseStatus } from '@/lib/types'
+import type { Issue, Project, ReleaseStatus, WorkflowState } from '@/lib/types'
+
+/** Status filter values for the segmented pill row ('all' = no filter). */
+type StatusFilter = 'all' | ReleaseStatus
+const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'planned', label: 'Planned' },
+  { id: 'in-progress', label: 'In progress' },
+  { id: 'released', label: 'Released' },
+  { id: 'canceled', label: 'Canceled' },
+]
 
 /** Small status color dot used in headers, rows and pickers. */
 function StatusDot({ status }: { status: ReleaseStatus }) {
@@ -24,15 +35,18 @@ const chip =
   'flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover'
 
 export function ReleasesView() {
-  const { releases, projects } = useStoreShallow((s) => ({
+  const { releases, projects, issues, states } = useStoreShallow((s) => ({
     releases: s.releases,
     projects: s.projects,
+    issues: s.issues,
+    states: s.states,
   }))
   const updateRelease = useStore((s) => s.updateRelease)
   const deleteRelease = useStore((s) => s.deleteRelease)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
   const projectById = useMemo(() => {
     const m: Record<string, Project> = {}
@@ -40,14 +54,36 @@ export function ReleasesView() {
     return m
   }, [projects])
 
+  /** stateIds whose workflow type counts as "done" (completed or canceled). */
+  const doneStateIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const st of states as WorkflowState[])
+      if (st.type === 'completed' || st.type === 'canceled') ids.add(st.id)
+    return ids
+  }, [states])
+
+  /** projectId → { done, total } over that project's issues. */
+  const progressByProject = useMemo(() => {
+    const m: Record<string, { done: number; total: number }> = {}
+    for (const i of issues as Issue[]) {
+      if (!i.projectId) continue
+      const p = (m[i.projectId] ??= { done: 0, total: 0 })
+      p.total += 1
+      if (doneStateIds.has(i.stateId)) p.done += 1
+    }
+    return m
+  }, [issues, doneStateIds])
+
   /** Releases grouped by status, in RELEASE_STATUS_ORDER (empty groups dropped). */
   const groups = useMemo(() => {
-    const sorted = [...releases].sort((a, b) => a.sortOrder - b.sortOrder)
+    const sorted = [...releases]
+      .filter((r) => statusFilter === 'all' || r.status === statusFilter)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
     return RELEASE_STATUS_ORDER.map((status) => ({
       status,
       items: sorted.filter((r) => r.status === status),
     })).filter((g) => g.items.length > 0)
-  }, [releases])
+  }, [releases, statusFilter])
 
   const statusOptions = (current: ReleaseStatus): SelectOption[] =>
     RELEASE_STATUS_ORDER.map((s) => ({
@@ -73,6 +109,27 @@ export function ReleasesView() {
         }
       />
 
+      {/* status filter — segmented pill row narrowing the list */}
+      {releases.length > 0 && (
+        <div className="flex items-center gap-1 border-b border-border px-4 py-1.5">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setStatusFilter(f.id)}
+              className={cn(
+                'rounded-md px-2 py-1 text-[12px] font-medium',
+                statusFilter === f.id
+                  ? 'bg-bg-selected text-fg'
+                  : 'text-muted hover:bg-bg-hover',
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         {releases.length === 0 ? (
           <EmptyState
@@ -81,6 +138,11 @@ export function ReleasesView() {
             description="Releases bundle shipped work into versioned milestones. Track what's planned, in progress, and shipped — optionally tied to a project."
             action={{ label: 'New release', onClick: () => setModalOpen(true) }}
           />
+        ) : groups.length === 0 ? (
+          <div className="px-4 py-10 text-center text-[13px] text-faint">
+            No {RELEASE_STATUS[statusFilter as ReleaseStatus].label.toLowerCase()}{' '}
+            releases.
+          </div>
         ) : (
           groups.map((g) => {
             const isCollapsed = collapsed[g.status]
@@ -110,6 +172,10 @@ export function ReleasesView() {
                     const project = r.projectId
                       ? projectById[r.projectId]
                       : undefined
+                    // issue progress from the linked project (none → nothing)
+                    const progress = r.projectId
+                      ? progressByProject[r.projectId]
+                      : undefined
                     return (
                       <div
                         key={r.id}
@@ -138,6 +204,21 @@ export function ReleasesView() {
                         )}
 
                         <div className="ml-auto flex shrink-0 items-center gap-3 text-[12px] text-muted">
+                          {/* issue progress from linked project */}
+                          {progress && progress.total > 0 && (
+                            <span
+                              className="flex items-center gap-1.5 tabular-nums text-faint"
+                              title={`${progress.done} of ${progress.total} issues done`}
+                            >
+                              <ProgressDonut
+                                percent={Math.round(
+                                  (progress.done / progress.total) * 100,
+                                )}
+                              />
+                              {progress.done}/{progress.total}
+                            </span>
+                          )}
+
                           {/* status picker */}
                           <SelectMenu
                             align="end"

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { ChevronDown, Plus } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState, InitiativeIllustration } from '@/components/EmptyState'
+import { SelectMenu } from '@/components/ui/SelectMenu'
 import { initiativeProgress } from '@/lib/selectors'
 import { INITIATIVE_STATUS } from '@/lib/constants'
 import type { InitiativeStatus } from '@/lib/types'
@@ -16,6 +17,15 @@ const TABS: { id: Tab; label: string; match: InitiativeStatus[] }[] = [
   { id: 'active', label: 'Active', match: ['active'] },
   { id: 'planned', label: 'Planned', match: ['planned', 'backlog'] },
   { id: 'completed', label: 'Completed', match: ['completed'] },
+]
+
+type Sort = 'name' | 'progress' | 'target' | 'projects'
+
+const SORTS: { id: Sort; label: string }[] = [
+  { id: 'name', label: 'Name A→Z' },
+  { id: 'progress', label: 'Progress' },
+  { id: 'target', label: 'Target date' },
+  { id: 'projects', label: 'Projects' },
 ]
 
 /** Small colored ring matching the initiative's lifecycle status. */
@@ -31,6 +41,8 @@ function StatusRing({ status }: { status: InitiativeStatus }) {
 export function InitiativesView() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('active')
+  const [sort, setSort] = useState<Sort>('name')
+  const [ownerId, setOwnerId] = useState<string>('all')
   const { initiatives, projects, issues, users } = useStoreShallow((s) => ({
     initiatives: s.initiatives,
     projects: s.projects,
@@ -41,9 +53,42 @@ export function InitiativesView() {
   const setCreateInitiativeOpen = useStore((s) => s.setCreateInitiativeOpen)
 
   const activeTab = TABS.find((t) => t.id === tab)!
-  const shown = initiatives
-    .filter((i) => activeTab.match.includes(i.status))
-    .sort((a, b) => a.sortOrder - b.sortOrder)
+
+  // Owners that actually own at least one initiative — drives the filter list.
+  const owners = useMemo(() => {
+    const ids = new Set(initiatives.map((i) => i.ownerId).filter(Boolean))
+    return users.filter((u) => ids.has(u.id))
+  }, [initiatives, users])
+
+  // Pre-compute aggregate progress per shown initiative so sort can reuse it.
+  const shown = useMemo(() => {
+    const rows = initiatives
+      .filter((i) => activeTab.match.includes(i.status))
+      .filter((i) => ownerId === 'all' || i.ownerId === ownerId)
+      .map((i) => ({ initiative: i, prog: initiativeProgress(i.id, projects, issues, data) }))
+    rows.sort((a, b) => {
+      switch (sort) {
+        case 'progress':
+          return b.prog.percent - a.prog.percent
+        case 'target':
+          // soonest first; initiatives without a target sink to the bottom
+          if (!a.initiative.targetDate) return b.initiative.targetDate ? 1 : 0
+          if (!b.initiative.targetDate) return -1
+          return a.initiative.targetDate.localeCompare(b.initiative.targetDate)
+        case 'projects':
+          return b.prog.projectCount - a.prog.projectCount
+        default:
+          return a.initiative.name.localeCompare(b.initiative.name)
+      }
+    })
+    return rows
+  }, [initiatives, activeTab, ownerId, sort, projects, issues, data])
+
+  const sortLabel = SORTS.find((s) => s.id === sort)!.label
+  const ownerLabel =
+    ownerId === 'all'
+      ? 'All owners'
+      : (owners.find((u) => u.id === ownerId)?.name ?? 'All owners')
 
   return (
     <div className="flex h-full flex-col">
@@ -80,6 +125,55 @@ export function InitiativesView() {
         ))}
       </div>
 
+      {/* Sort + owner filter toolbar */}
+      <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-1.5">
+        <SelectMenu
+          align="end"
+          width={200}
+          options={owners.map((u) => ({
+            id: u.id,
+            label: u.name,
+            icon: <Avatar user={u} size={16} />,
+            selected: ownerId === u.id,
+          }))}
+          header={
+            <button
+              type="button"
+              onClick={() => setOwnerId('all')}
+              className={cn(
+                'flex w-full items-center gap-2 border-b border-border px-2.5 py-1.5 text-left text-[13px] text-fg',
+                ownerId === 'all' && 'bg-bg-hover',
+              )}
+            >
+              All owners
+            </button>
+          }
+          onSelect={(id) => setOwnerId(id)}
+          trigger={
+            <span className="flex h-7 items-center gap-1 rounded-md px-2 text-[13px] text-muted hover:bg-bg-hover hover:text-fg">
+              {ownerLabel}
+              <ChevronDown size={13} />
+            </span>
+          }
+        />
+        <SelectMenu
+          align="end"
+          width={180}
+          options={SORTS.map((s) => ({
+            id: s.id,
+            label: s.label,
+            selected: sort === s.id,
+          }))}
+          onSelect={(id) => setSort(id as Sort)}
+          trigger={
+            <span className="flex h-7 items-center gap-1 rounded-md px-2 text-[13px] text-muted hover:bg-bg-hover hover:text-fg">
+              {sortLabel}
+              <ChevronDown size={13} />
+            </span>
+          }
+        />
+      </div>
+
       <div className="flex-1 overflow-y-auto">
         {shown.length === 0 ? (
           <EmptyState
@@ -93,8 +187,7 @@ export function InitiativesView() {
           />
         ) : (
           <div>
-            {shown.map((i) => {
-              const prog = initiativeProgress(i.id, projects, issues, data)
+            {shown.map(({ initiative: i, prog }) => {
               const owner = users.find((u) => u.id === i.ownerId)
               return (
                 <button

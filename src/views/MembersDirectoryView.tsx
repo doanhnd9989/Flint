@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search } from 'lucide-react'
+import { ArrowUpDown, Search } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
@@ -18,6 +18,15 @@ const ROLE_FILTERS: { id: RoleFilter; label: string }[] = [
 ]
 
 const ROLE_RANK: Record<UserRole, number> = { admin: 0, member: 1, guest: 2 }
+
+type SortKey = 'name' | 'assigned' | 'active' | 'teams'
+
+const SORT_OPTIONS: { id: SortKey; label: string }[] = [
+  { id: 'name', label: 'Name' },
+  { id: 'assigned', label: 'Assigned issues' },
+  { id: 'active', label: 'Active issues' },
+  { id: 'teams', label: 'Teams' },
+]
 
 /** Capitalised role chip (Admin / Member / Guest). */
 function RoleChip({ role }: { role: UserRole }) {
@@ -49,19 +58,33 @@ export function MembersDirectoryView() {
   const users = useStore((s) => s.users)
   const teams = useStore((s) => s.teams)
   const issues = useStore((s) => s.issues)
+  const states = useStore((s) => s.states)
 
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
+  const [sortKey, setSortKey] = useState<SortKey>('name')
 
-  // assigneeId → count of assigned, non-triage issues.
-  const assignedCounts = useMemo(() => {
-    const m = new Map<string, number>()
+  // stateId → whether it's a started/unstarted (i.e. "active") workflow state.
+  const activeStateIds = useMemo(() => {
+    const s = new Set<string>()
+    for (const st of states) {
+      if (st.type === 'started' || st.type === 'unstarted') s.add(st.id)
+    }
+    return s
+  }, [states])
+
+  // assigneeId → { assigned, active } counts over non-triage, non-archived issues.
+  const counts = useMemo(() => {
+    const m = new Map<string, { assigned: number; active: number }>()
     for (const i of issues) {
       if (i.triage || i.archivedAt || !i.assigneeId) continue
-      m.set(i.assigneeId, (m.get(i.assigneeId) ?? 0) + 1)
+      const c = m.get(i.assigneeId) ?? { assigned: 0, active: 0 }
+      c.assigned++
+      if (activeStateIds.has(i.stateId)) c.active++
+      m.set(i.assigneeId, c)
     }
     return m
-  }, [issues])
+  }, [issues, activeStateIds])
 
   // userId → teams they belong to (memberIds includes them).
   const teamsByUser = useMemo(() => {
@@ -88,7 +111,8 @@ export function MembersDirectoryView() {
     return { total: users.length, admins, guests, pending }
   }, [users])
 
-  // Filter by search + role, then sort: me first → admins → alpha.
+  // Filter by search + role, then sort by the chosen key. Name (default) keeps
+  // Linear's me-first → admins → alpha ordering; count sorts go descending.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     const matches = users.filter((u) => {
@@ -99,11 +123,24 @@ export function MembersDirectoryView() {
       )
     })
     return [...matches].sort((a, b) => {
+      if (sortKey === 'assigned' || sortKey === 'active') {
+        const ca = counts.get(a.id)?.[sortKey] ?? 0
+        const cb = counts.get(b.id)?.[sortKey] ?? 0
+        if (ca !== cb) return cb - ca
+        return a.name.localeCompare(b.name)
+      }
+      if (sortKey === 'teams') {
+        const ta = teamsByUser.get(a.id)?.length ?? 0
+        const tb = teamsByUser.get(b.id)?.length ?? 0
+        if (ta !== tb) return tb - ta
+        return a.name.localeCompare(b.name)
+      }
+      // 'name' (default)
       if (!!a.isMe !== !!b.isMe) return a.isMe ? -1 : 1
       if (a.role !== b.role) return ROLE_RANK[a.role] - ROLE_RANK[b.role]
       return a.name.localeCompare(b.name)
     })
-  }, [users, query, roleFilter])
+  }, [users, query, roleFilter, sortKey, counts, teamsByUser])
 
   function onCountClick(u: User, count: number) {
     if (u.isMe && count > 0) navigate('/my-issues')
@@ -158,6 +195,22 @@ export function MembersDirectoryView() {
                 </button>
               ))}
             </div>
+            {/* Sort dropdown */}
+            <div className="flex items-center gap-1.5 rounded-md border border-border bg-bg px-2 py-1.5">
+              <ArrowUpDown size={14} className="shrink-0 text-faint" />
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+                title="Sort members"
+                className="cursor-pointer bg-transparent text-[12px] text-fg outline-none"
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id} className="bg-bg text-fg">
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* List */}
@@ -172,7 +225,8 @@ export function MembersDirectoryView() {
             <div className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
               {filtered.map((u) => {
                 const userTeams = teamsByUser.get(u.id) ?? []
-                const count = assignedCounts.get(u.id) ?? 0
+                const c = counts.get(u.id) ?? { assigned: 0, active: 0 }
+                const count = c.assigned
                 const clickable = u.isMe && count > 0
                 return (
                   <div
@@ -223,6 +277,17 @@ export function MembersDirectoryView() {
 
                     <RoleChip role={u.role} />
 
+                    {/* Active-issue count — emphasised when sorting by active */}
+                    <span
+                      title={`${c.active} active issue${c.active === 1 ? '' : 's'}`}
+                      className={cn(
+                        'hidden w-16 shrink-0 text-right text-[12px] tabular-nums sm:block',
+                        sortKey === 'active' ? 'text-fg' : 'text-faint',
+                      )}
+                    >
+                      {c.active} active
+                    </span>
+
                     {/* Assigned-issue count */}
                     <button
                       type="button"
@@ -237,7 +302,9 @@ export function MembersDirectoryView() {
                         'w-12 shrink-0 rounded px-1.5 py-0.5 text-right text-[12px] tabular-nums',
                         clickable
                           ? 'text-muted hover:bg-bg-selected hover:text-fg'
-                          : 'cursor-default text-faint',
+                          : sortKey === 'assigned'
+                            ? 'cursor-default text-fg'
+                            : 'cursor-default text-faint',
                       )}
                     >
                       {count}

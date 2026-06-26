@@ -1,21 +1,56 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { Clock, X } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { StatusIcon } from '@/components/StatusIcon'
+import { Popover } from '@/components/ui/Popover'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
 import { formatDate, isOverdue } from '@/lib/utils'
 import type { Issue } from '@/lib/types'
 
+/** Local time formatter ("9:00 AM") for reminder preset times. */
+function formatTime(d: Date): string {
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
 /** "Today", "Yesterday", "Jun 26" + a clock time ("Jun 26, 2:30 PM"). */
 function formatReminder(iso: string): string {
-  const time = new Date(iso).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-  return `${formatDate(iso)}, ${time}`
+  return `${formatDate(iso)}, ${formatTime(new Date(iso))}`
+}
+
+// Reschedule preset math — mirrors IssueReminders.tsx so the two surfaces agree.
+
+/** now + n hours, as a fresh Date. */
+function inHours(n: number): Date {
+  const d = new Date()
+  d.setHours(d.getHours() + n)
+  return d
+}
+
+/** Today (or `dayOffset` days from now) at a given local hour:minute. */
+function atTime(dayOffset: number, hour: number, minute = 0): Date {
+  const d = new Date()
+  d.setDate(d.getDate() + dayOffset)
+  d.setHours(hour, minute, 0, 0)
+  return d
+}
+
+/** Next Monday at 09:00 local. */
+function nextMonday(hour = 9): Date {
+  const d = new Date()
+  // 0 = Sun … 1 = Mon. Days until the *next* Monday (always ≥ 1).
+  const delta = ((1 - d.getDay() + 7) % 7) || 7
+  d.setDate(d.getDate() + delta)
+  d.setHours(hour, 0, 0, 0)
+  return d
+}
+
+function thisEvening(): Date {
+  const evening = atTime(0, 18)
+  // If 18:00 already passed today, roll to tomorrow evening.
+  return evening.getTime() <= Date.now() ? atTime(1, 18) : evening
 }
 
 /**
@@ -86,6 +121,63 @@ export function RemindersView() {
           title={assignee ? fmtName(assignee.name) : 'Unassigned'}
         >
           <Avatar user={assignee} size={20} />
+        </span>
+
+        <span
+          className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Popover
+            align="end"
+            width={240}
+            trigger={
+              <span
+                title="Reschedule reminder"
+                className="flex h-6 w-6 items-center justify-center rounded text-faint transition-colors hover:bg-bg-selected hover:text-fg"
+              >
+                <Clock size={14} />
+              </span>
+            }
+          >
+            {(close) => {
+              const options: { label: string; at: Date }[] = [
+                { label: 'In 1 hour', at: inHours(1) },
+                { label: 'This evening', at: thisEvening() },
+                { label: 'Tomorrow', at: atTime(1, 9) },
+                { label: 'Next week', at: nextMonday() },
+              ]
+              return (
+                <div className="flex flex-col">
+                  {options.map((o) => (
+                    <button
+                      key={o.label}
+                      type="button"
+                      onClick={() => {
+                        setIssueReminder(issue.id, o.at.toISOString())
+                        close()
+                      }}
+                      className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                    >
+                      <span>{o.label}</span>
+                      <span className="text-[12px] text-faint">{formatTime(o.at)}</span>
+                    </button>
+                  ))}
+                  <div className="my-1 border-t border-border" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIssueReminder(issue.id, undefined)
+                      close()
+                    }}
+                    className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] text-muted hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
+                  >
+                    <X size={13} />
+                    Remove
+                  </button>
+                </div>
+              )
+            }}
+          </Popover>
         </span>
 
         <button

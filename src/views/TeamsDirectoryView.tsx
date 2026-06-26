@@ -1,11 +1,22 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, RefreshCw, Lock } from 'lucide-react'
+import { ChevronRight, RefreshCw, Lock, Search, ArrowDownUp } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
+import { SelectMenu } from '@/components/ui/SelectMenu'
 import { cn } from '@/lib/utils'
 import type { Issue, Team, User, WorkflowState } from '@/lib/types'
+
+/** Sort modes for the teams directory, mirroring Linear's team list. */
+type SortKey = 'name' | 'members' | 'issues' | 'active'
+
+const SORT_OPTIONS: { id: SortKey; label: string }[] = [
+  { id: 'name', label: 'Name A→Z' },
+  { id: 'members', label: 'Members (most)' },
+  { id: 'issues', label: 'Issues (most)' },
+  { id: 'active', label: 'Active issues (most)' },
+]
 
 /** A small stat in the summary strip. */
 function SummaryStat({ value, label }: { value: number; label: string }) {
@@ -46,6 +57,10 @@ export function TeamsDirectoryView() {
   const users = useStore((s) => s.users)
   const states = useStore((s) => s.states)
   const projects = useStore((s) => s.projects)
+
+  // Local-only filter + sort state for the directory header.
+  const [query, setQuery] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('name')
 
   // stateId → status type, for classifying issues.
   const stateType = useMemo(() => {
@@ -93,11 +108,33 @@ export function TeamsDirectoryView() {
     return { teams: teams.length, members: memberIds.size, issues: totalIssues }
   }, [teams, statsByTeam])
 
-  // Alphabetical by name, like Linear's Teams settings list.
-  const sorted = useMemo(
-    () => [...teams].sort((a, b) => a.name.localeCompare(b.name)),
-    [teams],
-  )
+  // Filter by name/key substring, then sort by the chosen key. Ties fall back
+  // to alphabetical so the list stays stable.
+  const sorted = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const filtered = q
+      ? teams.filter(
+          (t) =>
+            t.name.toLowerCase().includes(q) ||
+            t.key.toLowerCase().includes(q),
+        )
+      : teams
+    const memberCount = (t: Team) => (t.memberIds ?? []).length
+    return [...filtered].sort((a, b) => {
+      const sa = statsByTeam.get(a.id)
+      const sb = statsByTeam.get(b.id)
+      switch (sortKey) {
+        case 'members':
+          return memberCount(b) - memberCount(a) || a.name.localeCompare(b.name)
+        case 'issues':
+          return (sb?.total ?? 0) - (sa?.total ?? 0) || a.name.localeCompare(b.name)
+        case 'active':
+          return (sb?.active ?? 0) - (sa?.active ?? 0) || a.name.localeCompare(b.name)
+        default:
+          return a.name.localeCompare(b.name)
+      }
+    })
+  }, [teams, query, sortKey, statsByTeam])
 
   return (
     <div className="flex h-full flex-col">
@@ -126,8 +163,42 @@ export function TeamsDirectoryView() {
             </button>
           </div>
 
+          {/* Filter + sort controls */}
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 rounded-md bg-bg-secondary px-2 py-1.5">
+              <Search size={13} className="text-faint" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filter teams…"
+                className="w-44 bg-transparent text-[13px] text-fg placeholder:text-faint outline-none"
+              />
+            </div>
+            <SelectMenu
+              align="end"
+              width={200}
+              options={SORT_OPTIONS.map((o) => ({
+                id: o.id,
+                label: o.label,
+                selected: o.id === sortKey,
+              }))}
+              onSelect={(id) => setSortKey(id as SortKey)}
+              trigger={
+                <span className="flex items-center gap-1.5 rounded-md bg-bg-secondary px-2 py-1.5 text-[13px] text-muted hover:text-fg">
+                  <ArrowDownUp size={13} className="text-faint" />
+                  {SORT_OPTIONS.find((o) => o.id === sortKey)?.label}
+                </span>
+              }
+            />
+          </div>
+
           {/* List */}
-          <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border">
+          <div className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
+            {sorted.length === 0 && (
+              <div className="bg-bg px-3 py-8 text-center text-[13px] text-faint">
+                No teams match “{query}”.
+              </div>
+            )}
             {sorted.map((team: Team) => {
               const stats = statsByTeam.get(team.id) ?? {
                 total: 0,
