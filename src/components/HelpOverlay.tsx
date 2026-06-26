@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { useStore } from '@/lib/store'
 
 function Kbd({ children }: { children: React.ReactNode }) {
@@ -12,8 +13,19 @@ function Kbd({ children }: { children: React.ReactNode }) {
 }
 
 interface Shortcut {
-  keys: React.ReactNode
+  keys: ReactNode
   label: string
+}
+
+// Flatten a keys ReactNode (nested <Kbd> elements) into plain text for search.
+function keysText(node: ReactNode): string {
+  if (node == null || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(keysText).join(' ')
+  if (typeof node === 'object' && 'props' in node) {
+    return keysText((node as { props: { children?: ReactNode } }).props.children)
+  }
+  return ''
 }
 
 const SECTIONS: { title: string; items: Shortcut[] }[] = [
@@ -87,6 +99,7 @@ const SECTIONS: { title: string; items: Shortcut[] }[] = [
 export function HelpOverlay() {
   const open = useStore((s) => s.helpOpen)
   const setHelpOpen = useStore((s) => s.setHelpOpen)
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -97,7 +110,25 @@ export function HelpOverlay() {
     return () => document.removeEventListener('keydown', onKey)
   }, [open, setHelpOpen])
 
+  // Reset the filter each time the overlay opens.
+  useEffect(() => {
+    if (open) setQuery('')
+  }, [open])
+
   if (!open) return null
+
+  // Narrow rows by label or keys substring; drop sections left empty.
+  const q = query.trim().toLowerCase()
+  const sections = q
+    ? SECTIONS.map((section) => ({
+        ...section,
+        items: section.items.filter(
+          (item) =>
+            item.label.toLowerCase().includes(q) ||
+            keysText(item.keys).toLowerCase().includes(q),
+        ),
+      })).filter((section) => section.items.length > 0)
+    : SECTIONS
 
   return createPortal(
     <div
@@ -117,23 +148,39 @@ export function HelpOverlay() {
             <X size={16} />
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-5 p-5">
-          {SECTIONS.map((section) => (
-            <div key={section.title}>
-              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint">
-                {section.title}
-              </div>
-              <div className="space-y-1.5">
-                {section.items.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <span className="text-[13px] text-muted">{item.label}</span>
-                    <span className="flex items-center gap-1">{item.keys}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+          <Search size={14} className="text-faint" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter shortcuts…"
+            className="w-full bg-transparent text-[13px] text-fg placeholder:text-faint focus:outline-none"
+          />
         </div>
+        {sections.length === 0 ? (
+          <div className="px-5 py-8 text-center text-[13px] text-muted">
+            No shortcuts match “{query}”
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-x-8 gap-y-5 p-5">
+            {sections.map((section) => (
+              <div key={section.title}>
+                <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint">
+                  {section.title}
+                </div>
+                <div className="space-y-1.5">
+                  {section.items.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <span className="text-[13px] text-muted">{item.label}</span>
+                      <span className="flex items-center gap-1">{item.keys}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>,
     document.body,

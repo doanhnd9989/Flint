@@ -11,6 +11,7 @@ import {
   CheckCheck,
   Trash2,
   Bell,
+  BellOff,
   UserPlus,
   Box,
   BarChart3,
@@ -937,6 +938,9 @@ function ReadingPane({
   const issue = store.issues.find((i) => i.id === n.issueId)
   const now = Date.now()
   const snoozed = isSnoozed(n.snoozedUntil, now)
+  // Subscribe toggle — Linear lets you opt in/out of an issue's updates straight
+  // from the reading pane. Reads the live subscriber list off the issue.
+  const subscribed = !!issue && issue.subscriberIds.includes(store.currentUserId)
 
   const header = (
     <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3 text-[13px]">
@@ -950,6 +954,18 @@ function ReadingPane({
         </>
       )}
       <div className="flex-1" />
+      {issue && (
+        <button
+          onClick={() => store.toggleIssueSubscriber(issue.id, store.currentUserId)}
+          title={subscribed ? 'Unsubscribe' : 'Subscribe'}
+          className={cn(
+            'flex h-7 w-7 items-center justify-center rounded hover:bg-bg-hover hover:text-fg',
+            subscribed ? 'text-fg' : 'text-muted',
+          )}
+        >
+          {subscribed ? <Bell size={15} /> : <BellOff size={15} />}
+        </button>
+      )}
       {snoozed ? (
         <button
           onClick={onUnsnooze}

@@ -4,13 +4,14 @@ import { Search as SearchIcon, Clock, X, MessageSquare } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
+import { Avatar } from '@/components/Avatar'
 import { FilterBar, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
 import { projectProgress } from '@/lib/selectors'
 import { EmptyState, SearchIllustration } from '@/components/EmptyState'
 import { timeAgo, cn } from '@/lib/utils'
 
 /** Entity-type filter for the search results (Linear's segmented tabs). */
-type SearchTab = 'all' | 'issues' | 'projects' | 'documents'
+type SearchTab = 'all' | 'issues' | 'projects' | 'documents' | 'people'
 
 export function SearchView() {
   const navigate = useNavigate()
@@ -82,6 +83,17 @@ export function SearchView() {
     )
   }, [data, q])
 
+  // Workspace members matched by name or email — Linear's search also surfaces
+  // people, jumping to the member directory on select.
+  const peopleResults = useMemo(() => {
+    if (!q) return []
+    return data.users.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q),
+    )
+  }, [data, q])
+
   const active = q.length > 0 || hasActiveFilters(filters)
 
   // Total matches across every entity type — shown as a muted count beside the
@@ -90,16 +102,19 @@ export function SearchView() {
     issueResults.length +
     commentResults.length +
     projectResults.length +
-    documentResults.length
+    documentResults.length +
+    peopleResults.length
 
   // Which groups render given the selected tab.
   const showIssues = tab === 'all' || tab === 'issues'
   const showProjects = tab === 'all' || tab === 'projects'
   const showDocuments = tab === 'all' || tab === 'documents'
+  const showPeople = tab === 'all' || tab === 'people'
 
   // Flat list of every visible result in render order, each carrying the route
   // it opens. Mirrors the JSX grouping below so keyboard navigation lands on the
-  // exact rows the user sees (Projects → Documents → Issues → comment matches).
+  // exact rows the user sees (Projects → Documents → Issues → comment matches →
+  // People).
   const flatResults = useMemo(() => {
     const out: { key: string; href: string }[] = []
     if (showProjects)
@@ -112,15 +127,19 @@ export function SearchView() {
       for (const { issue } of commentResults)
         out.push({ key: issue.id, href: `/issue/${issue.identifier}` })
     }
+    if (showPeople)
+      for (const u of peopleResults) out.push({ key: u.id, href: '/members' })
     return out
   }, [
     showProjects,
     showDocuments,
     showIssues,
+    showPeople,
     projectResults,
     documentResults,
     issueResults,
     commentResults,
+    peopleResults,
   ])
 
   // Highlighted result for keyboard navigation (j/k/↑/↓ to move, ↵ to open).
@@ -145,6 +164,8 @@ export function SearchView() {
   const docOffset = projOffset + (showProjects ? projectResults.length : 0)
   const issueOffset = docOffset + (showDocuments ? documentResults.length : 0)
   const commentOffset = issueOffset + issueResults.length
+  const peopleOffset =
+    commentOffset + (showIssues ? commentResults.length : 0)
 
   const tabs: { id: SearchTab; label: string; count: number }[] = [
     {
@@ -163,7 +184,33 @@ export function SearchView() {
     },
     { id: 'projects', label: 'Projects', count: projectResults.length },
     { id: 'documents', label: 'Documents', count: documentResults.length },
+    { id: 'people', label: 'People', count: peopleResults.length },
   ]
+
+  // Me-scope pills toggle the current user into the assignee / creator filters —
+  // Linear's "Assigned to me" / "Created by me" quick scopes. Active state is
+  // derived straight from the filter arrays so the pills and the FilterBar chips
+  // stay in sync.
+  const me = data.currentUserId
+  const assignedToMe = filters.assigneeIds.includes(me)
+  const createdByMe = (filters.creatorIds ?? []).includes(me)
+  const toggleAssignedToMe = () =>
+    setFilters((f) => ({
+      ...f,
+      assigneeIds: f.assigneeIds.includes(me)
+        ? f.assigneeIds.filter((id) => id !== me)
+        : [...f.assigneeIds, me],
+    }))
+  const toggleCreatedByMe = () =>
+    setFilters((f) => {
+      const creatorIds = f.creatorIds ?? []
+      return {
+        ...f,
+        creatorIds: creatorIds.includes(me)
+          ? creatorIds.filter((id) => id !== me)
+          : [...creatorIds, me],
+      }
+    })
 
   return (
     <div className="flex h-full flex-col">
@@ -273,11 +320,36 @@ export function SearchView() {
                   <span className="text-[11px] text-faint">{t.count}</span>
                 </button>
               ))}
+              {/* Me-scope pills — merge the current user into the filters. */}
+              <span className="mx-1 h-4 w-px shrink-0 bg-border" />
+              <button
+                onClick={toggleAssignedToMe}
+                className={cn(
+                  'rounded-full px-2.5 py-1 text-[12px] font-medium',
+                  assignedToMe
+                    ? 'bg-bg-selected text-fg'
+                    : 'text-faint hover:bg-bg-hover hover:text-fg',
+                )}
+              >
+                Assigned to me
+              </button>
+              <button
+                onClick={toggleCreatedByMe}
+                className={cn(
+                  'rounded-full px-2.5 py-1 text-[12px] font-medium',
+                  createdByMe
+                    ? 'bg-bg-selected text-fg'
+                    : 'text-faint hover:bg-bg-hover hover:text-fg',
+                )}
+              >
+                Created by me
+              </button>
             </div>
             {issueResults.length === 0 &&
             commentResults.length === 0 &&
             projectResults.length === 0 &&
-            documentResults.length === 0 ? (
+            documentResults.length === 0 &&
+            peopleResults.length === 0 ? (
               <EmptyState
                 className="mt-10"
                 illustration={<SearchIllustration />}
@@ -401,6 +473,32 @@ export function SearchView() {
                       })}
                     </div>
                   )}
+                {showPeople && peopleResults.length > 0 && (
+                  <div>
+                    <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
+                      People · {peopleResults.length}
+                    </div>
+                    {peopleResults.map((u, idx) => {
+                      const isActive = peopleOffset + idx === activeIndex
+                      return (
+                        <button
+                          key={u.id}
+                          data-result-active={isActive}
+                          onMouseMove={() => setActiveIndex(peopleOffset + idx)}
+                          onClick={() => navigate('/members')}
+                          className={cn(
+                            'flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover',
+                            isActive && 'bg-bg-hover',
+                          )}
+                        >
+                          <Avatar user={u} size={18} />
+                          <span className="text-[13px] text-fg">{u.name}</span>
+                          <span className="text-[11px] text-faint">{u.email}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </>
             )}
           </div>

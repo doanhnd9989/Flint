@@ -7,7 +7,8 @@ import { Avatar } from '@/components/Avatar'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
 import { cycleProgress, cycleState, projectProgress } from '@/lib/selectors'
-import type { Issue, UserRole, WorkflowState } from '@/lib/types'
+import { PRIORITY_ORDER, PRIORITY_LABELS } from '@/lib/constants'
+import type { Issue, Priority, UserRole, WorkflowState } from '@/lib/types'
 
 /** Capitalised role chip (Admin / Member / Guest) — mirrors MembersDirectory. */
 function RoleChip({ role }: { role: UserRole }) {
@@ -112,6 +113,20 @@ export function TeamOverviewView() {
     const max = bars.reduce((m, b) => Math.max(m, b.value), 0)
     return { bars, max }
   }, [issues, data.states])
+
+  // Priority breakdown bars (Urgent → No priority order; mirrors Linear's
+  // priority distribution on team home). Counts only non-empty buckets.
+  const byPriority = useMemo(() => {
+    const counts = new Map<Priority, number>()
+    for (const i of issues) counts.set(i.priority, (counts.get(i.priority) ?? 0) + 1)
+    const bars = PRIORITY_ORDER.map((p) => ({
+      key: p,
+      label: PRIORITY_LABELS[p],
+      value: counts.get(p) ?? 0,
+    })).filter((b) => b.value > 0)
+    const max = bars.reduce((m, b) => Math.max(m, b.value), 0)
+    return { bars, max }
+  }, [issues])
 
   // Active cycle for this team.
   const activeCycle = useMemo(() => {
@@ -270,6 +285,37 @@ export function TeamOverviewView() {
                           style={{
                             width: `${byStatus.max > 0 ? (b.value / byStatus.max) * 100 : 0}%`,
                             backgroundColor: b.color,
+                          }}
+                        />
+                      </div>
+                      <div className="w-7 shrink-0 text-right text-[12px] tabular-nums text-fg">
+                        {b.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Priority breakdown */}
+            <Card title="Priority breakdown" subtitle="By priority">
+              {byPriority.bars.length === 0 ? (
+                <div className="px-1 py-6 text-center text-[12px] text-faint">No issues</div>
+              ) : (
+                <div className="space-y-2.5">
+                  {byPriority.bars.map((b) => (
+                    <div key={b.key} className="group flex items-center gap-3">
+                      <div className="flex w-24 shrink-0 items-center gap-1.5" title={b.label}>
+                        <PriorityIcon priority={b.key} size={14} />
+                        <span className="truncate text-[12px] text-muted group-hover:text-fg">
+                          {b.label}
+                        </span>
+                      </div>
+                      <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+                        <div
+                          className="absolute inset-y-0 left-0 rounded-full bg-accent transition-all"
+                          style={{
+                            width: `${byPriority.max > 0 ? (b.value / byPriority.max) * 100 : 0}%`,
                           }}
                         />
                       </div>

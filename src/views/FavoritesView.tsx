@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CircleDot, LayersIcon, List, Rows3, Search, Star } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
@@ -27,22 +27,40 @@ type Row = {
   identifier?: string
 }
 
-function FavoriteRow({ row }: { row: Row }) {
+function FavoriteRow({
+  row,
+  focused,
+  onFocus,
+  rowRef,
+}: {
+  row: Row
+  /** True when this row is the keyboard-navigation cursor target. */
+  focused: boolean
+  /** Sync the cursor to this row on hover, mirroring RecentView. */
+  onFocus: () => void
+  /** Captures the DOM node so the handler can scroll it into view. */
+  rowRef: (el: HTMLDivElement | null) => void
+}) {
   const navigate = useNavigate()
   const toggleFavorite = useStore((s) => s.toggleFavorite)
 
   return (
     <div
+      ref={rowRef}
       role="button"
       tabIndex={0}
       onClick={() => navigate(row.to)}
+      onMouseEnter={onFocus}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           navigate(row.to)
         }
       }}
-      className="group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors hover:bg-bg-hover"
+      className={cn(
+        'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors hover:bg-bg-hover',
+        focused && 'bg-bg-hover',
+      )}
     >
       <span className="flex h-4 w-4 shrink-0 items-center justify-center text-faint">
         {row.icon}
@@ -96,6 +114,7 @@ type LayoutMode = 'grouped' | 'list'
  * local-only state and compose with AND.
  */
 export function FavoritesView() {
+  const navigate = useNavigate()
   const { favorites, issues, projects, savedViews } = useStoreShallow((s) => ({
     favorites: s.favorites,
     issues: s.issues,
@@ -187,6 +206,80 @@ export function FavoritesView() {
       a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
     )
   }, [shownIssues, shownProjects, shownViews])
+
+  // Keyboard navigation — Linear lets you walk any list with j/k (or arrows) and
+  // open the focused row with Enter/o. `navRows` is the flat visible order that
+  // matches the rendered DOM: in flat-list layout it's `flatRows`, and in grouped
+  // layout it's the sections concatenated in render order (issues → projects →
+  // views), so the cursor never disagrees with what's on screen.
+  const navRows = useMemo(
+    () =>
+      layout === 'list'
+        ? flatRows
+        : [...shownIssues, ...shownProjects, ...shownViews],
+    [layout, flatRows, shownIssues, shownProjects, shownViews],
+  )
+
+  // `focusKey` tracks the highlighted row (by `row.key`); it's clamped to the
+  // visible set so a filter/layout change never strands the cursor on a hidden
+  // row.
+  const [focusKey, setFocusKey] = useState<string | null>(null)
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  // Keep the focus valid as the visible list shifts: default to the first row,
+  // and drop a focus that no longer exists in the visible set.
+  useEffect(() => {
+    if (!navRows.length) {
+      if (focusKey !== null) setFocusKey(null)
+      return
+    }
+    if (!focusKey || !navRows.some((r) => r.key === focusKey)) {
+      setFocusKey(navRows[0].key)
+    }
+  }, [navRows, focusKey])
+
+  // Capture-phase key handler so it pre-empts the global shortcut handler (which
+  // also binds j/k/arrows). Ignores typing in the search box / any open overlay.
+  const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  onKeyRef.current = (e: KeyboardEvent) => {
+    const t = e.target as HTMLElement
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+      return
+    if (document.querySelector('[data-overlay]')) return
+    if (!navRows.length) return
+    const idx = navRows.findIndex((r) => r.key === focusKey)
+    const own = () => {
+      e.preventDefault()
+      e.stopImmediatePropagation()
+    }
+
+    if (e.key === 'ArrowDown' || e.key === 'j') {
+      own()
+      setFocusKey((navRows[Math.min(idx + 1, navRows.length - 1)] ?? navRows[0]).key)
+      return
+    }
+    if (e.key === 'ArrowUp' || e.key === 'k') {
+      own()
+      setFocusKey((idx <= 0 ? navRows[0] : navRows[idx - 1]).key)
+      return
+    }
+    if (e.key === 'Enter' || e.key === 'o') {
+      const cur = navRows[idx]
+      if (!cur) return
+      own()
+      navigate(cur.to)
+    }
+  }
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => onKeyRef.current(e)
+    window.addEventListener('keydown', handler, true)
+    return () => window.removeEventListener('keydown', handler, true)
+  }, [])
+
+  // Scroll the focused row into view as the cursor walks past the viewport edge.
+  useEffect(() => {
+    if (focusKey) rowRefs.current[focusKey]?.scrollIntoView({ block: 'nearest' })
+  }, [focusKey])
 
   // The segmented pill row — label + live count per type.
   const segments: { id: FilterType; label: string; count: number }[] = [
@@ -284,7 +377,15 @@ export function FavoritesView() {
             {layout === 'list' ? (
               <div className="space-y-px">
                 {flatRows.map((r) => (
-                  <FavoriteRow key={r.key} row={r} />
+                  <FavoriteRow
+                    key={r.key}
+                    row={r}
+                    focused={focusKey === r.key}
+                    onFocus={() => setFocusKey(r.key)}
+                    rowRef={(el) => {
+                      rowRefs.current[r.key] = el
+                    }}
+                  />
                 ))}
               </div>
             ) : (
@@ -292,21 +393,45 @@ export function FavoritesView() {
                 {shownIssues.length > 0 && (
                   <Section title="Issues">
                     {shownIssues.map((r) => (
-                      <FavoriteRow key={r.key} row={r} />
+                      <FavoriteRow
+                        key={r.key}
+                        row={r}
+                        focused={focusKey === r.key}
+                        onFocus={() => setFocusKey(r.key)}
+                        rowRef={(el) => {
+                          rowRefs.current[r.key] = el
+                        }}
+                      />
                     ))}
                   </Section>
                 )}
                 {shownProjects.length > 0 && (
                   <Section title="Projects">
                     {shownProjects.map((r) => (
-                      <FavoriteRow key={r.key} row={r} />
+                      <FavoriteRow
+                        key={r.key}
+                        row={r}
+                        focused={focusKey === r.key}
+                        onFocus={() => setFocusKey(r.key)}
+                        rowRef={(el) => {
+                          rowRefs.current[r.key] = el
+                        }}
+                      />
                     ))}
                   </Section>
                 )}
                 {shownViews.length > 0 && (
                   <Section title="Views">
                     {shownViews.map((r) => (
-                      <FavoriteRow key={r.key} row={r} />
+                      <FavoriteRow
+                        key={r.key}
+                        row={r}
+                        focused={focusKey === r.key}
+                        onFocus={() => setFocusKey(r.key)}
+                        rowRef={(el) => {
+                          rowRefs.current[r.key] = el
+                        }}
+                      />
                     ))}
                   </Section>
                 )}

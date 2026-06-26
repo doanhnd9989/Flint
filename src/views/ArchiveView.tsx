@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowUpDown, ChevronDown, RotateCcw, Search, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -197,6 +197,76 @@ export function ArchiveView() {
     setSelectedIds(new Set())
   }
 
+  // Keyboard navigation — Linear lets you walk any list with j/k (or arrows) and
+  // act on the focused row. `archived` is already the flat, grouped order, so we
+  // navigate it directly; `focusId` tracks the highlighted issue, clamped to the
+  // visible set so a filter/restore never strands the cursor on a hidden row.
+  const [focusId, setFocusId] = useState<string | null>(null)
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  // Keep the focus valid as the filtered list shifts: default to the first row,
+  // and drop a focus that no longer exists in the visible set.
+  useEffect(() => {
+    if (!archived.length) {
+      if (focusId !== null) setFocusId(null)
+      return
+    }
+    if (!focusId || !archived.some((i) => i.id === focusId)) {
+      setFocusId(archived[0].id)
+    }
+  }, [archived, focusId])
+
+  // Capture-phase key handler so it pre-empts the global shortcut handler (which
+  // also binds j/k/arrows). Ignores typing in the search box / any open overlay.
+  const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  onKeyRef.current = (e: KeyboardEvent) => {
+    const t = e.target as HTMLElement
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+      return
+    if (document.querySelector('[data-overlay]')) return
+    if (!archived.length) return
+    const idx = archived.findIndex((i) => i.id === focusId)
+    const own = () => {
+      e.preventDefault()
+      e.stopImmediatePropagation()
+    }
+
+    if (e.key === 'ArrowDown' || e.key === 'j') {
+      own()
+      setFocusId((archived[Math.min(idx + 1, archived.length - 1)] ?? archived[0]).id)
+      return
+    }
+    if (e.key === 'ArrowUp' || e.key === 'k') {
+      own()
+      setFocusId((idx <= 0 ? archived[0] : archived[idx - 1]).id)
+      return
+    }
+    if (e.key === 'Enter' || e.key === 'o') {
+      const cur = archived[idx]
+      if (!cur) return
+      own()
+      navigate(`/issue/${cur.identifier}`)
+      return
+    }
+    // 'e' restores (unarchives) the focused row, matching the hover action.
+    if (e.key === 'e') {
+      const cur = archived[idx]
+      if (!cur) return
+      own()
+      unarchiveIssue(cur.id)
+    }
+  }
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => onKeyRef.current(e)
+    window.addEventListener('keydown', handler, true)
+    return () => window.removeEventListener('keydown', handler, true)
+  }, [])
+
+  // Scroll the focused row into view as the cursor walks past the viewport edge.
+  useEffect(() => {
+    if (focusId) rowRefs.current[focusId]?.scrollIntoView({ block: 'nearest' })
+  }, [focusId])
+
   return (
     <div className="relative flex h-full flex-col">
       <ViewHeader title="Archive">
@@ -311,13 +381,22 @@ export function ArchiveView() {
                       : undefined
                     const state = stateById.get(i.stateId)
                     const checked = selectedIds.has(i.id)
+                    const focused = focusId === i.id
                     return (
                       <div
                         key={i.id}
+                        ref={(el) => {
+                          rowRefs.current[i.id] = el
+                        }}
                         onClick={() => navigate(`/issue/${i.identifier}`)}
+                        onMouseEnter={() => setFocusId(i.id)}
                         className={cn(
                           'group flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors',
-                          checked ? 'bg-accent-subtle' : 'bg-bg hover:bg-bg-hover',
+                          checked
+                            ? 'bg-accent-subtle'
+                            : focused
+                              ? 'bg-bg-hover'
+                              : 'bg-bg hover:bg-bg-hover',
                         )}
                       >
                         {/* Per-row select checkbox — visible on hover, when the

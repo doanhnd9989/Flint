@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Check, ChevronDown, ChevronLeft, Search, Settings2 } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
@@ -768,6 +768,8 @@ export function SettingsView() {
   const workspaceName = useStore((s) => s.workspaceName)
   const teams = useStore((s) => s.teams)
   const [query, setQuery] = useState('')
+  // Index into the flattened filtered list for keyboard navigation.
+  const [highlight, setHighlight] = useState(0)
 
   const page = params.get('page') ?? 'preferences'
   const q = query.trim().toLowerCase()
@@ -787,8 +789,38 @@ export function SettingsView() {
     }))
     .filter((g) => g.items.length > 0)
 
+  // Flatten the filtered groups so arrow keys traverse every visible item in
+  // order, ignoring group boundaries — matching Linear's search-list behaviour.
+  const flat = filtered.flatMap((g) => g.items)
+
+  // Keep the highlight in range as the query narrows / widens the list.
+  useEffect(() => {
+    setHighlight((h) => (h >= flat.length ? 0 : h))
+  }, [flat.length])
+
   function select(id: string) {
     setParams({ page: id }, { replace: false })
+  }
+
+  // Enter selects the highlighted item, arrows move it, Escape clears the query.
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (flat.length) setHighlight((h) => (h + 1) % flat.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (flat.length) setHighlight((h) => (h - 1 + flat.length) % flat.length)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const item = flat[highlight]
+      if (item) select(item.id)
+    } else if (e.key === 'Escape') {
+      if (query) {
+        e.preventDefault()
+        setQuery('')
+        setHighlight(0)
+      }
+    }
   }
 
   return (
@@ -809,7 +841,11 @@ export function SettingsView() {
             <Search size={13} className="text-faint" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setHighlight(0)
+              }}
+              onKeyDown={onSearchKeyDown}
               placeholder="Search…"
               className="w-full bg-transparent text-[13px] text-fg outline-none placeholder:text-faint"
             />
@@ -821,20 +857,31 @@ export function SettingsView() {
               <div className="px-1.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-faint">
                 {g.header}
               </div>
-              {g.items.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => select(item.id)}
-                  className={cn(
-                    'flex w-full items-center rounded-md px-1.5 py-1 text-left text-[13px]',
-                    page === item.id
-                      ? 'bg-bg-tertiary font-medium text-fg'
-                      : 'text-muted hover:bg-bg-hover hover:text-fg',
-                  )}
-                >
-                  {item.label}
-                </button>
-              ))}
+              {g.items.map((item) => {
+                // When searching, the keyboard highlight is tracked against the
+                // flattened list — mark the matching row so Enter is predictable.
+                const idx = flat.indexOf(item)
+                const isHighlighted = q !== '' && idx === highlight
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => select(item.id)}
+                    onMouseEnter={() => {
+                      if (q !== '' && idx >= 0) setHighlight(idx)
+                    }}
+                    className={cn(
+                      'flex w-full items-center rounded-md px-1.5 py-1 text-left text-[13px]',
+                      page === item.id
+                        ? 'bg-bg-tertiary font-medium text-fg'
+                        : isHighlighted
+                          ? 'bg-bg-hover text-fg'
+                          : 'text-muted hover:bg-bg-hover hover:text-fg',
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                )
+              })}
             </div>
           ))}
         </div>
