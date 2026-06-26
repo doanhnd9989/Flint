@@ -13,6 +13,7 @@ import {
   Hash,
   Star,
   Trash2,
+  Plus,
 } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
@@ -317,6 +318,14 @@ export function ProjectsView() {
         title="Projects"
         right={
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => data.setCreateProjectOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover"
+            >
+              <Plus size={13} />
+              New project
+            </button>
             <button
               type="button"
               onClick={() => setCompare((c) => !c)}

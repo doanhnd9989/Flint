@@ -83,6 +83,12 @@ interface UIState {
   createMore: boolean
   /** New-initiative modal (transient). */
   createInitiativeOpen: boolean
+  /** New-project modal (transient). */
+  createProjectOpen: boolean
+  /** New-document modal (transient). */
+  createDocumentOpen: boolean
+  /** Pending saved-view draft for the "Save view" naming modal (transient). */
+  viewModalConfig: Omit<SavedView, 'id' | 'name' | 'icon'> | null
   /** Keyboard-shortcuts help overlay (transient). */
   helpOpen: boolean
   /** Issue currently shown in the right-side peek panel (transient). */
@@ -334,6 +340,11 @@ export interface Store extends WorkspaceData, UIState {
   openCreateWith: (prefill: CreatePrefill | null) => void
   setCreateMore: (on: boolean) => void
   setCreateInitiativeOpen: (open: boolean) => void
+  setCreateProjectOpen: (open: boolean) => void
+  setCreateDocumentOpen: (open: boolean) => void
+  /** Open the "Save view" naming modal seeded with the current view config. */
+  openViewModal: (config: Omit<SavedView, 'id' | 'name' | 'icon'>) => void
+  closeViewModal: () => void
   setHelpOpen: (open: boolean) => void
   setPeek: (id: string | null) => void
   setNavIssueIds: (ids: string[]) => void
@@ -447,6 +458,9 @@ export const useStore = create<Store>()(
       createPrefill: null,
       createMore: false,
       createInitiativeOpen: false,
+      createProjectOpen: false,
+      createDocumentOpen: false,
+      viewModalConfig: null,
       helpOpen: false,
       peekIssueId: null,
       selectedIssueIds: [],
@@ -1823,6 +1837,11 @@ export const useStore = create<Store>()(
       setCreateMore: (createMore) => set({ createMore }),
       setCreateInitiativeOpen: (createInitiativeOpen) =>
         set({ createInitiativeOpen }),
+      setCreateProjectOpen: (createProjectOpen) => set({ createProjectOpen }),
+      setCreateDocumentOpen: (createDocumentOpen) =>
+        set({ createDocumentOpen }),
+      openViewModal: (viewModalConfig) => set({ viewModalConfig }),
+      closeViewModal: () => set({ viewModalConfig: null }),
       setHelpOpen: (helpOpen) => set({ helpOpen }),
       setPeek: (peekIssueId) => set({ peekIssueId }),
       setNavIssueIds: (navIssueIds) =>
@@ -2215,6 +2234,9 @@ export const useStore = create<Store>()(
           createOpen: _cr,
           createPrefill: _crp,
           createInitiativeOpen: _ci,
+          createProjectOpen: _cpo,
+          createDocumentOpen: _cdo,
+          viewModalConfig: _vmc,
           helpOpen: _h,
           peekIssueId: _p,
           selectedIssueIds: _sel,
@@ -2230,6 +2252,9 @@ export const useStore = create<Store>()(
         void _cr
         void _crp
         void _ci
+        void _cpo
+        void _cdo
+        void _vmc
         void _h
         void _p
         void _sel

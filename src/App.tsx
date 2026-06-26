@@ -12,6 +12,9 @@ import { Sidebar } from '@/components/Sidebar'
 import { CommandMenu } from '@/components/CommandMenu'
 import { CreateIssueModal } from '@/components/CreateIssueModal'
 import { CreateInitiativeModal } from '@/components/CreateInitiativeModal'
+import { CreateProjectModal } from '@/components/CreateProjectModal'
+import { CreateDocumentModal } from '@/components/CreateDocumentModal'
+import { CreateViewModal } from '@/components/CreateViewModal'
 import { IssuePeek } from '@/components/IssuePeek'
 import { BulkActionBar } from '@/components/BulkActionBar'
 import { IssueContextMenu } from '@/components/IssueContextMenu'
@@ -98,6 +101,9 @@ function Shell() {
       <CommandMenu />
       <CreateIssueModal />
       <CreateInitiativeModal />
+      <CreateProjectModal />
+      <CreateDocumentModal />
+      <CreateViewModal />
       <IssuePeek />
       <BulkActionBar />
       <IssueContextMenu />

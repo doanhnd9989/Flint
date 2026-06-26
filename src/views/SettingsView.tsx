@@ -37,6 +37,8 @@ import { CyclesSettings } from '@/components/CyclesSettings'
 import { TriageSettings } from '@/components/TriageSettings'
 import { ImportSettings } from '@/components/ImportSettings'
 import { AuditLogSettings } from '@/components/AuditLogSettings'
+import { FeaturePreviewSettings } from '@/components/FeaturePreviewSettings'
+import { NotificationScheduleSettings } from '@/components/NotificationScheduleSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
 import { ESTIMATION_TYPES, TIMEZONES } from '@/lib/constants'
@@ -55,6 +57,7 @@ const NAV: NavGroup[] = [
       { id: 'preferences', label: 'Preferences' },
       { id: 'profile', label: 'Profile' },
       { id: 'notifications', label: 'Notifications' },
+      { id: 'notification-schedule', label: 'Notification schedule' },
       { id: 'code-and-reviews', label: 'Code & reviews' },
       { id: 'security-access', label: 'Security & access' },
       { id: 'connected-accounts', label: 'Connected accounts' },
@@ -99,6 +102,7 @@ const NAV: NavGroup[] = [
     header: 'Administration',
     items: [
       { id: 'workspace', label: 'Workspace' },
+      { id: 'features', label: 'Features' },
       { id: 'teams', label: 'Teams' },
       { id: 'members', label: 'Members' },
       { id: 'import', label: 'Import' },
@@ -753,6 +757,10 @@ function SettingsContent({ page }: { page: string }) {
       return <ProfilePage />
     case 'notifications':
       return <NotificationsSettings />
+    case 'notification-schedule':
+      return <NotificationScheduleSettings />
+    case 'features':
+      return <FeaturePreviewSettings />
     case 'issue-labels':
       return (
         <Page title="Labels" description="Labels can be used to organize and filter issues.">

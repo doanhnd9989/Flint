@@ -49,6 +49,9 @@ export function CreateIssueModal() {
   const [cycleId, setCycleId] = useState<string | undefined>()
   const [estimate, setEstimate] = useState<number | undefined>()
   const [milestoneId, setMilestoneId] = useState<string | undefined>()
+  // Lines parsed from a multi-line paste into the title input. When non-empty,
+  // we surface a "Create N issues" affordance (Linear's paste-to-create).
+  const [pasteLines, setPasteLines] = useState<string[]>([])
 
   useEffect(() => {
     if (open) {
@@ -62,6 +65,7 @@ export function CreateIssueModal() {
       setCycleId(undefined)
       setEstimate(undefined)
       setMilestoneId(undefined)
+      setPasteLines([])
       if (p?.teamId) setTeamId(p.teamId)
       if (p?.stateId) setStateId(p.stateId)
     }
@@ -106,6 +110,21 @@ export function CreateIssueModal() {
     if (t.assigneeId) setAssigneeId(t.assigneeId)
   }
 
+  // Reset the form back to the modal's opening context for rapid re-entry.
+  function resetForm() {
+    const p = store.createPrefill
+    setTitle('')
+    setDescription('')
+    setPriority(p?.priority ?? 0)
+    setAssigneeId(p?.assigneeId ?? (store.preferences.autoAssignSelf ? store.currentUserId : undefined))
+    setLabelIds(p?.labelIds ?? [])
+    setProjectId(p?.projectId)
+    setCycleId(undefined)
+    setEstimate(undefined)
+    setMilestoneId(undefined)
+    setPasteLines([])
+  }
+
   function submit(openAfter: boolean) {
     if (!title.trim()) return
     const issue = store.createIssue({
@@ -125,20 +144,37 @@ export function CreateIssueModal() {
     if (store.createMore) {
       // Linear's "Create more": keep the modal open and reset the form for rapid
       // entry, preserving the group context the modal was opened with.
-      const p = store.createPrefill
-      setTitle('')
-      setDescription('')
-      setPriority(p?.priority ?? 0)
-      setAssigneeId(p?.assigneeId ?? (store.preferences.autoAssignSelf ? store.currentUserId : undefined))
-      setLabelIds(p?.labelIds ?? [])
-      setProjectId(p?.projectId)
-      setCycleId(undefined)
-      setEstimate(undefined)
-      setMilestoneId(undefined)
+      resetForm()
       return
     }
     store.setCreateOpen(false)
     if (openAfter) navigate(`/issue/${issue.identifier}`)
+  }
+
+  // Paste-to-create: one issue per pasted line, each sharing the modal's
+  // currently-selected team/status/priority/assignee/labels/project context.
+  function createFromLines(lines: string[]) {
+    if (lines.length === 0) return
+    for (const line of lines) {
+      const issue = store.createIssue({
+        title: line,
+        description: '',
+        teamId,
+        stateId,
+        priority,
+        assigneeId,
+        labelIds,
+        projectId,
+        cycleId,
+        estimate,
+      })
+      if (milestoneId) store.setIssueMilestone(issue.id, milestoneId)
+    }
+    if (store.createMore) {
+      resetForm()
+      return
+    }
+    store.setCreateOpen(false)
   }
 
   return createPortal(
@@ -150,7 +186,11 @@ export function CreateIssueModal() {
         className="w-[640px] max-w-[92vw] rounded-xl border border-border bg-bg-elevated shadow-lg animate-pop"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(false)
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            // ⌘↵ commits the bulk paste when the affordance is live, else a single issue.
+            if (pasteLines.length > 1) createFromLines(pasteLines)
+            else submit(false)
+          }
         }}
       >
         <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-[12px] text-muted">
@@ -194,10 +234,42 @@ export function CreateIssueModal() {
           <input
             autoFocus
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value)
+              // Any manual edit dismisses a pending paste-to-create affordance.
+              if (pasteLines.length) setPasteLines([])
+            }}
+            onPaste={(e) => {
+              const text = e.clipboardData.getData('text')
+              const lines = text
+                .split(/\r?\n/)
+                .map((l) => l.trim())
+                .filter(Boolean)
+              // Multi-line paste: offer bulk create. Single-line falls through to
+              // the browser's default paste behavior.
+              if (lines.length > 1) {
+                e.preventDefault()
+                setTitle(lines[0])
+                setPasteLines(lines)
+              }
+            }}
             placeholder="Issue title"
             className="w-full bg-transparent text-[16px] font-medium text-fg outline-none"
           />
+          {pasteLines.length > 1 && (
+            <button
+              type="button"
+              onClick={() => createFromLines(pasteLines)}
+              className="mt-2 flex w-full items-center justify-between rounded-md border border-border bg-bg-secondary px-2.5 py-1.5 text-left text-[12px] text-muted hover:bg-bg-hover"
+            >
+              <span>
+                Create{' '}
+                <span className="font-medium text-fg">{pasteLines.length} issues</span> from{' '}
+                {pasteLines.length} lines
+              </span>
+              <span className="text-faint">↵</span>
+            </button>
+          )}
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -355,8 +427,27 @@ export function CreateIssueModal() {
           </div>
         </div>
 
+        <div className="flex items-center gap-3 border-t border-border px-4 py-1.5 text-[10px] text-faint">
+          <span className="flex items-center gap-1">
+            <kbd className="rounded border border-border bg-bg-tertiary px-1 py-px text-[10px] text-muted">Tab</kbd>
+            properties
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="rounded border border-border bg-bg-tertiary px-1 py-px text-[10px] text-muted">↵</kbd>
+            open picker
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="rounded border border-border bg-bg-tertiary px-1 py-px text-[10px] text-muted">⌘↵</kbd>
+            create
+          </span>
+        </div>
+
         <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
-          <span className="text-[11px] text-faint">⌘↵ to create</span>
+          <span className="text-[11px] text-faint">
+            {pasteLines.length > 1
+              ? `⌘↵ to create ${pasteLines.length} issues`
+              : '⌘↵ to create'}
+          </span>
           <div className="flex items-center gap-3">
             <label className="flex cursor-pointer items-center gap-2 text-[13px] text-muted">
               <button

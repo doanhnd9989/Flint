@@ -39,13 +39,13 @@ function snippet(content: string): string {
 export function DocumentsView() {
   const navigate = useNavigate()
   const fmt = useDisplayName()
-  const { documents, users, projects, favorites, createDocument, deleteDocument } = useStoreShallow((s) => ({
+  const { documents, users, projects, favorites, deleteDocument, setCreateDocumentOpen } = useStoreShallow((s) => ({
     documents: s.documents,
     users: s.users,
     projects: s.projects,
     favorites: s.favorites,
-    createDocument: s.createDocument,
     deleteDocument: s.deleteDocument,
+    setCreateDocumentOpen: s.setCreateDocumentOpen,
   }))
 
   // Local-only header controls: search + sort mode + project filter (AND).
@@ -135,8 +135,7 @@ export function DocumentsView() {
         : (projects.find((p) => p.id === projectFilter)?.name ?? 'All projects')
 
   function create() {
-    const doc = createDocument()
-    navigate(`/document/${doc.id}`)
+    setCreateDocumentOpen(true)
   }
 
   /** A bordered, divided list of document rows — each with a star toggle. */

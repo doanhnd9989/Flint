@@ -313,37 +313,33 @@ export function CommandMenu() {
           label: 'New project',
           icon: <Box size={15} />,
           keywords: 'new project create',
-          // No standalone create-project modal yet — open the issue composer's
-          // sibling create-project flow if the integrator wires one, else seed a
-          // fresh project and jump to it (matches Linear's "Untitled project").
-          run: () => {
-            const project = store.createProject({
-              name: 'New Project',
-              icon: '📁',
-              color: team?.color ?? '#5e6ad2',
-              status: 'backlog',
-              memberIds: me ? [me.id] : [],
-              teamIds: team ? [team.id] : [],
-            })
-            navigate(`/project/${project.id}`)
-          },
+          run: () => store.setCreateProjectOpen(true),
         },
         {
           id: 'cr-document',
           label: 'New document',
           icon: <FileText size={15} />,
           keywords: 'new document doc note spec create',
-          run: () => {
-            const doc = store.createDocument()
-            navigate(`/document/${doc.id}`)
-          },
+          run: () => store.setCreateDocumentOpen(true),
         },
         {
           id: 'cr-view',
           label: 'New view',
           icon: <Layers3 size={15} />,
           keywords: 'new view saved filter create',
-          run: () => navigate('/views'),
+          run: () =>
+            store.openViewModal({
+              layout: 'list',
+              groupBy: 'status',
+              orderBy: 'manual',
+              filters: {
+                statusIds: [],
+                assigneeIds: [],
+                priorities: [],
+                labelIds: [],
+                projectIds: [],
+              },
+            }),
         },
         {
           id: 'cr-initiative',
