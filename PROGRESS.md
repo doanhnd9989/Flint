@@ -2943,3 +2943,73 @@ Next: remaining parity is increasingly backend-dependent (live GitHub/Slack
 sync, real async email export, audit-log depth) plus deeper DnD surfaces
 (board label swimlanes, Releases manual sort) and richer PR review data
 (`reviewDecision` field feeding the new review chip).
+
+## 2026-06-27 — Loop #96: 44 features (4 waves) + 4 bug fixes + modal polish
+
+Backlog was fully checked at the start, so the run opened with an **8-agent
+parallel scout workflow** over every surface group; it returned **66**
+genuinely-missing, single-file-scoped Linear features. Shipped **44** across
+**four sequential parallel waves** (one subagent per file; the main agent owned
+every shared-file delta — store/types/selectors/App/SettingsView/CommandMenu —
+in one deterministic pass per wave), each verified (`tsc -b` ✅ + `npm run build`
+✅ + Preview MCP) and committed before the next.
+
+_Wave 1 — issue surfaces (20):_ issue-detail enrichment (blocked-by banner ·
+issue **snooze** (`snoozedUntil` + hidden from active lists) · inline sub-issue
+creator · activity-burst grouping · description line-diff · age/cycle-time chip ·
+reading-time meta) · **⌘K upgrade** (recents · fuzzy/subsequence ranking ·
+navigate-to-entity · Create… submenu) · **editor shortcuts** (⌘B/I/E/⇧X/K +
+⌘⌥1/2/3 · image paste · url autolink) · **board** display-properties + WIP chip +
+swimlane add · **Content text filter** + label includes-all · row hover
+quick-actions.
+
+_Wave 2 — views (7):_ Project Documents tab · Initiative key-dates rollup ·
+SavedView display parity · Search "Save as view" · Documents favorites section ·
+Inbox custom-snooze calendar · Profile active-issues panel. _(Roadmap
+initiative-swimlane was already shipped — finder reported it as done.)_
+
+_Wave 3 — modals + settings (8):_ **Create Project modal** (+ template gallery) ·
+**Create Document modal** · **Create View** (save-view naming) modal ·
+CreateIssue **paste-to-create** + keyboard polish · **Features** settings page ·
+**Notification schedule / Do-not-disturb** settings. Three new transient store
+flags (`createProjectOpen`/`createDocumentOpen`/`viewModalConfig`) wired through
+the interface/initial-state/impl/partialize, mounted in App, and triggered from
+⌘K Create… + Projects/Documents headers.
+
+_Wave 4 — components + views (9):_ Markdown **tables** + **image embeds**
+(XSS-guarded) + code-block **language label/copy** · searchable **EmojiPicker**
+(wired into comment reactions + inline add-reaction) · HelpOverlay
+editor/board/display/selection/history sections · My Issues **workload strip** ·
+Customers **group-by** tier/health · Triage **per-card snooze (+H)** ·
+GroupedIssueList **filtered-count bar**. _(Pulse person-filter was already
+shipped.)_
+
+**Phase 2 — bug hunt (find → adversarial verify → fix):** 6 parallel finders
+swept the run diff (a4ec906..HEAD); a separate adversarial verifier judged each
+candidate. **5 candidates → 4 CONFIRMED, 1 refuted.** Fixed: (1) **HIGH** —
+single-key shortcuts (c/j/k/g…) leaked through the three new Create modals
+because the single-key `switch` never checked `overlayOpen`; added an
+`if (overlayOpen) return` gate before the switch and registered the three new
+modal flags in `overlayOpen` (verified live: `c` no longer stacks a Create-issue
+modal). (2) **MED** — ⌘⇧X emitted `~~text~~` the renderer showed literally; added
+a `<del>` strikethrough rule to markdown.tsx. (3) **LOW** — date chip kept a
+stale `in` operator when switching to a relative period; normalize to `after`.
+(4) **LOW** — label "includes all of" survived emptying the label set; clear it
+on deselect-to-empty. Refuted (NOT-A-BUG): concurrent same-name image-upload
+placeholder collision — both identical placeholders always resolve via `indexOf`.
+
+**Phase 3 — polish (new Create modals):** added `data-overlay` to the
+CreateProject/Document/View backdrops (defense-in-depth so popovers/menus inside
+them and the global shortcut/escape handler agree), and verified the New project
+modal renders 1:1 with Linear in **both light and dark** themes (elevated
+surface, breadcrumb, Use-a-template, property chips, accent submit).
+
+`tsc -b ✅ · build ✅ · console clean` (the only console lines were stale
+Vite-HMR "failed to reload" buffer entries from mid-edit; every touched surface
+re-rendered cleanly on full reload — confirmed live for ProjectDetail,
+GroupedIssueList, the modals, and My Issues).
+
+Next: remaining parity is increasingly backend-dependent (live GitHub/Slack
+sync, real async email export, audit-log depth) plus deeper DnD surfaces
+(Releases manual sort, board label swimlanes with de-duped drop ids) and
+promoting project templates to a real shared store collection.

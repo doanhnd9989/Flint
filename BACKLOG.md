@@ -412,3 +412,17 @@ _Wave 4 (search · docs · customers · feeds · insights):_
 - [x] 🟢 **Projects board column collapse menu** — collapse a column to a thin strip.
 - [x] 🟢 **Favorites drag-to-reorder** — @dnd-kit sortable over the flat favorites array.
 - [x] 🟡 **Document version history** — auto-checkpoint on edit (coalesced) + restore from a History panel.
+
+### Loop #96 — Discovered + shipped (44 features, 4 waves)
+
+- [x] 🟡 **Issue-detail enrichment** — blocked-by warning banner, issue snooze (`snoozedUntil` hides from active lists), inline sub-issue title creator, activity-burst grouping, description line-diff, age/cycle-time chip, reading-time/word-count meta.
+- [x] 🔴 **⌘K command-menu upgrade** — Recently-viewed section (by `recentIssueIds`), fuzzy/subsequence ranking, navigate-to-entity commands (projects/cycles/labels/initiatives/members), and a Create… drill-in sub-menu.
+- [x] 🟡 **Editor formatting shortcuts** — ⌘B/⌘I/⌘E/⌘⇧X/⌘K + ⌘⌥1/2/3 headings, image paste/drop placeholder, paste-URL-onto-selection auto-link.
+- [x] 🟡 **Board enhancements** — cards honor `displayProperties`, soft WIP-limit count chip, swimlane-cell hover `+` prefilling column+row.
+- [x] 🟡 **Filtering** — Content text filter (title/description substring) + Label "includes all of" (AND) operator.
+- [x] 🟡 **Row hover quick-actions toolbar** — copy URL / peek / open / ⋯ context menu.
+- [x] 🟡 **Project Documents tab**, **Initiative key-dates rollup**, **SavedView display parity**, **Search "Save as view"**, **Documents favorites section**, **Inbox custom-snooze calendar**, **Profile active-issues panel**.
+- [x] 🔴 **Create Project modal** (+ template gallery), **Create Document modal**, **Create View (save-view) naming modal**, **CreateIssue paste-to-create + keyboard polish**.
+- [x] 🟡 **Features settings page** (enable/disable workspace features) + **Notification schedule / Do-not-disturb settings**.
+- [x] 🟡 **Markdown** tables + image embeds (XSS-guarded) + code-block language label/copy + `~~strikethrough~~`.
+- [x] 🟡 **Searchable EmojiPicker** (wired into comment reactions + inline add-reaction button), **HelpOverlay** editor/board/display/selection/history sections, **My Issues workload strip**, **Customers group-by tier/health**, **Triage per-card snooze (+H)**, **GroupedIssueList filtered-count bar**.
