@@ -238,3 +238,38 @@ bulk-action bar, grouping, the app shell, and issue-row display properties.
 **Wave 4–5 — issue-row display properties:**
 - [x] 🟡 **Comment-count indicator** — a `MessageSquare` + count on issue rows whenever an issue has comments (always-on, like Linear).
 - [x] 🟢 **Estimate display property** — a new `estimate` Display-options pill (default off) rendering a `Gauge` + team-aware estimate (points / t-shirt) on issue rows.
+
+## Loop #89 — shipped (24 features: list filter/sort/export depth + interactions + project dependencies)
+
+Deepened filter/sort/export/interaction capabilities across nearly every list
+surface, plus one new data feature (project dependencies), then 4 bug fixes.
+
+**Wave 1 — search/insights/feeds/board/customers + list interactions:**
+- [x] 🟡 **Search entity tabs + Documents** — All/Issues/Projects/Documents pills (counts) + document title/content search → /document/:id.
+- [x] 🟡 **Insights time-range + CSV export** — All/7/30/90-day range filter + Export-CSV of the chosen breakdown (RFC-quoted).
+- [x] 🟡 **Pulse team + date-scope filters** — team dropdown (per-event resolved) + All time/Today/This week scope.
+- [x] 🟡 **Archive search + team filter** — identifier/title search + team dropdown, AND-composed, no-matches empty state.
+- [x] 🟡 **Board card peek** — clicking a board card opens the peek panel (setPeek), not full-page; drag still suppresses the click.
+- [x] 🟡 **Customers tier filter** — All/Free/Startup/Business/Enterprise pills + total-ARR summary over the filtered set.
+- [x] 🟡 **Shift-range select** — shift-click selects the inclusive row range via the list's visible order (navIssueIds).
+- [x] 🟢 **j/k re-peek** — ↓/↑ advance the open peek panel to the next/prev issue; documented in the `?` overlay.
+
+**Wave 2 — directory/list sort + filter + reschedule:**
+- [x] 🟡 **Members sort** — Name/Assigned/Active/Teams with an active-issue count per row.
+- [x] 🟡 **Releases status filter + progress** — status pill row + per-release done/total donut from the linked project.
+- [x] 🟡 **Documents sort + project filter** — Last updated/Created/Title + All/each project/No project.
+- [x] 🟢 **Labels directory search + sort** — name search + Name A→Z / Most used.
+- [x] 🟡 **Reminders inline reschedule** — clock Popover (In 1h / This evening / Tomorrow / Next week / Remove) → setIssueReminder, auto re-sort.
+- [x] 🟢 **Recent search + team filter** — identifier/title search + team dropdown, newest-first preserved.
+- [x] 🟡 **Teams directory search + sort** — name/key search + Name/Members/Issues/Active.
+- [x] 🟡 **Initiatives sort + owner filter** — Name/Progress/Target/Projects + owner dropdown, per tab.
+
+**Wave 3 — roadmap/changelog/cycles/favorites/profile/views/triage + dependencies:**
+- [x] 🟡 **Roadmap status + initiative filters** — narrow bars by status and initiative, empty state when all hidden.
+- [x] 🟡 **Changelog type + team filters** — All/Releases/Completed issues + team dropdown.
+- [x] 🟡 **Active-Cycles team filter + scope toggle** — All/per-team + Active & upcoming / Past (final progress).
+- [x] 🟡 **Favorites type-pill + search** — All/Issues/Projects/Views (counts) + search, no-matches empty state.
+- [x] 🟡 **Profile time-period toggle** — All time/This week/This month scoping stats + recent activity.
+- [x] 🟢 **Views search + sort** — name search + Name A→Z / Recently created.
+- [x] 🟡 **Triage priority filter + sort** — priority dropdown + Newest/Oldest/Priority.
+- [x] 🔴 **Project dependencies** — `Project.dependsOn` + cycle-guarded add/remove actions; a Dependencies section on the project Overview (Blocked by / Blocking lists, project picker, inline remove); seeded Mobile App ← MVP Launch.

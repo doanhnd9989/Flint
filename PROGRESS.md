@@ -2,6 +2,69 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-26 — Loop #89: 24 features (3 waves) + 4 bug fixes + both-theme polish
+
+Shipped **24 features** across three committed waves, then an adversarial bug
+pass and a both-theme polish pass. The clone is at near-complete Linear parity,
+so this run deepened **filter / sort / export / interaction** capabilities the
+real product has on almost every list surface, plus one new data feature
+(project dependencies). Verified throughout via the Preview MCP (zero console
+errors, no "Maximum update depth" loops) and `tsc -b` + `npm run build`.
+
+_Wave 1 (8):_ **Search entity tabs + Documents** (All · Issues · Projects ·
+Documents pills with counts, document title/content search → /document/:id) ·
+**Insights time-range + CSV export** (All/7/30/90-day range, Export-CSV of the
+chosen breakdown, RFC-quoted) · **Pulse team + date-scope filters** ·
+**Archive search + team filter** (with no-matches empty state) · **Board card
+peek** (cards open the peek panel, not full-page; drag still suppresses click) ·
+**Customers tier filter** (All/Free/Startup/Business/Enterprise pills + total-ARR
+summary over the filtered set) · **Shift-range select** (shift-click selects the
+inclusive row range via the list's visible order) · **j/k re-peek** (↓/↑ advance
+the open peek panel to the next/prev issue). Help overlay documents both.
+
+_Wave 2 (8):_ **Members sort** (Name/Assigned/Active/Teams, active count per
+row) · **Releases status filter + per-release progress donut** (done/total from
+the linked project) · **Documents sort + project filter** · **Labels directory
+search + sort** (Name / Most used) · **Reminders inline reschedule** (clock
+Popover: In 1h / This evening / Tomorrow / Next week / Remove → setIssueReminder,
+auto re-sort) · **Recent search + team filter** · **Teams directory search +
+sort** (Name/Members/Issues/Active) · **Initiatives sort + owner filter**.
+
+_Wave 3 (8):_ **Roadmap status + initiative filters** · **Changelog type +
+team filters** · **Active-Cycles team filter + Active/Past scope toggle** ·
+**Favorites type-pill + search** · **Profile time-period toggle** (All/Week/
+Month scoping stats + activity) · **Views search + sort** · **Triage priority
+filter + sort** · **Project dependencies** — `Project.dependsOn` + cycle-guarded
+`addProjectDependency`/`removeProjectDependency`, a Dependencies section on the
+project Overview (Blocked by / Blocking lists, project picker, inline remove),
+seeded Mobile App ← MVP Launch.
+
+**Phase 2 — bug hunt (find → adversarially verify → fix):** 4 parallel finders
+swept the run's diff → 10 candidates → a separate adversarial verifier per
+candidate → **7 CONFIRMED, 3 NOT-A-BUG**. **Fixed 4:** (1) Insights completion
+rate mixed a `completedAt`-gated numerator with a `createdAt`-gated denominator
+under a range — now both share the range-filtered cohort; (2) Initiatives showed
+the first-run onboarding empty state when a tab/owner filter matched nothing —
+now a two-tier "No matching initiatives" state; (3) Profile completion rate
+divided period-scoped completions by all-time assigned (collapsed when narrowing
+the period) — numerator is now period-agnostic to match its "of your assigned
+work" hint; (4) the project-dependency picker offered projects the cycle-guard
+would silently reject — now excludes the blocking set. **Deferred 3** (honestly
+noted): a pre-existing ~5px Roadmap bar/month-header geometry drift (predates
+this run, bounded, risky to change); an Initiatives no-arg `useStore()` perf nit
+(allowed by project rules, proper fix ripples through selectors.ts); and the
+shift-select anchor behaviour (the flagged "anchor not re-set" is correct
+range-select semantics).
+
+**Phase 3 — polish (both themes):** verified every new surface in **light and
+dark** — agents used design tokens throughout, so no theming regressions
+(Customers tier pills + ARR summary, Project Dependencies' BLOCKED-BY rows with
+the half-wedge status glyph, and the new pill-filter rows all render 1:1 in dark).
+
+`tsc -b ✅ · build ✅ · console clean`. Next: the deferred Roadmap month-axis
+geometry (day-proportional header columns) and board **label swimlanes**
+(needs de-duped DnD ids).
+
 ## 2026-06-26 — Loop #86: 20 features (new surfaces + Customers CRM + issue sections + Share/Move) + 1 bug fix + polish
 
 Shipped **20 features** across four committed waves, then a bug pass and a
