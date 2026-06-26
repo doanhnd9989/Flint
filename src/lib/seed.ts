@@ -15,6 +15,7 @@ import type {
   Project,
   ProjectUpdate,
   InitiativeUpdate,
+  PullRequest,
   Release,
   Relation,
   SavedView,
@@ -49,6 +50,7 @@ export interface WorkspaceData {
   customers: Customer[]
   releases: Release[]
   attachments: Attachment[]
+  pullRequests: PullRequest[]
 }
 
 export function buildSeed(): WorkspaceData {
@@ -486,6 +488,13 @@ export function buildSeed(): WorkspaceData {
     { id: 'att_3', issueId: 'i_2', name: 'requirements.pdf', kind: 'file', size: '1.2 MB', creatorId: 'u_jordan', createdAt: nowIso() },
   ]
 
+  // ── Pull requests (Linear's Development section) ─────────────────────────
+  const pullRequests: PullRequest[] = [
+    { id: 'pr_1', issueId: 'i_1', title: 'Add onboarding checklist', number: 142, status: 'open', branch: 'you/cla-1-onboarding', url: 'https://github.com/acme/app/pull/142', authorId: 'u_me', createdAt: nowIso() },
+    { id: 'pr_2', issueId: 'i_1', title: 'Fix checklist persistence', number: 138, status: 'merged', branch: 'avery/cla-1-persist', url: 'https://github.com/acme/app/pull/138', authorId: 'u_avery', createdAt: nowIso() },
+    { id: 'pr_3', issueId: 'i_2', title: 'Wire team setup flow', number: 151, status: 'draft', branch: 'jordan/cla-2-teams', url: 'https://github.com/acme/app/pull/151', authorId: 'u_jordan', createdAt: nowIso() },
+  ]
+
   return {
     workspaceName: 'Claude Test App',
     users,
@@ -511,5 +520,6 @@ export function buildSeed(): WorkspaceData {
     customers,
     releases,
     attachments,
+    pullRequests,
   }
 }

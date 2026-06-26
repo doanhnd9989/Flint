@@ -1,8 +1,8 @@
-import { SlidersHorizontal, LayoutList, LayoutGrid } from 'lucide-react'
+import { SlidersHorizontal, LayoutList, LayoutGrid, GanttChartSquare } from 'lucide-react'
 import { Popover } from './ui/Popover'
 import { cn } from '@/lib/utils'
 
-export type ProjectLayout = 'list' | 'board'
+export type ProjectLayout = 'list' | 'board' | 'timeline'
 export type ProjectGroupBy = 'none' | 'status' | 'health' | 'lead'
 export type ProjectOrderBy = 'manual' | 'name' | 'targetDate' | 'created'
 export type ProjectProperty =
@@ -92,6 +92,7 @@ interface Props {
 const LAYOUTS = [
   { value: 'list' as const, label: 'List', icon: <LayoutList size={13} /> },
   { value: 'board' as const, label: 'Board', icon: <LayoutGrid size={13} /> },
+  { value: 'timeline' as const, label: 'Timeline', icon: <GanttChartSquare size={13} /> },
 ]
 
 /** Display options popover for the Projects view — mirrors Linear's. */

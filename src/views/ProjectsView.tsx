@@ -19,6 +19,7 @@ import {
   type ProjectProperty,
 } from '@/components/ProjectsDisplayMenu'
 import { ProjectsBoard } from '@/components/ProjectsBoard'
+import { ProjectsTimeline } from '@/components/ProjectsTimeline'
 import { formatDate, cn } from '@/lib/utils'
 import type { Project, ProjectHealth } from '@/lib/types'
 
@@ -144,7 +145,7 @@ export function ProjectsView() {
           />
         }
       />
-      <div className={cn('flex-1', layout === 'board' ? 'overflow-hidden' : 'overflow-y-auto')}>
+      <div className={cn('flex-1', layout === 'board' || layout === 'timeline' ? 'overflow-hidden' : 'overflow-y-auto')}>
         {projects.length === 0 ? (
           <EmptyState
             illustration={<StackIllustration />}
@@ -153,6 +154,8 @@ export function ProjectsView() {
           />
         ) : layout === 'board' ? (
           <ProjectsBoard projects={sorted} onOpen={(id) => navigate(`/project/${id}`)} />
+        ) : layout === 'timeline' ? (
+          <ProjectsTimeline projects={sorted} onOpen={(id) => navigate(`/project/${id}`)} />
         ) : (
           groups.map((g) => (
             <div key={g.key}>

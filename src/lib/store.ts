@@ -39,6 +39,8 @@ import type {
   Project,
   ProjectHealth,
   ProjectUpdate,
+  PullRequest,
+  PullRequestStatus,
   InitiativeUpdate,
   DisplayProperty,
   Relation,
@@ -233,6 +235,11 @@ export interface Store extends WorkspaceData, UIState {
 
   // ── issue reactions ──────────────────────────────────────────
   toggleIssueReaction: (issueId: string, emoji: string) => void
+
+  // ── pull requests (issue Development section) ─────────────────
+  addPullRequest: (issueId: string, input: Omit<PullRequest, 'id' | 'issueId' | 'number' | 'authorId' | 'createdAt'>) => void
+  setPullRequestStatus: (id: string, status: PullRequestStatus) => void
+  removePullRequest: (id: string) => void
 
   // ── documents (Linear's Documents feature) ───────────────────
   createDocument: (input?: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId'>>) => Document
@@ -1279,6 +1286,34 @@ export const useStore = create<Store>()(
           }),
         })),
 
+      // ── pull requests ─────────────────────────────────────────
+      addPullRequest: (issueId, input) =>
+        set((s) => {
+          const number =
+            s.pullRequests.reduce((m, p) => Math.max(m, p.number), 100) + 1
+          return {
+            pullRequests: [
+              ...s.pullRequests,
+              {
+                ...input,
+                id: `pr_${nanoid(8)}`,
+                issueId,
+                number,
+                authorId: s.currentUserId,
+                createdAt: nowIso(),
+              },
+            ],
+          }
+        }),
+      setPullRequestStatus: (id, status) =>
+        set((s) => ({
+          pullRequests: s.pullRequests.map((p) =>
+            p.id === id ? { ...p, status } : p,
+          ),
+        })),
+      removePullRequest: (id) =>
+        set((s) => ({ pullRequests: s.pullRequests.filter((p) => p.id !== id) })),
+
       setUserRole: (id, role) =>
         set((s) => ({
           users: s.users.map((u) => (u.id === id ? { ...u, role } : u)),
@@ -1819,6 +1854,7 @@ export const useStore = create<Store>()(
         if (!Array.isArray(merged.customers)) merged.customers = seed.customers
         if (!Array.isArray(merged.releases)) merged.releases = seed.releases
         if (!Array.isArray(merged.attachments)) merged.attachments = seed.attachments
+        if (!Array.isArray(merged.pullRequests)) merged.pullRequests = seed.pullRequests
         // Backfill team estimation / cycle defaults for older workspaces.
         if (Array.isArray(merged.teams)) {
           merged.teams = merged.teams.map((t) => ({

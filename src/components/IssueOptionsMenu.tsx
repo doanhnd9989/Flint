@@ -276,6 +276,16 @@ export function IssueOptionsMenu({
                   label="Copy git branch name"
                   onClick={() => copy(branchName(issue.identifier, issue.title, me), copyToast.branch())}
                 />
+                <Row
+                  icon={<Copy size={14} />}
+                  label="Copy as Markdown"
+                  onClick={() =>
+                    copy(
+                      `# ${issue.identifier} ${issue.title}\n\n${issue.description ?? ''}`.trim(),
+                      'Issue copied as Markdown',
+                    )
+                  }
+                />
               </SubRow>
 
               <div className="my-1 h-px bg-border" />

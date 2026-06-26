@@ -339,6 +339,24 @@ export interface IssueLink {
   createdAt: string
 }
 
+/**
+ * A linked GitHub-style pull request / branch — Linear's "Development" section
+ * on an issue. We have no VCS backend, so these are metadata the user attaches.
+ */
+export type PullRequestStatus = 'draft' | 'open' | 'merged' | 'closed'
+
+export interface PullRequest {
+  id: string
+  issueId: string
+  title: string
+  number: number
+  status: PullRequestStatus
+  branch?: string
+  url?: string
+  authorId: string
+  createdAt: string
+}
+
 export interface IssueTemplate {
   id: string
   name: string

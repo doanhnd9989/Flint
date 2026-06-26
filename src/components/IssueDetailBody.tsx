@@ -16,8 +16,10 @@ import {
 import { SelectMenu } from './ui/SelectMenu'
 import { IssueRelations } from './IssueRelations'
 import { IssueLinks } from './IssueLinks'
+import { IssueDevelopment } from './IssueDevelopment'
 import { IssueAttachments } from './IssueAttachments'
 import { IssueCustomers } from './IssueCustomers'
+import { IssueSimilarIssues } from './IssueSimilarIssues'
 import { IssueReactions } from './IssueReactions'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MentionInput } from './MentionInput'
@@ -261,11 +263,17 @@ export function IssueDetailBody({
           {/* Resources (external links) */}
           <IssueLinks issue={issue} />
 
+          {/* Development (linked PRs / branches) */}
+          <IssueDevelopment issue={issue} />
+
           {/* Attachments */}
           <IssueAttachments issue={issue} />
 
           {/* Relations */}
           <IssueRelations issue={issue} onOpenIssue={onOpenIssue} />
+
+          {/* Similar issues (suggested) */}
+          <IssueSimilarIssues issue={issue} onOpenIssue={onOpenIssue} />
 
           {/* Customer requests */}
           <IssueCustomers issue={issue} />

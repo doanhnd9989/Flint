@@ -42,6 +42,7 @@ import { CustomerDetail } from '@/views/CustomerDetail'
 import { ReleasesView } from '@/views/ReleasesView'
 import { MembersDirectoryView } from '@/views/MembersDirectoryView'
 import { ChangelogView } from '@/views/ChangelogView'
+import { ProfileView } from '@/views/ProfileView'
 import { ShareIssueModal } from '@/components/ShareIssueModal'
 import { MoveIssueModal } from '@/components/MoveIssueModal'
 import { DocumentsView } from '@/views/DocumentsView'
@@ -121,6 +122,7 @@ export default function App() {
           <Route path="/releases" element={<ReleasesView />} />
           <Route path="/members" element={<MembersDirectoryView />} />
           <Route path="/changelog" element={<ChangelogView />} />
+          <Route path="/profile" element={<ProfileView />} />
           <Route path="/documents" element={<DocumentsView />} />
           <Route path="/document/:id" element={<DocumentDetail />} />
           <Route path="/views" element={<ViewsView />} />

@@ -22,6 +22,7 @@ import {
   Rocket,
   Users,
   Megaphone,
+  CircleUser,
   Copy,
   Plus,
   X,
@@ -296,6 +297,7 @@ export function Sidebar() {
           <Item to="/search" icon={<Search size={15} />} label="Search" />
           <Item to="/inbox" icon={<Inbox size={15} />} label="Inbox" badge={unread} />
           <Item to="/my-issues" icon={<CircleDot size={15} />} label="My Issues" />
+          <Item to="/profile" icon={<CircleUser size={15} />} label="Profile" />
         </div>
 
         {favoriteItems.length > 0 && (

@@ -32,6 +32,7 @@ import {
   Rocket,
   Users,
   Megaphone,
+  CircleUser,
   Goal,
   FileText,
   User,
@@ -531,6 +532,13 @@ export function CommandMenu() {
         icon: <Megaphone size={15} />,
         keywords: 'changelog shipped releases whats new timeline',
         run: () => navigate('/changelog'),
+      },
+      {
+        id: 'go-profile',
+        label: 'Go to Profile',
+        icon: <CircleUser size={15} />,
+        keywords: 'profile your work me account dashboard',
+        run: () => navigate('/profile'),
       },
       {
         id: 'go-insights',
