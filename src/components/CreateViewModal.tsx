@@ -97,6 +97,7 @@ export function CreateViewModal() {
 
   return createPortal(
     <div
+      data-overlay
       className="fixed inset-0 z-50 flex items-start justify-center bg-bg-overlay pt-24 animate-fade"
       onMouseDown={() => store.closeViewModal()}
     >
