@@ -49,6 +49,7 @@ import {
   GitBranch,
   Check,
   X,
+  PanelLeft,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { Calendar } from './DatePicker'
@@ -647,6 +648,22 @@ export function CommandMenu() {
         keywords: 'theme system appearance',
         run: () => store.setTheme('system'),
       },
+      {
+        id: 'toggle-sidebar',
+        label: 'Toggle sidebar',
+        icon: <PanelLeft size={15} />,
+        hint: '⌘/',
+        keywords: 'sidebar collapse expand hide show toggle',
+        run: () => store.toggleSidebar(),
+      },
+      ...store.teams.map((t) => ({
+        id: `switch-team-${t.id}`,
+        label: `Switch to ${t.name}`,
+        icon: <span className="text-[13px]">{t.icon}</span>,
+        hint: t.key,
+        keywords: `switch team ${t.name} ${t.key}`,
+        run: () => navigate(`/team/${t.key}/active`),
+      })),
     ]
 
     const issueCommands: Command[] = store.issues.map((i) => {

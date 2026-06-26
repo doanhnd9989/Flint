@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   addMonths,
@@ -11,13 +11,21 @@ import {
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { projectProgress } from '@/lib/selectors'
+import { cn } from '@/lib/utils'
 
-const MONTH_W = 120
 const NAME_W = 200
+/** Per-month column width by zoom level — Linear's Compact / Default / Wide. */
+const ZOOM: Record<'compact' | 'default' | 'wide', number> = {
+  compact: 72,
+  default: 120,
+  wide: 200,
+}
 
 export function RoadmapView() {
   const navigate = useNavigate()
   const data = useStore()
+  const [zoom, setZoom] = useState<'compact' | 'default' | 'wide'>('default')
+  const MONTH_W = ZOOM[zoom]
 
   const { months, rangeStart, totalDays, totalWidth, projects } = useMemo(() => {
     const projects = [...data.projects].sort((a, b) => a.sortOrder - b.sortOrder)
@@ -36,7 +44,7 @@ export function RoadmapView() {
     const totalDays = Math.max(1, differenceInCalendarDays(rangeEnd, rangeStart))
     const totalWidth = months.length * MONTH_W
     return { months, rangeStart, totalDays, totalWidth, projects }
-  }, [data.projects])
+  }, [data.projects, MONTH_W])
 
   const pxPerDay = totalWidth / totalDays
   const dayOffset = (d: Date) => differenceInCalendarDays(d, rangeStart) * pxPerDay
@@ -44,7 +52,28 @@ export function RoadmapView() {
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Roadmap" />
+      <ViewHeader
+        title="Roadmap"
+        right={
+          <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
+            {(['compact', 'default', 'wide'] as const).map((z) => (
+              <button
+                key={z}
+                type="button"
+                onClick={() => setZoom(z)}
+                className={cn(
+                  'rounded px-2 py-0.5 text-[12px] capitalize',
+                  zoom === z
+                    ? 'bg-bg-selected text-fg'
+                    : 'text-muted hover:bg-bg-hover hover:text-fg',
+                )}
+              >
+                {z}
+              </button>
+            ))}
+          </div>
+        }
+      />
       <div className="flex-1 overflow-auto">
         <div style={{ width: NAME_W + totalWidth }}>
           {/* Month header */}
