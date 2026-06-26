@@ -57,7 +57,7 @@ export function MembersDirectoryView() {
   const assignedCounts = useMemo(() => {
     const m = new Map<string, number>()
     for (const i of issues) {
-      if (i.triage || !i.assigneeId) continue
+      if (i.triage || i.archivedAt || !i.assigneeId) continue
       m.set(i.assigneeId, (m.get(i.assigneeId) ?? 0) + 1)
     }
     return m

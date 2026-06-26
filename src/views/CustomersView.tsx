@@ -44,7 +44,7 @@ export function CustomersView() {
   const requestCounts = useMemo(() => {
     const map: Record<string, number> = {}
     for (const i of issues) {
-      if (!i.customerIds) continue
+      if (!i.customerIds || i.archivedAt) continue
       for (const cid of i.customerIds) map[cid] = (map[cid] ?? 0) + 1
     }
     return map

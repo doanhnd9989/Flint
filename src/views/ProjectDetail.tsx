@@ -281,7 +281,7 @@ export function ProjectDetail() {
   const scoped = useMemo(() => {
     if (!project) return []
     return sortIssues(
-      data.issues.filter((i) => i.projectId === project.id),
+      data.issues.filter((i) => i.projectId === project.id && !i.archivedAt),
       'priority',
       data,
     )

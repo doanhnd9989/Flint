@@ -89,7 +89,10 @@ export function InsightsView() {
   const displayPref = data.preferences.displayNames
 
   const issues = useMemo<Issue[]>(
-    () => (teamFilter === 'all' ? data.issues : data.issues.filter((i) => i.teamId === teamFilter)),
+    () =>
+      data.issues.filter(
+        (i) => !i.archivedAt && (teamFilter === 'all' || i.teamId === teamFilter),
+      ),
     [data.issues, teamFilter],
   )
 

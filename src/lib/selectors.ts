@@ -415,7 +415,7 @@ export function projectProgress(
   issues: Issue[],
   data: WorkspaceData,
 ): { total: number; done: number; percent: number } {
-  const scoped = issues.filter((i) => i.projectId === projectId)
+  const scoped = issues.filter((i) => i.projectId === projectId && !i.archivedAt)
   const completedStateIds = new Set(
     data.states.filter((s) => s.type === 'completed').map((s) => s.id),
   )
@@ -440,7 +440,9 @@ export function initiativeProgress(
   const projectIds = new Set(
     projects.filter((p) => p.initiativeId === initiativeId).map((p) => p.id),
   )
-  const scoped = issues.filter((i) => i.projectId && projectIds.has(i.projectId))
+  const scoped = issues.filter(
+    (i) => i.projectId && projectIds.has(i.projectId) && !i.archivedAt,
+  )
   const completed = new Set(
     data.states.filter((s) => s.type === 'completed').map((s) => s.id),
   )
@@ -459,7 +461,7 @@ export function milestoneProgress(
   issues: Issue[],
   data: WorkspaceData,
 ): { total: number; done: number; percent: number } {
-  const scoped = issues.filter((i) => i.milestoneId === milestoneId)
+  const scoped = issues.filter((i) => i.milestoneId === milestoneId && !i.archivedAt)
   const completed = new Set(
     data.states.filter((s) => s.type === 'completed').map((s) => s.id),
   )
@@ -477,7 +479,7 @@ export function cycleProgress(
   issues: Issue[],
   data: WorkspaceData,
 ): { total: number; done: number; started: number; percent: number } {
-  const scoped = issues.filter((i) => i.cycleId === cycleId)
+  const scoped = issues.filter((i) => i.cycleId === cycleId && !i.archivedAt)
   const completed = new Set(
     data.states.filter((s) => s.type === 'completed').map((s) => s.id),
   )
@@ -521,7 +523,7 @@ export function cycleBurndown(
     d.setHours(0, 0, 0, 0)
     return d.getTime()
   }
-  const scoped = issues.filter((i) => i.cycleId === cycle.id)
+  const scoped = issues.filter((i) => i.cycleId === cycle.id && !i.archivedAt)
   const scope = scoped.length
   const completions = scoped
     .map((i) => (i.completedAt ? new Date(i.completedAt).getTime() : null))
@@ -564,7 +566,7 @@ export function subIssueProgress(
   issues: Issue[],
   data: WorkspaceData,
 ): { total: number; done: number; percent: number } {
-  const subs = issues.filter((i) => i.parentId === parentId)
+  const subs = issues.filter((i) => i.parentId === parentId && !i.archivedAt)
   const completedStateIds = new Set(
     data.states.filter((s) => s.type === 'completed').map((s) => s.id),
   )

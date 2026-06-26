@@ -23,7 +23,9 @@ export function TriageView() {
   const store = useStore()
   const fmt = useDisplayName()
   const team = store.teams.find((t) => t.key === teamKey) ?? store.teams[0]
-  const queue = store.issues.filter((i) => i.teamId === team.id && i.triage)
+  const queue = store.issues.filter(
+    (i) => i.teamId === team.id && i.triage && !i.archivedAt,
+  )
 
   return (
     <div className="flex h-full flex-col">

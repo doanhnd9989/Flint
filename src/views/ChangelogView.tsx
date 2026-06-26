@@ -54,7 +54,7 @@ export function ChangelogView() {
       release,
       issues: release.projectId
         ? data.issues
-            .filter((i) => i.projectId === release.projectId && isCompleted(i))
+            .filter((i) => i.projectId === release.projectId && isCompleted(i) && !i.archivedAt)
             .sort((a, b) => {
               const ta = a.completedAt ? new Date(a.completedAt).getTime() : 0
               const tb = b.completedAt ? new Date(b.completedAt).getTime() : 0
@@ -69,7 +69,7 @@ export function ChangelogView() {
     const covered = new Set<string>()
     entries.forEach((e) => e.issues.forEach((i) => covered.add(i.id)))
     return data.issues
-      .filter((i) => isCompleted(i) && !covered.has(i.id))
+      .filter((i) => isCompleted(i) && !covered.has(i.id) && !i.archivedAt)
       .sort((a, b) => {
         const ta = a.completedAt ? new Date(a.completedAt).getTime() : 0
         const tb = b.completedAt ? new Date(b.completedAt).getTime() : 0

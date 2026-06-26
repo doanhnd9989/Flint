@@ -346,7 +346,7 @@ export function Sidebar() {
               to={`/team/${team.key}/triage`}
               icon={<Ticket size={15} />}
               label="Triage"
-              badge={issues.filter((i) => i.teamId === team.id && i.triage).length}
+              badge={issues.filter((i) => i.teamId === team.id && i.triage && !i.archivedAt).length}
             />
             <Item
               to={`/team/${team.key}/active`}

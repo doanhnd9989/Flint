@@ -60,7 +60,10 @@ export function TeamOverviewView() {
 
   // Issues belonging to this team, excluding triage (matches Linear's "Issues").
   const issues = useMemo<Issue[]>(
-    () => (team ? data.issues.filter((i) => i.teamId === team.id && !i.triage) : []),
+    () =>
+      team
+        ? data.issues.filter((i) => i.teamId === team.id && !i.triage && !i.archivedAt)
+        : [],
     [data.issues, team],
   )
 

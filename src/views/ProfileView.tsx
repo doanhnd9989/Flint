@@ -158,8 +158,10 @@ export function ProfileView() {
   // ── work stats ─────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const meId = me?.id
-    const assigned: Issue[] = data.issues.filter((i) => !i.triage && i.assigneeId === meId)
-    const created = data.issues.filter((i) => i.creatorId === meId).length
+    const assigned: Issue[] = data.issues.filter(
+      (i) => !i.triage && !i.archivedAt && i.assigneeId === meId,
+    )
+    const created = data.issues.filter((i) => i.creatorId === meId && !i.archivedAt).length
     const completed = assigned.filter((i) => stateById.get(i.stateId)?.type === 'completed').length
     const rate = assigned.length > 0 ? Math.round((completed / assigned.length) * 100) : 0
     return { assigned: assigned.length, created, completed, rate }
@@ -169,7 +171,11 @@ export function ProfileView() {
   const byStatus = useMemo<Bar[]>(() => {
     const meId = me?.id
     const open = data.issues.filter(
-      (i) => !i.triage && i.assigneeId === meId && stateById.get(i.stateId)?.type !== 'completed',
+      (i) =>
+        !i.triage &&
+        !i.archivedAt &&
+        i.assigneeId === meId &&
+        stateById.get(i.stateId)?.type !== 'completed',
     )
     const order = [...data.states].sort((a, b) => a.position - b.position)
     return order

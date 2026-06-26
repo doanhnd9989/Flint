@@ -32,7 +32,7 @@ export function LabelView() {
   const groups = useMemo(() => {
     if (!label) return []
     const scoped = data.issues.filter(
-      (i) => !i.triage && i.labelIds.some((l) => labelIds.has(l)),
+      (i) => !i.triage && !i.archivedAt && i.labelIds.some((l) => labelIds.has(l)),
     )
     const sorted = sortIssues(scoped, 'priority', data)
     return groupIssues(sorted, 'status', data, false, data.preferences.displayNames)

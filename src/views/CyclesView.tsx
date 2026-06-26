@@ -48,7 +48,7 @@ export function CyclesView() {
 
   const groups = useMemo(() => {
     if (!current) return []
-    const scoped = data.issues.filter((i) => i.cycleId === current.id)
+    const scoped = data.issues.filter((i) => i.cycleId === current.id && !i.archivedAt)
     return groupIssues(sortIssues(scoped, 'priority', data), 'status', data)
   }, [data, current])
 

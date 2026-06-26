@@ -427,7 +427,7 @@ function ActivityFeed() {
             {open &&
               day.events.map((e) => {
                 const issue = data.issues.find((i) => i.id === e.issueId)
-                if (!issue) return null
+                if (!issue || issue.archivedAt) return null
                 const state = data.states.find((s) => s.id === issue.stateId)
                 return (
                   <button

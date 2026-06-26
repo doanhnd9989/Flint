@@ -504,6 +504,10 @@ export const useStore = create<Store>()(
           completedAt: undefined,
           canceledAt: undefined,
           triage: false,
+          // A duplicate is a fresh, active issue — never inherit the source's
+          // archived state or personal reminder.
+          archivedAt: undefined,
+          remindAt: undefined,
         }
         set({
           issues: [...s.issues, dupe],

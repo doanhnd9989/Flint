@@ -59,7 +59,7 @@ export function TeamsDirectoryView() {
     const m = new Map<string, TeamStats>()
     for (const t of teams) m.set(t.id, { total: 0, active: 0, projects: 0 })
     for (const i of issues as Issue[]) {
-      if (i.triage) continue
+      if (i.triage || i.archivedAt) continue
       const s = m.get(i.teamId)
       if (!s) continue
       s.total++

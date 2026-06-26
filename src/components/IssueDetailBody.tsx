@@ -109,7 +109,7 @@ export function IssueDetailBody({
   // Thread roots: top-level comments, plus replies whose parent was deleted.
   const commentIds = new Set(comments.map((c) => c.id))
   const threads = comments.filter((c) => !c.parentId || !commentIds.has(c.parentId))
-  const subIssues = store.issues.filter((i) => i.parentId === issue.id)
+  const subIssues = store.issues.filter((i) => i.parentId === issue.id && !i.archivedAt)
   const progress = subIssueProgress(issue.id, store.issues, store)
   const parent = issue.parentId
     ? store.issues.find((i) => i.id === issue.parentId)

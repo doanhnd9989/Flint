@@ -51,7 +51,7 @@ export function CustomerDetail() {
   const requests = useMemo(
     () =>
       data.issues
-        .filter((i) => i.customerIds?.includes(id ?? ''))
+        .filter((i) => i.customerIds?.includes(id ?? '') && !i.archivedAt)
         .sort((a, b) => a.priority - b.priority || b.createdAt.localeCompare(a.createdAt)),
     [data.issues, id],
   )
@@ -59,7 +59,7 @@ export function CustomerDetail() {
   // Candidate issues for "Add request": non-triage and not already linked.
   const addOptions: SelectOption[] = useMemo(() => {
     return data.issues
-      .filter((i) => !i.triage && !i.customerIds?.includes(id ?? ''))
+      .filter((i) => !i.triage && !i.archivedAt && !i.customerIds?.includes(id ?? ''))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map((i) => {
         const st = data.states.find((s) => s.id === i.stateId)

@@ -27,7 +27,7 @@ export function RecentView() {
     const byId = new Map(issues.map((i) => [i.id, i]))
     return recentIssueIds
       .map((id) => byId.get(id))
-      .filter((i): i is Issue => Boolean(i))
+      .filter((i): i is Issue => Boolean(i) && !i!.archivedAt)
   }, [recentIssueIds, issues])
 
   return (
