@@ -5,7 +5,7 @@ import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState, SearchIllustration } from '@/components/EmptyState'
-import { cn } from '@/lib/utils'
+import { cn, timeAgo } from '@/lib/utils'
 import type { User, UserRole, Team } from '@/lib/types'
 
 type RoleFilter = 'all' | UserRole
@@ -59,6 +59,8 @@ export function MembersDirectoryView() {
   const teams = useStore((s) => s.teams)
   const issues = useStore((s) => s.issues)
   const states = useStore((s) => s.states)
+  const activities = useStore((s) => s.activities)
+  const comments = useStore((s) => s.comments)
 
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
@@ -85,6 +87,20 @@ export function MembersDirectoryView() {
     }
     return m
   }, [issues, activeStateIds])
+
+  // userId → ISO of their most-recent footprint (activity, comment, or created
+  // issue). Approximates Linear's "Last active" — when we last saw them act.
+  const lastActiveByUser = useMemo(() => {
+    const m = new Map<string, string>()
+    const note = (userId: string, at: string) => {
+      const cur = m.get(userId)
+      if (!cur || at > cur) m.set(userId, at)
+    }
+    for (const a of activities) note(a.userId, a.createdAt)
+    for (const c of comments) note(c.userId, c.createdAt)
+    for (const i of issues) note(i.creatorId, i.createdAt)
+    return m
+  }, [activities, comments, issues])
 
   // userId → teams they belong to (memberIds includes them).
   const teamsByUser = useMemo(() => {
@@ -251,6 +267,7 @@ export function MembersDirectoryView() {
                 const userTeams = teamsByUser.get(u.id) ?? []
                 const c = counts.get(u.id) ?? { assigned: 0, active: 0 }
                 const count = c.assigned
+                const lastActive = lastActiveByUser.get(u.id)
                 const clickable = u.isMe && count > 0
                 return (
                   <div
@@ -298,6 +315,18 @@ export function MembersDirectoryView() {
                         )}
                       </div>
                     )}
+
+                    {/* Last active — most recent footprint, relative time */}
+                    <span
+                      title={
+                        lastActive
+                          ? `Last active ${timeAgo(lastActive)}`
+                          : 'No recent activity'
+                      }
+                      className="hidden w-20 shrink-0 text-right text-[12px] tabular-nums text-faint sm:block"
+                    >
+                      {lastActive ? timeAgo(lastActive) : '—'}
+                    </span>
 
                     <RoleChip role={u.role} />
 

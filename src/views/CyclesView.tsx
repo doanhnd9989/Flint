@@ -82,6 +82,32 @@ export function CyclesView() {
     ].filter((sec) => sec.rows.length > 0)
   }, [cycles, data, nowMs])
 
+  // Cycle health for the active cycle: "On track" vs "At risk". Risk fires
+  // when the remaining (non-completed) scope can't plausibly land in the days
+  // left — more open issues than days remaining — or any open issue is already
+  // past its due date. Upcoming/past/empty cycles surface no chip (null).
+  const health = useMemo<'on-track' | 'at-risk' | null>(() => {
+    if (!current) return null
+    const cs = cycleState(current.startsAt, current.endsAt, nowMs)
+    if (cs.status !== 'active') return null
+    const prog = cycleProgress(current.id, data.issues, data)
+    if (prog.total === 0) return null
+    const open = prog.total - prog.done
+    if (open === 0) return 'on-track'
+    const completed = new Set(
+      data.states.filter((s) => s.type === 'completed').map((s) => s.id),
+    )
+    const overdue = data.issues.some(
+      (i) =>
+        i.cycleId === current.id &&
+        !i.archivedAt &&
+        !completed.has(i.stateId) &&
+        i.dueDate != null &&
+        new Date(i.dueDate).getTime() < nowMs,
+    )
+    return overdue || open > cs.daysLeft ? 'at-risk' : 'on-track'
+  }, [data, current, nowMs])
+
   // Per-assignee workload within the cycle (scope / completed / in-progress),
   // sorted by scope so the heaviest-loaded members surface first — mirrors
   // Linear's cycle "workload by assignee" breakdown.
@@ -231,6 +257,27 @@ export function CyclesView() {
               >
                 {cs.status}
               </span>
+              {health && (
+                <span
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium',
+                    health === 'on-track'
+                      ? 'bg-[var(--c-green)]/15 text-[var(--c-green)]'
+                      : 'bg-[var(--c-orange)]/15 text-[var(--c-orange)]',
+                  )}
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{
+                      backgroundColor:
+                        health === 'on-track'
+                          ? 'var(--c-green)'
+                          : 'var(--c-orange)',
+                    }}
+                  />
+                  {health === 'on-track' ? 'On track' : 'At risk'}
+                </span>
+              )}
             </div>
             <div className="text-[12px] text-faint">
               {formatDate(current.startsAt)} – {formatDate(current.endsAt)}

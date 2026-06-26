@@ -153,17 +153,32 @@ export function TeamOverviewView() {
     return { rows, unassigned, max, totalActive, counts }
   }, [issues, members, stateById])
 
-  // Member roster — alphabetical, admins first (matches MembersDirectory order),
-  // each with their live active-issue count for an at-a-glance load read.
+  // Member activity — issues each member completed in the last 7 days, used to
+  // rank the roster by recent throughput (Linear surfaces a similar "activity"
+  // signal on team home). Derived only, no mutations.
+  const activity = useMemo(() => {
+    const since = Date.now() - 7 * 24 * 60 * 60 * 1000
+    const counts = new Map<string, number>()
+    for (const i of issues) {
+      if (!i.assigneeId || !i.completedAt) continue
+      if (new Date(i.completedAt).getTime() < since) continue
+      counts.set(i.assigneeId, (counts.get(i.assigneeId) ?? 0) + 1)
+    }
+    const max = members.reduce((m, u) => Math.max(m, counts.get(u.id) ?? 0), 0)
+    return { counts, max }
+  }, [issues, members])
+
+  // Member roster — sorted by last-7-days activity (desc), then alphabetical,
+  // each with their live active-issue count and recent completion count.
   const roster = useMemo(() => {
-    const rank: Record<UserRole, number> = { admin: 0, member: 1, guest: 2 }
     return [...members]
-      .map((u) => ({ user: u, active: workload.counts.get(u.id) ?? 0 }))
-      .sort(
-        (a, b) =>
-          rank[a.user.role] - rank[b.user.role] || a.user.name.localeCompare(b.user.name),
-      )
-  }, [members, workload.counts])
+      .map((u) => ({
+        user: u,
+        active: workload.counts.get(u.id) ?? 0,
+        done7d: activity.counts.get(u.id) ?? 0,
+      }))
+      .sort((a, b) => b.done7d - a.done7d || a.user.name.localeCompare(b.user.name))
+  }, [members, workload.counts, activity.counts])
 
   // Projects that include this team.
   const projects = useMemo(
@@ -358,28 +373,48 @@ export function TeamOverviewView() {
               )}
             </Card>
 
-            {/* Members — team roster with role + active load */}
+            {/* Members — roster ranked by last-7-days completion activity */}
             <Card
               title="Members"
-              subtitle={`${members.length}`}
+              subtitle="Activity · 7d"
               onClick={() => navigate('/members')}
             >
               {members.length === 0 ? (
                 <div className="py-2 text-[12px] text-muted">No members</div>
               ) : (
                 <div className="-mx-2 space-y-0.5">
-                  {roster.map(({ user, active }) => (
+                  {roster.map(({ user, active, done7d }) => (
                     <div
                       key={user.id}
                       className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
+                      title={`${active} active · ${done7d} completed in last 7 days`}
                     >
                       <Avatar user={user} size={20} />
                       <span className="flex-1 truncate text-[13px] text-fg">
                         {display(user.name)}
                       </span>
                       <RoleChip role={user.role} />
-                      <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-faint">
-                        {active} active
+                      {/* Last-7-days activity: 5-cell mini bar + count */}
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, idx) => {
+                          // Fill cells proportional to this member's share of the
+                          // busiest member's recent throughput.
+                          const filled =
+                            activity.max > 0 &&
+                            idx < Math.round((done7d / activity.max) * 5)
+                          return (
+                            <span
+                              key={idx}
+                              className={
+                                'h-3 w-1 rounded-sm ' +
+                                (filled ? 'bg-accent' : 'bg-bg-tertiary')
+                              }
+                            />
+                          )
+                        })}
+                      </div>
+                      <span className="w-4 shrink-0 text-right text-[11px] tabular-nums text-faint">
+                        {done7d}
                       </span>
                     </div>
                   ))}

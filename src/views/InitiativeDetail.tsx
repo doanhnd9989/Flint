@@ -17,7 +17,7 @@ import {
   PROJECT_STATUS_ORDER,
 } from '@/lib/constants'
 import type { InitiativeStatus, Project, ProjectStatus } from '@/lib/types'
-import { formatFullDate, cn } from '@/lib/utils'
+import { formatFullDate, timeAgo, cn } from '@/lib/utils'
 
 export function InitiativeDetail() {
   const { id } = useParams()
@@ -56,9 +56,13 @@ export function InitiativeDetail() {
 
   const owner = users.find((u) => u.id === initiative.ownerId)
   const prog = initiativeProgress(initiative.id, projects, issues, data)
-  const latestUpdate = initiativeUpdates
+  // Newest-first history of this initiative's updates. `latestUpdate` drives the
+  // header health badge; `recentUpdates` powers the Overview health timeline.
+  const initiativeHistory = initiativeUpdates
     .filter((u) => u.initiativeId === initiative.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  const latestUpdate = initiativeHistory[0]
+  const recentUpdates = initiativeHistory.slice(0, 5)
   const inProjects = projects
     .filter((p) => p.initiativeId === initiative.id)
     .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -388,6 +392,51 @@ export function InitiativeDetail() {
         ) : (
           <div className="overflow-hidden rounded-lg border border-border">
             {inProjects.map(renderProjectRow)}
+          </div>
+        )}
+
+        {/* Health history — a compact timeline of the most recent initiative
+            updates, mirroring Linear's "Recent updates" rail. Hidden entirely
+            when the initiative has no updates yet. */}
+        {recentUpdates.length > 0 && (
+          <div className="mt-8">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[13px] font-semibold text-fg">
+                Health history
+                <span className="ml-1.5 text-faint">{initiativeHistory.length}</span>
+              </h2>
+              {initiativeHistory.length > recentUpdates.length && (
+                <button
+                  type="button"
+                  onClick={() => setTab('updates')}
+                  className="rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover"
+                >
+                  View all
+                </button>
+              )}
+            </div>
+            <div className="overflow-hidden rounded-lg border border-border">
+              {recentUpdates.map((u) => {
+                const author = users.find((usr) => usr.id === u.userId)
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => setTab('updates')}
+                    className="flex w-full items-center gap-3 border-b border-border bg-bg-secondary px-4 py-2.5 text-left last:border-b-0 hover:bg-bg-hover"
+                  >
+                    <HealthBadge health={u.health} />
+                    <span className="min-w-0 flex-1 truncate text-[13px] text-muted">
+                      {u.body || 'No details'}
+                    </span>
+                    <Avatar user={author} size={18} />
+                    <span className="shrink-0 text-[11px] text-faint">
+                      {timeAgo(u.createdAt)}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
       </div>

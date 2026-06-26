@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { ArrowDownUp, Check, ChevronDown, X } from 'lucide-react'
+import { ArrowDownUp, Check, ChevronDown, IterationCw, X } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
+import { cycleState } from '@/lib/selectors'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CheckIllustration } from '@/components/EmptyState'
 import { StatusIcon } from '@/components/StatusIcon'
@@ -35,6 +36,19 @@ export function TriageView() {
   const store = useStore()
   const fmt = useDisplayName()
   const team = store.teams.find((t) => t.key === teamKey) ?? store.teams[0]
+
+  // The team's current + upcoming cycles, in number order — the options the
+  // per-card Cycle picker offers (past cycles aren't valid triage targets).
+  const teamCycles = useMemo(
+    () =>
+      store.cycles
+        .filter((c) => c.teamId === team.id)
+        .filter(
+          (c) => cycleState(c.startsAt, c.endsAt, Date.now()).status !== 'past',
+        )
+        .sort((a, b) => a.number - b.number),
+    [store.cycles, team.id],
+  )
 
   // Local-only header controls: a priority filter ('all' or a Priority value)
   // and a sort order. They compose — filter narrows, then sort orders.
@@ -289,6 +303,7 @@ export function TriageView() {
               const labels = issue.labelIds
                 .map((id) => store.labels.find((l) => l.id === id))
                 .filter(Boolean)
+              const cycle = store.cycles.find((c) => c.id === issue.cycleId)
               const active = i === cursor
               const isSelected = selected.has(issue.id)
               return (
@@ -403,6 +418,38 @@ export function TriageView() {
                         </span>
                       }
                     />
+                    {/* Cycle — only offered when the team runs cycles. Lists the
+                        team's current + upcoming cycles plus "No cycle". */}
+                    {teamCycles.length > 0 && (
+                      <SelectMenu
+                        width={220}
+                        options={[
+                          { id: '__none', label: 'No cycle', selected: !issue.cycleId },
+                          ...teamCycles.map((c) => {
+                            const cs = cycleState(c.startsAt, c.endsAt, Date.now())
+                            return {
+                              id: c.id,
+                              label: c.name ?? `Cycle ${c.number}`,
+                              keywords: String(c.number),
+                              hint: cs.status === 'active' ? 'Active' : 'Upcoming',
+                              selected: issue.cycleId === c.id,
+                            }
+                          }),
+                        ]}
+                        onSelect={(id) =>
+                          store.setIssueCycle(
+                            issue.id,
+                            id === '__none' ? undefined : id,
+                          )
+                        }
+                        trigger={
+                          <span className={chip}>
+                            <IterationCw size={13} className="text-faint" />
+                            {cycle ? (cycle.name ?? `Cycle ${cycle.number}`) : 'No cycle'}
+                          </span>
+                        }
+                      />
+                    )}
                   </div>
                 </div>
               )

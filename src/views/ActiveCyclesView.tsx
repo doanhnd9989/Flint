@@ -282,20 +282,26 @@ function TeamCycleCard({
 
   // Cycle velocity — Linear's rolling average of completed scope across this
   // team's recent finished cycles. Uses up to the last 6 past cycles so the
-  // figure reflects current pace rather than ancient history.
+  // figure reflects current pace rather than ancient history. We also keep the
+  // per-cycle completed-scope series (oldest → newest) to drive a sparkline.
   const velocity = useMemo(() => {
-    const past = cycles
+    const recent = cycles
       .filter(
         (c) => cycleState(c.startsAt, c.endsAt, nowMs).status === 'past',
       )
       .sort((a, b) => (b.endsAt ?? '').localeCompare(a.endsAt ?? ''))
       .slice(0, 6)
-    if (past.length === 0) return null
-    const totalDone = past.reduce(
-      (sum, c) => sum + cycleProgress(c.id, issues, data).done,
-      0,
-    )
-    return { avg: Math.round((totalDone / past.length) * 10) / 10, count: past.length }
+    if (recent.length === 0) return null
+    // Series in chronological order so the most recent cycle is the last bar.
+    const series = [...recent]
+      .reverse()
+      .map((c) => cycleProgress(c.id, issues, data).done)
+    const totalDone = series.reduce((sum, n) => sum + n, 0)
+    return {
+      avg: Math.round((totalDone / series.length) * 10) / 10,
+      count: series.length,
+      series,
+    }
   }, [cycles, issues, data, nowMs])
 
   return (
@@ -374,9 +380,10 @@ function TeamCycleCard({
               </span>
               {velocity && (
                 <span
-                  className="tabular-nums"
+                  className="flex items-center gap-1.5 tabular-nums"
                   title={`Average completed scope over the last ${velocity.count} ${velocity.count === 1 ? 'cycle' : 'cycles'}`}
                 >
+                  <VelocitySparkline series={velocity.series} />
                   Velocity{' '}
                   <span className="font-medium text-muted">
                     {velocity.avg}
@@ -546,6 +553,44 @@ function PastCycleCard({
         </div>
       </button>
     </div>
+  )
+}
+
+// Tiny inline bar sparkline of completed scope across recent finished cycles
+// (oldest → newest). Heights are proportional to the largest bar; the final,
+// most-recent cycle is highlighted with the accent token, the rest are muted.
+// ~60×16px, no axes — purely a glanceable trend next to the velocity figure.
+function VelocitySparkline({ series }: { series: number[] }) {
+  const w = 60
+  const h = 16
+  const max = Math.max(1, ...series)
+  const gap = 2
+  const barW = (w - gap * (series.length - 1)) / series.length
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      className="shrink-0"
+      aria-hidden="true"
+    >
+      {series.map((v, i) => {
+        // Floor a 2px minimum so even zero-completed cycles read as a tick.
+        const barH = Math.max(2, (v / max) * h)
+        const isLast = i === series.length - 1
+        return (
+          <rect
+            key={i}
+            x={i * (barW + gap)}
+            y={h - barH}
+            width={barW}
+            height={barH}
+            rx={1}
+            className={isLast ? 'fill-accent' : 'fill-faint/40'}
+          />
+        )
+      })}
+    </svg>
   )
 }
 

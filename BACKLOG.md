@@ -328,3 +328,12 @@ _Wave 1 (issues core + detail):_
 - [x] 🟢 **Board card blocked/blocking indicator** — `IssueBoard` cards show a red CircleSlash when blocked by others ("Blocked by N") or a muted slash when blocking ("Blocks N"), derived from `relations`.
 - [x] 🟢 **Peek keyboard legend** — `IssuePeek` footer shows kbd chips (Esc Close · ↵ Open · ↑↓ Navigate), matching Linear's peek.
 - [x] 🟡 **Projects compare mode** — `ProjectsView` Compare toggle swaps the list for a two-column side-by-side comparison (Status/Health/Lead/Progress/Scope/Dates/Teams/Members) with per-column project pickers; read-only derived.
+
+_Wave 2 (projects · cycles · initiatives · team):_
+- [x] 🟡 **Initiative health-history timeline** — `InitiativeDetail` Overview shows the 5 latest initiative updates (health badge + truncated body + author + relative time) with "View all" → Updates tab; hidden when none.
+- [x] 🟢 **Roadmap milestone markers** — `RoadmapView` bars render diamond ticks at each milestone's targetDate on the month axis (name+date tooltip) plus a "{n} milestones" hint by the project name.
+- [x] 🟡 **Cycle health chip** — `CyclesView` current-cycle header shows On track / At risk (at risk when open scope > days left or any open issue overdue); none for upcoming/past/empty.
+- [x] 🟢 **Cycle velocity sparkline** — `ActiveCyclesView` cards show a tiny SVG bar sparkline of completed scope across recent finished cycles, latest bar accent-highlighted.
+- [x] 🟡 **Triage cycle picker** — `TriageView` cards gain a Cycle chip (active+upcoming + "No cycle") wired to `setIssueCycle`; hidden when the team has no cycles.
+- [x] 🟢 **Team Overview member activity** — `TeamOverviewView` Members card sorts roster by last-7-days completions and shows a 5-cell mini bar + count per member.
+- [x] 🟢 **Members directory "Last active"** — `MembersDirectoryView` adds a Last-active column (max createdAt across activities/comments/created issues, as relative time).

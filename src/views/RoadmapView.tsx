@@ -61,6 +61,16 @@ export function RoadmapView() {
       return next
     })
 
+  // Milestones grouped by project, kept in sortOrder — rendered as small tick
+  // markers on each project bar at their targetDate (skipping undated ones).
+  const milestonesByProject = useMemo(() => {
+    const map: Record<string, typeof data.milestones> = {}
+    for (const m of [...data.milestones].sort((a, b) => a.sortOrder - b.sortOrder)) {
+      ;(map[m.projectId] ??= []).push(m)
+    }
+    return map
+  }, [data.milestones])
+
   // Latest health update per project (most recent wins) — shown as a bar dot and
   // used nowhere else; mirrors how ProjectsView derives current health.
   const healthById = useMemo(() => {
@@ -419,6 +429,9 @@ export function RoadmapView() {
                       const width = Math.max(56, dayOffset(target) - dayOffset(start))
                       const prog = projectProgress(p.id, data.issues, data)
                       const health = healthById[p.id]
+                      const projectMilestones = milestonesByProject[p.id] ?? []
+                      // Only dated milestones can be placed on the time axis.
+                      const datedMilestones = projectMilestones.filter((m) => m.targetDate)
                       return (
                         <div
                           key={p.id}
@@ -431,6 +444,12 @@ export function RoadmapView() {
                           >
                             <span>{p.icon}</span>
                             <span className="truncate text-[13px] text-fg">{p.name}</span>
+                            {projectMilestones.length > 0 && (
+                              <span className="shrink-0 text-[10px] tabular-nums text-faint">
+                                {projectMilestones.length} milestone
+                                {projectMilestones.length === 1 ? '' : 's'}
+                              </span>
+                            )}
                             {health && (
                               <span
                                 className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full"
@@ -463,6 +482,20 @@ export function RoadmapView() {
                                 {p.name} · {prog.percent}%
                               </span>
                             </button>
+                            {/* Milestone markers — a thin diamond on the bar axis at
+                                each dated milestone's targetDate, with a name tooltip. */}
+                            {datedMilestones.map((m) => {
+                              const ml = dayOffset(new Date(m.targetDate as string))
+                              if (ml < 0 || ml > totalWidth) return null
+                              return (
+                                <span
+                                  key={m.id}
+                                  className="pointer-events-auto absolute top-1/2 z-[1] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[1px] border bg-bg"
+                                  style={{ left: ml, borderColor: p.color }}
+                                  title={`${m.name} · ${format(new Date(m.targetDate as string), 'MMM d, yyyy')}`}
+                                />
+                              )
+                            })}
                           </div>
                         </div>
                       )
