@@ -471,6 +471,7 @@ export function CustomersView() {
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => navigate(`/customer/${c.id}`)}
                     className="flex min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left"
                   >

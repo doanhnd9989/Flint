@@ -390,7 +390,7 @@ export function CustomerDetail() {
                   <span className="absolute left-[9px] top-1 bottom-1 w-px bg-border" aria-hidden />
                 )}
                 {visibleActivity.length === 0 ? (
-                  <div className="py-6 text-[13px] text-faint">No {actFilter} activity.</div>
+                  <div className="py-6 text-[13px] text-faint">No{actFilter === 'all' ? '' : ` ${actFilter}`} activity.</div>
                 ) : (
                 <ul className="space-y-3">
                   {visibleActivity.map((ev) => {
