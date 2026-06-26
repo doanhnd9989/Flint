@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Trash2 } from 'lucide-react'
+import { X, Trash2, Archive } from 'lucide-react'
 import { useStoreShallow, useDisplayName } from '@/lib/store'
 import { SelectMenu, type SelectOption } from './ui/SelectMenu'
 import { StatusIcon } from './StatusIcon'
@@ -17,7 +17,7 @@ const btn =
 export function BulkActionBar() {
   const {
     selectedIssueIds, states, users, labels,
-    clearSelection, bulkSetStatus, bulkSetPriority, bulkSetAssignee, bulkAddLabel, bulkDelete,
+    clearSelection, bulkSetStatus, bulkSetPriority, bulkSetAssignee, bulkAddLabel, bulkArchive, bulkDelete,
   } = useStoreShallow((s) => ({
     selectedIssueIds: s.selectedIssueIds,
     states: s.states,
@@ -28,6 +28,7 @@ export function BulkActionBar() {
     bulkSetPriority: s.bulkSetPriority,
     bulkSetAssignee: s.bulkSetAssignee,
     bulkAddLabel: s.bulkAddLabel,
+    bulkArchive: s.bulkArchive,
     bulkDelete: s.bulkDelete,
   }))
 
@@ -102,6 +103,10 @@ export function BulkActionBar() {
           placeholder="Add label…"
           trigger={<span className={btn}><LabelDot color="var(--text-tertiary)" /> Label</span>}
         />
+
+        <button onClick={() => bulkArchive(ids)} className={btn} title="Archive selected">
+          <Archive size={14} /> Archive
+        </button>
 
         <button
           onClick={() => {

@@ -334,6 +334,7 @@ export interface Store extends WorkspaceData, UIState {
   bulkSetPriority: (ids: string[], priority: Priority) => void
   bulkSetAssignee: (ids: string[], assigneeId?: string) => void
   bulkAddLabel: (ids: string[], labelId: string) => void
+  bulkArchive: (ids: string[]) => void
   bulkDelete: (ids: string[]) => void
 
   // ── context menu ─────────────────────────────────────────────
@@ -1687,6 +1688,19 @@ export const useStore = create<Store>()(
             ),
           }
         }),
+      bulkArchive: (ids) =>
+        set((s) => {
+          const set_ = new Set(ids)
+          const ts = nowIso()
+          return {
+            issues: s.issues.map((i) =>
+              set_.has(i.id) ? { ...i, archivedAt: ts, updatedAt: ts } : i,
+            ),
+            selectedIssueIds: [],
+            peekIssueId: s.peekIssueId && set_.has(s.peekIssueId) ? null : s.peekIssueId,
+          }
+        }),
+
       bulkDelete: (ids) =>
         set((s) => {
           const set_ = new Set(ids)

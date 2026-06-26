@@ -308,6 +308,15 @@ export function IssueOptionsMenu({
                   store.openMoveIssue(issue.id)
                 }}
               />
+              <Row
+                icon={<CopyPlus size={14} />}
+                label="Duplicate"
+                onClick={() => {
+                  const dupe = store.duplicateIssue(issue.id)
+                  close()
+                  if (dupe) onOpenIssue(dupe.identifier)
+                }}
+              />
 
               <div className="my-1 h-px bg-border" />
 

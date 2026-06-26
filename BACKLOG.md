@@ -205,3 +205,8 @@ New nav/lifecycle surfaces, issue-detail & board enhancements, settings pages, r
 - [x] 🔴 **Board group-by** — the kanban board now honors the Display "Columns" grouping (Status / Assignee / Priority / Project), with drag-to-set-the-grouped-property; label-grouping falls back to status (multi-label would dup DnD ids). Wired into IssuesView / AllIssuesView / MyIssues / SavedViewScreen.
 - [x] 🟡 **Activity feed filter** — All / Comments / Updates segmented control on the issue activity feed.
 - [x] 🟡 **Project resources** — a "Resources" section on the project Overview: add/remove external links (Figma/docs/specs), stored on `Project.resources` via `updateProject`.
+
+**Wave 5 — issue lifecycle actions:**
+- [x] 🟡 **Bulk archive** — an Archive action in the floating bulk-action bar (`bulkArchive`).
+- [x] 🟢 **Duplicate issue** (⋯ menu) — wires the existing `duplicateIssue` into the issue options header menu, opening the copy.
+- [x] 🟢 **Archive from right-click** — Archive / Restore row in the issue context menu.
