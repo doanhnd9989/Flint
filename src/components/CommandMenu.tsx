@@ -565,7 +565,7 @@ export function CommandMenu() {
                     id: 'ctx-milestone',
                     label: 'Set milestone…',
                     icon: <Diamond size={15} />,
-                    hint: 'M',
+                    hint: '⇧ M',
                     keywords: 'milestone set project',
                     goPage: 'milestone' as Page,
                   },

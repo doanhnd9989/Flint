@@ -188,14 +188,17 @@ export function useShortcuts() {
               return
             }
             // Row property hotkeys — open the command menu at that sub-page
-            // (Linear: s status, p priority, a assignee, l label).
+            // (Linear: s status, p priority, a assignee, l label, e estimate).
+            // Shifted variants (⇧P project, ⇧C cycle, ⇧M milestone) fall through
+            // to the switch below so they don't collide with these plain keys.
             const propPage: Record<string, string> = {
               s: 'status',
               p: 'priority',
               a: 'assignee',
               l: 'label',
+              e: 'estimate',
             }
-            if (propPage[key]) {
+            if (!e.shiftKey && propPage[key]) {
               e.preventDefault()
               store.openIssuePropertyMenu(focused.id, propPage[key])
               return
@@ -234,7 +237,8 @@ export function useShortcuts() {
       }
 
       // `M` starts a relation chord, but only when an issue is in context.
-      if (key === 'm' && !overlayOpen && currentIssue(store)) {
+      // (⇧M is the milestone chord, handled in the switch below — exclude it.)
+      if (key === 'm' && !e.shiftKey && !overlayOpen && currentIssue(store)) {
         pendingM.current = true
         window.clearTimeout(mTimer.current)
         mTimer.current = window.setTimeout(() => (pendingM.current = false), 1200)
@@ -248,10 +252,47 @@ export function useShortcuts() {
         return
       }
       switch (key) {
-        case 'c':
+        case 'c': {
+          // ⇧C moves the current issue to a cycle; plain C opens the create modal.
+          if (e.shiftKey) {
+            if (overlayOpen) break
+            const cur = currentIssue(store)
+            if (!cur) break
+            e.preventDefault()
+            store.openIssuePropertyMenu(cur.id, 'cycle')
+            break
+          }
           e.preventDefault()
           store.setCreateOpen(true)
           break
+        }
+        // ⇧P — add the current issue to a project (Linear's project chord).
+        case 'p': {
+          if (!e.shiftKey || overlayOpen) break
+          const cur = currentIssue(store)
+          if (!cur) break
+          e.preventDefault()
+          store.openIssuePropertyMenu(cur.id, 'project')
+          break
+        }
+        // ⇧M — set the current issue's milestone.
+        case 'm': {
+          if (!e.shiftKey || overlayOpen) break
+          const cur = currentIssue(store)
+          if (!cur) break
+          e.preventDefault()
+          store.openIssuePropertyMenu(cur.id, 'milestone')
+          break
+        }
+        // `E` — set the current issue's estimate (peek/detail; rows use propPage).
+        case 'e': {
+          if (e.shiftKey || overlayOpen) break
+          const cur = currentIssue(store)
+          if (!cur) break
+          e.preventDefault()
+          store.openIssuePropertyMenu(cur.id, 'estimate')
+          break
+        }
         // `i` — assign the current issue to me (Linear's quick self-assign).
         case 'i': {
           if (overlayOpen) break
