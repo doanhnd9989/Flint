@@ -34,10 +34,11 @@ const HEALTH_FILTER_ORDER: ProjectHealth[] = ['on-track', 'at-risk', 'off-track'
 
 export function ProjectsView() {
   const navigate = useNavigate()
-  const { projects, issues, users } = useStoreShallow((s) => ({
+  const { projects, issues, users, initiatives } = useStoreShallow((s) => ({
     projects: s.projects,
     issues: s.issues,
     users: s.users,
+    initiatives: s.initiatives,
     projectUpdates: s.projectUpdates,
   }))
   const data = useStore()
@@ -56,6 +57,7 @@ export function ProjectsView() {
   const [fStatus, setFStatus] = useState<Set<string>>(new Set())
   const [fHealth, setFHealth] = useState<Set<string>>(new Set())
   const [fLead, setFLead] = useState<Set<string>>(new Set())
+  const [fInitiative, setFInitiative] = useState<Set<string>>(new Set())
 
   /** Latest health update per project (most recent wins). */
   const healthById = useMemo(() => {
@@ -69,14 +71,17 @@ export function ProjectsView() {
   }, [data.projectUpdates])
 
   const filtered = useMemo(() => {
-    if (!fStatus.size && !fHealth.size && !fLead.size) return projects
+    if (!fStatus.size && !fHealth.size && !fLead.size && !fInitiative.size)
+      return projects
     return projects.filter((p) => {
       if (fStatus.size && !fStatus.has(p.status)) return false
       if (fHealth.size && !fHealth.has(healthById[p.id] ?? '__none')) return false
       if (fLead.size && !fLead.has(p.leadId ?? '__none')) return false
+      if (fInitiative.size && !fInitiative.has(p.initiativeId ?? '__none'))
+        return false
       return true
     })
-  }, [projects, fStatus, fHealth, fLead, healthById])
+  }, [projects, fStatus, fHealth, fLead, fInitiative, healthById])
 
   const sorted = useMemo(() => {
     const arr = [...filtered]
@@ -164,12 +169,25 @@ export function ProjectsView() {
     }))
   }, [projects, users, fmt])
 
-  const filterCount = fStatus.size + fHealth.size + fLead.size
+  // Initiatives that actually own a project — the only useful facet options.
+  const initiativeOptions = useMemo(() => {
+    const ids = new Set(projects.map((p) => p.initiativeId ?? '__none'))
+    const opts: { id: string; label: string; icon?: React.ReactNode }[] =
+      initiatives
+        .filter((i) => ids.has(i.id))
+        .map((i) => ({ id: i.id, label: i.name, icon: <span>{i.icon}</span> }))
+    if (ids.has('__none')) opts.push({ id: '__none', label: 'No initiative' })
+    return opts
+  }, [projects, initiatives])
+
+  const filterCount =
+    fStatus.size + fHealth.size + fLead.size + fInitiative.size
 
   function clearFilters() {
     setFStatus(new Set())
     setFHealth(new Set())
     setFLead(new Set())
+    setFInitiative(new Set())
   }
 
   /** A removable chip for one active facet value, shown in the filter bar. */
@@ -291,6 +309,15 @@ export function ProjectsView() {
                     selected={fLead}
                     onToggle={(v) => toggle(setFLead, v)}
                   />
+                  {initiativeOptions.length > 0 && (
+                    <div className="border-t border-border" />
+                  )}
+                  <FilterSection
+                    title="Initiative"
+                    options={initiativeOptions}
+                    selected={fInitiative}
+                    onToggle={(v) => toggle(setFInitiative, v)}
+                  />
                 </div>
               )}
             </Popover>
@@ -334,6 +361,15 @@ export function ProjectsView() {
                 leadOptions.find((o) => o.id === l)?.label ?? 'Lead'
               }
               onRemove={() => toggle(setFLead, l)}
+            />
+          ))}
+          {[...fInitiative].map((i) => (
+            <FilterPill
+              key={`i-${i}`}
+              label={
+                initiativeOptions.find((o) => o.id === i)?.label ?? 'Initiative'
+              }
+              onRemove={() => toggle(setFInitiative, i)}
             />
           ))}
           <button

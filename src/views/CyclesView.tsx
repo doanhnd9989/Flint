@@ -53,6 +53,35 @@ export function CyclesView() {
     return groupIssues(sortIssues(scoped, 'priority', data), 'status', data)
   }, [data, current])
 
+  // Cycle directory: every cycle for this team partitioned into Active /
+  // Upcoming / Completed sections, each carrying its own progress so the rail
+  // mirrors Linear's left-hand cycle list. Active first, then upcoming
+  // (soonest first), then past (most recent first).
+  const directory = useMemo(() => {
+    const rows = cycles.map((c) => ({
+      cycle: c,
+      status: cycleState(c.startsAt, c.endsAt, nowMs).status,
+      prog: cycleProgress(c.id, data.issues, data),
+    }))
+    const pick = (s: 'active' | 'upcoming' | 'past') =>
+      rows.filter((r) => r.status === s)
+    return [
+      { key: 'active' as const, label: 'Active', rows: pick('active') },
+      {
+        key: 'upcoming' as const,
+        label: 'Upcoming',
+        rows: pick('upcoming').sort(
+          (a, b) => a.cycle.number - b.cycle.number,
+        ),
+      },
+      {
+        key: 'past' as const,
+        label: 'Completed',
+        rows: pick('past').sort((a, b) => b.cycle.number - a.cycle.number),
+      },
+    ].filter((sec) => sec.rows.length > 0)
+  }, [cycles, data, nowMs])
+
   // Per-assignee workload within the cycle (scope / completed / in-progress),
   // sorted by scope so the heaviest-loaded members surface first — mirrors
   // Linear's cycle "workload by assignee" breakdown.
@@ -110,6 +139,75 @@ export function CyclesView() {
     <div className="flex h-full flex-col">
       <ViewHeader title="Cycles" teamName={team.name} teamIcon={team.icon} />
 
+      <div className="flex min-h-0 flex-1">
+        {/* Cycle directory rail — all cycles grouped by lifecycle */}
+        <aside className="w-60 shrink-0 overflow-y-auto border-r border-border py-2">
+          {directory.map((sec) => (
+            <div key={sec.key} className="mb-2">
+              <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-faint">
+                {sec.label}
+              </div>
+              {sec.rows.map(({ cycle, status, prog }) => {
+                const remaining = Math.max(0, prog.total - prog.done - prog.started)
+                const selected = cycle.id === current.id
+                return (
+                  <button
+                    key={cycle.id}
+                    onClick={() => setSelectedId(cycle.id)}
+                    className={cn(
+                      'flex w-full flex-col gap-1.5 px-3 py-2 text-left hover:bg-bg-hover',
+                      selected && 'bg-secondary',
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          'truncate text-[13px]',
+                          selected
+                            ? 'font-medium text-fg'
+                            : status === 'past'
+                              ? 'text-faint'
+                              : 'text-fg',
+                        )}
+                      >
+                        Cycle {cycle.number}
+                      </span>
+                      <span className="ml-auto shrink-0 text-[11px] tabular-nums text-faint">
+                        {prog.percent}%
+                      </span>
+                    </div>
+                    <div className="flex h-1 w-full overflow-hidden rounded-full bg-bg-tertiary">
+                      <div
+                        className="h-full bg-accent"
+                        style={{
+                          width: `${prog.total ? (prog.done / prog.total) * 100 : 0}%`,
+                        }}
+                      />
+                      <div
+                        className="h-full bg-[var(--status-started)]"
+                        style={{
+                          width: `${prog.total ? (prog.started / prog.total) * 100 : 0}%`,
+                        }}
+                      />
+                      <div
+                        className="h-full"
+                        style={{
+                          width: `${prog.total ? (remaining / prog.total) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="text-[11px] text-faint">
+                      {formatDate(cycle.startsAt)} – {formatDate(cycle.endsAt)}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+        </aside>
+
+        {/* Selected-cycle detail */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* Cycle selector + summary */}
       <div className="border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
@@ -227,7 +325,9 @@ export function CyclesView() {
         )}
       </div>
 
-      <GroupedIssueList groups={groups} groupBy="status" />
+          <GroupedIssueList groups={groups} groupBy="status" />
+        </div>
+      </div>
     </div>
   )
 }

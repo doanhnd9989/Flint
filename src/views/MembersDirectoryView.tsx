@@ -111,6 +111,18 @@ export function MembersDirectoryView() {
     return { total: users.length, admins, guests, pending }
   }, [users])
 
+  // Per-role tallies for the filter pills (All shows the full roster size).
+  const roleCounts = useMemo(() => {
+    const m: Record<RoleFilter, number> = {
+      all: users.length,
+      admin: 0,
+      member: 0,
+      guest: 0,
+    }
+    for (const u of users) m[u.role]++
+    return m
+  }, [users])
+
   // Filter by search + role, then sort by the chosen key. Name (default) keeps
   // Linear's me-first → admins → alpha ordering; count sorts go descending.
   const filtered = useMemo(() => {
@@ -179,21 +191,33 @@ export function MembersDirectoryView() {
               />
             </div>
             <div className="flex items-center gap-0.5 rounded-md bg-bg-secondary p-0.5">
-              {ROLE_FILTERS.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => setRoleFilter(r.id)}
-                  className={cn(
-                    'rounded px-2.5 py-1 text-[12px]',
-                    roleFilter === r.id
-                      ? 'bg-bg-elevated font-medium text-fg shadow-sm'
-                      : 'text-muted hover:text-fg',
-                  )}
-                >
-                  {r.label}
-                </button>
-              ))}
+              {ROLE_FILTERS.map((r) => {
+                const active = roleFilter === r.id
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setRoleFilter(r.id)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded px-2.5 py-1 text-[12px]',
+                      active
+                        ? 'bg-bg-elevated font-medium text-fg shadow-sm'
+                        : 'text-muted hover:text-fg',
+                    )}
+                  >
+                    {r.label}
+                    {/* Per-role count badge */}
+                    <span
+                      className={cn(
+                        'tabular-nums text-[11px]',
+                        active ? 'text-muted' : 'text-faint',
+                      )}
+                    >
+                      {roleCounts[r.id]}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
             {/* Sort dropdown */}
             <div className="flex items-center gap-1.5 rounded-md border border-border bg-bg px-2 py-1.5">

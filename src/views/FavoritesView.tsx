@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CircleDot, LayersIcon, Search, Star } from 'lucide-react'
+import { CircleDot, LayersIcon, List, Rows3, Search, Star } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { cn } from '@/lib/utils'
@@ -83,6 +83,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 /** The type-filter segments — "all" plus each favorite kind. */
 type FilterType = 'all' | FavoriteType
 
+/** Display layout — grouped type sections vs. one flat alphabetical list. */
+type LayoutMode = 'grouped' | 'list'
+
 /**
  * Favorites — every starred issue, project, and saved view, grouped by type.
  * Each favorite resolves to its underlying entity; dangling references (whose
@@ -104,6 +107,8 @@ export function FavoritesView() {
   // (title/name substring). They compose with AND.
   const [typeFilter, setTypeFilter] = useState<FilterType>('all')
   const [query, setQuery] = useState('')
+  // Display layout: grouped type sections (default) or a single flat list.
+  const [layout, setLayout] = useState<LayoutMode>('grouped')
 
   // Resolve every favorite to a display Row, grouped by type. Dangling
   // references (entity deleted) are skipped. This is the unfiltered pool, used
@@ -175,6 +180,14 @@ export function FavoritesView() {
   const shownTotal =
     shownIssues.length + shownProjects.length + shownViews.length
 
+  // Flat-list layout: merge the shown rows into one list, sorted A→Z by label
+  // (case-insensitive) so the single column reads like Linear's list display.
+  const flatRows = useMemo(() => {
+    return [...shownIssues, ...shownProjects, ...shownViews].sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
+    )
+  }, [shownIssues, shownProjects, shownViews])
+
   // The segmented pill row — label + live count per type.
   const segments: { id: FilterType; label: string; count: number }[] = [
     { id: 'all', label: 'All', count: total },
@@ -220,6 +233,35 @@ export function FavoritesView() {
                 className="w-40 bg-transparent text-[12px] text-fg outline-none placeholder:text-faint"
               />
             </div>
+            {/* Display toggle — grouped type sections vs. one flat list. */}
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-bg-tertiary p-0.5">
+              <button
+                type="button"
+                title="Group by type"
+                onClick={() => setLayout('grouped')}
+                className={cn(
+                  'flex h-6 w-6 items-center justify-center rounded transition-colors',
+                  layout === 'grouped'
+                    ? 'bg-bg-selected text-fg'
+                    : 'text-muted hover:text-fg',
+                )}
+              >
+                <Rows3 size={14} />
+              </button>
+              <button
+                type="button"
+                title="Flat list"
+                onClick={() => setLayout('list')}
+                className={cn(
+                  'flex h-6 w-6 items-center justify-center rounded transition-colors',
+                  layout === 'list'
+                    ? 'bg-bg-selected text-fg'
+                    : 'text-muted hover:text-fg',
+                )}
+              >
+                <List size={14} />
+              </button>
+            </div>
           </div>
         )}
       </ViewHeader>
@@ -239,26 +281,36 @@ export function FavoritesView() {
           />
         ) : (
           <div className="mx-auto max-w-2xl px-4 py-6">
-            {shownIssues.length > 0 && (
-              <Section title="Issues">
-                {shownIssues.map((r) => (
+            {layout === 'list' ? (
+              <div className="space-y-px">
+                {flatRows.map((r) => (
                   <FavoriteRow key={r.key} row={r} />
                 ))}
-              </Section>
-            )}
-            {shownProjects.length > 0 && (
-              <Section title="Projects">
-                {shownProjects.map((r) => (
-                  <FavoriteRow key={r.key} row={r} />
-                ))}
-              </Section>
-            )}
-            {shownViews.length > 0 && (
-              <Section title="Views">
-                {shownViews.map((r) => (
-                  <FavoriteRow key={r.key} row={r} />
-                ))}
-              </Section>
+              </div>
+            ) : (
+              <>
+                {shownIssues.length > 0 && (
+                  <Section title="Issues">
+                    {shownIssues.map((r) => (
+                      <FavoriteRow key={r.key} row={r} />
+                    ))}
+                  </Section>
+                )}
+                {shownProjects.length > 0 && (
+                  <Section title="Projects">
+                    {shownProjects.map((r) => (
+                      <FavoriteRow key={r.key} row={r} />
+                    ))}
+                  </Section>
+                )}
+                {shownViews.length > 0 && (
+                  <Section title="Views">
+                    {shownViews.map((r) => (
+                      <FavoriteRow key={r.key} row={r} />
+                    ))}
+                  </Section>
+                )}
+              </>
             )}
           </div>
         )}

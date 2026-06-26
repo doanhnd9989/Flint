@@ -306,3 +306,14 @@ surface, plus one new data feature (project dependencies), then 4 bug fixes.
 - [x] 🟡 **Saved view inline rename** — double-click name or pencil action edits in place via updateView (Enter/blur saves, Esc cancels).
 - [x] 🟡 **Document word count / reading time** — header indicator from the body Markdown (strips fences/code/links), ~200 wpm reading-time estimate.
 - [x] 🟡 **Label stats header** — Total / Open / Completed counts + a label-coloured completion bar on the single-label page.
+
+## Loop #91 — wave 4 (directory views)
+
+- [x] 🟡 **Member role-pill counts** — per-role count badges (All / Admin / Member / Guest) on the members-directory filter pills.
+- [x] 🟡 **Changelog month dividers** — shipped-release entries grouped under month section headers ("June 2026") on the timeline rail.
+- [x] 🟡 **Cycles directory rail** — left rail listing every team cycle under Active / Upcoming / Completed, each with date range + stacked progress mini-bar + completion %; click selects.
+- [x] 🟡 **Collapsible label groups** — Labels directory group headers are now collapse/expand toggles (chevron); active search force-expands.
+- [x] 🟡 **Teams directory grid layout** — list/grid toggle; team cards show icon/key, member avatars, member + issue/active/project counts.
+- [x] 🟡 **Cycle velocity** — each active-cycle card shows velocity (rolling avg completed scope over the team's last 6 finished cycles).
+- [x] 🟡 **Favorites grouped/flat toggle** — switch between type-grouped sections and a flat alphabetical list.
+- [x] 🟡 **Projects initiative filter** — an Initiative facet in the Projects filter popover (owning initiatives + "No initiative") with removable pills, AND-composed.

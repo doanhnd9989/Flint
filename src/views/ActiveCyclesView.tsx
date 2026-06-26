@@ -174,10 +174,11 @@ export function ActiveCyclesView() {
                   description="No cycles match the selected team."
                 />
               ) : (
-                visibleRows.map(({ team, active, upcoming }) => (
+                visibleRows.map(({ team, cycles, active, upcoming }) => (
                   <TeamCycleCard
                     key={team.id}
                     team={team}
+                    cycles={cycles}
                     active={active}
                     upcoming={upcoming}
                     nowMs={nowMs}
@@ -252,6 +253,7 @@ function assigneeBreakdown(
 
 function TeamCycleCard({
   team,
+  cycles,
   active,
   upcoming,
   nowMs,
@@ -260,6 +262,7 @@ function TeamCycleCard({
   onOpen,
 }: {
   team: Team
+  cycles: Cycle[]
   active?: Cycle
   upcoming?: Cycle
   nowMs: number
@@ -276,6 +279,24 @@ function TeamCycleCard({
     () => (active ? assigneeBreakdown(active.id, issues, data) : []),
     [active, issues, data],
   )
+
+  // Cycle velocity — Linear's rolling average of completed scope across this
+  // team's recent finished cycles. Uses up to the last 6 past cycles so the
+  // figure reflects current pace rather than ancient history.
+  const velocity = useMemo(() => {
+    const past = cycles
+      .filter(
+        (c) => cycleState(c.startsAt, c.endsAt, nowMs).status === 'past',
+      )
+      .sort((a, b) => (b.endsAt ?? '').localeCompare(a.endsAt ?? ''))
+      .slice(0, 6)
+    if (past.length === 0) return null
+    const totalDone = past.reduce(
+      (sum, c) => sum + cycleProgress(c.id, issues, data).done,
+      0,
+    )
+    return { avg: Math.round((totalDone / past.length) * 10) / 10, count: past.length }
+  }, [cycles, issues, data, nowMs])
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-bg">
@@ -347,8 +368,22 @@ function TeamCycleCard({
               />
             </div>
 
-            <div className="mt-2 text-[11px] text-faint">
-              {prog.total} {prog.total === 1 ? 'issue' : 'issues'} in this cycle
+            <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-faint">
+              <span>
+                {prog.total} {prog.total === 1 ? 'issue' : 'issues'} in this cycle
+              </span>
+              {velocity && (
+                <span
+                  className="tabular-nums"
+                  title={`Average completed scope over the last ${velocity.count} ${velocity.count === 1 ? 'cycle' : 'cycles'}`}
+                >
+                  Velocity{' '}
+                  <span className="font-medium text-muted">
+                    {velocity.avg}
+                  </span>{' '}
+                  issues/cycle
+                </span>
+              )}
             </div>
           </>
         ) : (

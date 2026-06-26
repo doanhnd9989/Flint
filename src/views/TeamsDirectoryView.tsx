@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, RefreshCw, Lock, Search, ArrowDownUp } from 'lucide-react'
+import {
+  ChevronRight,
+  RefreshCw,
+  Lock,
+  Search,
+  ArrowDownUp,
+  LayoutGrid,
+  List,
+} from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
@@ -10,6 +18,9 @@ import type { Issue, Team, User, WorkflowState } from '@/lib/types'
 
 /** Sort modes for the teams directory, mirroring Linear's team list. */
 type SortKey = 'name' | 'members' | 'issues' | 'active'
+
+/** Layout modes — Linear lets you flip the team directory between list & grid. */
+type Layout = 'list' | 'grid'
 
 const SORT_OPTIONS: { id: SortKey; label: string }[] = [
   { id: 'name', label: 'Name A→Z' },
@@ -58,9 +69,10 @@ export function TeamsDirectoryView() {
   const states = useStore((s) => s.states)
   const projects = useStore((s) => s.projects)
 
-  // Local-only filter + sort state for the directory header.
+  // Local-only filter + sort + layout state for the directory header.
   const [query, setQuery] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('name')
+  const [layout, setLayout] = useState<Layout>('list')
 
   // stateId → status type, for classifying issues.
   const stateType = useMemo(() => {
@@ -174,76 +186,253 @@ export function TeamsDirectoryView() {
                 className="w-44 bg-transparent text-[13px] text-fg placeholder:text-faint outline-none"
               />
             </div>
-            <SelectMenu
-              align="end"
-              width={200}
-              options={SORT_OPTIONS.map((o) => ({
-                id: o.id,
-                label: o.label,
-                selected: o.id === sortKey,
-              }))}
-              onSelect={(id) => setSortKey(id as SortKey)}
-              trigger={
-                <span className="flex items-center gap-1.5 rounded-md bg-bg-secondary px-2 py-1.5 text-[13px] text-muted hover:text-fg">
-                  <ArrowDownUp size={13} className="text-faint" />
-                  {SORT_OPTIONS.find((o) => o.id === sortKey)?.label}
-                </span>
-              }
-            />
+            <div className="flex items-center gap-2">
+              <SelectMenu
+                align="end"
+                width={200}
+                options={SORT_OPTIONS.map((o) => ({
+                  id: o.id,
+                  label: o.label,
+                  selected: o.id === sortKey,
+                }))}
+                onSelect={(id) => setSortKey(id as SortKey)}
+                trigger={
+                  <span className="flex items-center gap-1.5 rounded-md bg-bg-secondary px-2 py-1.5 text-[13px] text-muted hover:text-fg">
+                    <ArrowDownUp size={13} className="text-faint" />
+                    {SORT_OPTIONS.find((o) => o.id === sortKey)?.label}
+                  </span>
+                }
+              />
+              {/* List / grid layout toggle */}
+              <div className="flex items-center rounded-md bg-bg-secondary p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setLayout('list')}
+                  title="List layout"
+                  aria-pressed={layout === 'list'}
+                  className={cn(
+                    'flex size-6 items-center justify-center rounded transition-colors',
+                    layout === 'list'
+                      ? 'bg-bg text-fg shadow-sm'
+                      : 'text-faint hover:text-fg',
+                  )}
+                >
+                  <List size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayout('grid')}
+                  title="Grid layout"
+                  aria-pressed={layout === 'grid'}
+                  className={cn(
+                    'flex size-6 items-center justify-center rounded transition-colors',
+                    layout === 'grid'
+                      ? 'bg-bg text-fg shadow-sm'
+                      : 'text-faint hover:text-fg',
+                  )}
+                >
+                  <LayoutGrid size={13} />
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* List */}
-          <div className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
-            {sorted.length === 0 && (
-              <div className="bg-bg px-3 py-8 text-center text-[13px] text-faint">
-                No teams match “{query}”.
-              </div>
-            )}
-            {sorted.map((team: Team) => {
-              const stats = statsByTeam.get(team.id) ?? {
-                total: 0,
-                active: 0,
-                projects: 0,
-              }
-              const memberIds = team.memberIds ?? []
-              const members = memberIds
-                .map((id) => userById.get(id))
-                .filter((u): u is User => !!u)
-              const cyclesOn = team.cyclesEnabled ?? true
+          {/* Empty state (shared by both layouts) */}
+          {sorted.length === 0 && (
+            <div className="mt-3 overflow-hidden rounded-lg border border-border bg-bg px-3 py-8 text-center text-[13px] text-faint">
+              No teams match “{query}”.
+            </div>
+          )}
 
-              return (
-                <button
-                  key={team.id}
-                  type="button"
-                  onClick={() => navigate(`/team/${team.key}/overview`)}
-                  className="group flex w-full items-center gap-3 bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover"
-                >
-                  {/* Icon */}
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-bg-secondary text-[15px]">
-                    {team.icon}
-                  </span>
+          {/* List layout */}
+          {sorted.length > 0 && layout === 'list' && (
+            <div className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
+              {sorted.map((team: Team) => {
+                const stats = statsByTeam.get(team.id) ?? {
+                  total: 0,
+                  active: 0,
+                  projects: 0,
+                }
+                const memberIds = team.memberIds ?? []
+                const members = memberIds
+                  .map((id) => userById.get(id))
+                  .filter((u): u is User => !!u)
+                const cyclesOn = team.cyclesEnabled ?? true
 
-                  {/* Name + key + indicators */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-[13px] font-medium text-fg">
-                        {team.name}
-                      </span>
-                      <span className="rounded bg-bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-muted">
-                        {team.key}
-                      </span>
-                      {team.private && (
-                        <Lock size={11} className="shrink-0 text-faint" />
-                      )}
+                return (
+                  <button
+                    key={team.id}
+                    type="button"
+                    onClick={() => navigate(`/team/${team.key}/overview`)}
+                    className="group flex w-full items-center gap-3 bg-bg px-3 py-3 text-left transition-colors hover:bg-bg-hover"
+                  >
+                    {/* Icon */}
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-bg-secondary text-[15px]">
+                      {team.icon}
+                    </span>
+
+                    {/* Name + key + indicators */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-[13px] font-medium text-fg">
+                          {team.name}
+                        </span>
+                        <span className="rounded bg-bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-muted">
+                          {team.key}
+                        </span>
+                        {team.private && (
+                          <Lock size={11} className="shrink-0 text-faint" />
+                        )}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted">
+                        <span>
+                          {memberIds.length} member{memberIds.length === 1 ? '' : 's'}
+                        </span>
+                        <span className="text-faint">·</span>
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1',
+                            cyclesOn ? 'text-muted' : 'text-faint',
+                          )}
+                        >
+                          <RefreshCw size={10} />
+                          Cycles {cyclesOn ? 'on' : 'off'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted">
-                      <span>
-                        {memberIds.length} member{memberIds.length === 1 ? '' : 's'}
+
+                    {/* Stacked member avatars */}
+                    {members.length > 0 && (
+                      <div className="hidden items-center md:flex">
+                        <div className="flex -space-x-1.5">
+                          {members.slice(0, 5).map((u) => (
+                            <span
+                              key={u.id}
+                              className="rounded-full ring-2 ring-bg"
+                              title={u.name}
+                            >
+                              <Avatar user={u} size={22} />
+                            </span>
+                          ))}
+                        </div>
+                        {members.length > 5 && (
+                          <span className="ml-1.5 text-[11px] text-faint">
+                            +{members.length - 5}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Counts */}
+                    <CountStat value={stats.total} label="issues" />
+                    <CountStat value={stats.active} label="active" />
+                    <CountStat value={stats.projects} label="projects" />
+
+                    <ChevronRight
+                      size={15}
+                      className="shrink-0 text-faint transition-colors group-hover:text-muted"
+                    />
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Grid layout */}
+          {sorted.length > 0 && layout === 'grid' && (
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {sorted.map((team: Team) => {
+                const stats = statsByTeam.get(team.id) ?? {
+                  total: 0,
+                  active: 0,
+                  projects: 0,
+                }
+                const memberIds = team.memberIds ?? []
+                const members = memberIds
+                  .map((id) => userById.get(id))
+                  .filter((u): u is User => !!u)
+                const cyclesOn = team.cyclesEnabled ?? true
+
+                return (
+                  <button
+                    key={team.id}
+                    type="button"
+                    onClick={() => navigate(`/team/${team.key}/overview`)}
+                    className="group flex flex-col rounded-lg border border-border bg-bg p-4 text-left transition-colors hover:bg-bg-hover"
+                  >
+                    {/* Header: icon + name + key */}
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-bg-secondary text-[16px]">
+                        {team.icon}
                       </span>
-                      <span className="text-faint">·</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-[13px] font-medium text-fg">
+                            {team.name}
+                          </span>
+                          {team.private && (
+                            <Lock size={11} className="shrink-0 text-faint" />
+                          )}
+                        </div>
+                        <span className="font-mono text-[10px] font-medium uppercase tracking-wide text-muted">
+                          {team.key}
+                        </span>
+                      </div>
+                      <ChevronRight
+                        size={15}
+                        className="shrink-0 text-faint transition-colors group-hover:text-muted"
+                      />
+                    </div>
+
+                    {/* Counts row */}
+                    <div className="mt-3 flex items-center gap-4 border-t border-border pt-3">
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-semibold tabular-nums text-fg">
+                          {stats.total}
+                        </span>
+                        <span className="text-[11px] text-muted">issues</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-semibold tabular-nums text-fg">
+                          {stats.active}
+                        </span>
+                        <span className="text-[11px] text-muted">active</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-semibold tabular-nums text-fg">
+                          {stats.projects}
+                        </span>
+                        <span className="text-[11px] text-muted">projects</span>
+                      </div>
+                    </div>
+
+                    {/* Footer: avatars + cycles indicator */}
+                    <div className="mt-3 flex items-center justify-between">
+                      {members.length > 0 ? (
+                        <div className="flex items-center">
+                          <div className="flex -space-x-1.5">
+                            {members.slice(0, 5).map((u) => (
+                              <span
+                                key={u.id}
+                                className="rounded-full ring-2 ring-bg"
+                                title={u.name}
+                              >
+                                <Avatar user={u} size={20} />
+                              </span>
+                            ))}
+                          </div>
+                          {members.length > 5 && (
+                            <span className="ml-1.5 text-[11px] text-faint">
+                              +{members.length - 5}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-faint">No members</span>
+                      )}
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1',
+                          'inline-flex items-center gap-1 text-[11px]',
                           cyclesOn ? 'text-muted' : 'text-faint',
                         )}
                       >
@@ -251,43 +440,11 @@ export function TeamsDirectoryView() {
                         Cycles {cyclesOn ? 'on' : 'off'}
                       </span>
                     </div>
-                  </div>
-
-                  {/* Stacked member avatars */}
-                  {members.length > 0 && (
-                    <div className="hidden items-center md:flex">
-                      <div className="flex -space-x-1.5">
-                        {members.slice(0, 5).map((u) => (
-                          <span
-                            key={u.id}
-                            className="rounded-full ring-2 ring-bg"
-                            title={u.name}
-                          >
-                            <Avatar user={u} size={22} />
-                          </span>
-                        ))}
-                      </div>
-                      {members.length > 5 && (
-                        <span className="ml-1.5 text-[11px] text-faint">
-                          +{members.length - 5}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Counts */}
-                  <CountStat value={stats.total} label="issues" />
-                  <CountStat value={stats.active} label="active" />
-                  <CountStat value={stats.projects} label="projects" />
-
-                  <ChevronRight
-                    size={15}
-                    className="shrink-0 text-faint transition-colors group-hover:text-muted"
-                  />
-                </button>
-              )
-            })}
-          </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

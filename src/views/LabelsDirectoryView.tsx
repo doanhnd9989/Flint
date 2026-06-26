@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Tag, Search, ArrowUpDown } from 'lucide-react'
+import { Tag, Search, ArrowUpDown, ChevronRight } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { LabelDot } from '@/components/LabelChip'
@@ -76,6 +76,17 @@ export function LabelsDirectoryView() {
   // Local-only directory controls (search query + sort mode).
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortMode>('name')
+
+  // Collapsed group sections (by group id). Groups expand by default; clicking a
+  // group header tucks its child labels away — Linear's collapsible label groups.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
+  const toggleGroup = (gid: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(gid)) next.delete(gid)
+      else next.add(gid)
+      return next
+    })
 
   // labelId → number of non-archived issues carrying it.
   const counts = useMemo(() => {
@@ -225,31 +236,47 @@ export function LabelsDirectoryView() {
             </div>
           ) : (
             <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-              {/* Groups first, each with its nested child labels */}
-              {groups.map(({ group: g, kids }) => (
-                <div key={g.id}>
-                  {/* group header — a non-link container row */}
-                  <div className="flex items-center gap-2.5 bg-bg-secondary px-3 py-2">
-                    <LabelGroupIcon colors={kids.map((k) => k.color)} />
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-fg">
-                      {g.name}
-                    </span>
-                    <span className="shrink-0 text-[11px] text-faint">
-                      {kids.length} {kids.length === 1 ? 'label' : 'labels'}
-                    </span>
+              {/* Groups first, each with its nested child labels. An active
+                  search force-expands every group so matches stay visible. */}
+              {groups.map(({ group: g, kids }) => {
+                const isCollapsed = !q && collapsed.has(g.id)
+                return (
+                  <div key={g.id}>
+                    {/* group header — a collapse toggle, not a link */}
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(g.id)}
+                      aria-expanded={!isCollapsed}
+                      className="flex w-full items-center gap-2 bg-bg-secondary px-3 py-2 text-left transition-colors hover:bg-bg-hover"
+                    >
+                      <ChevronRight
+                        size={13}
+                        className={`shrink-0 text-faint transition-transform ${
+                          isCollapsed ? '' : 'rotate-90'
+                        }`}
+                      />
+                      <LabelGroupIcon colors={kids.map((k) => k.color)} />
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-fg">
+                        {g.name}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-faint">
+                        {kids.length} {kids.length === 1 ? 'label' : 'labels'}
+                      </span>
+                    </button>
+                    {/* child labels nested below (hidden while collapsed) */}
+                    {!isCollapsed &&
+                      kids.map((k) => (
+                        <LabelRow
+                          key={k.id}
+                          label={k}
+                          count={usage(k.id)}
+                          indented
+                          onClick={() => navigate(`/label/${k.id}`)}
+                        />
+                      ))}
                   </div>
-                  {/* child labels nested below */}
-                  {kids.map((k) => (
-                    <LabelRow
-                      key={k.id}
-                      label={k}
-                      count={usage(k.id)}
-                      indented
-                      onClick={() => navigate(`/label/${k.id}`)}
-                    />
-                  ))}
-                </div>
-              ))}
+                )
+              })}
 
               {/* Ungrouped labels in a flat list */}
               {ungrouped.map((l) => (

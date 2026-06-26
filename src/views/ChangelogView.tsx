@@ -23,6 +23,24 @@ interface ChangelogEntry {
   issues: Issue[]
 }
 
+/** Entries bucketed under a single calendar month, e.g. "June 2026". */
+interface MonthGroup {
+  /** Stable key, e.g. "2026-05" (zero-padded) used for React keys. */
+  key: string
+  /** Human label, e.g. "June 2026". */
+  label: string
+  entries: ChangelogEntry[]
+}
+
+/** Bucket a release's released date into a "YYYY-MM" key / "Month YYYY" label. */
+function monthKey(iso?: string): { key: string; label: string } {
+  const d = iso ? new Date(iso) : null
+  if (!d || Number.isNaN(d.getTime())) return { key: '0000-00', label: 'Undated' }
+  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  const label = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  return { key, label }
+}
+
 /** A small ✓ + identifier + title row used in both timeline + recent lists. */
 function ShippedRow({ issue, time }: { issue: Issue; time?: string }) {
   return (
@@ -136,6 +154,23 @@ export function ChangelogView() {
       .filter((e) => e.headerMatch || e.issues.length > 0)
       .map(({ release, issues }) => ({ release, issues }))
   }, [data.releases, data.issues, isCompleted, typeFilter, releaseInTeam, needle, issueMatches])
+
+  // ── Bucket the (already date-sorted) entries under month section dividers ─────
+  // Entries arrive newest-first, so groups and their members preserve that
+  // order; each month renders as a "June 2026" header on the shared rail.
+  const monthGroups = useMemo<MonthGroup[]>(() => {
+    const groups: MonthGroup[] = []
+    let current: MonthGroup | null = null
+    for (const entry of entries) {
+      const { key, label } = monthKey(entry.release.releasedAt)
+      if (!current || current.key !== key) {
+        current = { key, label, entries: [] }
+        groups.push(current)
+      }
+      current.entries.push(entry)
+    }
+    return groups
+  }, [entries])
 
   // ── "Recently completed" — 10 most-recent completed issues not in a release ──
   // Suppressed when the type filter is "releases"; team-filtered by issue teamId.
@@ -264,43 +299,55 @@ export function ChangelogView() {
               </p>
             </div>
 
-            {/* Vertical timeline rail — a left border with accent dots per entry. */}
+            {/* Vertical timeline rail — a left border, grouped under month
+                section dividers ("June 2026") with accent dots per entry. */}
             <div className="relative space-y-8 border-l border-border pl-7">
-              {entries.map((entry) => {
-                const meta = RELEASE_STATUS[entry.release.status]
-                return (
-                  <article key={entry.release.id} className="relative">
-                    {/* dot on the rail */}
-                    <span className="absolute -left-[33px] top-1 h-2.5 w-2.5 rounded-full bg-accent ring-4 ring-bg-secondary" />
-                    <div className="text-[12px] font-medium uppercase tracking-wide text-faint">
-                      {formatFullDate(entry.release.releasedAt)}
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <span
-                        className="rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white"
-                        style={{ backgroundColor: meta.color }}
-                      >
-                        {entry.release.version}
-                      </span>
-                      <h2 className="text-[15px] font-semibold text-fg">
-                        {entry.release.name}
-                      </h2>
-                    </div>
-                    {entry.release.description && (
-                      <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
-                        {entry.release.description}
-                      </p>
-                    )}
-                    {entry.issues.length > 0 && (
-                      <div className="mt-3 space-y-1.5 rounded-lg border border-border bg-bg p-3">
-                        {entry.issues.map((i) => (
-                          <ShippedRow key={i.id} issue={i} />
-                        ))}
-                      </div>
-                    )}
-                  </article>
-                )
-              })}
+              {monthGroups.map((group) => (
+                <section key={group.key} className="relative space-y-8">
+                  {/* Month divider — sits on the rail with a hollow marker. */}
+                  <div className="relative">
+                    <span className="absolute -left-[33px] top-0.5 h-2.5 w-2.5 rounded-full border-2 border-border bg-bg-secondary" />
+                    <h3 className="text-[13px] font-semibold tracking-tight text-fg">
+                      {group.label}
+                    </h3>
+                  </div>
+                  {group.entries.map((entry) => {
+                    const meta = RELEASE_STATUS[entry.release.status]
+                    return (
+                      <article key={entry.release.id} className="relative">
+                        {/* dot on the rail */}
+                        <span className="absolute -left-[33px] top-1 h-2.5 w-2.5 rounded-full bg-accent ring-4 ring-bg-secondary" />
+                        <div className="text-[12px] font-medium uppercase tracking-wide text-faint">
+                          {formatFullDate(entry.release.releasedAt)}
+                        </div>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white"
+                            style={{ backgroundColor: meta.color }}
+                          >
+                            {entry.release.version}
+                          </span>
+                          <h2 className="text-[15px] font-semibold text-fg">
+                            {entry.release.name}
+                          </h2>
+                        </div>
+                        {entry.release.description && (
+                          <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+                            {entry.release.description}
+                          </p>
+                        )}
+                        {entry.issues.length > 0 && (
+                          <div className="mt-3 space-y-1.5 rounded-lg border border-border bg-bg p-3">
+                            {entry.issues.map((i) => (
+                              <ShippedRow key={i.id} issue={i} />
+                            ))}
+                          </div>
+                        )}
+                      </article>
+                    )
+                  })}
+                </section>
+              ))}
 
               {/* Recently completed — loose completed issues not in a release. */}
               {recent.length > 0 && (
