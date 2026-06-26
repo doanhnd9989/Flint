@@ -2701,3 +2701,61 @@ show comment-count + estimate chips. `tsc -b ✅ · build ✅ · console clean`.
 Next: the clone is at near-complete Linear parity — remaining top item is board
 **label swimlanes** (needs de-duped DnD ids); otherwise deepen the mocked
 audit-log / import flows if a backend is ever added.
+
+## 2026-06-26 — Loop #91 (32 features + 2 bug fixes + polish)
+
+The backlog was fully checked off at the start, so this run replenished it with
+real, currently-missing Linear capabilities and shipped them in four parallel
+waves (one file per agent → zero write collisions; main agent owned verify +
+per-wave commit). Verified in-browser via the Preview MCP (every route renders,
+console clean, no "Maximum update depth").
+
+**Phase 1 — 32 features shipped:**
+
+_Wave 1 (analytics/directory views):_ Insights **"Split by" stacked bar**
+(secondary-dimension segmentation + legend); **Customer health** filter pills +
+badge (Healthy/At risk/Churned from request recency); **Documents list/grid**
+toggle; **Reminders search**; **Recently-viewed keyboard nav** (j/k/↑/↓ + Enter/o);
+**Releases search**; **Pulse CSV export**; **Archive sort** (Recently/Oldest/Identifier).
+
+_Wave 2 (issue/board/workspace):_ **Board column estimate sum**; **Copy issue as
+Markdown**; **Peek expand/restore** (near-full-width toggle); **My Issues "Due
+soon"** section; **Triage bulk select** (x toggle + batch Accept/Decline);
+**Search keyboard nav**; **Roadmap quarter dividers**; **Project Overview
+insights strip** (scope/started/completed + donut).
+
+_Wave 3 (workspace-detail views):_ **Team Members roster card**; **Profile
+contribution heatmap** (GitHub-style grid); **Initiative overview stats strip**;
+**Customer activity timeline**; **Initiatives board layout** toggle; **Saved view
+inline rename**; **Document word-count / reading-time**; **Label stats header**.
+
+_Wave 4 (directory views):_ **Member role-pill counts**; **Changelog month
+dividers**; **Cycles directory rail** (Active/Upcoming/Completed + progress);
+**Collapsible label groups**; **Teams directory grid layout**; **Cycle velocity**
+(rolling avg over last 6 finished cycles); **Favorites grouped/flat toggle**;
+**Projects initiative filter** facet.
+
+**Phase 2 — bug hunt (find → adversarial verify → fix):** five parallel finders
+swept the loop-91 diff (36c11ec..HEAD); a separate adversarial verifier refuted
+or confirmed each. **3 candidates → 2 CONFIRMED + fixed, 1 refuted.** Fixed (both
+InsightsView): (1) **split-by-Assignee rendered a monochrome bar** — every
+assignee series got `var(--accent)`; now each assignee hashes onto a distinct,
+stable palette colour (Unassigned = grey). (2) **Stale "Split by" label** when
+Group-by was changed to equal the active split — the chart silently un-stacked
+while the control still read e.g. "Split by: Priority"; now changing Group-by
+resets a colliding split to None. **Refuted (NOT-A-BUG):** claimed Escape-commits
+bug in ViewsView inline rename — React 19 does not fire onBlur when a focused
+input is conditionally unmounted, so Escape correctly cancels.
+
+**Phase 3 — polish (Insights stacked bar, both themes):** tightened the new
+stacked segments to Linear parity — 1px gaps between adjacent segments (track
+shows through), a 3px min-width so tiny non-zero segments stay visible, and a
+smooth width transition + hover dim. Verified in light **and** dark: distinct
+per-assignee segments, readable legend, separators legible against both tracks.
+
+`tsc -b ✅ · build ✅ · console clean`
+
+Next: top BACKLOG item — the clone is at near-complete Linear parity; remaining
+deepenings are mostly backend-dependent (real GitHub/Slack integrations, async
+email export, audit-log depth) plus board **label swimlanes** (needs de-duped
+DnD ids).

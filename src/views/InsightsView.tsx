@@ -191,8 +191,13 @@ function StackedBarChart({ bars, series, max }: { bars: StackedBar[]; series: Se
           </div>
           <div className="relative flex h-2 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
             {/* Width is scaled to the largest total so bars stay comparable; each
-                segment then takes its share of that bar's own width. */}
-            <div className="flex h-full" style={{ width: `${max > 0 ? (b.total / max) * 100 : 0}%` }}>
+                segment then takes its share of that bar's own width. A 1px gap
+                between segments (track shows through) keeps adjacent same-ish
+                hues legible, matching Linear's stacked bars. */}
+            <div
+              className="flex h-full gap-px transition-[width] duration-300"
+              style={{ width: `${max > 0 ? (b.total / max) * 100 : 0}%` }}
+            >
               {series.map((s) => {
                 const v = b.segments[s.key] ?? 0
                 if (v <= 0) return null
@@ -200,7 +205,12 @@ function StackedBarChart({ bars, series, max }: { bars: StackedBar[]; series: Se
                   <div
                     key={s.key}
                     title={`${s.label}: ${v}`}
-                    style={{ width: `${b.total > 0 ? (v / b.total) * 100 : 0}%`, backgroundColor: s.color }}
+                    className="h-full transition-opacity hover:opacity-80"
+                    style={{
+                      width: `${b.total > 0 ? (v / b.total) * 100 : 0}%`,
+                      minWidth: 3,
+                      backgroundColor: s.color,
+                    }}
                   />
                 )
               })}
