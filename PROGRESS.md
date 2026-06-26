@@ -2456,3 +2456,70 @@ errors, no "Maximum update depth". `tsc -b ✅ · build ✅ · console clean`.
 Next: top remaining BACKLOG item — continue Linear parity on interactive
 surfaces (e.g. Insights "completed over time" trend, per-project Insights, or
 team-level integration settings).
+
+## 2026-06-26 — Loop #87: 21 features (5 waves) + 2 bug fixes + Archive polish
+
+A high-volume run on an already near-complete clone. Added two tiny persisted
+store slices up front so the new surfaces have real, reloading state without
+per-feature store churn: `Issue.archivedAt`/`remindAt`, `recentIssueIds` +
+`pushRecentIssue`, and a string-valued `featureValues` KV + `setFeatureValue`
+(counterpart to the boolean `featureSettings`). All shared-file integration
+(App routes, Sidebar, ⌘K, SettingsView switch, detail tabs) was done by the main
+agent in deterministic passes; every feature lived in its own new file.
+
+**Wave 1 — workspace nav + issue lifecycle (5):** Archive (`/archive`, grouped by
+team, Restore/Delete, `archiveIssue`/`unarchiveIssue`, excluded from all active
+lists, archive action in the ⋯ menu) · Recently viewed (`/recent`, tracked on
+IssueDetail mount) · Favorites page (`/favorites`) · Teams directory (`/teams`,
+member avatars + stats) · All issues (`/all-issues`, workspace-wide list).
+
+**Wave 2 — graphs, reminders, labels (5):** Project progress graph (a "Graph" tab,
+burn-up SVG) · Initiative progress graph ("Progress by project" rollup) · Issue
+reminders (a Reminder property row with quick presets, `setIssueReminder`) ·
+Reminders view (`/reminders`, Overdue/Upcoming) · Labels directory (`/labels`).
+
+**Wave 3 — settings pages (5):** Estimates (per-team scale, real `setTeamEstimation`)
+· Cycles (per-team enable + cadence) · Triage (per-team enable + responsibility)
+· Import (sources grid, mock toast) · Audit log (real `activities`, actor/type
+filters, CSV export).
+
+**Wave 4 — board + issue/project sections (3):** Board group-by (the kanban now
+honors the Display "Columns" grouping — Status/Assignee/Priority/Project — with
+drag-to-set-the-grouped-property; label falls back to status to avoid duplicate
+DnD ids; wired into IssuesView/AllIssuesView/MyIssues/SavedViewScreen) · Activity
+feed filter (All/Comments/Updates) · Project resources (a "Resources" links
+section on the project Overview, `Project.resources`).
+
+**Wave 5 — lifecycle actions (3):** Bulk archive (bulk-action bar, `bulkArchive`)
+· Duplicate issue (⋯ options menu, wiring existing `duplicateIssue`) · Archive
+from right-click (context menu).
+
+**Phase 2 — bug hunt (find → adversarially verify → fix):** Three parallel static
+finders swept the new code + cross-cutting concerns. **2 bugs CONFIRMED + fixed:**
+(1) the archive feature's biggest gap — archived issues were excluded from lists
+(`filterIssues`) but still **inflated every count/progress/aggregate** (~30
+surfaces). Fixed centrally by baking `!archivedAt` into the 6 progress selectors
+(project/initiative/milestone/cycle/cycleBurndown/subIssue — covers Insights,
+Roadmap, Projects list/board/timeline, Initiative detail/list/graph, TeamOverview,
+Cycles, Search cards) plus per-site fixes for the surfaces that bypass them
+(Sidebar triage badge, TriageView, ProjectDetail, sub-issues, Insights memo,
+TeamOverview, Profile, Teams/Members directory, CyclesView, ChangelogView,
+LabelView, Customers(+Detail), MyIssues activity, RecentView). Verified live:
+Insights TOTAL dropped 16→15 when one issue was archived. (2) `duplicateIssue`
+leaked `archivedAt`/`remindAt` into the copy → now cleared. Several low-confidence
+finder notes (useMemo dep hygiene, CSV BOM, featureSettings merge symmetry) were
+adversarially reviewed and **discarded as non-defects**.
+
+**Phase 3 — polish (Archive view, both themes):** added a per-row status glyph
+(StatusIcon) and dropped the redundant per-row team name (already grouped under a
+team header). Verified in light **and** dark — status colors and rows render
+correctly in both.
+
+Verified in-browser via the Preview MCP throughout: every route renders, board
+group-by re-columns by assignee/priority with proper header glyphs, console clean
+(no "Maximum update depth"), per-wave commits landed. `tsc -b ✅ · build ✅ ·
+console clean`.
+
+Next: top remaining BACKLOG item — board group-by could extend to label
+swimlanes (needs de-duped DnD ids), and the audit log / import flows are faithful
+mocks that could deepen if a backend is ever added.
