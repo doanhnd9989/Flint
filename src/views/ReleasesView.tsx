@@ -301,9 +301,16 @@ export function ReleasesView() {
                           {r.version}
                         </span>
 
-                        {/* name */}
-                        <span className="truncate text-[13px] font-medium text-fg">
-                          {r.name}
+                        {/* name + optional one-line description */}
+                        <span className="flex min-w-0 items-baseline gap-1.5">
+                          <span className="truncate text-[13px] font-medium text-fg">
+                            {r.name}
+                          </span>
+                          {r.description && (
+                            <span className="truncate text-[12px] text-muted">
+                              {r.description}
+                            </span>
+                          )}
                         </span>
 
                         {/* linked project chip */}
@@ -409,6 +416,7 @@ function NewReleaseModal({
   const workspaceName = useStore((s) => s.workspaceName)
 
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [version, setVersion] = useState('v1.0.0')
   const [status, setStatus] = useState<ReleaseStatus>('planned')
   const [targetDate, setTargetDate] = useState<string | undefined>(undefined)
@@ -451,6 +459,7 @@ function NewReleaseModal({
     if (!name.trim() || !version.trim()) return
     createRelease({
       name: name.trim(),
+      description: description.trim() || undefined,
       version: version.trim(),
       status,
       targetDate,
@@ -488,6 +497,15 @@ function NewReleaseModal({
             onChange={(e) => setName(e.target.value)}
             placeholder="Release name"
             className="w-full bg-transparent text-[16px] font-medium text-fg outline-none placeholder:text-faint"
+          />
+
+          {/* description — optional, multi-line summary of the release */}
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Add description…"
+            rows={2}
+            className="mt-2 w-full resize-none bg-transparent text-[13px] text-fg outline-none placeholder:text-faint"
           />
 
           <div className="mt-3 flex flex-wrap items-center gap-1.5">

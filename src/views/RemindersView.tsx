@@ -20,6 +20,26 @@ function formatReminder(iso: string): string {
   return `${formatDate(iso)}, ${formatTime(new Date(iso))}`
 }
 
+/**
+ * One-line plain-text snippet from a (possibly Markdown) description — strips
+ * the common inline/block syntax so reminder rows can show context the way
+ * Linear's denser rows do. Collapses to a single line; CSS handles truncation.
+ */
+function descriptionSnippet(md: string): string {
+  return md
+    .replace(/```[\s\S]*?```/g, ' ') // fenced code blocks
+    .replace(/`([^`]+)`/g, '$1') // inline code
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ') // images
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1') // links → text
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '') // ATX headings
+    .replace(/^\s{0,3}>\s?/gm, '') // blockquotes
+    .replace(/^\s*[-*+]\s+/gm, '') // bullet markers
+    .replace(/^\s*\d+\.\s+/gm, '') // ordered-list markers
+    .replace(/[*_~]+/g, '') // emphasis / strikethrough
+    .replace(/\s+/g, ' ') // collapse whitespace to one line
+    .trim()
+}
+
 // Reschedule preset math — mirrors IssueReminders.tsx so the two surfaces agree.
 
 /** now + n hours, as a fresh Date. */
@@ -135,6 +155,8 @@ export function RemindersView() {
     const state = states.find((s) => s.id === issue.stateId)
     const assignee = users.find((u) => u.id === issue.assigneeId)
     const past = isOverdue(issue.remindAt)
+    // Muted one-line context snippet from the issue's Markdown description.
+    const snippet = issue.description ? descriptionSnippet(issue.description) : ''
     return (
       <div
         key={issue.id}
@@ -153,7 +175,14 @@ export function RemindersView() {
           <span className="w-14 shrink-0 font-mono text-[12px] text-faint">
             {issue.identifier}
           </span>
-          <span className="flex-1 truncate text-[13px] text-fg">{issue.title}</span>
+          {/* Title + a one-line description snippet underneath (Linear-style
+              denser rows). The snippet only renders when a description exists. */}
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-[13px] text-fg">{issue.title}</span>
+            {snippet && (
+              <span className="truncate text-[12px] text-muted">{snippet}</span>
+            )}
+          </span>
         </button>
 
         <span

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, Copy, Search } from 'lucide-react'
+import { ChevronDown, Copy, Link, Search } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { copyToClipboard } from '@/lib/toast'
 import { ViewHeader } from '@/components/ViewHeader'
@@ -315,11 +315,29 @@ export function ChangelogView() {
                   {group.entries.map((entry) => {
                     const meta = RELEASE_STATUS[entry.release.status]
                     return (
-                      <article key={entry.release.id} className="relative">
+                      <article key={entry.release.id} className="group/release relative">
                         {/* dot on the rail */}
                         <span className="absolute -left-[33px] top-1 h-2.5 w-2.5 rounded-full bg-accent ring-4 ring-bg-secondary" />
-                        <div className="text-[12px] font-medium uppercase tracking-wide text-faint">
-                          {formatFullDate(entry.release.releasedAt)}
+                        <div className="flex items-center gap-2">
+                          <div className="text-[12px] font-medium uppercase tracking-wide text-faint">
+                            {formatFullDate(entry.release.releasedAt)}
+                          </div>
+                          {/* Hover-revealed deep link to this release on the changelog. */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              copyToClipboard(
+                                `${window.location.origin}/changelog#${entry.release.id}`,
+                                'Link to release copied to clipboard',
+                              )
+                            }
+                            title="Copy link"
+                            aria-label={`Copy link to ${entry.release.name}`}
+                            className="flex h-5 items-center gap-1 rounded px-1 text-[11px] text-faint opacity-0 transition-opacity hover:bg-bg-hover hover:text-fg focus-visible:opacity-100 group-hover/release:opacity-100"
+                          >
+                            <Link size={11} />
+                            Copy link
+                          </button>
                         </div>
                         <div className="group/version mt-1.5 flex items-center gap-2">
                           <span

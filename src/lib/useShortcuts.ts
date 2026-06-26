@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore, type Store } from './store'
 import type { Issue, RelationPickerKind } from './types'
+import { copyToClipboard, copyToast } from './toast'
+import { issueUrl } from './utils'
 
 function isTyping(el: EventTarget | null): boolean {
   const t = el as HTMLElement | null
@@ -104,6 +106,20 @@ export function useShortcuts() {
           })
           store.setIssueParent(created.id, cur.id)
           navigate(`/issue/${created.identifier}`)
+        }
+        return
+      }
+
+      // ⌘. — copy the issue identifier; ⌘⇧. — copy its URL (Linear's copy chords).
+      if ((e.metaKey || e.ctrlKey) && key === '.') {
+        if (isTyping(e.target)) return
+        const cur = currentIssue(store)
+        if (!cur) return
+        e.preventDefault()
+        if (e.shiftKey) {
+          copyToClipboard(issueUrl(cur.identifier), copyToast.url())
+        } else {
+          copyToClipboard(cur.identifier, copyToast.id(cur.identifier))
         }
         return
       }
@@ -225,6 +241,15 @@ export function useShortcuts() {
           e.preventDefault()
           store.setCreateOpen(true)
           break
+        // `i` — assign the current issue to me (Linear's quick self-assign).
+        case 'i': {
+          if (overlayOpen) break
+          const cur = currentIssue(store)
+          if (!cur) break
+          e.preventDefault()
+          store.setIssueAssignee(cur.id, store.currentUserId)
+          break
+        }
       }
     }
 

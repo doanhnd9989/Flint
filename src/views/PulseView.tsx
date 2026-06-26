@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ChevronRight,
   ChevronDown,
@@ -30,6 +30,12 @@ import { cn, timeAgo } from '@/lib/utils'
 // Unlike My Issues › Activity (the *current user's* own actions), Pulse merges
 // EVERY actor's activities, comments and project/initiative updates into one
 // newest-first stream, day-bucketed with sticky, collapsible headers.
+
+// How many feed events to reveal per "Load more" press. The window starts at
+// one page and grows by this many on each click, so long feeds stay cheap to
+// render until the reader actually scrolls deeper (Linear paginates its
+// activity streams the same way).
+const PAGE_SIZE = 50
 
 const FILTERS = ['all', 'issues', 'comments', 'projects'] as const
 type Filter = (typeof FILTERS)[number]
@@ -182,6 +188,13 @@ export function PulseView() {
   const [actorFilter, setActorFilter] = useState<string>('all')
   const [scope, setScope] = useState<Scope>('all')
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  // Windowed pagination — how many events of the filtered stream are revealed.
+  // Starts at one page; "Load more" grows it. Reset to the first page whenever
+  // the filters change so a fresh selection always opens at the top.
+  const [shown, setShown] = useState(PAGE_SIZE)
+  useEffect(() => {
+    setShown(PAGE_SIZE)
+  }, [filter, teamFilter, actorFilter, scope])
 
   // Merge all sources into a single newest-first stream.
   const events = useMemo<Event[]>(() => {
@@ -274,17 +287,22 @@ export function PulseView() {
     })
   }, [events, filter, teamFilter, actorFilter, scope, teamIdsForEvent])
 
+  // Windowed slice of the filtered stream — only the first `shown` events are
+  // materialized into rows. `hasMore` drives the "Load more" footer.
+  const windowed = useMemo(() => filtered.slice(0, shown), [filtered, shown])
+  const hasMore = filtered.length > windowed.length
+
   // Group into day buckets (stream is already newest-first).
   const days = useMemo(() => {
     const out: { label: string; events: Event[] }[] = []
-    for (const e of filtered) {
+    for (const e of windowed) {
       const label = dayLabel(e.createdAt)
       const last = out[out.length - 1]
       if (last && last.label === label) last.events.push(e)
       else out.push({ label, events: [e] })
     }
     return out
-  }, [filtered])
+  }, [windowed])
 
   const setPeek = (id: string) => useStore.getState().setPeek(id)
 
@@ -506,6 +524,23 @@ export function PulseView() {
               </div>
             )
           })}
+
+          {/* "Load more" footer — reveals the next page of the filtered feed,
+              with a remaining-count hint like Linear's paginated lists. */}
+          {hasMore && (
+            <div className="flex items-center justify-center px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setShown((n) => n + PAGE_SIZE)}
+                className="rounded-md border border-border px-3 py-1 text-[13px] text-muted transition-colors hover:bg-bg-hover hover:text-fg"
+              >
+                Load more
+                <span className="ml-1.5 text-faint">
+                  {filtered.length - windowed.length} more
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

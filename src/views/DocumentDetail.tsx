@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, FolderKanban, Trash2 } from 'lucide-react'
+import { ChevronLeft, FolderKanban, Link2, Trash2 } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { MarkdownEditor } from '@/components/MarkdownEditor'
 import { ProjectPicker } from '@/components/pickers'
 import { Popover } from '@/components/ui/Popover'
+import { copyToClipboard } from '@/lib/toast'
 import { timeAgo } from '@/lib/utils'
 
 // A small set of emoji to pick a document icon from (Linear opens a full emoji
@@ -129,19 +130,31 @@ export function DocumentDetail() {
       <ViewHeader
         title={doc.title || 'Untitled'}
         right={
-          <button
-            type="button"
-            title="Delete document"
-            onClick={() => {
-              if (confirm('Delete this document? You cannot undo this action.')) {
-                deleteDocument(doc.id)
-                navigate('/documents')
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              title="Copy link"
+              onClick={() =>
+                copyToClipboard(window.location.href, 'Link copied to clipboard')
               }
-            }}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
-          >
-            <Trash2 size={15} />
-          </button>
+              className="flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg"
+            >
+              <Link2 size={15} />
+            </button>
+            <button
+              type="button"
+              title="Delete document"
+              onClick={() => {
+                if (confirm('Delete this document? You cannot undo this action.')) {
+                  deleteDocument(doc.id)
+                  navigate('/documents')
+                }
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
         }
       >
         <button

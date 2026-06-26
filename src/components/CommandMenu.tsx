@@ -94,6 +94,23 @@ const PAGE_PLACEHOLDER: Record<Page, string> = {
 }
 
 /**
+ * Derive a command's section from its id prefix. Linear buckets root-page
+ * results under uppercase headers ("Issue actions", "Navigation", …); the
+ * header is purely presentational — keyboard traversal stays flat (below).
+ */
+function groupOf(id: string): string {
+  if (id.startsWith('ctx-')) return 'Issue actions'
+  if (id.startsWith('issue-')) return 'Issues'
+  if (id.startsWith('switch-team-')) return 'Teams'
+  if (id.startsWith('theme-') || id.startsWith('toggle-')) return 'Preferences'
+  if (id === 'go-settings' || id === 'help') return 'Settings'
+  if (id.startsWith('new-')) return 'Create'
+  if (id.startsWith('go-')) return 'Navigation'
+  // Sub-page options (st-, pr-, as-, pj-, lb-, due-) — single ungrouped list.
+  return ''
+}
+
+/**
  * Parse Linear's relative/natural due-date input ("24h", "7 days", "Feb 9").
  * Returns a start-of-day Date, or undefined when nothing sensible is typed.
  */
@@ -817,31 +834,44 @@ export function CommandMenu() {
                 No results
               </div>
             )}
-            {filtered.map((c, i) => (
-              <button
-                key={c.id}
-                onMouseEnter={() => setActive(i)}
-                onClick={() => exec(c)}
-                className={cn(
-                  'flex w-full items-center gap-3 px-4 py-2 text-left text-[13px] text-fg',
-                  i === active && 'bg-bg-hover',
-                )}
-              >
-                <span className="flex h-4 w-4 items-center justify-center text-faint">
-                  {c.icon}
-                </span>
-                <span className="flex-1 truncate">{c.label}</span>
-                {c.selected ? (
-                  <Check size={14} className="text-fg" />
-                ) : c.meta ? (
-                  <span className="text-[12px] text-muted">{c.meta}</span>
-                ) : (
-                  c.hint && (
-                    <span className="font-mono text-[11px] text-faint">{c.hint}</span>
-                  )
-                )}
-              </button>
-            ))}
+            {filtered.map((c, i) => {
+              // A non-selectable header precedes the first row of each new group;
+              // the buttons keep their flat index `i`, so up/down traversal over
+              // `filtered` is unchanged — matches Linear's sectioned palette.
+              const group = groupOf(c.id)
+              const showHeader = group !== '' && group !== groupOf(filtered[i - 1]?.id ?? '')
+              return (
+                <div key={c.id}>
+                  {showHeader && (
+                    <div className="px-4 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-faint">
+                      {group}
+                    </div>
+                  )}
+                  <button
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => exec(c)}
+                    className={cn(
+                      'flex w-full items-center gap-3 px-4 py-2 text-left text-[13px] text-fg',
+                      i === active && 'bg-bg-hover',
+                    )}
+                  >
+                    <span className="flex h-4 w-4 items-center justify-center text-faint">
+                      {c.icon}
+                    </span>
+                    <span className="flex-1 truncate">{c.label}</span>
+                    {c.selected ? (
+                      <Check size={14} className="text-fg" />
+                    ) : c.meta ? (
+                      <span className="text-[12px] text-muted">{c.meta}</span>
+                    ) : (
+                      c.hint && (
+                        <span className="font-mono text-[11px] text-faint">{c.hint}</span>
+                      )
+                    )}
+                  </button>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
