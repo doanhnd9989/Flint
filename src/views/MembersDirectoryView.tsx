@@ -177,7 +177,7 @@ export function MembersDirectoryView() {
                 return (
                   <div
                     key={u.id}
-                    className="flex items-center gap-3 bg-bg px-3 py-2.5 hover:bg-bg-hover"
+                    className="flex items-center gap-3 bg-bg px-3 py-2.5 transition-colors hover:bg-bg-hover"
                   >
                     <Avatar user={u} size={30} />
 

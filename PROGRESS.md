@@ -2,6 +2,66 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-26 — Loop #86: 20 features (new surfaces + Customers CRM + issue sections + Share/Move) + 1 bug fix + polish
+
+Shipped **20 features** across four committed waves, then a bug pass and a
+polish pass. Browser-verified throughout via the Preview MCP (zero console
+errors, no "Maximum update depth"); `tsc -b ✅ · build ✅`.
+
+**Wave 1 — workspace/team views (4):** **Active Cycles** (`/cycles`, cross-team
+active+upcoming cycle dashboard) · **Pulse** (`/pulse`, workspace activity feed,
+day-bucketed, All/Issues/Comments/Projects filter) · **Label issues view**
+(`/label/:id`, reachable from Labels settings) · **Team Overview**
+(`/team/:key/overview`, dashboard: stats, active cycle, status breakdown,
+members, projects, recent issues; per-team sidebar "Overview").
+
+**Wave 2 — Customers + Members + issue sections (7):** **Customers** (`/customers`)
++ **Customer detail** (`/customer/:id`) — CRM-lite over a new `Customer` model +
+`Issue.customerIds` (tiers, ARR, request linking) · **Releases** (`/releases`,
+new `Release` model) · **Members directory** (`/members`) · issue **Attachments**
+section (new `Attachment` model) · issue **Reactions** (`Issue.reactions`) ·
+issue **Customers** (customer-requests) section.
+
+**Wave 3 — modals + changelog + board (4):** **Share issue** modal (copy link +
+public-access toggle + embed; persisted `publicIssueIds`) · **Move to team**
+modal (re-keys the issue's identifier; follows the URL on the detail route) ·
+**Changelog** (`/changelog`, shipped-work timeline) · **Projects board layout**
+(kanban by project status).
+
+**Wave 4 — profile + timeline + dev/similar (5):** **Profile** (`/profile`,
+personal dashboard) · **Projects Timeline layout** (Gantt by start→target) ·
+issue **Development** section (linked PRs/branches; new `PullRequest` model) ·
+**Similar issues** (title-overlap suggestions) · **Copy as Markdown** (⋯ menu).
+
+All new surfaces are reachable from the sidebar and/or ⌘K. Shared-file
+integration (store/types/seed/constants/App routes/Sidebar/CommandMenu/
+IssueDetailBody/IssueOptionsMenu) was done deterministically by the main agent;
+each wave was committed separately.
+
+**Phase 2 — bug hunt (find → adversarially verify → fix):** a finder swept all
+19 new files + shared edits for the real bug classes (Zustand object-selector
+loops, undefined-access crashes, optional-field guards, dead links, date-math
+NaN, duplicate command/sidebar ids). It cleared every class except **one
+CONFIRMED bug**: *Move-to-team from the issue detail route left a stale URL* —
+`moveIssueToTeam` re-keys the identifier but the modal didn't navigate, so
+`/issue/CLA-N` rendered "Issue not found". **Fixed**: `moveIssueToTeam` now
+returns the new identifier and `MoveIssueModal` redirects (`replace`) when the
+move originates from that issue's detail route; verified live (CLA-3 → ENG-3,
+URL followed, no duplicate identifiers). **1 confirmed / fixed, 0 discarded.**
+
+**Phase 3 — polish (new list/feed rows, both themes):** verified all new surfaces
+in light **and** dark (Customers, Profile, Team Overview, Changelog, Customer
+detail, Projects board/timeline, issue-detail sections) — tokens correct, no
+hardcoded colors, no regressions. Improvement: added Linear's `transition-colors`
+smooth-hover to the new Customers / Members / Profile-activity / Pulse rows for
+interaction parity.
+
+`tsc -b ✅ · build ✅ · console clean`.
+
+Next: top remaining BACKLOG item — deepen interactive parity on the new surfaces
+(e.g. Customers grouping/filtering + customer revenue rollups, Releases ↔ issue
+linking, drag-to-reorder on the Projects board, a Trash/archive with soft-delete).
+
 ## 2026-06-24 — Loop #84: Documents + team Estimates/Cycles settings + Duplicate issue
 
 A batch run: shipped the workspace **Documents** feature, **per-team Estimates &

@@ -255,7 +255,7 @@ export function ProfileView() {
                         key={e.id}
                         type="button"
                         onClick={() => setPeek(issue.id)}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-bg-hover"
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-bg-hover"
                       >
                         <KindIcon kind={e.kind} />
                         <span className="min-w-0 flex-1 truncate text-muted">

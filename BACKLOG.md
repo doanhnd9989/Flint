@@ -142,3 +142,36 @@ Linear surface, plus a new workspace **Insights** analytics view.
 - [x] 🟡 **Settings → Initiatives** — enable + display/update-cadence options.
 - [x] 🟡 **Settings → Documents** — enable + permissions + editing options.
 - [x] 🔴 **Insights** — workspace analytics view (`/insights`): summary stats (total/completed/in-progress/backlog/points + completion %) and By status / priority / assignee / project / label breakdown bars with a team filter; reachable from the sidebar Workspace section and ⌘K ("Go to Insights").
+
+## Loop #86 — shipped (20 features: new surfaces + issue-detail sections + 2 modals)
+
+New workspace/team surfaces, a Customers CRM-lite, issue Development/Attachments/
+Reactions/Customer-requests/Similar sections, and Share/Move-to-team modals.
+
+**Wave 1 — workspace/team views:**
+- [x] 🟡 **Active Cycles overview** (`/cycles`) — cross-team active+upcoming cycle dashboard with progress.
+- [x] 🟡 **Pulse** (`/pulse`) — workspace-wide activity feed (activities+comments+project/initiative updates), day-bucketed, All/Issues/Comments/Projects filter, peek on click.
+- [x] 🟡 **Label issues view** (`/label/:id`) — all issues carrying a label (or its group's children), grouped by status; reachable from Labels settings "{n} issues".
+- [x] 🟡 **Team Overview** (`/team/:key/overview`) — team home dashboard (stats, active cycle, status breakdown, members, projects, recent issues); sidebar "Overview" per team.
+
+**Wave 2 — Customers + Members + issue sections:**
+- [x] 🔴 **Customers** (`/customers`) — CRM-lite list (square tiles, tier chips, ARR, request counts, owner), ARR/Name/Requests sort, New-customer modal. Model `Customer` + `Issue.customerIds`.
+- [x] 🔴 **Customer detail** (`/customer/:id`) — editable header, Requests list (add/unlink existing issues), Properties (Tier/Owner/ARR/Requests/Created), delete.
+- [x] 🟡 **Releases** (`/releases`) — status-grouped release list (version chip, project chip, status picker, dates), New-release modal. Model `Release`.
+- [x] 🟡 **Members directory** (`/members`) — searchable, role-filterable people directory with teams + assigned counts + summary.
+- [x] 🟡 **Issue attachments** — collapsible "Attachments" section on the issue (kind icon, link, size, time, add/remove). Model `Attachment`.
+- [x] 🟡 **Issue reactions** — emoji reactions on the issue itself (pills + picker), `Issue.reactions`.
+- [x] 🟡 **Issue customer requests** — "Customers" section linking an issue to customers.
+
+**Wave 3 — modals + changelog + projects board:**
+- [x] 🟡 **Share issue modal** — Share dialog (copy link, Public-access toggle + embed), via ⋯ menu.
+- [x] 🟡 **Move issue to team** — re-keys the issue into the destination team's sequence (new identifier), via ⋯ menu; follows the URL on the detail route.
+- [x] 🟢 **Changelog** (`/changelog`) — "What's shipped" timeline (released releases + recently completed issues).
+- [x] 🟡 **Projects board layout** — kanban of project cards in status columns (Display → Layout → Board).
+
+**Wave 4 — profile + timeline + dev/similar sections:**
+- [x] 🟡 **Profile / Your work** (`/profile`) — personal dashboard (stats, open-by-status, recent activity).
+- [x] 🟡 **Projects Timeline layout** — Gantt-style start→target bars on a month axis (Display → Layout → Timeline).
+- [x] 🟡 **Issue Development section** — linked PRs/branches (status pill, branch, author, status change/remove). Model `PullRequest`.
+- [x] 🟢 **Similar issues** — suggested issues by title-word overlap (read-only, hidden when none).
+- [x] 🟢 **Copy as Markdown** — issue ⋯ → Copy → Copy as Markdown.

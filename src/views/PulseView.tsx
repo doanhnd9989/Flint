@@ -275,7 +275,7 @@ function PulseRow({
       <button
         type="button"
         onClick={() => issue && onPeek(issue.id)}
-        className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-left hover:bg-bg-hover"
+        className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-left transition-colors hover:bg-bg-hover"
       >
         <GlyphFor kind={e.activity.kind} />
         <span className="min-w-0 flex-1">
@@ -299,7 +299,7 @@ function PulseRow({
       <button
         type="button"
         onClick={() => issue && onPeek(issue.id)}
-        className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-left text-[12px] text-muted hover:bg-bg-hover"
+        className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-left text-[12px] text-muted transition-colors hover:bg-bg-hover"
       >
         <GlyphFor kind="comment" />
         <Avatar user={actor} size={18} />
