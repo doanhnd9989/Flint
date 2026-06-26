@@ -843,7 +843,7 @@ export function CommandMenu() {
               return (
                 <div key={c.id}>
                   {showHeader && (
-                    <div className="px-4 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-faint">
+                    <div className="select-none px-4 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wider text-faint">
                       {group}
                     </div>
                   )}
