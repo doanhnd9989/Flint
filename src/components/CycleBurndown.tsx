@@ -67,6 +67,49 @@ export function CycleBurndown({
     return padL + ((nowMs - start) / (end - start)) * plotW
   }, [points, nowMs])
 
+  // Forecast / projection — only for in-flight cycles with scope. Derive the
+  // current completion velocity (issues closed per day) from the actual line so
+  // far, then project a straight trend from today's remaining-open value to
+  // where it hits 0 (predicted finish), clamped to the cycle's right edge if it
+  // won't land in time.
+  const forecastPath = useMemo(() => {
+    if (todayX == null || scope <= 0) return null
+    if (actual.length < 1) return null
+    const last = actual[actual.length - 1]
+    const remaining = last.remaining!
+    if (remaining <= 0) return null // already done — nothing to project
+    const dayMs = 86_400_000
+    const start = points[0].dayMs
+    const end = points[points.length - 1].dayMs
+    // Days elapsed from cycle start to today (≥ ~1 day to avoid div-by-zero).
+    const elapsedDays = Math.max((nowMs - start) / dayMs, 1)
+    const closed = scope - remaining
+    const perDay = closed / elapsedDays
+    const startX = todayX
+    const startY = y(remaining)
+    let endX: number
+    let endY: number
+    if (perDay > 0) {
+      const daysToFinish = remaining / perDay
+      const finishMs = nowMs + daysToFinish * dayMs
+      if (finishMs <= end) {
+        // Predicted to finish within the cycle — land on the x-axis.
+        endX = padL + ((finishMs - start) / (end - start)) * plotW
+        endY = y(0)
+      } else {
+        // Won't finish in time — extend to cycle end at the remaining-at-end.
+        const remainAtEnd = remaining - perDay * ((end - nowMs) / dayMs)
+        endX = padL + plotW
+        endY = y(Math.max(remainAtEnd, 0))
+      }
+    } else {
+      // No progress yet — flat projection to cycle end (never finishes).
+      endX = padL + plotW
+      endY = startY
+    }
+    return `M${startX},${startY} L${endX},${endY}`
+  }, [points, scope, nowMs, todayX])
+
   const fmt = (ms: number) =>
     new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
@@ -137,6 +180,19 @@ export function CycleBurndown({
           />
         )}
 
+        {/* Forecast / projection — predicted-completion trend from today */}
+        {forecastPath && (
+          <path
+            d={forecastPath}
+            fill="none"
+            stroke="var(--text-tertiary)"
+            strokeWidth={1.5}
+            strokeDasharray="2 3"
+            strokeLinecap="round"
+            opacity={0.9}
+          />
+        )}
+
         {/* X axis date labels — start, mid, end */}
         {[0, Math.floor((points.length - 1) / 2), points.length - 1].map((i) => (
           <text
@@ -156,6 +212,9 @@ export function CycleBurndown({
       <div className="mt-2 flex items-center gap-4 pl-7 text-[11px] text-faint">
         <LegendItem color="var(--accent)" label="Open" />
         <LegendItem color="var(--text-tertiary)" label="Ideal" dashed />
+        {forecastPath && (
+          <LegendItem color="var(--text-tertiary)" label="Forecast" dash="1.5 2" />
+        )}
       </div>
     </div>
   )
@@ -165,10 +224,13 @@ function LegendItem({
   color,
   label,
   dashed,
+  dash,
 }: {
   color: string
   label: string
   dashed?: boolean
+  /** Custom dash pattern; overrides `dashed`. */
+  dash?: string
 }) {
   return (
     <span className="flex items-center gap-1.5">
@@ -180,7 +242,7 @@ function LegendItem({
           y2={3}
           stroke={color}
           strokeWidth={2}
-          strokeDasharray={dashed ? '3 2' : undefined}
+          strokeDasharray={dash ?? (dashed ? '3 2' : undefined)}
         />
       </svg>
       {label}

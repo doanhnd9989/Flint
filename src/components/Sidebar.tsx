@@ -33,7 +33,7 @@ import {
   X,
   PanelLeftClose,
 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { useStore, useStoreShallow } from '@/lib/store'
 
 /** GitHub octocat mark (lucide dropped brand icons) — matches Linear's row. */
@@ -138,17 +138,22 @@ function TryItem({
 
 function Section({
   title,
+  sectionKey,
   children,
 }: {
   title: string
+  /** Stable key persisted in store.collapsedSidebarSections (absent = expanded). */
+  sectionKey: string
   children: ReactNode
 }) {
-  const [open, setOpen] = useState(true)
+  const collapsed = useStore((s) => s.collapsedSidebarSections)
+  const toggle = useStore((s) => s.toggleSidebarSection)
+  const open = !collapsed.includes(sectionKey)
   return (
     <div className="mt-4">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => toggle(sectionKey)}
         className="flex w-full items-center gap-1 px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-faint hover:text-muted"
       >
         <ChevronDown
@@ -321,14 +326,14 @@ export function Sidebar() {
         </div>
 
         {favoriteItems.length > 0 && (
-          <Section title="Favorites">
+          <Section title="Favorites" sectionKey="favorites">
             {favoriteItems.map((f) => (
               <Item key={f.to} to={f.to} icon={f.icon} label={f.label} />
             ))}
           </Section>
         )}
 
-        <Section title="Workspace">
+        <Section title="Workspace" sectionKey="workspace">
           <Item to="/all-issues" icon={<Layers3 size={15} />} label="All issues" />
           <Item to="/initiatives" icon={<Goal size={15} />} label="Initiatives" />
           <Item to="/projects" icon={<Box size={15} />} label="Projects" />
@@ -349,7 +354,7 @@ export function Sidebar() {
         </Section>
 
         {teams.map((team) => (
-          <Section key={team.id} title={team.name}>
+          <Section key={team.id} title={team.name} sectionKey={`team:${team.id}`}>
             <Item
               to={`/team/${team.key}/overview`}
               icon={<Home size={15} />}
@@ -382,7 +387,7 @@ export function Sidebar() {
         ))}
 
         {trySteps.length > 0 && (
-          <Section title="Try">
+          <Section title="Try" sectionKey="try">
             {trySteps.map((s) => (
               <TryItem
                 key={s.key}

@@ -74,6 +74,8 @@ export interface Team {
   estimationAllowZero?: boolean
   /** Whether cycles are enabled for this team. Optional (defaults to true). */
   cyclesEnabled?: boolean
+  /** Set when the team is archived; archived teams are hidden from active lists. */
+  archivedAt?: string
 }
 
 /**

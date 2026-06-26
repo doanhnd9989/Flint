@@ -60,6 +60,8 @@ interface UIState {
   /** Settings → Preferences (persisted). */
   preferences: Preferences
   sidebarCollapsed: boolean
+  /** Sidebar section keys the user has collapsed (persisted). Absent = expanded. */
+  collapsedSidebarSections: string[]
   commandOpen: boolean
   /**
    * When the command menu is opened as a row property hotkey (s/p/a/l on the
@@ -242,6 +244,8 @@ export interface Store extends WorkspaceData, UIState {
   setTeamCyclesEnabled: (teamId: string, enabled: boolean) => void
   /** Update a team's general settings (name / color / timezone / privacy). */
   updateTeam: (teamId: string, patch: Partial<Pick<Team, 'name' | 'color' | 'icon' | 'timezone' | 'private'>>) => void
+  archiveTeam: (teamId: string) => void
+  unarchiveTeam: (teamId: string) => void
 
   // ── customers (Linear's CRM-lite) ────────────────────────────
   createCustomer: (input: Omit<Customer, 'id' | 'createdAt'>) => Customer
@@ -311,6 +315,7 @@ export interface Store extends WorkspaceData, UIState {
   setTheme: (t: ThemeMode) => void
   setPreference: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void
   toggleSidebar: () => void
+  toggleSidebarSection: (key: string) => void
   setCommandOpen: (open: boolean) => void
   /**
    * Open the command menu as a row property hotkey: seeds the issue context +
@@ -429,6 +434,7 @@ export const useStore = create<Store>()(
         showSidebarCounts: true,
       },
       sidebarCollapsed: false,
+      collapsedSidebarSections: [],
       commandOpen: false,
       commandIssueId: null,
       commandPage: null,
@@ -1347,6 +1353,20 @@ export const useStore = create<Store>()(
           teams: s.teams.map((t) => (t.id === teamId ? { ...t, ...patch } : t)),
         })),
 
+      archiveTeam: (teamId) =>
+        set((s) => ({
+          teams: s.teams.map((t) =>
+            t.id === teamId ? { ...t, archivedAt: nowIso() } : t,
+          ),
+        })),
+
+      unarchiveTeam: (teamId) =>
+        set((s) => ({
+          teams: s.teams.map((t) =>
+            t.id === teamId ? { ...t, archivedAt: undefined } : t,
+          ),
+        })),
+
       createDocument: (input) => {
         const s = get()
         const ts = nowIso()
@@ -1719,6 +1739,12 @@ export const useStore = create<Store>()(
         set((s) => ({ preferences: { ...s.preferences, [key]: value } })),
       toggleSidebar: () =>
         set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+      toggleSidebarSection: (key) =>
+        set((s) => ({
+          collapsedSidebarSections: s.collapsedSidebarSections.includes(key)
+            ? s.collapsedSidebarSections.filter((k) => k !== key)
+            : [...s.collapsedSidebarSections, key],
+        })),
       setCommandOpen: (commandOpen) =>
         // Closing the menu drops any row-hotkey context so a later plain ⌘K
         // opens clean.

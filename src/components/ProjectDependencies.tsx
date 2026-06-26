@@ -1,4 +1,4 @@
-import { Plus, X } from 'lucide-react'
+import { AlertTriangle, Plus, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { SelectMenu } from './ui/SelectMenu'
@@ -25,21 +25,67 @@ export function ProjectDependencies({ projectId }: { projectId: string }) {
   // Inverse: projects that list this one in their dependsOn are "blocking"-ed by it.
   const blocking = projects.filter((p) => (p.dependsOn ?? []).includes(projectId))
 
-  // Candidates to add as a blocker: not self, not already a blocker, and not a
-  // project this one already blocks (the store cycle-guard would reject those).
-  const blockingIds = new Set(blocking.map((p) => p.id))
+  // Self-contained dependency-graph helpers (no store changes). Edges point from
+  // a project to the projects it is blocked by (`dependsOn`).
+  const byId = new Map(projects.map((p) => [p.id, p]))
+  // Does walking `dependsOn` from `from` ever reach `target`?
+  const reaches = (from: string, target: string): boolean => {
+    const seen = new Set<string>()
+    const stack = [from]
+    while (stack.length) {
+      const cur = stack.pop()!
+      if (cur === target) return true
+      if (seen.has(cur)) continue
+      seen.add(cur)
+      stack.push(...(byId.get(cur)?.dependsOn ?? []))
+    }
+    return false
+  }
+
+  // Candidates to add as a blocker: not self, not already a blocker, and any
+  // project whose addition would introduce a cycle — i.e. a *transitive*
+  // descendant that can already reach this one through the dependency graph
+  // (matches the store cycle-guard, but walking the whole graph, not just
+  // direct links). Adding `p` makes this project depend on `p`; if `p` already
+  // reaches this project, the edge would close a loop.
   const candidates: SelectOption[] = projects
     .filter(
       (p) =>
         p.id !== projectId &&
         !(project.dependsOn ?? []).includes(p.id) &&
-        !blockingIds.has(p.id),
+        !reaches(p.id, projectId),
     )
     .map((p) => ({
       id: p.id,
       label: p.name,
       icon: <ProjectStatusIcon status={p.status} size={14} />,
     }))
+
+  // Detect whether the *existing* edges already form a cycle anywhere in the
+  // connected dependency graph (e.g. from data imported outside the guard). A
+  // node is part of a cycle when it can reach itself by following `dependsOn`.
+  const hasCycle = (() => {
+    const nodes = new Set<string>([projectId])
+    const queue = [projectId]
+    while (queue.length) {
+      const cur = queue.pop()!
+      for (const next of byId.get(cur)?.dependsOn ?? []) {
+        if (!nodes.has(next)) {
+          nodes.add(next)
+          queue.push(next)
+        }
+      }
+      // also follow inverse edges so the whole connected component is checked
+      for (const p of projects) {
+        if ((p.dependsOn ?? []).includes(cur) && !nodes.has(p.id)) {
+          nodes.add(p.id)
+          queue.push(p.id)
+        }
+      }
+    }
+    for (const id of nodes) if (reaches(id, id)) return true
+    return false
+  })()
 
   function Row({
     pid,
@@ -78,6 +124,14 @@ export function ProjectDependencies({ projectId }: { projectId: string }) {
     <div className="mt-8">
       <div className="mb-1.5 flex items-center gap-2">
         <span className="text-[13px] font-medium text-fg">Dependencies</span>
+        {hasCycle && (
+          <span
+            title="Circular dependency detected"
+            className="flex items-center text-[var(--priority-urgent)]"
+          >
+            <AlertTriangle size={14} />
+          </span>
+        )}
         <SelectMenu
           options={candidates}
           onSelect={(id) => addDep(projectId, id)}

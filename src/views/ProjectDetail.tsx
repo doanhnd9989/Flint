@@ -25,7 +25,8 @@ import { ProjectResources } from '@/components/ProjectResources'
 import { ProjectDependencies } from '@/components/ProjectDependencies'
 import { IssueRow } from '@/components/IssueRow'
 import { Avatar } from '@/components/Avatar'
-import { ProjectUpdates, HealthBadge } from '@/components/ProjectUpdates'
+import { ProjectUpdates, HealthBadge, HEALTH } from '@/components/ProjectUpdates'
+import { MentionInput } from '@/components/MentionInput'
 import { ProjectStatusIcon } from '@/components/ProjectStatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
 import { ProgressDonut } from '@/components/ProgressDonut'
@@ -51,6 +52,7 @@ import type {
   OrderBy,
   Priority,
   Project,
+  ProjectHealth,
   ProjectStatus,
   WorkflowState,
 } from '@/lib/types'
@@ -508,6 +510,11 @@ export function ProjectDetail() {
   const [editingDesc, setEditingDesc] = useState(false)
   const [descDraft, setDescDraft] = useState('')
   const [focusMilestoneId, setFocusMilestoneId] = useState<string | null>(null)
+  // Inline health-update composer on the Overview tab — Linear opens a quick
+  // composer when you click the project health/update card, no tab switch.
+  const [composeOpen, setComposeOpen] = useState(false)
+  const [composeHealth, setComposeHealth] = useState<ProjectHealth>('on-track')
+  const [composeBody, setComposeBody] = useState('')
   // Issues-tab Display options (local). Default to Linear's milestone grouping.
   const [issuesGroupBy, setIssuesGroupBy] = useState<GroupBy>('milestone')
   const [issuesOrderBy, setIssuesOrderBy] = useState<OrderBy>('priority')
@@ -679,26 +686,92 @@ export function ProjectDetail() {
                 <p className="mt-1 text-[14px] text-muted">{project.description}</p>
               ) : null}
 
-              {/* Project update card */}
-              <button
-                type="button"
-                onClick={() => setTab('activity')}
-                className="mt-6 flex w-full items-center gap-2 rounded-lg border border-border bg-bg-secondary px-3 py-2.5 text-left text-[13px] hover:bg-bg-hover"
-              >
-                {latestUpdate ? (
-                  <>
-                    <HealthBadge health={latestUpdate.health} />
-                    <span className="min-w-0 flex-1 truncate text-muted">
-                      {latestUpdate.body}
-                    </span>
-                    <span className="shrink-0 text-[12px] text-faint">
-                      {timeAgo(latestUpdate.createdAt)}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-muted">Write first project update</span>
-                )}
-              </button>
+              {/* Project update card — click to open an inline health composer
+                  (Linear posts updates without leaving Overview). */}
+              {composeOpen ? (
+                <div className="mt-6 rounded-lg border border-border bg-bg-secondary p-3">
+                  <div className="mb-2 flex items-center gap-1.5">
+                    {(['on-track', 'at-risk', 'off-track'] as ProjectHealth[]).map((h) => (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => setComposeHealth(h)}
+                        className={cn(
+                          'flex items-center gap-1.5 rounded-md border px-2 py-1 text-[12px]',
+                          composeHealth === h
+                            ? 'border-transparent'
+                            : 'border-border text-muted hover:bg-bg-hover',
+                        )}
+                        style={
+                          composeHealth === h
+                            ? { background: `${HEALTH[h].color}22`, color: HEALTH[h].color }
+                            : undefined
+                        }
+                      >
+                        <span
+                          className="h-1.5 w-1.5 rounded-full"
+                          style={{ background: HEALTH[h].color }}
+                        />
+                        {HEALTH[h].label}
+                      </button>
+                    ))}
+                  </div>
+                  <MentionInput
+                    value={composeBody}
+                    onChange={setComposeBody}
+                    placeholder="Write a project update…"
+                    minHeight={48}
+                    className="w-full resize-none bg-transparent text-[13px] text-fg outline-none"
+                  />
+                  <div className="mt-1 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setComposeOpen(false)
+                        setComposeBody('')
+                      }}
+                      className="rounded-md px-2.5 py-1 text-[12px] text-muted hover:bg-bg-hover"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!composeBody.trim()}
+                      onClick={() => {
+                        data.createProjectUpdate(project.id, composeHealth, composeBody.trim())
+                        setComposeBody('')
+                        setComposeOpen(false)
+                      }}
+                      className="rounded-md bg-accent px-3 py-1 text-[12px] text-white hover:bg-accent-hover disabled:opacity-40"
+                    >
+                      Post update
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setComposeHealth(latestUpdate?.health ?? 'on-track')
+                    setComposeOpen(true)
+                  }}
+                  className="mt-6 flex w-full items-center gap-2 rounded-lg border border-border bg-bg-secondary px-3 py-2.5 text-left text-[13px] hover:bg-bg-hover"
+                >
+                  {latestUpdate ? (
+                    <>
+                      <HealthBadge health={latestUpdate.health} />
+                      <span className="min-w-0 flex-1 truncate text-muted">
+                        {latestUpdate.body}
+                      </span>
+                      <span className="shrink-0 text-[12px] text-faint">
+                        {timeAgo(latestUpdate.createdAt)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-muted">Write first project update</span>
+                  )}
+                </button>
+              )}
 
               {/* Staleness nudge — Linear prompts for overdue project updates. */}
               {updateStale && (
