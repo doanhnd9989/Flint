@@ -68,6 +68,13 @@ export function useShortcuts() {
         return
       }
 
+      // ⌘/ — toggle the sidebar (Linear's collapse shortcut)
+      if ((e.metaKey || e.ctrlKey) && key === '/') {
+        e.preventDefault()
+        store.toggleSidebar()
+        return
+      }
+
       // ⌘⇧P — mark sub-issue of an existing issue; ⌘⇧O — create a sub-issue.
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (key === 'p' || key === 'o')) {
         if (isTyping(e.target)) return

@@ -7,6 +7,7 @@ import {
   useLocation,
 } from 'react-router-dom'
 import { useEffect } from 'react'
+import { PanelLeft } from 'lucide-react'
 import { Sidebar } from '@/components/Sidebar'
 import { CommandMenu } from '@/components/CommandMenu'
 import { CreateIssueModal } from '@/components/CreateIssueModal'
@@ -64,6 +65,7 @@ function Shell() {
   usePreferenceEffect()
   useShortcuts()
   const location = useLocation()
+  const sidebarCollapsed = useStore((s) => s.sidebarCollapsed)
   // Clear bulk selection + keyboard row focus when navigating between views.
   useEffect(() => {
     useStore.getState().clearSelection()
@@ -71,10 +73,26 @@ function Shell() {
   }, [location.pathname])
   // Linear replaces the app sidebar with the settings nav while in Settings.
   const inSettings = location.pathname.startsWith('/settings')
+  const showSidebar = !inSettings && !sidebarCollapsed
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg text-fg">
-      {!inSettings && <Sidebar />}
-      <main className="flex-1 overflow-hidden bg-bg-secondary">
+      {showSidebar && <Sidebar />}
+      {!inSettings && sidebarCollapsed && (
+        <button
+          type="button"
+          title="Expand sidebar (⌘/)"
+          onClick={() => useStore.getState().toggleSidebar()}
+          className="absolute left-1.5 top-2.5 z-30 flex h-7 w-7 items-center justify-center rounded-md bg-bg-secondary text-muted hover:bg-bg-hover hover:text-fg"
+        >
+          <PanelLeft size={16} />
+        </button>
+      )}
+      <main
+        className={
+          'flex-1 overflow-hidden bg-bg-secondary' +
+          (!inSettings && sidebarCollapsed ? ' pl-10' : '')
+        }
+      >
         <Outlet />
       </main>
       <CommandMenu />

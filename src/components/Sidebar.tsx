@@ -31,6 +31,7 @@ import {
   Tag as TagIcon,
   Plus,
   X,
+  PanelLeftClose,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useStoreShallow } from '@/lib/store'
@@ -173,6 +174,7 @@ export function Sidebar() {
     onboardingDismissed,
     setCreateOpen,
     dismissOnboardingStep,
+    toggleSidebar,
   } = useStoreShallow((s) => ({
     workspaceName: s.workspaceName,
     teams: s.teams,
@@ -185,6 +187,7 @@ export function Sidebar() {
     onboardingDismissed: s.onboardingDismissed,
     setCreateOpen: s.setCreateOpen,
     dismissOnboardingStep: s.dismissOnboardingStep,
+    toggleSidebar: s.toggleSidebar,
   }))
 
   // Linear's "Try" getting-started section. Each step is hidden once the user
@@ -294,6 +297,14 @@ export function Sidebar() {
           className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-bg-hover hover:text-fg"
         >
           <PenSquare size={16} />
+        </button>
+        <button
+          type="button"
+          title="Collapse sidebar (⌘/)"
+          onClick={toggleSidebar}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-bg-hover hover:text-fg"
+        >
+          <PanelLeftClose size={16} />
         </button>
       </div>
 

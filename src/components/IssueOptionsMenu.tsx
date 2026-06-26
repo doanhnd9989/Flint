@@ -10,6 +10,7 @@ import {
   ChevronRight,
   GitBranchPlus,
   CopyPlus,
+  ArrowUpFromLine,
   CornerLeftUp,
   CircleSlash,
   Ban,
@@ -317,6 +318,16 @@ export function IssueOptionsMenu({
                   if (dupe) onOpenIssue(dupe.identifier)
                 }}
               />
+              {issue.parentId && (
+                <Row
+                  icon={<ArrowUpFromLine size={14} />}
+                  label="Convert to issue"
+                  onClick={() => {
+                    store.setIssueParent(issue.id, undefined)
+                    close()
+                  }}
+                />
+              )}
 
               <div className="my-1 h-px bg-border" />
 

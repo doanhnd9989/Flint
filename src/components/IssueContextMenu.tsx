@@ -34,6 +34,7 @@ import {
   BellOff,
   Archive,
   ArchiveRestore,
+  ArrowUpFromLine,
   Trash2,
 } from 'lucide-react'
 import type { RelationPickerKind } from '@/lib/types'
@@ -341,6 +342,13 @@ export function IssueContextMenu() {
             if (dupe) navigate(`/issue/${dupe.identifier}`)
           }}
         />
+        {issue.parentId && (
+          <ActionRow
+            icon={<ArrowUpFromLine size={14} />}
+            label="Convert to issue"
+            onClick={() => { store.setIssueParent(issue.id, undefined); close() }}
+          />
+        )}
         {issue.archivedAt ? (
           <ActionRow
             icon={<ArchiveRestore size={14} />}
