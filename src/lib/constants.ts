@@ -1,4 +1,5 @@
 import type {
+  CustomerTier,
   DisplayProperty,
   EstimationType,
   InitiativeStatus,
@@ -7,8 +8,27 @@ import type {
   NotificationSettings,
   Priority,
   ProjectStatus,
+  ReleaseStatus,
   StatusType,
 } from './types'
+
+/** Customer tier metadata — drives the tier chip label + accent. */
+export const CUSTOMER_TIERS: Record<CustomerTier, { label: string; color: string }> = {
+  free: { label: 'Free', color: 'var(--status-backlog)' },
+  startup: { label: 'Startup', color: 'var(--status-unstarted)' },
+  business: { label: 'Business', color: 'var(--status-started)' },
+  enterprise: { label: 'Enterprise', color: 'var(--accent)' },
+}
+export const CUSTOMER_TIER_ORDER: CustomerTier[] = ['enterprise', 'business', 'startup', 'free']
+
+/** Release lifecycle metadata. */
+export const RELEASE_STATUS: Record<ReleaseStatus, { label: string; color: string }> = {
+  planned: { label: 'Planned', color: 'var(--status-backlog)' },
+  'in-progress': { label: 'In Progress', color: 'var(--status-started)' },
+  released: { label: 'Released', color: 'var(--status-completed)' },
+  canceled: { label: 'Canceled', color: 'var(--status-canceled)' },
+}
+export const RELEASE_STATUS_ORDER: ReleaseStatus[] = ['in-progress', 'planned', 'released', 'canceled']
 
 /** Project lifecycle metadata — Linear's Backlog / Planned / In Progress / Paused / Completed / Canceled. */
 export const PROJECT_STATUS: Record<

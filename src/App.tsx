@@ -37,6 +37,10 @@ import { ActiveCyclesView } from '@/views/ActiveCyclesView'
 import { PulseView } from '@/views/PulseView'
 import { LabelView } from '@/views/LabelView'
 import { TeamOverviewView } from '@/views/TeamOverviewView'
+import { CustomersView } from '@/views/CustomersView'
+import { CustomerDetail } from '@/views/CustomerDetail'
+import { ReleasesView } from '@/views/ReleasesView'
+import { MembersDirectoryView } from '@/views/MembersDirectoryView'
 import { DocumentsView } from '@/views/DocumentsView'
 import { DocumentDetail } from '@/views/DocumentDetail'
 import { SettingsView } from '@/views/SettingsView'
@@ -107,6 +111,10 @@ export default function App() {
           <Route path="/cycles" element={<ActiveCyclesView />} />
           <Route path="/pulse" element={<PulseView />} />
           <Route path="/label/:id" element={<LabelView />} />
+          <Route path="/customers" element={<CustomersView />} />
+          <Route path="/customer/:id" element={<CustomerDetail />} />
+          <Route path="/releases" element={<ReleasesView />} />
+          <Route path="/members" element={<MembersDirectoryView />} />
           <Route path="/documents" element={<DocumentsView />} />
           <Route path="/document/:id" element={<DocumentDetail />} />
           <Route path="/views" element={<ViewsView />} />

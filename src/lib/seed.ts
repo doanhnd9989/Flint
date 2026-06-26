@@ -1,6 +1,8 @@
 import type {
   Activity,
+  Attachment,
   Comment,
+  Customer,
   Cycle,
   Document,
   Initiative,
@@ -13,6 +15,7 @@ import type {
   Project,
   ProjectUpdate,
   InitiativeUpdate,
+  Release,
   Relation,
   SavedView,
   Team,
@@ -43,6 +46,9 @@ export interface WorkspaceData {
   notifications: Notification[]
   savedViews: SavedView[]
   documents: Document[]
+  customers: Customer[]
+  releases: Release[]
+  attachments: Attachment[]
 }
 
 export function buildSeed(): WorkspaceData {
@@ -447,6 +453,39 @@ export function buildSeed(): WorkspaceData {
     },
   ]
 
+  // ── Customers (Linear's CRM-lite) ────────────────────────────────────────
+  const customers: Customer[] = [
+    { id: 'cust_acme', name: 'Acme Corp', domain: 'acme.com', tier: 'enterprise', color: '#5e6ad2', arr: 120000, ownerId: 'u_avery', createdAt: nowIso() },
+    { id: 'cust_globex', name: 'Globex', domain: 'globex.io', tier: 'business', color: '#4cb782', arr: 48000, ownerId: 'u_me', createdAt: nowIso() },
+    { id: 'cust_initech', name: 'Initech', domain: 'initech.com', tier: 'startup', color: '#f2994a', arr: 9000, ownerId: 'u_jordan', createdAt: nowIso() },
+    { id: 'cust_hooli', name: 'Hooli', domain: 'hooli.xyz', tier: 'enterprise', color: '#eb5da8', arr: 210000, ownerId: 'u_avery', createdAt: nowIso() },
+    { id: 'cust_umbrella', name: 'Umbrella', domain: 'umbrella.dev', tier: 'free', color: '#4ea7fc', ownerId: 'u_sam', createdAt: nowIso() },
+  ]
+  // Link a few issues as customer requests so the detail pages aren't empty.
+  const linkCustomers: Record<string, string[]> = {
+    i_1: ['cust_acme', 'cust_hooli'],
+    i_2: ['cust_globex'],
+    i_3: ['cust_acme'],
+    i_4: ['cust_initech', 'cust_globex'],
+  }
+  issues.forEach((i) => {
+    if (linkCustomers[i.id]) i.customerIds = linkCustomers[i.id]
+  })
+
+  // ── Releases (Linear's Releases) ─────────────────────────────────────────
+  const releases: Release[] = [
+    { id: 'rel_1', name: 'Public Beta', version: 'v0.9.0', status: 'in-progress', description: 'First public beta of the core issue tracker.', projectId: 'p_mvp', targetDate: new Date(Date.now() + 14 * 86_400_000).toISOString(), createdAt: nowIso(), sortOrder: 100 },
+    { id: 'rel_2', name: 'Launch', version: 'v1.0.0', status: 'planned', description: 'General availability — billing, SSO, mobile.', projectId: 'p_mvp', targetDate: new Date(Date.now() + 45 * 86_400_000).toISOString(), createdAt: nowIso(), sortOrder: 200 },
+    { id: 'rel_3', name: 'Early Access', version: 'v0.5.0', status: 'released', description: 'Invite-only early access build.', releasedAt: new Date(Date.now() - 30 * 86_400_000).toISOString(), createdAt: nowIso(), sortOrder: 50 },
+  ]
+
+  // ── Attachments ──────────────────────────────────────────────────────────
+  const attachments: Attachment[] = [
+    { id: 'att_1', issueId: 'i_1', name: 'design-spec.fig', kind: 'design', url: 'https://figma.com/file/abc', creatorId: 'u_avery', createdAt: nowIso() },
+    { id: 'att_2', issueId: 'i_1', name: 'mockup.png', kind: 'image', size: '248 KB', url: 'https://example.com/mockup.png', creatorId: 'u_me', createdAt: nowIso() },
+    { id: 'att_3', issueId: 'i_2', name: 'requirements.pdf', kind: 'file', size: '1.2 MB', creatorId: 'u_jordan', createdAt: nowIso() },
+  ]
+
   return {
     workspaceName: 'Claude Test App',
     users,
@@ -469,5 +508,8 @@ export function buildSeed(): WorkspaceData {
     notifications,
     savedViews,
     documents,
+    customers,
+    releases,
+    attachments,
   }
 }

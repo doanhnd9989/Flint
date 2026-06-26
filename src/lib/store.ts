@@ -15,9 +15,12 @@ import { parsePriority, type ImportRow } from './importExport'
 import type {
   Activity,
   ActivityKind,
+  Attachment,
   Comment,
   CreatePrefill,
+  Customer,
   Document,
+  Release,
   Favorite,
   FavoriteType,
   Initiative,
@@ -205,6 +208,25 @@ export interface Store extends WorkspaceData, UIState {
   setTeamEstimation: (teamId: string, patch: Partial<Pick<Team, 'estimationType' | 'estimationAllowZero'>>) => void
   /** Enable / disable cycles for a team (team Cycles settings page). */
   setTeamCyclesEnabled: (teamId: string, enabled: boolean) => void
+
+  // ── customers (Linear's CRM-lite) ────────────────────────────
+  createCustomer: (input: Omit<Customer, 'id' | 'createdAt'>) => Customer
+  updateCustomer: (id: string, patch: Partial<Omit<Customer, 'id' | 'createdAt'>>) => void
+  deleteCustomer: (id: string) => void
+  /** Link / unlink an issue to a customer (a "customer request"). */
+  toggleIssueCustomer: (issueId: string, customerId: string) => void
+
+  // ── releases (Linear's Releases) ─────────────────────────────
+  createRelease: (input: Omit<Release, 'id' | 'createdAt' | 'sortOrder'>) => Release
+  updateRelease: (id: string, patch: Partial<Omit<Release, 'id' | 'createdAt'>>) => void
+  deleteRelease: (id: string) => void
+
+  // ── attachments ──────────────────────────────────────────────
+  addAttachment: (issueId: string, input: Omit<Attachment, 'id' | 'issueId' | 'creatorId' | 'createdAt'>) => void
+  removeAttachment: (id: string) => void
+
+  // ── issue reactions ──────────────────────────────────────────
+  toggleIssueReaction: (issueId: string, emoji: string) => void
 
   // ── documents (Linear's Documents feature) ───────────────────
   createDocument: (input?: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId'>>) => Document
@@ -1131,6 +1153,113 @@ export const useStore = create<Store>()(
       deleteDocument: (id) =>
         set((s) => ({ documents: s.documents.filter((d) => d.id !== id) })),
 
+      // ── customers ─────────────────────────────────────────────
+      createCustomer: (input) => {
+        const customer: Customer = {
+          ...input,
+          id: `cust_${nanoid(8)}`,
+          createdAt: nowIso(),
+        }
+        set((s) => ({ customers: [...s.customers, customer] }))
+        return customer
+      },
+      updateCustomer: (id, patch) =>
+        set((s) => ({
+          customers: s.customers.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        })),
+      deleteCustomer: (id) =>
+        set((s) => ({
+          customers: s.customers.filter((c) => c.id !== id),
+          // Unlink the customer from any issues' requests.
+          issues: s.issues.map((i) =>
+            i.customerIds?.includes(id)
+              ? { ...i, customerIds: i.customerIds.filter((x) => x !== id) }
+              : i,
+          ),
+        })),
+      toggleIssueCustomer: (issueId, customerId) =>
+        set((s) => ({
+          issues: s.issues.map((i) => {
+            if (i.id !== issueId) return i
+            const cur = i.customerIds ?? []
+            return {
+              ...i,
+              customerIds: cur.includes(customerId)
+                ? cur.filter((x) => x !== customerId)
+                : [...cur, customerId],
+              updatedAt: nowIso(),
+            }
+          }),
+        })),
+
+      // ── releases ──────────────────────────────────────────────
+      createRelease: (input) => {
+        const s = get()
+        const maxSort = s.releases.reduce((m, r) => Math.max(m, r.sortOrder), 0)
+        const release: Release = {
+          ...input,
+          id: `rel_${nanoid(8)}`,
+          createdAt: nowIso(),
+          sortOrder: maxSort + 100,
+        }
+        set({ releases: [...s.releases, release] })
+        return release
+      },
+      updateRelease: (id, patch) =>
+        set((s) => ({
+          releases: s.releases.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  ...patch,
+                  // Stamp release time when moving into the released state.
+                  releasedAt:
+                    patch.status === 'released' && !r.releasedAt
+                      ? nowIso()
+                      : r.releasedAt,
+                }
+              : r,
+          ),
+        })),
+      deleteRelease: (id) =>
+        set((s) => ({ releases: s.releases.filter((r) => r.id !== id) })),
+
+      // ── attachments ───────────────────────────────────────────
+      addAttachment: (issueId, input) =>
+        set((s) => ({
+          attachments: [
+            ...s.attachments,
+            {
+              ...input,
+              id: `att_${nanoid(8)}`,
+              issueId,
+              creatorId: s.currentUserId,
+              createdAt: nowIso(),
+            },
+          ],
+        })),
+      removeAttachment: (id) =>
+        set((s) => ({ attachments: s.attachments.filter((a) => a.id !== id) })),
+
+      // ── issue reactions ───────────────────────────────────────
+      toggleIssueReaction: (issueId, emoji) =>
+        set((s) => ({
+          issues: s.issues.map((i) => {
+            if (i.id !== issueId) return i
+            const me = s.currentUserId
+            const reactions = { ...(i.reactions ?? {}) }
+            const cur = reactions[emoji] ?? []
+            if (cur.includes(me)) {
+              const next = cur.filter((u) => u !== me)
+              if (next.length) reactions[emoji] = next
+              else delete reactions[emoji]
+            } else {
+              reactions[emoji] = [...cur, me]
+            }
+            return { ...i, reactions }
+          }),
+        })),
+
       setUserRole: (id, role) =>
         set((s) => ({
           users: s.users.map((u) => (u.id === id ? { ...u, role } : u)),
@@ -1624,6 +1753,10 @@ export const useStore = create<Store>()(
         if (!Array.isArray(merged.documents)) {
           merged.documents = seed.documents
         }
+        // Backfill customers / releases / attachments (added later).
+        if (!Array.isArray(merged.customers)) merged.customers = seed.customers
+        if (!Array.isArray(merged.releases)) merged.releases = seed.releases
+        if (!Array.isArray(merged.attachments)) merged.attachments = seed.attachments
         // Backfill team estimation / cycle defaults for older workspaces.
         if (Array.isArray(merged.teams)) {
           merged.teams = merged.teams.map((t) => ({

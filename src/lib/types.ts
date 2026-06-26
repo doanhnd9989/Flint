@@ -82,6 +82,46 @@ export interface Document {
   sortOrder: number
 }
 
+/**
+ * A customer — Linear's Customers (CRM-lite). Issues can be linked to customers
+ * as "customer requests" (see {@link Issue.customerIds}); the customer's value
+ * (tier / ARR) helps prioritise which requests to build.
+ */
+export type CustomerTier = 'free' | 'startup' | 'business' | 'enterprise'
+
+export interface Customer {
+  id: string
+  name: string
+  domain?: string
+  tier: CustomerTier
+  /** Avatar/logo background color (a design token var or data color). */
+  color: string
+  /** Annual recurring revenue, USD. */
+  arr?: number
+  /** Customer-success owner. */
+  ownerId?: string
+  createdAt: string
+}
+
+/**
+ * A release — Linear's Releases feature: a versioned bundle of shipped work,
+ * optionally tied to a project, with a status lifecycle.
+ */
+export type ReleaseStatus = 'planned' | 'in-progress' | 'released' | 'canceled'
+
+export interface Release {
+  id: string
+  name: string
+  version: string
+  status: ReleaseStatus
+  description?: string
+  projectId?: string
+  targetDate?: string
+  releasedAt?: string
+  createdAt: string
+  sortOrder: number
+}
+
 export type ProjectStatus =
   | 'backlog'
   | 'planned'
@@ -227,6 +267,10 @@ export interface Issue {
   estimate?: number
   dueDate?: string
   subscriberIds: string[]
+  /** Linked customers — Linear's "customer requests". Optional for back-compat. */
+  customerIds?: string[]
+  /** emoji → userIds who reacted to the issue itself. Optional. */
+  reactions?: Record<string, string[]>
   sortOrder: number
   createdAt: string
   updatedAt: string
@@ -234,6 +278,23 @@ export interface Issue {
   canceledAt?: string
   /** Awaiting triage (incoming, not yet accepted into the workflow). */
   triage?: boolean
+}
+
+/**
+ * A file/attachment on an issue — Linear's attachments. We have no upload
+ * backend, so an attachment is metadata (name + type + optional URL) the user
+ * adds manually; rendered with a type-appropriate icon.
+ */
+export interface Attachment {
+  id: string
+  issueId: string
+  name: string
+  /** Coarse kind driving the icon: image / file / link / design. */
+  kind: 'image' | 'file' | 'design' | 'video'
+  url?: string
+  size?: string
+  creatorId: string
+  createdAt: string
 }
 
 /**

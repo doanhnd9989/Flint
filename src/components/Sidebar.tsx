@@ -18,6 +18,9 @@ import {
   BarChart3,
   Activity,
   Home,
+  Building2,
+  Rocket,
+  Users,
   Copy,
   Plus,
   X,
@@ -305,6 +308,9 @@ export function Sidebar() {
         <Section title="Workspace">
           <Item to="/initiatives" icon={<Goal size={15} />} label="Initiatives" />
           <Item to="/projects" icon={<Box size={15} />} label="Projects" />
+          <Item to="/customers" icon={<Building2 size={15} />} label="Customers" />
+          <Item to="/releases" icon={<Rocket size={15} />} label="Releases" />
+          <Item to="/members" icon={<Users size={15} />} label="Members" />
           <Item to="/documents" icon={<FileText size={15} />} label="Documents" />
           <Item to="/roadmap" icon={<MapIcon size={15} />} label="Roadmap" />
           <Item to="/cycles" icon={<IterationCw size={15} />} label="Cycles" />

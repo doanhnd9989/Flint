@@ -16,6 +16,9 @@ import {
 import { SelectMenu } from './ui/SelectMenu'
 import { IssueRelations } from './IssueRelations'
 import { IssueLinks } from './IssueLinks'
+import { IssueAttachments } from './IssueAttachments'
+import { IssueCustomers } from './IssueCustomers'
+import { IssueReactions } from './IssueReactions'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MentionInput } from './MentionInput'
 import { CommentThread } from './CommentThread'
@@ -179,6 +182,7 @@ export function IssueDetailBody({
             value={issue.description}
             onChange={(v) => store.setIssueDescription(issue.id, v)}
           />
+          <IssueReactions issue={issue} />
 
           {/* Sub-issues */}
           <div className="mt-6">
@@ -257,8 +261,14 @@ export function IssueDetailBody({
           {/* Resources (external links) */}
           <IssueLinks issue={issue} />
 
+          {/* Attachments */}
+          <IssueAttachments issue={issue} />
+
           {/* Relations */}
           <IssueRelations issue={issue} onOpenIssue={onOpenIssue} />
+
+          {/* Customer requests */}
+          <IssueCustomers issue={issue} />
 
           {/* Activity + comments */}
           <div className="mt-8">
