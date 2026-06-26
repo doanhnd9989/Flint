@@ -2759,3 +2759,67 @@ Next: top BACKLOG item — the clone is at near-complete Linear parity; remainin
 deepenings are mostly backend-dependent (real GitHub/Slack integrations, async
 email export, audit-log depth) plus board **label swimlanes** (needs de-duped
 DnD ids).
+
+## 2026-06-26 — Loop #92 (30 features + 2 bug fixes + quick-filter polish)
+
+The backlog was fully checked off, so this run scouted real Linear gaps first
+(7 parallel auditors over view clusters → 49 candidate single-file gaps), then
+shipped 30 of them in four parallel waves (one builder agent per file → zero
+write-collisions; main agent owned verify + per-wave commit). Each feature
+derives from existing store data or reuses an existing store action — **no
+shared-file (store/types/seed/constants/App/Sidebar) changes this run**.
+Verified in-browser via the Preview MCP (routes render, console clean, no
+"Maximum update depth"; HMR "Failed to reload" lines during the edit window were
+transient — `npm run build` compiles every file and all pages render at runtime).
+
+**Phase 1 — 30 features shipped:**
+
+_Wave 1 (issues core + detail, 7):_ **Time-in-status badge** (wires the inert
+Display property); **quick-filter preset pills** (Assigned/Created by me · Not
+started · Completed); **collapse/expand all groups**; **archived-issue banner +
+Restore**; **board card blocked/blocking indicator**; **peek keyboard legend**;
+**Projects compare mode** (two-column side-by-side). _(The scouted "History tab"
+was dropped — already covered by the existing Activity "Updates" filter.)_
+
+_Wave 2 (projects/cycles/initiatives/team, 7):_ **Initiative health-history
+timeline**; **roadmap milestone markers** on bars; **cycle health chip** (On
+track / At risk); **cycle velocity sparkline**; **triage cycle picker**; **Team
+Overview member activity** (last-7-day completions); **Members directory
+Last-active column**.
+
+_Wave 3 (workspace dirs / inbox / recent, 7):_ **Profile keyboard-shortcuts
+panel**; **Label page inline rename**; **Labels co-occurrence Details panel**;
+**Teams directory most-active popover**; **Inbox bulk select + Mark-read/Snooze/
+Delete bar**; **Recent sort menu**; **Archive bulk restore/delete**.
+
+_Wave 4 (search / docs / customers / feeds / insights, 9):_ **Reminders bulk
+reschedule overdue**; **Search result count + Esc-clear**; **Changelog copy
+version**; **Documents grid hover actions**; **Document outline depth filter**;
+**Customers bulk-select toolbar**; **Customer activity feed filter**; **Pulse
+event copy**; **Insights bar value labels + hover tooltip**.
+
+**Phase 2 — bug hunt (find → adversarial verify → fix):** 4 parallel finders
+swept the loop-92 diff (3ce3365..HEAD); a separate adversarial verifier judged
+each. **5 candidates → 3 CONFIRMED, 2 refuted.** Refuted (NOT-A-BUG): IssuePeek
+`py-px` (valid Tailwind v4), Inbox no-arg `useStore()` destructuring (explicitly
+allowed by CLAUDE.md — not an object-literal selector). Of the 3 confirmed,
+**2 fixed**: (1) **CustomersView** nav row `<button>` missing `type="button"`
+(defaulted to submit); (2) **CustomerDetail** empty-state read "No all activity."
+→ now "No activity." when the filter is All. The 3rd (TeamOverview roster memo
+depending on `workload.counts`/`activity.counts`) was **discarded on review** —
+those Maps are referentially stable (new identity only when their source memos
+recompute on `[issues, members]`, which is exactly when the roster should
+recompute), so the proposed dep change is churn, not a fix.
+
+**Phase 3 — polish (quick-filter pills, both themes):** tightened the new
+IssuesView quick-filter row to Linear parity — active pill gains a defined
+border + `font-medium` + an inline `×` to clear, inactive pills get
+`hover:text-fg` with a `transition-colors`, and the row gap widened to gap-1.5.
+Verified the active "Not started" pill (filters to the 4 Todo issues) reads
+cleanly in **light and dark**.
+
+`tsc -b ✅ · build ✅ · console clean`
+
+Next: top remaining parity is mostly backend-dependent (real GitHub/Slack
+integrations, async email export, audit-log depth) plus deeper drag-reorder
+surfaces (Releases manual sort, board label swimlanes with de-duped DnD ids).
