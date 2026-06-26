@@ -7,6 +7,10 @@ import { IssueRow } from '@/components/IssueRow'
 import { FilterBar, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
 import { projectProgress } from '@/lib/selectors'
 import { EmptyState, SearchIllustration } from '@/components/EmptyState'
+import { timeAgo, cn } from '@/lib/utils'
+
+/** Entity-type filter for the search results (Linear's segmented tabs). */
+type SearchTab = 'all' | 'issues' | 'projects' | 'documents'
 
 export function SearchView() {
   const navigate = useNavigate()
@@ -16,6 +20,7 @@ export function SearchView() {
 
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState(emptyFilters())
+  const [tab, setTab] = useState<SearchTab>('all')
   const q = query.trim().toLowerCase()
 
   const issueResults = useMemo(() => {
@@ -40,7 +45,33 @@ export function SearchView() {
     )
   }, [data, q])
 
+  const documentResults = useMemo(() => {
+    if (!q) return []
+    return data.documents.filter(
+      (d) =>
+        d.title.toLowerCase().includes(q) ||
+        d.content.toLowerCase().includes(q),
+    )
+  }, [data, q])
+
   const active = q.length > 0 || hasActiveFilters(filters)
+
+  // Which groups render given the selected tab.
+  const showIssues = tab === 'all' || tab === 'issues'
+  const showProjects = tab === 'all' || tab === 'projects'
+  const showDocuments = tab === 'all' || tab === 'documents'
+
+  const tabs: { id: SearchTab; label: string; count: number }[] = [
+    {
+      id: 'all',
+      label: 'All',
+      count:
+        issueResults.length + projectResults.length + documentResults.length,
+    },
+    { id: 'issues', label: 'Issues', count: issueResults.length },
+    { id: 'projects', label: 'Projects', count: projectResults.length },
+    { id: 'documents', label: 'Documents', count: documentResults.length },
+  ]
 
   return (
     <div className="flex h-full flex-col">
@@ -53,7 +84,7 @@ export function SearchView() {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && query.trim()) addRecentSearch(query)
           }}
-          placeholder="Search issues and projects…"
+          placeholder="Search issues, projects and documents…"
           className="flex-1 bg-transparent text-[15px] text-fg outline-none"
         />
         {query && (
@@ -100,7 +131,27 @@ export function SearchView() {
           </div>
         ) : (
           <div>
-            {issueResults.length === 0 && projectResults.length === 0 ? (
+            {/* Entity-type tabs — narrow which result groups render. */}
+            <div className="flex items-center gap-1 border-b border-border px-4 py-1.5">
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium',
+                    tab === t.id
+                      ? 'bg-bg-selected text-fg'
+                      : 'text-faint hover:bg-bg-hover hover:text-fg',
+                  )}
+                >
+                  {t.label}
+                  <span className="text-[11px] text-faint">{t.count}</span>
+                </button>
+              ))}
+            </div>
+            {issueResults.length === 0 &&
+            projectResults.length === 0 &&
+            documentResults.length === 0 ? (
               <EmptyState
                 className="mt-10"
                 illustration={<SearchIllustration />}
@@ -109,7 +160,7 @@ export function SearchView() {
               />
             ) : (
               <>
-                {projectResults.length > 0 && (
+                {showProjects && projectResults.length > 0 && (
                   <div>
                     <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
                       Projects · {projectResults.length}
@@ -132,7 +183,29 @@ export function SearchView() {
                     })}
                   </div>
                 )}
-                {issueResults.length > 0 && (
+                {showDocuments && documentResults.length > 0 && (
+                  <div>
+                    <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
+                      Documents · {documentResults.length}
+                    </div>
+                    {documentResults.map((d) => (
+                      <button
+                        key={d.id}
+                        onClick={() => navigate(`/document/${d.id}`)}
+                        className="flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover"
+                      >
+                        <span className="text-[15px] leading-none">{d.icon}</span>
+                        <span className="text-[13px] text-fg">
+                          {d.title || 'Untitled'}
+                        </span>
+                        <span className="text-[11px] text-faint">
+                          Updated {timeAgo(d.updatedAt)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {showIssues && issueResults.length > 0 && (
                   <div>
                     <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
                       Issues · {issueResults.length}

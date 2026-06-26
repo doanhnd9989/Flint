@@ -48,6 +48,8 @@ const SECTIONS: { title: string; items: Shortcut[] }[] = [
       { keys: <><Kbd>↑</Kbd> <Kbd>K</Kbd></>, label: 'Focus previous issue' },
       { keys: <Kbd>↵</Kbd>, label: 'Open focused issue' },
       { keys: <Kbd>X</Kbd>, label: 'Select focused issue' },
+      { keys: <><Kbd>⇧</Kbd> <Kbd>Click</Kbd></>, label: 'Select a range of issues' },
+      { keys: <><Kbd>↓</Kbd> <Kbd>↑</Kbd></>, label: 'Peek next / previous (while peek open)' },
       { keys: <Kbd>S</Kbd>, label: 'Change status of focused issue' },
       { keys: <Kbd>P</Kbd>, label: 'Set priority of focused issue' },
       { keys: <Kbd>A</Kbd>, label: 'Assign focused issue' },

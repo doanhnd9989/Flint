@@ -1,11 +1,13 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RotateCcw, Trash2 } from 'lucide-react'
+import { ChevronDown, RotateCcw, Search, Trash2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { StatusIcon } from '@/components/StatusIcon'
 import { EmptyState, IssuesIllustration } from '@/components/EmptyState'
+import { SelectMenu } from '@/components/ui/SelectMenu'
+import type { SelectOption } from '@/components/ui/SelectMenu'
 import { timeAgo } from '@/lib/utils'
 import type { Issue, Team, User, WorkflowState } from '@/lib/types'
 
@@ -24,6 +26,11 @@ export function ArchiveView() {
   const unarchiveIssue = useStore((s) => s.unarchiveIssue)
   const deleteIssue = useStore((s) => s.deleteIssue)
 
+  // Local-only header filters: a free-text query (identifier/title substring)
+  // and a team picker. They compose with AND.
+  const [query, setQuery] = useState('')
+  const [teamFilter, setTeamFilter] = useState<string>('all')
+
   // userId → user, for assignee avatars.
   const userById = useMemo(() => {
     const m = new Map<string, User>()
@@ -38,14 +45,50 @@ export function ArchiveView() {
     return m
   }, [states])
 
-  // All archived issues, newest-archived first.
-  const archived = useMemo(
+  // Every archived issue, newest-archived first (the unfiltered pool — also the
+  // count shown in the header).
+  const allArchived = useMemo(
     () =>
       issues
         .filter((i) => !!i.archivedAt)
         .sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? '')),
     [issues],
   )
+
+  // Apply the header filters (query substring + team) with AND semantics.
+  const archived = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return allArchived.filter((i) => {
+      if (teamFilter !== 'all' && i.teamId !== teamFilter) return false
+      if (
+        q &&
+        !i.identifier.toLowerCase().includes(q) &&
+        !i.title.toLowerCase().includes(q)
+      )
+        return false
+      return true
+    })
+  }, [allArchived, query, teamFilter])
+
+  // Team filter options: "All teams" + every team in the workspace.
+  const teamOptions = useMemo<SelectOption[]>(
+    () => [
+      { id: 'all', label: 'All teams', selected: teamFilter === 'all' },
+      ...teams.map((t) => ({
+        id: t.id,
+        label: t.name,
+        icon: t.icon ? <span>{t.icon}</span> : undefined,
+        selected: teamFilter === t.id,
+      })),
+    ],
+    [teams, teamFilter],
+  )
+
+  // Label for the team-filter trigger chip.
+  const teamFilterLabel =
+    teamFilter === 'all'
+      ? 'All teams'
+      : (teams.find((t) => t.id === teamFilter)?.name ?? 'All teams')
 
   // Group the (already sorted) archived issues by team, preserving order.
   const groups = useMemo(() => {
@@ -67,16 +110,50 @@ export function ArchiveView() {
     <div className="flex h-full flex-col">
       <ViewHeader title="Archive">
         <span className="text-[12px] tabular-nums text-faint">
-          {archived.length}
+          {allArchived.length}
         </span>
+        {/* Header filters — search box + team picker, both local-only and
+            composed with AND. Hidden when there's nothing archived at all. */}
+        {allArchived.length > 0 && (
+          <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-1.5 rounded-md border border-border bg-bg-tertiary px-2 py-1 focus-within:border-accent">
+              <Search size={13} className="shrink-0 text-faint" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search archive…"
+                className="w-40 bg-transparent text-[12px] text-fg outline-none placeholder:text-faint"
+              />
+            </div>
+            <SelectMenu
+              width={200}
+              align="end"
+              options={teamOptions}
+              onSelect={setTeamFilter}
+              placeholder="Filter by team…"
+              trigger={
+                <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
+                  <span className="max-w-[120px] truncate">{teamFilterLabel}</span>
+                  <ChevronDown size={13} className="shrink-0 text-faint" />
+                </span>
+              }
+            />
+          </div>
+        )}
       </ViewHeader>
 
       <div className="flex-1 overflow-y-auto">
-        {archived.length === 0 ? (
+        {allArchived.length === 0 ? (
           <EmptyState
             illustration={<IssuesIllustration />}
             title="No archived issues"
             description="Issues you archive will show up here."
+          />
+        ) : archived.length === 0 ? (
+          <EmptyState
+            illustration={<IssuesIllustration />}
+            title="No matching issues"
+            description="No archived issues match your search or team filter."
           />
         ) : (
           <div className="mx-auto max-w-3xl px-6 py-6">

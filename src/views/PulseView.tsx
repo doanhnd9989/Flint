@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   ChevronRight,
+  ChevronDown,
   MessageSquare,
   Activity as ActivityGlyph,
   FolderClosed,
@@ -18,6 +19,8 @@ import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { ActivityItem } from '@/components/ActivityItem'
 import { EmptyState, CheckIllustration } from '@/components/EmptyState'
+import { SelectMenu } from '@/components/ui/SelectMenu'
+import type { SelectOption } from '@/components/ui/SelectMenu'
 import { cn, timeAgo } from '@/lib/utils'
 
 // ── Pulse — the workspace-wide activity feed (Linear's "Pulse"). ──────────────
@@ -33,6 +36,29 @@ const FILTER_LABEL: Record<Filter, string> = {
   issues: 'Issues',
   comments: 'Comments',
   projects: 'Projects',
+}
+
+// Date-scope quick filter — narrows the feed by event timestamp.
+const SCOPES = ['all', 'today', 'week'] as const
+type Scope = (typeof SCOPES)[number]
+
+const SCOPE_LABEL: Record<Scope, string> = {
+  all: 'All time',
+  today: 'Today',
+  week: 'This week',
+}
+
+/** Earliest timestamp (ms) included for a given scope, or 0 for "all". */
+function scopeFloor(scope: Scope): number {
+  if (scope === 'all') return 0
+  const now = new Date()
+  if (scope === 'today') {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  }
+  // "This week" — last 7 days from the start of today.
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  start.setDate(start.getDate() - 6)
+  return start.getTime()
 }
 
 const HEALTH_LABEL: Record<ProjectHealth, string> = {
@@ -87,6 +113,7 @@ export function PulseView() {
     issues,
     projects,
     initiatives,
+    teams,
     users,
   } = useStoreShallow((s) => ({
     activities: s.activities,
@@ -96,10 +123,14 @@ export function PulseView() {
     issues: s.issues,
     projects: s.projects,
     initiatives: s.initiatives,
+    teams: s.teams,
     users: s.users,
   }))
   const fmt = useDisplayName()
   const [filter, setFilter] = useState<Filter>('all')
+  // 'all' = every team; otherwise a specific team id.
+  const [teamFilter, setTeamFilter] = useState<string>('all')
+  const [scope, setScope] = useState<Scope>('all')
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
   // Merge all sources into a single newest-first stream.
@@ -142,15 +173,53 @@ export function PulseView() {
     )
   }, [activities, comments, projectUpdates, initiativeUpdates])
 
-  // Apply the segmented filter.
+  // Resolve the team an event belongs to (or undefined when it can't be
+  // team-resolved): issue activities/comments via the issue's teamId; project
+  // updates via the project's teamIds; initiative updates via the teamIds of the
+  // projects that roll up into the initiative.
+  const teamIdsForEvent = useMemo(() => {
+    const fn = (e: Event): Set<string> | undefined => {
+      if (e.type === 'activity') {
+        const issue = issues.find((i) => i.id === e.activity.issueId)
+        return issue ? new Set([issue.teamId]) : undefined
+      }
+      if (e.type === 'comment') {
+        const issue = issues.find((i) => i.id === e.issueId)
+        return issue ? new Set([issue.teamId]) : undefined
+      }
+      if (e.type === 'project') {
+        const project = projects.find((p) => p.id === e.projectId)
+        return project ? new Set(project.teamIds) : undefined
+      }
+      // initiative — union of the teams of its member projects.
+      const ids = new Set<string>()
+      for (const p of projects) {
+        if (p.initiativeId === e.initiativeId) for (const t of p.teamIds) ids.add(t)
+      }
+      return ids.size ? ids : undefined
+    }
+    return fn
+  }, [issues, projects])
+
+  // Apply the segmented kind filter, the team filter and the date scope.
   const filtered = useMemo(() => {
-    if (filter === 'all') return events
+    const floor = scopeFloor(scope)
     return events.filter((e) => {
-      if (filter === 'issues') return e.type === 'activity'
-      if (filter === 'comments') return e.type === 'comment'
-      return e.type === 'project' || e.type === 'initiative' // projects
+      // Date scope.
+      if (floor && new Date(e.createdAt).getTime() < floor) return false
+      // Kind.
+      if (filter === 'issues' && e.type !== 'activity') return false
+      if (filter === 'comments' && e.type !== 'comment') return false
+      if (filter === 'projects' && e.type !== 'project' && e.type !== 'initiative')
+        return false
+      // Team — events that can't be team-resolved are hidden for a specific team.
+      if (teamFilter !== 'all') {
+        const ids = teamIdsForEvent(e)
+        if (!ids || !ids.has(teamFilter)) return false
+      }
+      return true
     })
-  }, [events, filter])
+  }, [events, filter, teamFilter, scope, teamIdsForEvent])
 
   // Group into day buckets (stream is already newest-first).
   const days = useMemo(() => {
@@ -166,11 +235,27 @@ export function PulseView() {
 
   const setPeek = (id: string) => useStore.getState().setPeek(id)
 
+  // Team filter dropdown options — "All teams" plus one per team.
+  const teamOptions = useMemo<SelectOption[]>(
+    () => [
+      { id: 'all', label: 'All teams', selected: teamFilter === 'all' },
+      ...teams.map((t) => ({
+        id: t.id,
+        label: t.name,
+        hint: t.key,
+        keywords: t.key,
+        selected: teamFilter === t.id,
+      })),
+    ],
+    [teams, teamFilter],
+  )
+  const activeTeam = teams.find((t) => t.id === teamFilter)
+
   return (
     <div className="flex h-full flex-col">
       <ViewHeader title="Pulse" />
 
-      {/* Segmented filter — All / Issues / Comments / Projects */}
+      {/* Filter bar — kind segmented control + team & date-scope quick filters */}
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-1.5">
         {FILTERS.map((f) => (
           <button
@@ -185,6 +270,39 @@ export function PulseView() {
             {FILTER_LABEL[f]}
           </button>
         ))}
+
+        {/* Team filter — All teams + each team by name */}
+        <div className="ml-auto flex items-center gap-1">
+          <SelectMenu
+            options={teamOptions}
+            onSelect={setTeamFilter}
+            align="end"
+            placeholder="Filter team…"
+            trigger={
+              <span className="flex items-center gap-1 rounded-md px-2 py-1 text-[13px] text-muted hover:bg-bg-hover hover:text-fg">
+                {activeTeam ? activeTeam.name : 'All teams'}
+                <ChevronDown size={13} className="text-faint" />
+              </span>
+            }
+          />
+
+          {/* Date scope — All time / Today / This week */}
+          <div className="flex items-center gap-0.5">
+            {SCOPES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setScope(s)}
+                className={cn(
+                  'rounded-md px-2 py-1 text-[13px] text-muted hover:bg-bg-hover',
+                  scope === s && 'bg-bg-selected font-medium text-fg',
+                )}
+              >
+                {SCOPE_LABEL[s]}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {filtered.length === 0 ? (

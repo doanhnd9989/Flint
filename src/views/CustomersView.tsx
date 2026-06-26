@@ -10,11 +10,18 @@ import { cn } from '@/lib/utils'
 import type { CustomerTier } from '@/lib/types'
 
 type SortKey = 'arr' | 'name' | 'requests'
+type TierFilter = CustomerTier | 'all'
 
 const SORTS: { key: SortKey; label: string }[] = [
   { key: 'arr', label: 'ARR' },
   { key: 'name', label: 'Name' },
   { key: 'requests', label: 'Requests' },
+]
+
+/** Tier filter pills, "All" first then the standard tier order. */
+const TIER_FILTERS: { key: TierFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  ...CUSTOMER_TIER_ORDER.map((t) => ({ key: t, label: CUSTOMER_TIERS[t].label })),
 ]
 
 /** Compact "$120K" / "$1.2M" formatter for ARR figures. */
@@ -38,6 +45,7 @@ export function CustomersView() {
   const createCustomer = useStore((s) => s.createCustomer)
 
   const [sort, setSort] = useState<SortKey>('arr')
+  const [tierFilter, setTierFilter] = useState<TierFilter>('all')
   const [creating, setCreating] = useState(false)
 
   /** Linked-issue ("request") count per customer id. */
@@ -51,7 +59,9 @@ export function CustomersView() {
   }, [issues])
 
   const sorted = useMemo(() => {
-    const arr = [...customers]
+    const arr = customers.filter(
+      (c) => tierFilter === 'all' || c.tier === tierFilter,
+    )
     arr.sort((a, b) => {
       switch (sort) {
         case 'name':
@@ -63,15 +73,18 @@ export function CustomersView() {
       }
     })
     return arr
-  }, [customers, sort, requestCounts])
+  }, [customers, tierFilter, sort, requestCounts])
 
+  /** Summary reflects the *filtered* set (count + total ARR + requests). */
   const totals = useMemo(() => {
     let arr = 0
     let requests = 0
-    for (const c of customers) arr += c.arr ?? 0
-    for (const c of customers) requests += requestCounts[c.id] ?? 0
-    return { count: customers.length, arr, requests }
-  }, [customers, requestCounts])
+    for (const c of sorted) {
+      arr += c.arr ?? 0
+      requests += requestCounts[c.id] ?? 0
+    }
+    return { count: sorted.length, arr, requests }
+  }, [sorted, requestCounts])
 
   return (
     <div className="flex h-full flex-col">
@@ -137,6 +150,31 @@ export function CustomersView() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Tier filter pills */}
+          <div className="flex items-center gap-1 border-b border-border px-4 py-2">
+            {TIER_FILTERS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTierFilter(t.key)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-medium transition-colors',
+                  tierFilter === t.key
+                    ? 'border-transparent bg-bg-selected text-fg'
+                    : 'border-border text-muted hover:text-fg',
+                )}
+              >
+                {t.key !== 'all' && (
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ background: CUSTOMER_TIERS[t.key].color }}
+                  />
+                )}
+                {t.label}
+              </button>
+            ))}
           </div>
 
           {/* List */}

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { ChevronDown, Plus, IterationCw, Diamond } from 'lucide-react'
 import {
   DndContext,
@@ -22,7 +21,7 @@ import { LabelDot } from './LabelChip'
 import { cn } from '@/lib/utils'
 
 function Card({ issue, dragging }: { issue: Issue; dragging?: boolean }) {
-  const navigate = useNavigate()
+  const setPeek = useStore((s) => s.setPeek)
   const { users, labels } = useStoreShallow((s) => ({ users: s.users, labels: s.labels }))
   const assignee = users.find((u) => u.id === issue.assigneeId)
   const issueLabels = issue.labelIds
@@ -30,7 +29,9 @@ function Card({ issue, dragging }: { issue: Issue; dragging?: boolean }) {
     .filter(Boolean)
   return (
     <div
-      onClick={() => navigate(`/issue/${issue.identifier}`)}
+      // A plain click peeks the issue in the right-side panel; a drag is
+      // suppressed by dnd-kit so it won't fire this click handler.
+      onClick={() => setPeek(issue.id)}
       className={cn(
         'rounded-lg border border-border bg-bg p-2.5 shadow-sm cursor-pointer hover:border-border-strong',
         dragging && 'opacity-50',

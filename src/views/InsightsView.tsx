@@ -1,10 +1,55 @@
 import { useMemo, useState } from 'react'
+import { ChevronDown, Download } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
+import { SelectMenu } from '@/components/ui/SelectMenu'
 import { PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
 import { displayName } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { Issue, WorkflowState } from '@/lib/types'
+
+/** Time ranges for the Insights header — filter source issues by createdAt. */
+const RANGES = [
+  { id: 'all', label: 'All time', days: 0 },
+  { id: '7', label: 'Last 7 days', days: 7 },
+  { id: '30', label: 'Last 30 days', days: 30 },
+  { id: '90', label: 'Last 90 days', days: 90 },
+] as const
+type RangeId = (typeof RANGES)[number]['id']
+
+/** Exportable breakdown dimensions, mirroring the cards below. */
+const DIMENSIONS = [
+  { id: 'status', label: 'By status' },
+  { id: 'priority', label: 'By priority' },
+  { id: 'assignee', label: 'By assignee' },
+  { id: 'project', label: 'By project' },
+  { id: 'label', label: 'By label' },
+] as const
+type DimensionId = (typeof DIMENSIONS)[number]['id']
+
+/** RFC 4180 — quote a field and escape embedded quotes. */
+function csvField(v: string | number): string {
+  const s = String(v)
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+/** Build a CSV Blob from a breakdown and trigger a browser download. */
+function downloadCsv(filename: string, dimensionLabel: string, bars: Bar[]) {
+  const rows = [
+    [dimensionLabel, 'Count'],
+    ...bars.map((b) => [b.label, b.value] as const),
+  ]
+  const csv = rows.map((r) => r.map(csvField).join(',')).join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
 
 /** Bar colors for the priority chart, keyed by Linear's priority scale. */
 const PRIORITY_COLOR: Record<number, string> = {
@@ -86,14 +131,27 @@ function topN(bars: Bar[], n: number): Bar[] {
 export function InsightsView() {
   const data = useStore()
   const [teamFilter, setTeamFilter] = useState<string>('all')
+  const [range, setRange] = useState<RangeId>('all')
+  const [exportDim, setExportDim] = useState<DimensionId>('status')
   const displayPref = data.preferences.displayNames
+
+  const rangeMeta = RANGES.find((r) => r.id === range) ?? RANGES[0]
+
+  // Cutoff timestamp for the active range; null means "all time".
+  const cutoff = useMemo(
+    () => (rangeMeta.days > 0 ? Date.now() - rangeMeta.days * 86_400_000 : null),
+    [rangeMeta.days],
+  )
 
   const issues = useMemo<Issue[]>(
     () =>
       data.issues.filter(
-        (i) => !i.archivedAt && (teamFilter === 'all' || i.teamId === teamFilter),
+        (i) =>
+          !i.archivedAt &&
+          (teamFilter === 'all' || i.teamId === teamFilter) &&
+          (cutoff === null || new Date(i.createdAt).getTime() >= cutoff),
       ),
-    [data.issues, teamFilter],
+    [data.issues, teamFilter, cutoff],
   )
 
   const stateById = useMemo(() => {
@@ -110,8 +168,10 @@ export function InsightsView() {
     let unstarted = 0
     for (const i of issues) {
       const t = stateById.get(i.stateId)?.type
-      if (t === 'completed') completed++
-      else if (t === 'started') started++
+      if (t === 'completed') {
+        // Completed-stat respects the range by completedAt (when it happened).
+        if (cutoff === null || (i.completedAt && new Date(i.completedAt).getTime() >= cutoff)) completed++
+      } else if (t === 'started') started++
       else if (t === 'backlog') backlog++
       else if (t === 'unstarted') unstarted++
     }
@@ -120,7 +180,7 @@ export function InsightsView() {
     const scope = issues.filter((i) => stateById.get(i.stateId)?.type !== 'canceled')
     const points = scope.reduce((s, i) => s + (i.estimate ?? 0), 0)
     return { total, completed, started, backlog, unstarted, rate, points }
-  }, [issues, stateById])
+  }, [issues, stateById, cutoff])
 
   // ── breakdown by workflow status ───────────────────────────────────────────
   const byStatus = useMemo<Bar[]>(() => {
@@ -189,40 +249,110 @@ export function InsightsView() {
 
   const maxOf = (bars: Bar[]) => bars.reduce((m, b) => Math.max(m, b.value), 0)
 
+  // Map each export dimension to its computed breakdown + human label.
+  const breakdowns: Record<DimensionId, { label: string; bars: Bar[] }> = {
+    status: { label: 'Status', bars: byStatus },
+    priority: { label: 'Priority', bars: byPriority },
+    assignee: { label: 'Assignee', bars: byAssignee },
+    project: { label: 'Project', bars: byProject },
+    label: { label: 'Label', bars: byLabel },
+  }
+
+  function exportCsv() {
+    const dim = breakdowns[exportDim]
+    const teamPart = teamFilter === 'all' ? 'all-teams' : (data.teams.find((t) => t.id === teamFilter)?.key ?? 'team')
+    const filename = `insights-${exportDim}-${teamPart}-${range}.csv`
+    downloadCsv(filename, dim.label, dim.bars)
+  }
+
   return (
     <div className="flex h-full flex-col">
       <ViewHeader
         title="Insights"
         right={
-          <div className="flex items-center gap-1 rounded-md bg-bg-secondary p-0.5">
-            <button
-              type="button"
-              onClick={() => setTeamFilter('all')}
-              className={cn(
-                'rounded px-2 py-1 text-[12px]',
-                teamFilter === 'all' ? 'bg-bg-elevated font-medium text-fg shadow-sm' : 'text-muted hover:text-fg',
-              )}
-            >
-              All teams
-            </button>
-            {data.teams.map((t) => (
+          <div className="flex items-center gap-2">
+            {/* Time-range filter — filters source issues by createdAt. */}
+            <SelectMenu
+              align="end"
+              width={180}
+              options={RANGES.map((r) => ({ id: r.id, label: r.label, selected: r.id === range }))}
+              onSelect={(id) => setRange(id as RangeId)}
+              trigger={
+                <span className="inline-flex items-center gap-1 rounded-md border border-border bg-bg px-2 py-1 text-[12px] text-fg hover:bg-bg-hover">
+                  {rangeMeta.label}
+                  <ChevronDown size={13} className="text-muted" />
+                </span>
+              }
+            />
+
+            {/* Export the selected breakdown dimension as CSV. */}
+            <div className="flex items-center rounded-md border border-border bg-bg">
               <button
-                key={t.id}
                 type="button"
-                onClick={() => setTeamFilter(t.id)}
+                onClick={exportCsv}
+                title={`Export ${breakdowns[exportDim].label} breakdown as CSV`}
+                className="inline-flex items-center gap-1 px-2 py-1 text-[12px] text-fg hover:bg-bg-hover rounded-l-md"
+              >
+                <Download size={13} className="text-muted" />
+                Export
+              </button>
+              <SelectMenu
+                align="end"
+                width={160}
+                options={DIMENSIONS.map((d) => ({ id: d.id, label: d.label, selected: d.id === exportDim }))}
+                onSelect={(id) => setExportDim(id as DimensionId)}
+                trigger={
+                  <span className="inline-flex items-center border-l border-border px-1 py-1 text-muted hover:bg-bg-hover rounded-r-md">
+                    <ChevronDown size={13} />
+                  </span>
+                }
+              />
+            </div>
+
+            {/* Team filter */}
+            <div className="flex items-center gap-1 rounded-md bg-bg-secondary p-0.5">
+              <button
+                type="button"
+                onClick={() => setTeamFilter('all')}
                 className={cn(
                   'rounded px-2 py-1 text-[12px]',
-                  teamFilter === t.id ? 'bg-bg-elevated font-medium text-fg shadow-sm' : 'text-muted hover:text-fg',
+                  teamFilter === 'all' ? 'bg-bg-elevated font-medium text-fg shadow-sm' : 'text-muted hover:text-fg',
                 )}
               >
-                {t.key}
+                All teams
               </button>
-            ))}
+              {data.teams.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTeamFilter(t.id)}
+                  className={cn(
+                    'rounded px-2 py-1 text-[12px]',
+                    teamFilter === t.id ? 'bg-bg-elevated font-medium text-fg shadow-sm' : 'text-muted hover:text-fg',
+                  )}
+                >
+                  {t.key}
+                </button>
+              ))}
+            </div>
           </div>
         }
       />
       <div className="flex-1 overflow-y-auto bg-bg-secondary">
         <div className="mx-auto max-w-5xl px-8 py-8">
+          {/* Active scope summary */}
+          <div className="mb-4 text-[12px] text-muted">
+            Showing <span className="font-medium text-fg">{totals.total}</span> issues
+            {' · '}
+            <span className="font-medium text-fg">{rangeMeta.label.toLowerCase()}</span>
+            {teamFilter !== 'all' && (
+              <>
+                {' · '}
+                <span className="font-medium text-fg">{data.teams.find((t) => t.id === teamFilter)?.name}</span>
+              </>
+            )}
+          </div>
+
           {/* Summary stats */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <Stat label="Total issues" value={totals.total} />

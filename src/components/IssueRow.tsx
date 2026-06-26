@@ -11,6 +11,10 @@ import { StatusPicker, PriorityPicker, AssigneePicker } from './pickers'
 import { ProgressDonut } from './ProgressDonut'
 import { cn, formatDate, isDueSoon, isOverdue } from '@/lib/utils'
 
+// The last row whose checkbox was toggled (an issue identifier) — anchors
+// shift-click range selection, exactly like Linear's list.
+let lastSelectedIdentifier: string | null = null
+
 export function IssueRow({
   issue,
   showStatus = true,
@@ -25,8 +29,8 @@ export function IssueRow({
   expand?: { hasChildren: boolean; expanded: boolean; onToggle: () => void }
 }) {
   const {
-    states, users, labels, issues, projects, milestones, cycles, teams, issueLinks, comments, displayProperties, selectedIssueIds, focusedIssueId,
-    setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue, setFocusedIssue, openContextMenu,
+    states, users, labels, issues, projects, milestones, cycles, teams, issueLinks, comments, displayProperties, selectedIssueIds, focusedIssueId, navIssueIds,
+    setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue, setSelectedIssues, setFocusedIssue, openContextMenu,
   } = useStoreShallow((s) => ({
     states: s.states,
     users: s.users,
@@ -41,11 +45,13 @@ export function IssueRow({
     displayProperties: s.displayProperties,
     selectedIssueIds: s.selectedIssueIds,
     focusedIssueId: s.focusedIssueId,
+    navIssueIds: s.navIssueIds,
     setIssueStatus: s.setIssueStatus,
     setIssuePriority: s.setIssuePriority,
     setIssueAssignee: s.setIssueAssignee,
     setPeek: s.setPeek,
     toggleSelectIssue: s.toggleSelectIssue,
+    setSelectedIssues: s.setSelectedIssues,
     setFocusedIssue: s.setFocusedIssue,
     openContextMenu: s.openContextMenu,
   }))
@@ -113,7 +119,23 @@ export function IssueRow({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
+          // Shift-click selects the inclusive range from the last toggled row
+          // to this one (Linear's range select), using the list's visible order.
+          if (e.shiftKey && lastSelectedIdentifier && navIssueIds.length) {
+            const a = navIssueIds.indexOf(lastSelectedIdentifier)
+            const b = navIssueIds.indexOf(issue.identifier)
+            if (a !== -1 && b !== -1) {
+              const [lo, hi] = a < b ? [a, b] : [b, a]
+              const rangeIds = navIssueIds
+                .slice(lo, hi + 1)
+                .map((ident) => issues.find((i) => i.identifier === ident)?.id)
+                .filter((id): id is string => Boolean(id))
+              setSelectedIssues(Array.from(new Set([...selectedIssueIds, ...rangeIds])))
+              return
+            }
+          }
           toggleSelectIssue(issue.id)
+          lastSelectedIdentifier = issue.identifier
         }}
         className={cn(
           'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-opacity',

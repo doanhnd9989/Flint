@@ -31,6 +31,19 @@ function currentIssue(s: Store): Issue | undefined {
   return undefined
 }
 
+/**
+ * When the peek panel is open, `j`/`k` should advance the peeked issue to the
+ * newly focused row (Linear re-peeks as you walk the list). Reads fresh state
+ * after `moveFocus` has updated the focus.
+ */
+function repeekFocused(prev: Store) {
+  if (!prev.peekIssueId) return
+  const s = useStore.getState()
+  if (!s.focusedIssueId) return
+  const focused = s.issues.find((i) => i.identifier === s.focusedIssueId)
+  if (focused && focused.id !== s.peekIssueId) s.setPeek(focused.id)
+}
+
 const M_CHORD: Record<string, RelationPickerKind> = {
   r: 'related',
   b: 'blockedBy',
@@ -123,11 +136,13 @@ export function useShortcuts() {
         if (key === 'j' || e.key === 'ArrowDown') {
           e.preventDefault()
           store.moveFocus(1)
+          repeekFocused(store)
           return
         }
         if (key === 'k' || e.key === 'ArrowUp') {
           e.preventDefault()
           store.moveFocus(-1)
+          repeekFocused(store)
           return
         }
         if (store.focusedIssueId) {
