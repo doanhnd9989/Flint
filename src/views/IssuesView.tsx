@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Bookmark } from 'lucide-react'
+import { Bookmark, X } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
 import type { GroupBy, Issue, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
@@ -210,20 +210,26 @@ export function IssuesView() {
       <FilterBar filters={filters} onChange={setFilters} />
 
       {/* Quick-filter presets — clicking the active pill clears it. */}
-      <div className="flex items-center gap-1 border-b border-border px-4 py-1.5">
-        {PRESETS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => setPreset((cur) => (cur === p.id ? null : p.id))}
-            className={cn(
-              'rounded-md px-2 py-1 text-[12px] text-muted hover:bg-bg-hover',
-              preset === p.id && 'bg-secondary text-fg',
-            )}
-          >
-            {p.label}
-          </button>
-        ))}
+      <div className="flex items-center gap-1.5 border-b border-border px-4 py-1.5">
+        {PRESETS.map((p) => {
+          const on = preset === p.id
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPreset((cur) => (cur === p.id ? null : p.id))}
+              className={cn(
+                'flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] transition-colors',
+                on
+                  ? 'border-border bg-secondary font-medium text-fg'
+                  : 'border-transparent text-muted hover:bg-bg-hover hover:text-fg',
+              )}
+            >
+              {p.label}
+              {on && <X size={12} className="text-faint" />}
+            </button>
+          )
+        })}
       </div>
 
       {layout === 'board' ? (
