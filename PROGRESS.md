@@ -2,6 +2,71 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-27 — Loop #95: 29 features (5 waves) + 7 bug fixes + keyboard-affordance polish
+
+The backlog was fully checked off, so this run opened by **replenishing the
+queue**: a 6-agent parallel **gap-audit workflow** (one Explore finder per
+surface cluster) read the whole codebase and reported genuinely-missing,
+buildable, non-backend Linear features. Several finder claims were stale
+(project priority, bulk pickers, saved-view duplicate, my-issues due-soon, etc.
+already existed) and were filtered out by grep + builder self-skip. The working
+tree also carried **coherent, green in-progress work** from an interrupted prior
+run — preserved and shipped as wave 1 rather than discarded. Each wave was a
+parallel per-feature fan-out (one file per builder; shared store/types deltas
+pre-added or integrated by the main agent), verified (`tsc -b` + `npm run build`
++ Preview MCP console check), and committed before the next.
+
+_Wave 1 — preferences + inherited fixes (4 features + 6 bug fixes):_ Preferences
+**Underline links** · **Reduce motion** · **Enable spell check** (wired into
+every editor textarea) · **Show counts in sidebar**. Six bug fixes from the
+recovered tree: relations opposite-bucket exclusion, cycles stale-team
+selection fallback, inbox keyboard-nav mark-read desync, initiative
+hooks-order (Rules of Hooks), insights CSV points header, my-issues
+canceled-deadline filter.
+
+_Wave 2 — issues / command-menu (11):_ ⌘K issue-context sub-pages **Move to
+cycle / Set milestone / Set estimate / Archive / Move to team**, global
+shortcuts **⇧D set due date** + **⌘⇧⌫ archive**, **Copy as markdown link**,
+peek **j/k navigation**, editor **emoticon→emoji conversion**, list
+**no-results filtered empty state**.
+
+_Wave 3 — extras / inbox (5):_ **Customers CSV export** · **Releases copy-as-
+markdown** · **Inbox notification reason badges** · **Insights custom date
+range** · **Reminders multi-select bulk reschedule**.
+
+_Wave 4 — teams / projects (5):_ **Team archive/restore** · **persisted
+sidebar section collapse** · **project dependency transitive cycle guard +
+warning** · **cycle burndown forecast line** · **project Overview inline
+health-update composer**.
+
+_Wave 5 — projects / docs (4):_ **Projects list row context menu** (copy
+link/ID, favorite, delete) · **Projects board column collapse menu** ·
+**Favorites drag-to-reorder** · **Document version history** (auto-checkpoint
+on edit + restore).
+
+**Phase 2 — bug hunt (find → adversarially verify → fix):** 5 parallel finders
+swept the run's diff (`692b20f..HEAD`); a separate adversarial verifier judged
+each of **11 candidates → 1 CONFIRMED, 10 refuted**. Fixed: the wave-2 command
+menu advertised keyboard hints (E / ⇧C / ⇧P / ⇧M) for the new sub-pages but the
+shortcuts were never wired — worse, **⇧C opened the create-issue modal** instead
+of the cycle picker. Wired all four to `openIssuePropertyMenu` via the current
+issue (peek/route/focused), gated create on plain C, excluded ⇧M from the M
+relation chord, and aligned the milestone hint to ⇧M. Verified live (⇧C now
+opens the cycle picker, create modal no longer fires). Refuted included
+reorderFavorite index math (matches dnd-kit `arrayMove`), burndown div-by-zero
+(guarded), and doc-version coalescing (intentional).
+
+**Phase 3 — polish (keyboard affordances):** documented every new issue
+shortcut in the `?` help overlay — E, ⇧P, ⇧C, ⇧M, ⇧D, ⌘⇧⌫, and peek J/K — so
+the reference matches the real bindings. Verified light + dark.
+
+`tsc -b ✅ · build ✅ · console clean` (Preview MCP, no "Maximum update depth").
+
+Next: remaining parity is increasingly backend-dependent (live GitHub/Slack
+sync, real email export/digest, document collaborative presence) plus deeper
+model work (Pulse per-activity reactions, customer-request SLA timers,
+time-in-status history feeding the inert display-property pills).
+
 ## 2026-06-26 — Loop #90: 34 features (recovery + new wave) + 2 bug fixes + Insights polish
 
 This run opened on a **stale lock reclaim** and a working tree carrying **2485

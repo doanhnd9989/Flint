@@ -390,3 +390,25 @@ _Wave 4 (search · docs · customers · feeds · insights):_
 - [x] 🟢 **Pulse load-more pagination** — windowed feed with a Load-more button.
 - [x] 🟡 **Command-menu section headers** — grouped uppercase headers in the ⌘K palette.
 - [x] 🟡 **Copy issue ID/URL + assign-to-me shortcuts** — ⌘. / ⌘⇧. copy, `i` assigns to me.
+
+### Loop #95 (discovered + shipped)
+
+- [x] 🟢 **Preferences: underline links / reduce motion / spell check / sidebar counts** — wired into editors, useTheme, Sidebar.
+- [x] 🟡 **⌘K issue-context sub-pages** — Move to cycle / Set milestone / Set estimate / Archive / Move to team.
+- [x] 🟡 **Issue shortcuts** — ⇧D due date, ⌘⇧⌫ archive, E estimate, ⇧P project, ⇧C cycle, ⇧M milestone (wired + help overlay).
+- [x] 🟢 **Copy issue as markdown link** — `[CLA-123 Title](url)` in the Copy menu.
+- [x] 🟢 **Peek j/k navigation** — step prev/next issue while the peek panel is open.
+- [x] 🟢 **Editor emoticon→emoji conversion** — `:)`→🙂 etc., gated by the convertEmoticons preference.
+- [x] 🟢 **List no-results filtered empty state** — "No issues match the current filters" + Clear filters.
+- [x] 🟡 **Customers CSV export** · **Releases copy-as-markdown** · **Inbox notification reason badges**.
+- [x] 🟡 **Insights custom date range** — start/end DatePickers feeding the cohort filter.
+- [x] 🟡 **Reminders multi-select bulk reschedule** — checkboxes + floating bar + DatePicker.
+- [x] 🟡 **Team archive / restore** — archived-teams section; active counts exclude archived.
+- [x] 🟢 **Persisted sidebar section collapse** — per-section collapse survives reload.
+- [x] 🟡 **Project dependency transitive cycle guard + warning** — graph-walk exclusion + AlertTriangle badge.
+- [x] 🟢 **Cycle burndown forecast line** — projected completion trend for in-flight cycles.
+- [x] 🟡 **Project Overview inline health-update composer** — post on-track/at-risk/off-track without leaving Overview.
+- [x] 🟡 **Projects list row context menu** — copy link/ID, favorite, delete (right-click + hover ⋯).
+- [x] 🟢 **Projects board column collapse menu** — collapse a column to a thin strip.
+- [x] 🟢 **Favorites drag-to-reorder** — @dnd-kit sortable over the flat favorites array.
+- [x] 🟡 **Document version history** — auto-checkpoint on edit (coalesced) + restore from a History panel.
