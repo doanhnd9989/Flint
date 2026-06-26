@@ -21,7 +21,7 @@ export function SavedViewScreen() {
     const sorted = sortIssues(filtered, view.orderBy, data)
     return groupIssues(
       sorted,
-      view.layout === 'board' ? 'status' : view.groupBy,
+      view.layout === 'board' && view.groupBy === 'label' ? 'status' : view.groupBy,
       data,
       false,
       data.preferences.displayNames,
@@ -59,7 +59,10 @@ export function SavedViewScreen() {
         onChange={(filters) => updateView(view.id, { filters })}
       />
       {view.layout === 'board' ? (
-        <IssueBoard groups={groups} />
+        <IssueBoard
+          groups={groups}
+          groupBy={view.groupBy === 'label' ? 'status' : view.groupBy}
+        />
       ) : (
         <GroupedIssueList groups={groups} groupBy={view.groupBy} />
       )}

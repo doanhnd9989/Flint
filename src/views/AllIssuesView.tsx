@@ -72,7 +72,7 @@ export function AllIssuesView() {
     const dn = data.preferences.displayNames
     const top = groupIssues(
       forGrouping,
-      layout === 'board' ? 'status' : groupBy,
+      layout === 'board' && groupBy === 'label' ? 'status' : groupBy,
       data,
       showEmptyGroups,
       dn,
@@ -177,7 +177,12 @@ export function AllIssuesView() {
       <FilterBar filters={filters} onChange={setFilters} />
 
       {layout === 'board' ? (
-        <IssueBoard groups={groups} rows={rows} subGroupBy={subGroupBy} />
+        <IssueBoard
+          groups={groups}
+          rows={rows}
+          subGroupBy={subGroupBy}
+          groupBy={groupBy === 'label' ? 'status' : groupBy}
+        />
       ) : (
         <GroupedIssueList
           groups={groups}

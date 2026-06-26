@@ -74,7 +74,9 @@ export function IssuesView() {
     const dn = data.preferences.displayNames
     const top = groupIssues(
       forGrouping,
-      layout === 'board' ? 'status' : groupBy,
+      // The board groups by any single-valued property, but label-grouping would
+      // place multi-label issues in several columns (duplicate DnD ids) — fall back.
+      layout === 'board' && groupBy === 'label' ? 'status' : groupBy,
       data,
       showEmptyGroups,
       dn,
@@ -182,7 +184,12 @@ export function IssuesView() {
       <FilterBar filters={filters} onChange={setFilters} />
 
       {layout === 'board' ? (
-        <IssueBoard groups={groups} rows={rows} subGroupBy={subGroupBy} />
+        <IssueBoard
+          groups={groups}
+          rows={rows}
+          subGroupBy={subGroupBy}
+          groupBy={groupBy === 'label' ? 'status' : groupBy}
+        />
       ) : (
         <GroupedIssueList
           groups={groups}

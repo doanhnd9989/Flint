@@ -85,6 +85,8 @@ export function IssueDetailBody({
   const store = useStore()
   const fmt = useDisplayName()
   const [commentBody, setCommentBody] = useState('')
+  // Activity-feed filter, mirroring Linear's feed header (All / Comments / Updates).
+  const [feedFilter, setFeedFilter] = useState<'all' | 'comments' | 'updates'>('all')
 
   const state = store.states.find((s) => s.id === issue.stateId)!
   const team = store.teams.find((t) => t.id === issue.teamId)
@@ -282,7 +284,25 @@ export function IssueDetailBody({
           {/* Activity + comments */}
           <div className="mt-8">
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-[12px] font-medium text-faint">Activity</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] font-medium text-faint">Activity</span>
+                <div className="flex items-center gap-0.5 rounded-md bg-bg-secondary p-0.5">
+                  {(['all', 'comments', 'updates'] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setFeedFilter(f)}
+                      className={cn(
+                        'rounded px-1.5 py-0.5 text-[11px] capitalize transition-colors',
+                        feedFilter === f
+                          ? 'bg-bg text-fg shadow-sm'
+                          : 'text-muted hover:text-fg',
+                      )}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <button
                 onClick={() =>
                   store.toggleIssueSubscriber(issue.id, store.currentUserId)
@@ -299,16 +319,21 @@ export function IssueDetailBody({
               </button>
             </div>
             <div className="space-y-3">
-              {activities.map((a) => (
-                <ActivityItem key={a.id} activity={a} />
-              ))}
-              {threads.map((c) => (
-                <CommentThread
-                  key={c.id}
-                  root={c}
-                  replies={comments.filter((r) => r.parentId === c.id)}
-                />
-              ))}
+              {feedFilter !== 'comments' &&
+                activities.map((a) => (
+                  <ActivityItem key={a.id} activity={a} />
+                ))}
+              {feedFilter !== 'updates' &&
+                threads.map((c) => (
+                  <CommentThread
+                    key={c.id}
+                    root={c}
+                    replies={comments.filter((r) => r.parentId === c.id)}
+                  />
+                ))}
+              {feedFilter === 'comments' && threads.length === 0 && (
+                <p className="text-[12px] text-faint">No comments yet.</p>
+              )}
             </div>
 
             <div className="mt-4 flex gap-2">

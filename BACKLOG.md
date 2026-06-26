@@ -200,3 +200,8 @@ New nav/lifecycle surfaces, issue-detail & board enhancements, settings pages, r
 - [x] 🟡 **Triage settings** — per-team enable triage + responsibility + auto-assign + notify.
 - [x] 🟡 **Import settings** — import-sources page (Jira/Asana/GitHub/Shortcut/Trello/Linear/CSV/Height) with mock toast + persisted "imported" state.
 - [x] 🔴 **Audit log** — workspace audit log driven by real `activities` (actor + sentence + issue link + time), actor/type filters, CSV export.
+
+**Wave 4 — board grouping + issue/project sections (model: Project.resources):**
+- [x] 🔴 **Board group-by** — the kanban board now honors the Display "Columns" grouping (Status / Assignee / Priority / Project), with drag-to-set-the-grouped-property; label-grouping falls back to status (multi-label would dup DnD ids). Wired into IssuesView / AllIssuesView / MyIssues / SavedViewScreen.
+- [x] 🟡 **Activity feed filter** — All / Comments / Updates segmented control on the issue activity feed.
+- [x] 🟡 **Project resources** — a "Resources" section on the project Overview: add/remove external links (Figma/docs/specs), stored on `Project.resources` via `updateProject`.

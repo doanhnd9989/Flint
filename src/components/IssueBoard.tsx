@@ -13,7 +13,7 @@ import {
 } from '@dnd-kit/core'
 import { useDraggable } from '@dnd-kit/core'
 import { useStore, useStoreShallow } from '@/lib/store'
-import type { GroupBy, Issue } from '@/lib/types'
+import type { GroupBy, Issue, Priority } from '@/lib/types'
 import type { IssueGroup } from '@/lib/selectors'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
@@ -83,14 +83,12 @@ function CardStack({ issues, dropId }: { issues: Issue[]; dropId: string }) {
   )
 }
 
-function Column({ group }: { group: IssueGroup }) {
-  const states = useStore((s) => s.states)
+function Column({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy }) {
   const openCreateWith = useStore((s) => s.openCreateWith)
-  const state = states.find((s) => s.id === group.stateId)
   return (
     <div className="group flex w-72 shrink-0 flex-col">
       <div className="mb-2 flex items-center gap-2 px-1">
-        {state && <StatusIcon type={state.type} color={state.color} />}
+        <RowGlyph group={group} by={groupBy} />
         <span className="text-[13px] font-medium text-fg">{group.label}</span>
         <span className="text-[12px] text-faint">{group.count}</span>
         <div className="flex-1" />
@@ -176,13 +174,19 @@ export function IssueBoard({
   groups,
   rows,
   subGroupBy = 'none',
+  groupBy = 'status',
 }: {
   groups: IssueGroup[]
   /** When set, the board renders horizontal swimlanes grouped by these rows. */
   rows?: IssueGroup[]
   subGroupBy?: GroupBy
+  /** What the columns are grouped by — drives drag-to-set behavior. */
+  groupBy?: GroupBy
 }) {
   const moveIssue = useStore((s) => s.moveIssue)
+  const setIssueAssignee = useStore((s) => s.setIssueAssignee)
+  const setIssuePriority = useStore((s) => s.setIssuePriority)
+  const setIssueProject = useStore((s) => s.setIssueProject)
   const setNavIssueIds = useStore((s) => s.setNavIssueIds)
   const [active, setActive] = useState<Issue | null>(null)
   const [showHidden, setShowHidden] = useState(false)
@@ -218,9 +222,34 @@ export function IssueBoard({
     const issue = e.active.data.current?.issue as Issue | undefined
     const overId = e.over?.id as string | undefined
     if (!issue || !overId) return
-    // Swimlane cells carry composite "rowKey::stateId" drop ids.
-    const stateId = overId.includes('::') ? overId.split('::')[1] : overId
-    if (issue.stateId !== stateId) moveIssue(issue.id, stateId, issue.sortOrder)
+    // Swimlane cells carry composite "rowKey::colKey" drop ids; for status the
+    // colKey is the state id, for other groupings it's the group key.
+    const colKey = overId.includes('::') ? overId.split('::')[1] : overId
+    // Dropping a card into a column sets the grouped property on the issue.
+    switch (groupBy) {
+      case 'status': {
+        if (issue.stateId !== colKey) moveIssue(issue.id, colKey, issue.sortOrder)
+        break
+      }
+      case 'assignee': {
+        const next = colKey === 'none' ? undefined : colKey
+        if (issue.assigneeId !== next) setIssueAssignee(issue.id, next)
+        break
+      }
+      case 'priority': {
+        const next = Number(colKey) as Priority
+        if (issue.priority !== next) setIssuePriority(issue.id, next)
+        break
+      }
+      case 'project': {
+        const next = colKey === 'none' ? undefined : colKey
+        if (issue.projectId !== next) setIssueProject(issue.id, next)
+        break
+      }
+      default:
+        // e.g. 'label' / 'none' — not a settable column property; ignore.
+        return
+    }
   }
 
   return (
@@ -230,7 +259,7 @@ export function IssueBoard({
           {/* Column headers, rendered once across the top. */}
           <div className="flex gap-4">
             {groups.map((g) => (
-              <ColumnHeader key={g.key} group={g} />
+              <ColumnHeader key={g.key} group={g} groupBy={groupBy} />
             ))}
           </div>
           <div className="mt-1 space-y-1">
@@ -275,7 +304,7 @@ export function IssueBoard({
       ) : (
         <div className="flex h-full gap-4 overflow-x-auto p-4">
           {groups.map((g) => (
-            <Column key={g.key} group={g} />
+            <Column key={g.key} group={g} groupBy={groupBy} />
           ))}
         </div>
       )}
@@ -284,14 +313,12 @@ export function IssueBoard({
   )
 }
 
-/** A board column header (status icon + name + total count) for swimlane mode. */
-function ColumnHeader({ group }: { group: IssueGroup }) {
-  const states = useStore((s) => s.states)
+/** A board column header (group glyph + name + total count) for swimlane mode. */
+function ColumnHeader({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy }) {
   const openCreateWith = useStore((s) => s.openCreateWith)
-  const state = states.find((s) => s.id === group.stateId)
   return (
     <div className="group flex w-72 shrink-0 items-center gap-2 px-1">
-      {state && <StatusIcon type={state.type} color={state.color} />}
+      <RowGlyph group={group} by={groupBy} />
       <span className="text-[13px] font-medium text-fg">{group.label}</span>
       <span className="text-[12px] text-faint">{group.count}</span>
       <div className="flex-1" />

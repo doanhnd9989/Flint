@@ -217,7 +217,7 @@ function IssueTab({
     const dn = data.preferences.displayNames
     const top = groupIssues(
       forGrouping,
-      layout === 'board' ? 'status' : groupBy,
+      layout === 'board' && groupBy === 'label' ? 'status' : groupBy,
       data,
       showEmptyGroups,
       dn,
@@ -253,7 +253,12 @@ function IssueTab({
     <>
       <FilterBar filters={filters} onChange={onFilters} />
       {layout === 'board' ? (
-        <IssueBoard groups={groups} rows={rows} subGroupBy={subGroupBy} />
+        <IssueBoard
+          groups={groups}
+          rows={rows}
+          subGroupBy={subGroupBy}
+          groupBy={groupBy === 'label' ? 'status' : groupBy}
+        />
       ) : (
         <GroupedIssueList
           groups={groups}

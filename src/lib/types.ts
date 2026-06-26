@@ -143,8 +143,16 @@ export interface Project {
   initiativeId?: string // the strategic initiative this project rolls up into
   startDate?: string
   targetDate?: string
+  /** External resource links (Figma, docs, specs…) shown in the project Overview. */
+  resources?: ProjectResource[]
   createdAt: string
   sortOrder: number
+}
+/** A named external link attached to a project (Linear's "Resources"). */
+export interface ProjectResource {
+  id: string
+  url: string
+  title?: string
 }
 
 /**
