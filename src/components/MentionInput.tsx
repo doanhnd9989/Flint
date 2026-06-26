@@ -72,6 +72,8 @@ export function MentionInput({
   textareaRef,
 }: Props) {
   const users = useStore((s) => s.users)
+  // Preferences → "Enable spell check" toggles native spellcheck in editors.
+  const spellCheck = useStore((s) => s.preferences.spellCheck !== false)
   const localRef = useRef<HTMLTextAreaElement>(null)
   const ref = textareaRef ?? localRef
 
@@ -245,6 +247,7 @@ export function MentionInput({
           detect(el.value, el.selectionStart ?? el.value.length)
         }}
         onKeyDown={handleKey}
+        spellCheck={spellCheck}
         onBlur={() => {
           // let a click on a menu item land first
           setTimeout(() => {

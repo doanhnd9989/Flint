@@ -17,17 +17,27 @@ interface RelRow {
  * holds that exact relation, so the picker can hide issues already linked that
  * way — Linear never offers a no-op target in a relation menu.
  */
+type BucketKey =
+  | 'blocking'
+  | 'blockedBy'
+  | 'related'
+  | 'duplicateOf'
+  | 'duplicatedBy'
+
 type AddKind = {
   label: string
-  bucket: 'blocking' | 'blockedBy' | 'related' | 'duplicateOf'
+  // Buckets to exclude as targets — includes the OPPOSITE bucket so a picker
+  // never offers an issue that already holds the contradictory relation
+  // (e.g. "Duplicate of" must not offer something already "Duplicated by").
+  exclude: ReadonlyArray<BucketKey>
   apply: (selfId: string, targetId: string) => [string, string, RelationType]
 }
 
 const ADD_KINDS: AddKind[] = [
-  { label: 'Blocking', bucket: 'blocking', apply: (s, t) => [s, t, 'blocks'] },
-  { label: 'Blocked by', bucket: 'blockedBy', apply: (s, t) => [t, s, 'blocks'] },
-  { label: 'Related', bucket: 'related', apply: (s, t) => [s, t, 'related'] },
-  { label: 'Duplicate of', bucket: 'duplicateOf', apply: (s, t) => [s, t, 'duplicate'] },
+  { label: 'Blocking', exclude: ['blocking', 'blockedBy'], apply: (s, t) => [s, t, 'blocks'] },
+  { label: 'Blocked by', exclude: ['blockedBy', 'blocking'], apply: (s, t) => [t, s, 'blocks'] },
+  { label: 'Related', exclude: ['related'], apply: (s, t) => [s, t, 'related'] },
+  { label: 'Duplicate of', exclude: ['duplicateOf', 'duplicatedBy'], apply: (s, t) => [s, t, 'duplicate'] },
 ]
 
 function Group({
@@ -135,9 +145,9 @@ export function IssueRelations({
 
   // Issues already linked in a given bucket, so each picker can omit them
   // (Linear never lets you re-add an existing relation as a no-op).
-  const buckets = { blocking, blockedBy, related, duplicateOf } as const
-  const linkedIds = (bucket: AddKind['bucket']) =>
-    new Set(buckets[bucket].map((r) => r.other.id))
+  const buckets = { blocking, blockedBy, related, duplicateOf, duplicatedBy } as const
+  const linkedIds = (exclude: ReadonlyArray<BucketKey>) =>
+    new Set(exclude.flatMap((b) => buckets[b].map((r) => r.other.id)))
 
   const optionFor = (i: Issue): SelectOption => {
     const st = store.states.find((s) => s.id === i.stateId)!
@@ -150,8 +160,8 @@ export function IssueRelations({
     }
   }
 
-  const optionsFor = (bucket: AddKind['bucket']): SelectOption[] => {
-    const exclude = linkedIds(bucket)
+  const optionsFor = (kind: AddKind): SelectOption[] => {
+    const exclude = linkedIds(kind.exclude)
     return store.issues
       .filter((i) => i.id !== issue.id && !exclude.has(i.id))
       .map(optionFor)
@@ -172,7 +182,7 @@ export function IssueRelations({
           {ADD_KINDS.map((k) => (
             <SelectMenu
               key={k.label}
-              options={optionsFor(k.bucket)}
+              options={optionsFor(k)}
               onSelect={(targetId) => {
                 const [from, to, type] = k.apply(issue.id, targetId)
                 store.addRelation(from, to, type)

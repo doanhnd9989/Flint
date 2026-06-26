@@ -737,13 +737,15 @@ export function Inbox() {
     if (e.key === 'ArrowDown' || e.key === 'j') {
       if (!items.length) return
       own()
-      select((items[Math.min(idx + 1, items.length - 1)] ?? items[0]).id)
+      // Move the cursor only (don't mark read) — marking read here would drop the
+      // row from the list when "show read" is off, desyncing the next move.
+      setSelectedId((items[Math.min(idx + 1, items.length - 1)] ?? items[0]).id)
       return
     }
     if (e.key === 'ArrowUp' || e.key === 'k') {
       if (!items.length) return
       own()
-      select((idx <= 0 ? items[0] : items[idx - 1]).id)
+      setSelectedId((idx <= 0 ? items[0] : items[idx - 1]).id)
       return
     }
     if (e.key === 'Escape' && (selectedId || someChecked)) {

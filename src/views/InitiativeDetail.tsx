@@ -52,6 +52,44 @@ export function InitiativeDetail() {
   }))
 
   const initiative = initiatives.find((i) => i.id === id)
+
+  // ── Hooks must run unconditionally (Rules of Hooks) — keep every hook ABOVE
+  // the early `if (!initiative) return` below. They are null-safe so they stay
+  // stable whether or not the initiative resolves this render.
+  const inProjects = useMemo(
+    () =>
+      initiative
+        ? projects
+            .filter((p) => p.initiativeId === initiative.id)
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+        : [],
+    [initiative, projects],
+  )
+
+  // Roll up a small set of headline stats for the overview strip, the way
+  // Linear shows project/scope counts above an initiative's project list.
+  const stats = useMemo(() => {
+    const totalProjects = inProjects.length
+    const completedProjects = inProjects.filter((p) => p.status === 'completed').length
+    return { totalProjects, completedProjects }
+  }, [inProjects])
+
+  // People & teams involved in the initiative, derived (read-only, like Linear)
+  // from the union of every linked project's lead + members and teams.
+  const { members, involvedTeams } = useMemo(() => {
+    const userIds = new Set<string>()
+    const teamIds = new Set<string>()
+    for (const p of inProjects) {
+      if (p.leadId) userIds.add(p.leadId)
+      for (const uid of p.memberIds) userIds.add(uid)
+      for (const tid of p.teamIds) teamIds.add(tid)
+    }
+    return {
+      members: users.filter((u) => userIds.has(u.id)),
+      involvedTeams: teams.filter((t) => teamIds.has(t.id)),
+    }
+  }, [inProjects, users, teams])
+
   if (!initiative) {
     return (
       <div className="flex h-full items-center justify-center text-faint">
@@ -69,36 +107,6 @@ export function InitiativeDetail() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const latestUpdate = initiativeHistory[0]
   const recentUpdates = initiativeHistory.slice(0, 5)
-  const inProjects = projects
-    .filter((p) => p.initiativeId === initiative.id)
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-
-  // Roll up a small set of headline stats for the overview strip, the way
-  // Linear shows project/scope counts above an initiative's project list.
-  // `prog` already gives the aggregate issue scope; here we add the project
-  // breakdown (total vs. completed projects).
-  const stats = useMemo(() => {
-    const totalProjects = inProjects.length
-    const completedProjects = inProjects.filter((p) => p.status === 'completed').length
-    return { totalProjects, completedProjects }
-  }, [inProjects])
-
-  // People & teams involved in the initiative, derived (read-only, like Linear)
-  // from the union of every linked project's lead + members and teams. Resolved
-  // to full User/Team objects and kept stable via the project list.
-  const { members, involvedTeams } = useMemo(() => {
-    const userIds = new Set<string>()
-    const teamIds = new Set<string>()
-    for (const p of inProjects) {
-      if (p.leadId) userIds.add(p.leadId)
-      for (const uid of p.memberIds) userIds.add(uid)
-      for (const tid of p.teamIds) teamIds.add(tid)
-    }
-    return {
-      members: users.filter((u) => userIds.has(u.id)),
-      involvedTeams: teams.filter((t) => teamIds.has(t.id)),
-    }
-  }, [inProjects, users, teams])
 
   // Group projects into status sections, preserving Linear's status order and
   // dropping empty groups. Used when "Group by status" is on.

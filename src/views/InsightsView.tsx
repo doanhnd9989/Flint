@@ -99,9 +99,14 @@ function csvField(v: string | number): string {
 }
 
 /** Build a CSV Blob from a breakdown and trigger a browser download. */
-function downloadCsv(filename: string, dimensionLabel: string, bars: Bar[]) {
+function downloadCsv(
+  filename: string,
+  dimensionLabel: string,
+  bars: Bar[],
+  valueHeader = 'Count',
+) {
   const rows = [
-    [dimensionLabel, 'Count'],
+    [dimensionLabel, valueHeader],
     ...bars.map((b) => [b.label, b.value] as const),
   ]
   const csv = rows.map((r) => r.map(csvField).join(',')).join('\r\n')
@@ -749,7 +754,7 @@ export function InsightsView() {
   function exportCsv() {
     const teamPart = teamFilter === 'all' ? 'all-teams' : (data.teams.find((t) => t.id === teamFilter)?.key ?? 'team')
     const filename = `insights-${groupBy}-${measure}-${teamPart}-${range}.csv`
-    downloadCsv(filename, grouped.label, groupedBars)
+    downloadCsv(filename, grouped.label, groupedBars, measure === 'points' ? 'Points' : 'Count')
   }
 
   return (

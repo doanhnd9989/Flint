@@ -34,7 +34,7 @@ import {
   PanelLeftClose,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { useStoreShallow } from '@/lib/store'
+import { useStore, useStoreShallow } from '@/lib/store'
 
 /** GitHub octocat mark (lucide dropped brand icons) — matches Linear's row. */
 function GithubMark({ size = 15 }: { size?: number }) {
@@ -60,6 +60,8 @@ function Item({
   badge?: number
   onClick?: () => void
 }) {
+  // Preferences → "Show counts in sidebar" (defaults on for older workspaces).
+  const showCounts = useStore((s) => s.preferences.showSidebarCounts !== false)
   const base =
     'flex items-center gap-2 rounded-md px-2 py-1 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors w-full'
   const inner = (
@@ -68,7 +70,7 @@ function Item({
         {icon}
       </span>
       <span className="flex-1 truncate text-left">{label}</span>
-      {badge ? (
+      {badge && showCounts ? (
         <span className="rounded bg-bg-tertiary px-1 text-[11px] text-muted">
           {badge}
         </span>

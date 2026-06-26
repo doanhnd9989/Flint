@@ -423,6 +423,10 @@ export const useStore = create<Store>()(
         openInDesktop: false,
         autoAssignSelf: false,
         assignSelfOnStart: false,
+        underlineLinks: false,
+        reduceMotion: false,
+        spellCheck: true,
+        showSidebarCounts: true,
       },
       sidebarCollapsed: false,
       commandOpen: false,
@@ -797,13 +801,9 @@ export const useStore = create<Store>()(
       setIssueDescription: (id, description) =>
         set((s) => {
           const issue = s.issues.find((i) => i.id === id)
-          if (!issue || issue.description === description) {
-            return {
-              issues: s.issues.map((i) =>
-                i.id === id ? { ...i, description, updatedAt: nowIso() } : i,
-              ),
-            }
-          }
+          // No-op (unchanged / missing) returns state untouched, like every
+          // sibling setter — avoids bumping updatedAt on a blur-without-edit.
+          if (!issue || issue.description === description) return s
           const had = issue.description.trim().length > 0
           return {
             issues: s.issues.map((i) =>

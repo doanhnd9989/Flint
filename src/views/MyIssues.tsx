@@ -346,8 +346,11 @@ function IssueTab({
     return data.issues
       .filter((i) => {
         if (i.triage || i.archivedAt) return false
-        if (i.stateId && data.states.find((s) => s.id === i.stateId)?.type === 'completed')
-          return false
+        // Closed work (done or canceled) never nags about its deadline.
+        const stType = i.stateId
+          ? data.states.find((s) => s.id === i.stateId)?.type
+          : undefined
+        if (stType === 'completed' || stType === 'canceled') return false
         if (tab === 'assigned' && i.assigneeId !== me) return false
         if (tab === 'created' && i.creatorId !== me) return false
         if (tab === 'subscribed' && !i.subscriberIds.includes(me)) return false

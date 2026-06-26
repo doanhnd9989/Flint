@@ -32,10 +32,14 @@ export function useThemeEffect() {
 export function usePreferenceEffect() {
   const fontSize = useStore((s) => s.preferences.fontSize)
   const pointerCursors = useStore((s) => s.preferences.pointerCursors)
+  const reduceMotion = useStore((s) => s.preferences.reduceMotion)
+  const underlineLinks = useStore((s) => s.preferences.underlineLinks)
   useEffect(() => {
     const root = document.documentElement
     root.style.fontSize =
       fontSize === 'small' ? '14px' : fontSize === 'large' ? '17px' : ''
     root.classList.toggle('pointer-cursors', pointerCursors)
-  }, [fontSize, pointerCursors])
+    root.classList.toggle('reduce-motion', !!reduceMotion)
+    root.classList.toggle('underline-links', !!underlineLinks)
+  }, [fontSize, pointerCursors, reduceMotion, underlineLinks])
 }

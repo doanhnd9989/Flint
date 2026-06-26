@@ -59,7 +59,10 @@ export function CyclesView() {
   }, [cycles, nowMs])
 
   const [selectedId, setSelectedId] = useState<string | undefined>(activeId)
-  const current = cycles.find((c) => c.id === (selectedId ?? activeId))
+  // Validate selectedId against THIS team's cycles — a stale id left over from a
+  // previous team (the route reuses the component) falls through to activeId.
+  const current =
+    cycles.find((c) => c.id === selectedId) ?? cycles.find((c) => c.id === activeId)
 
   // Whether the cycle stats / progress bar are measured in issue counts or
   // summed estimate points — Linear's Issues / Points unit toggle. Component-
