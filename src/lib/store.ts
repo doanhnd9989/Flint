@@ -1117,6 +1117,13 @@ export const useStore = create<Store>()(
           ),
           milestones: s.milestones.filter((m) => m.projectId !== id),
           projectUpdates: s.projectUpdates.filter((u) => u.projectId !== id),
+          // detach docs/releases that linked to the now-deleted project
+          documents: s.documents.map((d) =>
+            d.projectId === id ? { ...d, projectId: undefined } : d,
+          ),
+          releases: s.releases.map((r) =>
+            r.projectId === id ? { ...r, projectId: undefined } : r,
+          ),
           favorites: s.favorites.filter(
             (f) => !(f.type === 'project' && f.id === id),
           ),

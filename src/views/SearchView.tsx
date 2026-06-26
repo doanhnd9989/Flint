@@ -163,7 +163,7 @@ export function SearchView() {
   const projOffset = 0
   const docOffset = projOffset + (showProjects ? projectResults.length : 0)
   const issueOffset = docOffset + (showDocuments ? documentResults.length : 0)
-  const commentOffset = issueOffset + issueResults.length
+  const commentOffset = issueOffset + (showIssues ? issueResults.length : 0)
   const peopleOffset =
     commentOffset + (showIssues ? commentResults.length : 0)
 
