@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore, type Store } from './store'
 import type { Issue, RelationPickerKind } from './types'
-import { copyToClipboard, copyToast } from './toast'
+import { copyToClipboard, copyToast, toast } from './toast'
 import { issueUrl } from './utils'
 
 function isTyping(el: EventTarget | null): boolean {
@@ -121,6 +121,17 @@ export function useShortcuts() {
         } else {
           copyToClipboard(cur.identifier, copyToast.id(cur.identifier))
         }
+        return
+      }
+
+      // ⌘⇧⌫ — archive the current issue (Linear's quick-archive chord).
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'Backspace') {
+        if (isTyping(e.target)) return
+        const cur = currentIssue(store)
+        if (!cur) return
+        e.preventDefault()
+        store.archiveIssue(cur.id)
+        toast(`${cur.identifier} archived`)
         return
       }
 
@@ -248,6 +259,15 @@ export function useShortcuts() {
           if (!cur) break
           e.preventDefault()
           store.setIssueAssignee(cur.id, store.currentUserId)
+          break
+        }
+        // ⇧D — set the current issue's due date (Linear's due-date chord).
+        case 'd': {
+          if (!e.shiftKey || overlayOpen) break
+          const cur = currentIssue(store)
+          if (!cur) break
+          e.preventDefault()
+          store.openIssuePropertyMenu(cur.id, 'dueDate')
           break
         }
       }

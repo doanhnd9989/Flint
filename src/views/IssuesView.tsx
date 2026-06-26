@@ -8,7 +8,7 @@ import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { IssueBoard } from '@/components/IssueBoard'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { ViewHeader } from '@/components/ViewHeader'
-import { FilterBar, emptyFilters } from '@/components/FilterBar'
+import { FilterBar, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
 import { cn } from '@/lib/utils'
 
 type Tab = 'active' | 'backlog' | 'all'
@@ -245,6 +245,8 @@ export function IssuesView() {
           groupBy={groupBy}
           subGroupBy={subGroupBy}
           childrenByParent={nested ? childrenByParent : undefined}
+          hasActiveFilters={hasActiveFilters(filters)}
+          onClearFilters={() => setFilters(emptyFilters())}
           onReorder={(id, sortOrder) => {
             data.setIssueSortOrder(id, sortOrder)
             setOrderBy('manual')

@@ -375,6 +375,16 @@ export function IssueContextMenu() {
             onClick={() => copy(issueUrl(issue.identifier), copyToast.url())}
           />
           <ActionRow
+            icon={<Link2 size={14} />}
+            label="Copy as markdown link"
+            onClick={() =>
+              copy(
+                `[${issue.identifier} ${issue.title}](${issueUrl(issue.identifier)})`,
+                'Markdown link copied to clipboard',
+              )
+            }
+          />
+          <ActionRow
             icon={<GitBranch size={14} />}
             label="Copy git branch name"
             hint="⌘⇧."

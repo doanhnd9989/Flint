@@ -59,6 +59,33 @@ const SLASH_GROUPS: SlashCommand[][] = [
 
 const ALL_SLASH = SLASH_GROUPS.flat()
 
+/**
+ * ASCII emoticon → emoji map (a clean canonical subset of Linear's), applied as
+ * you type once an emoticon is completed by a space or end-of-input. Longer keys
+ * are matched first so `:-)` wins over a hypothetical `:-`.
+ */
+const EMOTICONS: Record<string, string> = {
+  ':)': '🙂',
+  ':-)': '🙂',
+  ':(': '🙁',
+  ':-(': '🙁',
+  ':D': '😄',
+  ':-D': '😄',
+  ';)': '😉',
+  ';-)': '😉',
+  ':P': '😛',
+  ':-P': '😛',
+  ":'(": '😢',
+  '<3': '❤️',
+  ':o': '😮',
+  ':O': '😮',
+  ':|': '😐',
+  ':/': '😕',
+  '>:(': '😠',
+  ':*)': '😘',
+}
+const EMOTICON_KEYS = Object.keys(EMOTICONS).sort((a, b) => b.length - a.length)
+
 /** Textarea with inline @-mention and /-command autocompletes, like Linear. */
 export function MentionInput({
   value,
@@ -74,6 +101,8 @@ export function MentionInput({
   const users = useStore((s) => s.users)
   // Preferences → "Enable spell check" toggles native spellcheck in editors.
   const spellCheck = useStore((s) => s.preferences.spellCheck !== false)
+  // Preferences → "Convert text emoticons into emojis" (on by default).
+  const convertEmoticons = useStore((s) => s.preferences.convertEmoticons !== false)
   const localRef = useRef<HTMLTextAreaElement>(null)
   const ref = textareaRef ?? localRef
 
@@ -142,6 +171,30 @@ export function MentionInput({
       setSlashQuery(null)
       dismissedAt.current = -1
     }
+  }
+
+  /**
+   * Replace a just-completed ASCII emoticon with its emoji, like Linear. Fires
+   * when the emoticon is terminated by a space the user just typed or it sits at
+   * the very end of the input. Returns the rewritten value + caret, or null when
+   * nothing matched. An emoticon must be preceded by start-of-input or whitespace
+   * so we never mangle text like `http://` or `8:30`.
+   */
+  function convertEmoticon(text: string, caret: number): { next: string; caret: number } | null {
+    // The boundary is either the space just typed, or end-of-input.
+    const typedSpace = caret > 0 && /\s/.test(text[caret - 1])
+    if (!typedSpace && caret !== text.length) return null // mid-text edits need a space
+    const end = typedSpace ? caret - 1 : caret
+    for (const key of EMOTICON_KEYS) {
+      const start = end - key.length
+      if (start < 0 || text.slice(start, end) !== key) continue
+      const prev = start === 0 ? '' : text[start - 1]
+      if (prev !== '' && !/\s/.test(prev)) continue
+      const emoji = EMOTICONS[key]
+      const next = text.slice(0, start) + emoji + text.slice(end)
+      return { next, caret: start + emoji.length + (typedSpace ? 1 : 0) }
+    }
+    return null
   }
 
   function choose(userId: string, name: string) {
@@ -235,8 +288,23 @@ export function MentionInput({
         value={value}
         placeholder={placeholder}
         onChange={(e) => {
-          onChange(e.target.value)
-          detect(e.target.value, e.target.selectionStart ?? e.target.value.length)
+          const el = e.target
+          let next = el.value
+          let caret = el.selectionStart ?? next.length
+          // Emoticon → emoji as you type (preference-gated). Rewrite before we
+          // run mention/command detection so it sees the post-conversion text.
+          if (convertEmoticons) {
+            const converted = convertEmoticon(next, caret)
+            if (converted) {
+              next = converted.next
+              caret = converted.caret
+              requestAnimationFrame(() => {
+                el.selectionStart = el.selectionEnd = caret
+              })
+            }
+          }
+          onChange(next)
+          detect(next, caret)
         }}
         onKeyUp={(e) => {
           const el = e.currentTarget

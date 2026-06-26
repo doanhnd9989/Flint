@@ -28,6 +28,10 @@ import {
   BarChart3,
   Activity,
   IterationCw,
+  Diamond,
+  Hash,
+  ArchiveRestore,
+  ArrowRightLeft,
   Building2,
   Rocket,
   Users,
@@ -60,14 +64,32 @@ import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
-import { PRIORITY_LABELS, PRIORITY_ORDER, STATUS_TYPE_ORDER } from '@/lib/constants'
-import { branchName, cn, issueUrl } from '@/lib/utils'
+import {
+  PRIORITY_LABELS,
+  PRIORITY_ORDER,
+  STATUS_TYPE_ORDER,
+  estimatePoints,
+  estimateLabel,
+  teamEstimationType,
+} from '@/lib/constants'
+import { cycleState } from '@/lib/selectors'
+import { branchName, cn, issueUrl, formatDate } from '@/lib/utils'
 import { copyToClipboard, copyToast } from '@/lib/toast'
 import type { Priority } from '@/lib/types'
 import type { ReactNode } from 'react'
 
 /** A sub-page the menu can drill into for the issue currently in context. */
-type Page = 'status' | 'priority' | 'assignee' | 'project' | 'label' | 'dueDate'
+type Page =
+  | 'status'
+  | 'priority'
+  | 'assignee'
+  | 'project'
+  | 'label'
+  | 'dueDate'
+  | 'cycle'
+  | 'milestone'
+  | 'estimate'
+  | 'moveTeam'
 
 interface Command {
   id: string
@@ -94,6 +116,10 @@ const PAGE_PLACEHOLDER: Record<Page, string> = {
   project: 'Add to project…',
   label: 'Add labels…',
   dueDate: 'Try: 24h, 7 days, Feb 9',
+  cycle: 'Move to cycle…',
+  milestone: 'Set milestone…',
+  estimate: 'Set estimate…',
+  moveTeam: 'Move to team…',
 }
 
 /**
@@ -109,7 +135,8 @@ function groupOf(id: string): string {
   if (id === 'go-settings' || id === 'help') return 'Settings'
   if (id.startsWith('new-')) return 'Create'
   if (id.startsWith('go-')) return 'Navigation'
-  // Sub-page options (st-, pr-, as-, pj-, lb-, due-) — single ungrouped list.
+  // Sub-page options (st-, pr-, as-, pj-, lb-, due-, cy-, ms-, es-, mt-) —
+  // single ungrouped list.
   return ''
 }
 
@@ -275,6 +302,98 @@ export function CommandMenu() {
           })),
         ]
       }
+      if (page === 'cycle') {
+        const teamCycles = store.cycles
+          .filter((c) => c.teamId === issue.teamId)
+          .sort((a, b) => a.number - b.number)
+        return [
+          {
+            id: 'cy-none',
+            label: 'No cycle',
+            icon: <IterationCw size={15} />,
+            keywords: 'no cycle none',
+            selected: !issue.cycleId,
+            run: () => store.setIssueCycle(issue.id, undefined),
+          },
+          ...teamCycles.map((c) => {
+            const cs = cycleState(c.startsAt, c.endsAt, Date.now())
+            return {
+              id: `cy-${c.id}`,
+              label: c.name ?? `Cycle ${c.number}`,
+              icon: <IterationCw size={15} />,
+              keywords: `cycle ${c.number}`,
+              meta:
+                cs.status === 'active'
+                  ? 'Active'
+                  : cs.status === 'upcoming'
+                    ? 'Upcoming'
+                    : `${formatDate(c.startsAt)} – ${formatDate(c.endsAt)}`,
+              selected: issue.cycleId === c.id,
+              run: () => store.setIssueCycle(issue.id, c.id),
+            }
+          }),
+        ]
+      }
+      if (page === 'milestone') {
+        const projectMilestones = issue.projectId
+          ? store.milestones
+              .filter((m) => m.projectId === issue.projectId)
+              .sort((a, b) => a.sortOrder - b.sortOrder)
+          : []
+        return [
+          {
+            id: 'ms-none',
+            label: 'No milestone',
+            icon: <Diamond size={15} />,
+            keywords: 'no milestone none',
+            selected: !issue.milestoneId,
+            run: () => store.setIssueMilestone(issue.id, undefined),
+          },
+          ...projectMilestones.map((m) => ({
+            id: `ms-${m.id}`,
+            label: m.name,
+            icon: <Diamond size={15} />,
+            keywords: m.name,
+            selected: issue.milestoneId === m.id,
+            run: () => store.setIssueMilestone(issue.id, m.id),
+          })),
+        ]
+      }
+      if (page === 'estimate') {
+        const team = store.teams.find((t) => t.id === issue.teamId)
+        return [
+          {
+            id: 'es-none',
+            label: 'No estimate',
+            icon: <Hash size={15} />,
+            keywords: 'no estimate none zero',
+            selected: !issue.estimate,
+            run: () => store.setIssueEstimate(issue.id, undefined),
+          },
+          ...estimatePoints(team)
+            .filter((n) => n !== 0)
+            .map((n) => ({
+              id: `es-${n}`,
+              label: estimateLabel(n, team),
+              icon: <Hash size={15} />,
+              keywords: `estimate ${n} points`,
+              selected: issue.estimate === n,
+              run: () => store.setIssueEstimate(issue.id, n),
+            })),
+        ]
+      }
+      if (page === 'moveTeam') {
+        return store.teams
+          .filter((t) => t.id !== issue.teamId)
+          .map((t) => ({
+            id: `mt-${t.id}`,
+            label: t.name,
+            icon: <span className="text-[13px]">{t.icon}</span>,
+            hint: t.key,
+            keywords: `move team ${t.name} ${t.key}`,
+            run: () => store.moveIssueToTeam(issue.id, t.id),
+          }))
+      }
       if (page === 'dueDate') {
         const set = (d: Date) =>
           store.setIssueDueDate(issue.id, startOfDay(d).toISOString())
@@ -358,6 +477,15 @@ export function CommandMenu() {
       ? (() => {
           const issue = currentIssue
           const st = store.states.find((s) => s.id === issue.stateId)!
+          const issueTeam = store.teams.find((t) => t.id === issue.teamId)
+          const hasTeamCycles = store.cycles.some(
+            (c) => c.teamId === issue.teamId,
+          )
+          const hasProjectMilestones = issue.projectId
+            ? store.milestones.some((m) => m.projectId === issue.projectId)
+            : false
+          const usesEstimates = teamEstimationType(issueTeam) !== 'notUsed'
+          const archived = !!issue.archivedAt
           const starred = store.favorites.some(
             (f) => f.type === 'issue' && f.id === issue.id,
           )
@@ -419,6 +547,42 @@ export function CommandMenu() {
               keywords: 'due date deadline set',
               goPage: 'dueDate' as Page,
             },
+            ...(hasTeamCycles
+              ? [
+                  {
+                    id: 'ctx-cycle',
+                    label: 'Move to cycle…',
+                    icon: <IterationCw size={15} />,
+                    hint: '⇧ C',
+                    keywords: 'cycle move sprint iteration',
+                    goPage: 'cycle' as Page,
+                  },
+                ]
+              : []),
+            ...(hasProjectMilestones
+              ? [
+                  {
+                    id: 'ctx-milestone',
+                    label: 'Set milestone…',
+                    icon: <Diamond size={15} />,
+                    hint: 'M',
+                    keywords: 'milestone set project',
+                    goPage: 'milestone' as Page,
+                  },
+                ]
+              : []),
+            ...(usesEstimates
+              ? [
+                  {
+                    id: 'ctx-estimate',
+                    label: 'Set estimate…',
+                    icon: <Hash size={15} />,
+                    hint: 'E',
+                    keywords: 'estimate points effort size',
+                    goPage: 'estimate' as Page,
+                  },
+                ]
+              : []),
             {
               id: 'ctx-copy-id',
               label: 'Copy issue ID',
@@ -475,6 +639,34 @@ export function CommandMenu() {
                 const dupe = store.duplicateIssue(issue.id)
                 if (dupe) navigate(`/issue/${dupe.identifier}`)
               },
+            },
+            ...(store.teams.length > 1
+              ? [
+                  {
+                    id: 'ctx-move-team',
+                    label: 'Move to team…',
+                    icon: <ArrowRightLeft size={15} />,
+                    keywords: 'move team transfer change',
+                    goPage: 'moveTeam' as Page,
+                  },
+                ]
+              : []),
+            {
+              id: 'ctx-archive',
+              label: archived ? 'Unarchive issue' : 'Archive issue',
+              icon: archived ? (
+                <ArchiveRestore size={15} />
+              ) : (
+                <Archive size={15} />
+              ),
+              hint: archived ? undefined : '⌘ ⇧ ⌫',
+              keywords: archived
+                ? 'unarchive restore'
+                : 'archive remove hide',
+              run: () =>
+                archived
+                  ? store.unarchiveIssue(issue.id)
+                  : store.archiveIssue(issue.id),
             },
             {
               id: 'ctx-delete',

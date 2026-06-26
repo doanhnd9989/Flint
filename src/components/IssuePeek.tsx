@@ -87,6 +87,46 @@ export function IssuePeek() {
     return () => document.removeEventListener('keydown', onKey)
   }, [peekId, store])
 
+  // j / ↓ → next issue, k / ↑ → previous — re-peek the neighbour without
+  // closing the panel (Linear steps through the list in place). Reuses the same
+  // ordered `navIssueIds` the IssueNav buttons above drive off of, clamping at
+  // the ends (no wrap).
+  useEffect(() => {
+    if (!peekId) return
+    function onKey(e: KeyboardEvent) {
+      const key = e.key.toLowerCase()
+      const isNext = key === 'j' || e.key === 'ArrowDown'
+      const isPrev = key === 'k' || e.key === 'ArrowUp'
+      if (!isNext && !isPrev) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      // Bail while typing or when a menu/modal owns the keyboard (mirrors the
+      // guard in useShortcuts).
+      const active = document.activeElement as HTMLElement | null
+      if (
+        active &&
+        (active.tagName === 'INPUT' ||
+          active.tagName === 'TEXTAREA' ||
+          active.isContentEditable)
+      )
+        return
+      if (document.querySelector('[data-overlay]')) return
+
+      const s = useStore.getState()
+      const cur = s.issues.find((i) => i.id === s.peekIssueId)
+      if (!cur) return
+      const idx = s.navIssueIds.indexOf(cur.identifier)
+      if (idx === -1) return
+      const nextIdx = isNext ? idx + 1 : idx - 1
+      if (nextIdx < 0 || nextIdx >= s.navIssueIds.length) return // clamp
+      const target = s.issues.find((i) => i.identifier === s.navIssueIds[nextIdx])
+      if (!target) return
+      e.preventDefault()
+      s.setPeek(target.id)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [peekId])
+
   if (!peekId || !issue) return null
 
   const close = () => store.setPeek(null)

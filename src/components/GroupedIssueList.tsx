@@ -34,7 +34,7 @@ import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { cn } from '@/lib/utils'
-import { EmptyState, IssuesIllustration } from './EmptyState'
+import { EmptyState, IssuesIllustration, SearchIllustration } from './EmptyState'
 import { Popover } from './ui/Popover'
 import { toast } from '@/lib/toast'
 
@@ -132,6 +132,8 @@ export function GroupedIssueList({
   childrenByParent,
   onReorder,
   empty,
+  hasActiveFilters,
+  onClearFilters,
 }: {
   groups: IssueGroup[]
   groupBy: GroupBy
@@ -144,6 +146,11 @@ export function GroupedIssueList({
   onReorder?: (issueId: string, sortOrder: number) => void
   /** Customizes the empty state shown when no group has any issue. */
   empty?: { title?: string; description?: string }
+  /** When true and there are no rows, show a "no results" state instead of the
+   *  default create-prompt empty state — Linear's filtered-out screen. */
+  hasActiveFilters?: boolean
+  /** Wires a "Clear filters" accent action onto the filtered-empty state. */
+  onClearFilters?: () => void
 }) {
   const setCreateOpen = useStore((s) => s.setCreateOpen)
   const openCreateWith = useStore((s) => s.openCreateWith)
@@ -212,6 +219,22 @@ export function GroupedIssueList({
   }
 
   if (groups.every((g) => g.count === 0)) {
+    // Filters are active but matched nothing — Linear shows a "no results"
+    // screen with a clear-filters affordance instead of the create prompt.
+    if (hasActiveFilters) {
+      return (
+        <EmptyState
+          illustration={<SearchIllustration />}
+          title="No results"
+          description="No issues match the current filters."
+          action={
+            onClearFilters
+              ? { label: 'Clear filters', onClick: onClearFilters }
+              : undefined
+          }
+        />
+      )
+    }
     return (
       <EmptyState
         illustration={<IssuesIllustration />}
