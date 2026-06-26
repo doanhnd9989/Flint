@@ -145,6 +145,11 @@ export interface Project {
   targetDate?: string
   /** External resource links (Figma, docs, specs…) shown in the project Overview. */
   resources?: ProjectResource[]
+  /**
+   * Projects this one is **blocked by** — Linear's project dependencies. The
+   * inverse ("blocking") is derived. Optional for back-compat.
+   */
+  dependsOn?: string[]
   createdAt: string
   sortOrder: number
 }

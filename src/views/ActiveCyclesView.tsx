@@ -1,9 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ChevronDown } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { cycleProgress, cycleState } from '@/lib/selectors'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
+import { SelectMenu } from '@/components/ui/SelectMenu'
+import type { SelectOption } from '@/components/ui/SelectMenu'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { Cycle, Issue, Team } from '@/lib/types'
@@ -13,12 +16,20 @@ import type { WorkspaceData } from '@/lib/seed'
 // per cycle-enabled team showing its current ACTIVE cycle — date range, a
 // stacked progress bar with scope/started/completed stats — plus a compact row
 // for the team's next UPCOMING cycle. Clicking a card jumps to that team's
-// per-team Cycles screen.
+// per-team Cycles screen. A header team-filter narrows to a single team and a
+// scope toggle flips between "Active & upcoming" and "Past" (finished cycles,
+// most recent first, with their final progress).
+
+type Scope = 'active' | 'past'
 
 export function ActiveCyclesView() {
   const data = useStore()
   const navigate = useNavigate()
   const nowMs = Date.now()
+
+  // Local-only header controls: a team filter and an active/past scope toggle.
+  const [teamFilter, setTeamFilter] = useState<string>('all')
+  const [scope, setScope] = useState<Scope>('active')
 
   // Teams with cycles enabled, each paired with its active + next upcoming cycle.
   const rows = useMemo(() => {
@@ -38,11 +49,112 @@ export function ActiveCyclesView() {
       })
   }, [data.teams, data.cycles, nowMs])
 
-  const hasAnyCycle = rows.some((r) => r.cycles.length > 0)
+  // Past cycles across all teams, paired with their team, most recent first.
+  const pastRows = useMemo(() => {
+    const teamById = new Map<string, Team>()
+    for (const t of data.teams) teamById.set(t.id, t)
+    return data.cycles
+      .filter(
+        (c) =>
+          cycleState(c.startsAt, c.endsAt, nowMs).status === 'past' &&
+          teamById.get(c.teamId)?.cyclesEnabled !== false,
+      )
+      .map((c) => ({ cycle: c, team: teamById.get(c.teamId) }))
+      .filter((r): r is { cycle: Cycle; team: Team } => !!r.team)
+      .sort((a, b) =>
+        (b.cycle.endsAt ?? '').localeCompare(a.cycle.endsAt ?? ''),
+      )
+  }, [data.teams, data.cycles, nowMs])
+
+  // Teams that actually have at least one cycle — the only ones worth offering
+  // in the team filter.
+  const teamsWithCycles = useMemo(
+    () => rows.filter((r) => r.cycles.length > 0).map((r) => r.team),
+    [rows],
+  )
+
+  const hasAnyCycle = teamsWithCycles.length > 0
+
+  // Apply the team filter to whichever scope is active.
+  const visibleRows =
+    teamFilter === 'all'
+      ? rows.filter((r) => r.cycles.length > 0)
+      : rows.filter((r) => r.team.id === teamFilter && r.cycles.length > 0)
+  const visiblePast =
+    teamFilter === 'all'
+      ? pastRows
+      : pastRows.filter((r) => r.team.id === teamFilter)
+
+  // Team filter options: "All teams" + every team that has cycles.
+  const teamOptions = useMemo<SelectOption[]>(
+    () => [
+      { id: 'all', label: 'All teams', selected: teamFilter === 'all' },
+      ...teamsWithCycles.map((t) => ({
+        id: t.id,
+        label: t.name,
+        icon: t.icon ? <span>{t.icon}</span> : undefined,
+        selected: teamFilter === t.id,
+      })),
+    ],
+    [teamsWithCycles, teamFilter],
+  )
+
+  // Label for the team-filter trigger chip.
+  const teamFilterLabel =
+    teamFilter === 'all'
+      ? 'All teams'
+      : (teamsWithCycles.find((t) => t.id === teamFilter)?.name ?? 'All teams')
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Cycles" />
+      <ViewHeader title="Cycles">
+        {/* Header controls — scope toggle + team picker, both local-only.
+            Hidden when there are no cycles to show at all. */}
+        {hasAnyCycle && (
+          <div className="ml-auto flex items-center gap-2">
+            {/* Scope segmented toggle: Active & upcoming · Past. */}
+            <div className="flex items-center rounded-md border border-border bg-bg-tertiary p-0.5 text-[12px]">
+              <button
+                type="button"
+                onClick={() => setScope('active')}
+                className={cn(
+                  'rounded px-2 py-0.5 transition-colors',
+                  scope === 'active'
+                    ? 'bg-bg-selected text-fg'
+                    : 'text-muted hover:text-fg',
+                )}
+              >
+                Active &amp; upcoming
+              </button>
+              <button
+                type="button"
+                onClick={() => setScope('past')}
+                className={cn(
+                  'rounded px-2 py-0.5 transition-colors',
+                  scope === 'past'
+                    ? 'bg-bg-selected text-fg'
+                    : 'text-muted hover:text-fg',
+                )}
+              >
+                Past
+              </button>
+            </div>
+            <SelectMenu
+              width={200}
+              align="end"
+              options={teamOptions}
+              onSelect={setTeamFilter}
+              placeholder="Filter by team…"
+              trigger={
+                <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
+                  <span className="max-w-[120px] truncate">{teamFilterLabel}</span>
+                  <ChevronDown size={13} className="shrink-0 text-faint" />
+                </span>
+              }
+            />
+          </div>
+        )}
+      </ViewHeader>
 
       {!hasAnyCycle ? (
         <EmptyState
@@ -53,18 +165,45 @@ export function ActiveCyclesView() {
       ) : (
         <div className="flex-1 overflow-y-auto bg-bg-secondary">
           <div className="mx-auto max-w-3xl space-y-3 px-6 py-6">
-            {rows.map(({ team, active, upcoming }) => (
-              <TeamCycleCard
-                key={team.id}
-                team={team}
-                active={active}
-                upcoming={upcoming}
-                nowMs={nowMs}
-                issues={data.issues}
-                data={data}
-                onOpen={() => navigate(`/team/${team.key}/cycles`)}
+            {scope === 'active' ? (
+              visibleRows.length === 0 ? (
+                <EmptyState
+                  illustration={<CycleIllustration />}
+                  title="No cycles"
+                  description="No cycles match the selected team."
+                />
+              ) : (
+                visibleRows.map(({ team, active, upcoming }) => (
+                  <TeamCycleCard
+                    key={team.id}
+                    team={team}
+                    active={active}
+                    upcoming={upcoming}
+                    nowMs={nowMs}
+                    issues={data.issues}
+                    data={data}
+                    onOpen={() => navigate(`/team/${team.key}/cycles`)}
+                  />
+                ))
+              )
+            ) : visiblePast.length === 0 ? (
+              <EmptyState
+                illustration={<CycleIllustration />}
+                title="No past cycles"
+                description="Cycles that have ended will show up here with their final progress."
               />
-            ))}
+            ) : (
+              visiblePast.map(({ cycle, team }) => (
+                <PastCycleCard
+                  key={cycle.id}
+                  team={team}
+                  cycle={cycle}
+                  issues={data.issues}
+                  data={data}
+                  onOpen={() => navigate(`/team/${team.key}/cycles`)}
+                />
+              ))
+            )}
           </div>
         </div>
       )}
@@ -192,6 +331,90 @@ function TeamCycleCard({
           </span>
         </button>
       )}
+    </div>
+  )
+}
+
+// A finished cycle (Past scope): same progress-card layout as the active card
+// but tagged "Completed" and showing the cycle's final scope/started/done.
+function PastCycleCard({
+  team,
+  cycle,
+  issues,
+  data,
+  onOpen,
+}: {
+  team: Team
+  cycle: Cycle
+  issues: Issue[]
+  data: WorkspaceData
+  onOpen: () => void
+}) {
+  const prog = cycleProgress(cycle.id, issues, data)
+  const remaining = Math.max(0, prog.total - prog.done - prog.started)
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-bg">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="group block w-full px-5 py-4 text-left transition-colors hover:bg-bg-hover"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[15px]">{team.icon}</span>
+          <span className="text-[13px] font-semibold text-fg">{team.name}</span>
+          <span className="text-faint">›</span>
+          <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-[11px] font-medium text-faint">
+            Completed
+          </span>
+        </div>
+
+        <div className="mt-3 flex items-baseline justify-between gap-3">
+          <div>
+            <div className="text-[14px] font-medium text-fg">
+              Cycle {cycle.number}
+              {cycle.name && <span className="text-muted"> · {cycle.name}</span>}
+            </div>
+            <div className="mt-0.5 text-[12px] text-faint">
+              {formatDate(cycle.startsAt)} – {formatDate(cycle.endsAt)}
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-[12px]">
+            <Stat label="Scope" value={prog.total} />
+            <Stat label="Started" value={prog.started} />
+            <Stat label="Done" value={prog.done} />
+            <Stat label="Progress" value={`${prog.percent}%`} />
+          </div>
+        </div>
+
+        {/* Stacked progress bar (completed / started / remaining). */}
+        <div className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-bg-tertiary">
+          <div
+            className="h-full bg-accent"
+            style={{
+              width: `${prog.total ? (prog.done / prog.total) * 100 : 0}%`,
+            }}
+            title={`${prog.done} completed`}
+          />
+          <div
+            className="h-full bg-[var(--status-started)]"
+            style={{
+              width: `${prog.total ? (prog.started / prog.total) * 100 : 0}%`,
+            }}
+            title={`${prog.started} started`}
+          />
+          <div
+            className="h-full"
+            style={{
+              width: `${prog.total ? (remaining / prog.total) * 100 : 0}%`,
+            }}
+          />
+        </div>
+
+        <div className="mt-2 text-[11px] text-faint">
+          {prog.total} {prog.total === 1 ? 'issue' : 'issues'} in this cycle
+        </div>
+      </button>
     </div>
   )
 }

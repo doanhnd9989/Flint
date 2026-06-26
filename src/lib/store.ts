@@ -214,6 +214,9 @@ export interface Store extends WorkspaceData, UIState {
   setProjectInitiative: (projectId: string, initiativeId?: string) => void
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
   updateProject: (id: string, patch: Partial<Project>) => void
+  /** Add `dependsOnId` as a project this project is blocked by (cycle-guarded). */
+  addProjectDependency: (projectId: string, dependsOnId: string) => void
+  removeProjectDependency: (projectId: string, dependsOnId: string) => void
   createMilestone: (projectId: string, name: string) => Milestone
   updateMilestone: (id: string, patch: Partial<Milestone>) => void
   deleteMilestone: (id: string) => void
@@ -1091,6 +1094,42 @@ export const useStore = create<Store>()(
         set((s) => ({
           projects: s.projects.map((p) =>
             p.id === id ? { ...p, ...patch } : p,
+          ),
+        })),
+
+      addProjectDependency: (projectId, dependsOnId) =>
+        set((s) => {
+          if (projectId === dependsOnId) return {}
+          // Cycle guard: walking dependsOn from dependsOnId must not reach projectId.
+          const byId = new Map(s.projects.map((p) => [p.id, p]))
+          const reaches = (from: string, target: string): boolean => {
+            const seen = new Set<string>()
+            const stack = [from]
+            while (stack.length) {
+              const cur = stack.pop()!
+              if (cur === target) return true
+              if (seen.has(cur)) continue
+              seen.add(cur)
+              stack.push(...(byId.get(cur)?.dependsOn ?? []))
+            }
+            return false
+          }
+          if (reaches(dependsOnId, projectId)) return {}
+          return {
+            projects: s.projects.map((p) =>
+              p.id === projectId
+                ? { ...p, dependsOn: [...new Set([...(p.dependsOn ?? []), dependsOnId])] }
+                : p,
+            ),
+          }
+        }),
+
+      removeProjectDependency: (projectId, dependsOnId) =>
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === projectId
+              ? { ...p, dependsOn: (p.dependsOn ?? []).filter((d) => d !== dependsOnId) }
+              : p,
           ),
         })),
 

@@ -1,10 +1,21 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CheckIllustration } from '@/components/EmptyState'
+import { SelectMenu } from '@/components/ui/SelectMenu'
+import type { SelectOption } from '@/components/ui/SelectMenu'
 import { RELEASE_STATUS } from '@/lib/constants'
-import { formatFullDate, timeAgo } from '@/lib/utils'
+import { cn, formatFullDate, timeAgo } from '@/lib/utils'
 import type { Issue, Release, WorkflowState } from '@/lib/types'
+
+/** The header type-filter segments. */
+type TypeFilter = 'all' | 'releases' | 'issues'
+const TYPE_SEGMENTS: { id: TypeFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'releases', label: 'Releases' },
+  { id: 'issues', label: 'Completed issues' },
+]
 
 /** A shipped release with its completed issues, ready to render. */
 interface ChangelogEntry {
@@ -29,6 +40,11 @@ function ShippedRow({ issue, time }: { issue: Issue; time?: string }) {
 export function ChangelogView() {
   const data = useStore()
 
+  // Local-only header filters: a type segment (all / releases / completed
+  // issues) and a team picker. They compose with AND.
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [teamFilter, setTeamFilter] = useState<string>('all')
+
   // Map of stateId → workflow state, to read each issue's state type.
   const stateById = useMemo(() => {
     const m = new Map<string, WorkflowState>()
@@ -41,10 +57,37 @@ export function ChangelogView() {
     [stateById],
   )
 
+  // projectId → the team ids it spans, for resolving a release's team.
+  const projectTeamIds = useMemo(() => {
+    const m = new Map<string, string[]>()
+    data.projects.forEach((p) => m.set(p.id, p.teamIds))
+    return m
+  }, [data.projects])
+
+  // A release belongs to `teamFilter` when its linked project spans that team.
+  // Releases with no project (or no team match) are hidden when a team is set.
+  const releaseInTeam = useMemo(
+    () => (r: Release) => {
+      if (teamFilter === 'all') return true
+      if (!r.projectId) return false
+      return (projectTeamIds.get(r.projectId) ?? []).includes(teamFilter)
+    },
+    [teamFilter, projectTeamIds],
+  )
+
+  // An issue belongs to `teamFilter` when its own teamId matches.
+  const issueInTeam = useMemo(
+    () => (i: Issue) => teamFilter === 'all' || i.teamId === teamFilter,
+    [teamFilter],
+  )
+
   // ── Shipped releases (newest first) with their completed project issues ──────
+  // Releases are dropped entirely when the type filter excludes them or when a
+  // team is chosen the release can't be resolved into.
   const entries = useMemo<ChangelogEntry[]>(() => {
+    if (typeFilter === 'issues') return []
     const released = data.releases
-      .filter((r) => r.status === 'released')
+      .filter((r) => r.status === 'released' && releaseInTeam(r))
       .sort((a, b) => {
         const ta = a.releasedAt ? new Date(a.releasedAt).getTime() : 0
         const tb = b.releasedAt ? new Date(b.releasedAt).getTime() : 0
@@ -62,32 +105,101 @@ export function ChangelogView() {
             })
         : [],
     }))
-  }, [data.releases, data.issues, isCompleted])
+  }, [data.releases, data.issues, isCompleted, typeFilter, releaseInTeam])
 
   // ── "Recently completed" — 10 most-recent completed issues not in a release ──
+  // Suppressed when the type filter is "releases"; team-filtered by issue teamId.
   const recent = useMemo<Issue[]>(() => {
+    if (typeFilter === 'releases') return []
     const covered = new Set<string>()
     entries.forEach((e) => e.issues.forEach((i) => covered.add(i.id)))
     return data.issues
-      .filter((i) => isCompleted(i) && !covered.has(i.id) && !i.archivedAt)
+      .filter(
+        (i) =>
+          isCompleted(i) && !covered.has(i.id) && !i.archivedAt && issueInTeam(i),
+      )
       .sort((a, b) => {
         const ta = a.completedAt ? new Date(a.completedAt).getTime() : 0
         const tb = b.completedAt ? new Date(b.completedAt).getTime() : 0
         return tb - ta
       })
       .slice(0, 10)
-  }, [data.issues, entries, isCompleted])
+  }, [data.issues, entries, isCompleted, typeFilter, issueInTeam])
 
+  // Team filter options: "All teams" + every team in the workspace.
+  const teamOptions = useMemo<SelectOption[]>(
+    () => [
+      { id: 'all', label: 'All teams', selected: teamFilter === 'all' },
+      ...data.teams.map((t) => ({
+        id: t.id,
+        label: t.name,
+        icon: t.icon ? <span>{t.icon}</span> : undefined,
+        selected: teamFilter === t.id,
+      })),
+    ],
+    [data.teams, teamFilter],
+  )
+
+  // Label for the team-filter trigger chip.
+  const teamFilterLabel =
+    teamFilter === 'all'
+      ? 'All teams'
+      : (data.teams.find((t) => t.id === teamFilter)?.name ?? 'All teams')
+
+  // Whether any source data exists at all (drives the empty vs. no-match copy).
+  const hasAnyData = data.releases.some((r) => r.status === 'released') ||
+    data.issues.some((i) => isCompleted(i) && !i.archivedAt)
   const empty = entries.length === 0 && recent.length === 0
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Changelog" />
+      <ViewHeader title="Changelog">
+        {/* Header filters — type segments + team picker, both local-only and
+            composed with AND. Hidden when there's no shipped data at all. */}
+        {hasAnyData && (
+          <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-bg-tertiary p-0.5">
+              {TYPE_SEGMENTS.map((seg) => (
+                <button
+                  key={seg.id}
+                  type="button"
+                  onClick={() => setTypeFilter(seg.id)}
+                  className={cn(
+                    'rounded px-2 py-0.5 text-[12px] transition-colors',
+                    typeFilter === seg.id
+                      ? 'bg-bg-selected text-fg'
+                      : 'text-muted hover:text-fg',
+                  )}
+                >
+                  {seg.label}
+                </button>
+              ))}
+            </div>
+            <SelectMenu
+              width={200}
+              align="end"
+              options={teamOptions}
+              onSelect={setTeamFilter}
+              placeholder="Filter by team…"
+              trigger={
+                <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
+                  <span className="max-w-[120px] truncate">{teamFilterLabel}</span>
+                  <ChevronDown size={13} className="shrink-0 text-faint" />
+                </span>
+              }
+            />
+          </div>
+        )}
+      </ViewHeader>
       {empty ? (
         <EmptyState
           illustration={<CheckIllustration />}
-          title="Nothing shipped yet"
-          description="When releases ship and issues are completed, they'll appear here as a timeline of everything that's shipped."
+          title={hasAnyData ? 'Nothing matches' : 'Nothing shipped yet'}
+          description={
+            hasAnyData
+              ? 'No shipped work matches the current type or team filter.'
+              : "When releases ship and issues are completed, they'll appear here as a timeline of everything that's shipped."
+          }
         />
       ) : (
         <div className="flex-1 overflow-y-auto bg-bg-secondary">

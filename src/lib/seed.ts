@@ -138,6 +138,7 @@ export function buildSeed(): WorkspaceData {
       memberIds: ['u_kai', 'u_sam'],
       teamIds: ['t_cla'],
       initiativeId: 'in_h2',
+      dependsOn: ['p_mvp'],
       targetDate: new Date(Date.now() + 90 * 86_400_000).toISOString(),
       createdAt: nowIso(),
       sortOrder: 2,

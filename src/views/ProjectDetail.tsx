@@ -14,6 +14,7 @@ import { useStore, useDisplayName } from '@/lib/store'
 import { sortIssues, projectProgress, milestoneProgress } from '@/lib/selectors'
 import { ProjectProgressGraph } from '@/components/ProjectProgressGraph'
 import { ProjectResources } from '@/components/ProjectResources'
+import { ProjectDependencies } from '@/components/ProjectDependencies'
 import { IssueRow } from '@/components/IssueRow'
 import { Avatar } from '@/components/Avatar'
 import { ProjectUpdates, HealthBadge } from '@/components/ProjectUpdates'
@@ -413,6 +414,9 @@ export function ProjectDetail() {
               <div className="mt-8">
                 <ProjectResources projectId={project.id} />
               </div>
+
+              {/* Dependencies */}
+              <ProjectDependencies projectId={project.id} />
 
               {/* Milestones */}
               <div className="mt-8">

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   MessageSquare,
@@ -134,6 +134,60 @@ interface RecentEvent {
   createdAt: string
 }
 
+// ── Time-period scope ────────────────────────────────────────────────────────
+
+type Period = 'all' | 'week' | 'month'
+
+const PERIODS: { id: Period; label: string }[] = [
+  { id: 'all', label: 'All time' },
+  { id: 'week', label: 'This week' },
+  { id: 'month', label: 'This month' },
+]
+
+/** Inclusive lower bound (ms) for a period, or 0 for "all time". */
+function periodStart(period: Period): number {
+  if (period === 'all') return 0
+  const now = new Date()
+  if (period === 'week') {
+    // Start of the current week (Monday), matching Linear's week boundary.
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const day = (d.getDay() + 6) % 7 // 0 = Monday
+    d.setDate(d.getDate() - day)
+    return d.getTime()
+  }
+  // Start of the current month.
+  return new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+}
+
+/** True when an ISO timestamp falls within the period (after its start). */
+function inPeriod(iso: string | undefined, start: number): boolean {
+  if (start === 0) return true
+  if (!iso) return false
+  return new Date(iso).getTime() >= start
+}
+
+// A segmented control matching Linear's compact header toggles.
+function PeriodToggle({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
+  return (
+    <div className="flex items-center gap-0.5 rounded-md border border-border bg-bg-tertiary p-0.5">
+      {PERIODS.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          onClick={() => onChange(p.id)}
+          className={
+            value === p.id
+              ? 'rounded px-2 py-0.5 text-[12px] font-medium text-fg bg-bg-selected'
+              : 'rounded px-2 py-0.5 text-[12px] text-muted hover:text-fg'
+          }
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 /**
  * Profile / "Your work" — a personal dashboard for the current user: their
  * profile header, a row of work stats, an open-issues-by-status breakdown, and
@@ -143,6 +197,12 @@ export function ProfileView() {
   const data = useStore()
   const setPeek = useStore((s) => s.setPeek)
   const navigate = useNavigate()
+
+  // Local-only header scope: bound the stats and activity feed by timestamp.
+  const [period, setPeriod] = useState<Period>('all')
+  const start = useMemo(() => periodStart(period), [period])
+  // Lower-cased label for stat-card hints ("all time", "this week", …).
+  const periodHint = (PERIODS.find((p) => p.id === period)?.label ?? 'All time').toLowerCase()
 
   const me = useMemo<User | undefined>(
     () => data.users.find((u) => u.isMe) ?? data.users.find((u) => u.id === data.currentUserId),
@@ -155,17 +215,23 @@ export function ProfileView() {
     return m
   }, [data.states])
 
-  // ── work stats ─────────────────────────────────────────────────────────────
+  // ── work stats (scoped to the selected period) ───────────────────────────────
   const stats = useMemo(() => {
     const meId = me?.id
     const assigned: Issue[] = data.issues.filter(
       (i) => !i.triage && !i.archivedAt && i.assigneeId === meId,
     )
-    const created = data.issues.filter((i) => i.creatorId === meId && !i.archivedAt).length
-    const completed = assigned.filter((i) => stateById.get(i.stateId)?.type === 'completed').length
+    // "Created" / "Completed" are counted within the period by timestamp;
+    // "Assigned" reflects current open work assigned to you.
+    const created = data.issues.filter(
+      (i) => i.creatorId === meId && !i.archivedAt && inPeriod(i.createdAt, start),
+    ).length
+    const completed = assigned.filter(
+      (i) => stateById.get(i.stateId)?.type === 'completed' && inPeriod(i.completedAt, start),
+    ).length
     const rate = assigned.length > 0 ? Math.round((completed / assigned.length) * 100) : 0
     return { assigned: assigned.length, created, completed, rate }
-  }, [data.issues, me, stateById])
+  }, [data.issues, me, stateById, start])
 
   // ── my open issues by status ─────────────────────────────────────────────────
   const byStatus = useMemo<Bar[]>(() => {
@@ -194,19 +260,24 @@ export function ProfileView() {
   const recent = useMemo<RecentEvent[]>(() => {
     const meId = me?.id
     const acts: RecentEvent[] = data.activities
-      .filter((a: Activity) => a.userId === meId)
+      .filter((a: Activity) => a.userId === meId && inPeriod(a.createdAt, start))
       .map((a) => ({ id: a.id, issueId: a.issueId, kind: a.kind, createdAt: a.createdAt }))
     const comments: RecentEvent[] = data.comments
-      .filter((c) => c.userId === meId)
+      .filter((c) => c.userId === meId && inPeriod(c.createdAt, start))
       .map((c) => ({ id: c.id, issueId: c.issueId, kind: 'comment' as const, createdAt: c.createdAt }))
     return [...acts, ...comments]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 8)
-  }, [data.activities, data.comments, me])
+  }, [data.activities, data.comments, me, start])
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Profile" />
+      <ViewHeader title="Profile">
+        {/* Time-period scope — bounds the stats and activity feed below. */}
+        <div className="ml-auto">
+          <PeriodToggle value={period} onChange={setPeriod} />
+        </div>
+      </ViewHeader>
       <div className="flex-1 overflow-y-auto bg-bg-secondary">
         <div className="mx-auto max-w-4xl px-8 py-8">
           {/* Header card */}
@@ -234,11 +305,11 @@ export function ProfileView() {
             </div>
           </section>
 
-          {/* Stat cards */}
+          {/* Stat cards — Created/Completed scoped to the selected period. */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Assigned" value={stats.assigned} />
-            <Stat label="Created" value={stats.created} />
-            <Stat label="Completed" value={stats.completed} />
+            <Stat label="Assigned" value={stats.assigned} hint="open right now" />
+            <Stat label="Created" value={stats.created} hint={periodHint} />
+            <Stat label="Completed" value={stats.completed} hint={periodHint} />
             <Stat label="Completion rate" value={`${stats.rate}%`} hint="of your assigned work" />
           </div>
 
@@ -248,7 +319,7 @@ export function ProfileView() {
               <BarChart bars={byStatus} max={maxStatus} />
             </Card>
 
-            <Card title="Recent activity" subtitle="Your latest changes across issues">
+            <Card title="Recent activity" subtitle={`Your latest changes across issues (${periodHint})`}>
               {recent.length === 0 ? (
                 <div className="px-1 py-6 text-center text-[12px] text-faint">No activity yet.</div>
               ) : (

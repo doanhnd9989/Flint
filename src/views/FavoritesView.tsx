@@ -1,9 +1,15 @@
 import type { ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CircleDot, LayersIcon, Star } from 'lucide-react'
+import { CircleDot, LayersIcon, Search, Star } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
-import { EmptyState, StackIllustration } from '@/components/EmptyState'
+import { cn } from '@/lib/utils'
+import {
+  EmptyState,
+  SearchIllustration,
+  StackIllustration,
+} from '@/components/EmptyState'
 import type { FavoriteType } from '@/lib/types'
 
 /**
@@ -74,10 +80,17 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
+/** The type-filter segments — "all" plus each favorite kind. */
+type FilterType = 'all' | FavoriteType
+
 /**
  * Favorites — every starred issue, project, and saved view, grouped by type.
  * Each favorite resolves to its underlying entity; dangling references (whose
  * entity was deleted) are skipped. Un-starring removes a row immediately.
+ *
+ * A header offers a type-filter pill row (All · Issues · Projects · Views, with
+ * live counts) and a search box that filters by title/name substring. Both are
+ * local-only state and compose with AND.
  */
 export function FavoritesView() {
   const { favorites, issues, projects, savedViews } = useStoreShallow((s) => ({
@@ -87,54 +100,128 @@ export function FavoritesView() {
     savedViews: s.savedViews,
   }))
 
-  const issueRows: Row[] = []
-  const projectRows: Row[] = []
-  const viewRows: Row[] = []
+  // Local-only header controls: the active type segment and a free-text query
+  // (title/name substring). They compose with AND.
+  const [typeFilter, setTypeFilter] = useState<FilterType>('all')
+  const [query, setQuery] = useState('')
 
-  for (const f of favorites) {
-    if (f.type === 'issue') {
-      const i = issues.find((x) => x.id === f.id)
-      if (!i) continue
-      issueRows.push({
-        key: `issue-${i.id}`,
-        type: 'issue',
-        id: i.id,
-        to: `/issue/${i.identifier}`,
-        icon: <CircleDot size={15} />,
-        label: i.title,
-        identifier: i.identifier,
-      })
-    } else if (f.type === 'project') {
-      const p = projects.find((x) => x.id === f.id)
-      if (!p) continue
-      projectRows.push({
-        key: `project-${p.id}`,
-        type: 'project',
-        id: p.id,
-        to: `/project/${p.id}`,
-        icon: <span className="text-[13px]">{p.icon}</span>,
-        label: p.name,
-      })
-    } else {
-      const v = savedViews.find((x) => x.id === f.id)
-      if (!v) continue
-      viewRows.push({
-        key: `view-${v.id}`,
-        type: 'view',
-        id: v.id,
-        to: `/view/${v.id}`,
-        icon: <LayersIcon size={15} />,
-        label: v.name,
-      })
+  // Resolve every favorite to a display Row, grouped by type. Dangling
+  // references (entity deleted) are skipped. This is the unfiltered pool, used
+  // both for the segment counts and as the basis for the filtered render.
+  const { issueRows, projectRows, viewRows } = useMemo(() => {
+    const issueRows: Row[] = []
+    const projectRows: Row[] = []
+    const viewRows: Row[] = []
+
+    for (const f of favorites) {
+      if (f.type === 'issue') {
+        const i = issues.find((x) => x.id === f.id)
+        if (!i) continue
+        issueRows.push({
+          key: `issue-${i.id}`,
+          type: 'issue',
+          id: i.id,
+          to: `/issue/${i.identifier}`,
+          icon: <CircleDot size={15} />,
+          label: i.title,
+          identifier: i.identifier,
+        })
+      } else if (f.type === 'project') {
+        const p = projects.find((x) => x.id === f.id)
+        if (!p) continue
+        projectRows.push({
+          key: `project-${p.id}`,
+          type: 'project',
+          id: p.id,
+          to: `/project/${p.id}`,
+          icon: <span className="text-[13px]">{p.icon}</span>,
+          label: p.name,
+        })
+      } else {
+        const v = savedViews.find((x) => x.id === f.id)
+        if (!v) continue
+        viewRows.push({
+          key: `view-${v.id}`,
+          type: 'view',
+          id: v.id,
+          to: `/view/${v.id}`,
+          icon: <LayersIcon size={15} />,
+          label: v.name,
+        })
+      }
     }
-  }
+
+    return { issueRows, projectRows, viewRows }
+  }, [favorites, issues, projects, savedViews])
 
   const total = issueRows.length + projectRows.length + viewRows.length
+
+  // Apply the header filters (type segment + query substring) with AND. A
+  // section is shown only when the active segment includes its type.
+  const { shownIssues, shownProjects, shownViews } = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const match = (rows: Row[], type: FavoriteType) => {
+      if (typeFilter !== 'all' && typeFilter !== type) return []
+      if (!q) return rows
+      return rows.filter((r) => r.label.toLowerCase().includes(q))
+    }
+    return {
+      shownIssues: match(issueRows, 'issue'),
+      shownProjects: match(projectRows, 'project'),
+      shownViews: match(viewRows, 'view'),
+    }
+  }, [issueRows, projectRows, viewRows, typeFilter, query])
+
+  const shownTotal =
+    shownIssues.length + shownProjects.length + shownViews.length
+
+  // The segmented pill row — label + live count per type.
+  const segments: { id: FilterType; label: string; count: number }[] = [
+    { id: 'all', label: 'All', count: total },
+    { id: 'issue', label: 'Issues', count: issueRows.length },
+    { id: 'project', label: 'Projects', count: projectRows.length },
+    { id: 'view', label: 'Views', count: viewRows.length },
+  ]
 
   return (
     <div className="flex h-full flex-col">
       <ViewHeader title="Favorites">
-        {total > 0 && <span className="text-[12px] text-faint">{total}</span>}
+        {total > 0 && (
+          <span className="text-[12px] tabular-nums text-faint">{total}</span>
+        )}
+        {/* Header controls — type segments + search box, both local-only and
+            composed with AND. Hidden when there are no favorites at all. */}
+        {total > 0 && (
+          <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-bg-tertiary p-0.5">
+              {segments.map((seg) => (
+                <button
+                  key={seg.id}
+                  type="button"
+                  onClick={() => setTypeFilter(seg.id)}
+                  className={cn(
+                    'flex items-center gap-1 rounded px-2 py-0.5 text-[12px] transition-colors',
+                    typeFilter === seg.id
+                      ? 'bg-bg-selected text-fg'
+                      : 'text-muted hover:text-fg',
+                  )}
+                >
+                  <span>{seg.label}</span>
+                  <span className="tabular-nums text-faint">{seg.count}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5 rounded-md border border-border bg-bg-tertiary px-2 py-1 focus-within:border-accent">
+              <Search size={13} className="shrink-0 text-faint" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search favorites…"
+                className="w-40 bg-transparent text-[12px] text-fg outline-none placeholder:text-faint"
+              />
+            </div>
+          </div>
+        )}
       </ViewHeader>
 
       <div className="flex-1 overflow-y-auto">
@@ -144,25 +231,31 @@ export function FavoritesView() {
             title="No favorites yet"
             description="Star an issue, project, or view to pin it here for quick access."
           />
+        ) : shownTotal === 0 ? (
+          <EmptyState
+            illustration={<SearchIllustration />}
+            title="No matching favorites"
+            description="No favorites match your search or type filter."
+          />
         ) : (
           <div className="mx-auto max-w-2xl px-4 py-6">
-            {issueRows.length > 0 && (
+            {shownIssues.length > 0 && (
               <Section title="Issues">
-                {issueRows.map((r) => (
+                {shownIssues.map((r) => (
                   <FavoriteRow key={r.key} row={r} />
                 ))}
               </Section>
             )}
-            {projectRows.length > 0 && (
+            {shownProjects.length > 0 && (
               <Section title="Projects">
-                {projectRows.map((r) => (
+                {shownProjects.map((r) => (
                   <FavoriteRow key={r.key} row={r} />
                 ))}
               </Section>
             )}
-            {viewRows.length > 0 && (
+            {shownViews.length > 0 && (
               <Section title="Views">
-                {viewRows.map((r) => (
+                {shownViews.map((r) => (
                   <FavoriteRow key={r.key} row={r} />
                 ))}
               </Section>
