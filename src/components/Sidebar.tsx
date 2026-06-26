@@ -24,6 +24,9 @@ import {
   Megaphone,
   CircleUser,
   Copy,
+  History,
+  Star,
+  Archive,
   Plus,
   X,
 } from 'lucide-react'
@@ -297,6 +300,7 @@ export function Sidebar() {
           <Item to="/search" icon={<Search size={15} />} label="Search" />
           <Item to="/inbox" icon={<Inbox size={15} />} label="Inbox" badge={unread} />
           <Item to="/my-issues" icon={<CircleDot size={15} />} label="My Issues" />
+          <Item to="/recent" icon={<History size={15} />} label="Recent" />
           <Item to="/profile" icon={<CircleUser size={15} />} label="Profile" />
         </div>
 
@@ -309,6 +313,7 @@ export function Sidebar() {
         )}
 
         <Section title="Workspace">
+          <Item to="/all-issues" icon={<Layers3 size={15} />} label="All issues" />
           <Item to="/initiatives" icon={<Goal size={15} />} label="Initiatives" />
           <Item to="/projects" icon={<Box size={15} />} label="Projects" />
           <Item to="/customers" icon={<Building2 size={15} />} label="Customers" />
@@ -321,6 +326,9 @@ export function Sidebar() {
           <Item to="/pulse" icon={<Activity size={15} />} label="Pulse" />
           <Item to="/insights" icon={<BarChart3 size={15} />} label="Insights" />
           <Item to="/views" icon={<LayersIcon size={15} />} label="Views" />
+          <Item to="/teams" icon={<Building2 size={15} />} label="Teams" />
+          <Item to="/favorites" icon={<Star size={15} />} label="Favorites" />
+          <Item to="/archive" icon={<Archive size={15} />} label="Archive" />
         </Section>
 
         {teams.map((team) => (

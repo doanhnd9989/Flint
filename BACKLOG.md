@@ -175,3 +175,14 @@ Reactions/Customer-requests/Similar sections, and Share/Move-to-team modals.
 - [x] 🟡 **Issue Development section** — linked PRs/branches (status pill, branch, author, status change/remove). Model `PullRequest`.
 - [x] 🟢 **Similar issues** — suggested issues by title-word overlap (read-only, hidden when none).
 - [x] 🟢 **Copy as Markdown** — issue ⋯ → Copy → Copy as Markdown.
+
+## Loop #87 — shipped
+
+New nav/lifecycle surfaces, issue-detail & board enhancements, settings pages, reminders.
+
+**Wave 1 — workspace nav + issue lifecycle:**
+- [x] 🟡 **Archive** (`/archive`) — archived issues grouped by team; Restore / Delete; `Issue.archivedAt`, `archiveIssue`/`unarchiveIssue`, excluded from all active lists. Archive action in the issue ⋯ menu.
+- [x] 🟡 **Recently viewed** (`/recent`) — issues you opened, newest first; `recentIssueIds` slice + `pushRecentIssue` (tracked on IssueDetail mount).
+- [x] 🟢 **Favorites page** (`/favorites`) — starred issues/projects/views grouped, unstar inline.
+- [x] 🟡 **Teams directory** (`/teams`) — all teams with member avatars + issue/active/project counts, click → overview.
+- [x] 🔴 **All issues** (`/all-issues`) — workspace-wide issue list across every team (FilterBar + Display options + board/list), like IssuesView without team scope.

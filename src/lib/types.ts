@@ -278,6 +278,10 @@ export interface Issue {
   canceledAt?: string
   /** Awaiting triage (incoming, not yet accepted into the workflow). */
   triage?: boolean
+  /** Archived out of the active workspace (hidden from lists). Optional. */
+  archivedAt?: string
+  /** Personal reminder time (ISO). Surfaces the issue back in Reminders. Optional. */
+  remindAt?: string
 }
 
 /**

@@ -141,6 +141,8 @@ export function filterIssues(
   const neg = filters.negate ?? {}
   const dateFilters = filters.dates ?? []
   return issues.filter((i) => {
+    // Archived issues never appear in active lists — they live in /archive only.
+    if (i.archivedAt) return false
     // Each entry: [is this dimension active?, does the issue match it?, dimension key].
     // A negated dimension excludes matching issues; otherwise it keeps only matches.
     const dims: [boolean, boolean, keyof typeof neg][] = [

@@ -123,6 +123,8 @@ interface UIState {
   onboardingDismissed: string[]
   /** Which properties show on issue rows — Linear's Display options (persisted). */
   displayProperties: Record<DisplayProperty, boolean>
+  /** Recently-viewed issue ids (persisted, newest first, capped). */
+  recentIssueIds: string[]
   /**
    * Generic on/off settings for the workspace/feature settings pages — keyed by
    * a namespaced string (e.g. `integrations.github`, `security.twoFactor`).
@@ -170,6 +172,13 @@ export interface Store extends WorkspaceData, UIState {
   setIssueSortOrder: (id: string, sortOrder: number) => void
   acceptTriage: (id: string, stateId?: string) => void
   declineTriage: (id: string) => void
+  /** Archive / restore an issue (hidden from active lists; lives in /archive). */
+  archiveIssue: (id: string) => void
+  unarchiveIssue: (id: string) => void
+  /** Set / clear a personal reminder (ISO time) on an issue. */
+  setIssueReminder: (id: string, remindAt?: string) => void
+  /** Record an issue as recently viewed (newest first, deduped, capped). */
+  pushRecentIssue: (id: string) => void
 
   // ── relations ────────────────────────────────────────────────
   addRelation: (fromIssueId: string, toIssueId: string, type: RelationType) => void
@@ -416,6 +425,7 @@ export const useStore = create<Store>()(
       },
       onboardingDismissed: [],
       featureSettings: {},
+      recentIssueIds: [],
       displayProperties: { ...DEFAULT_DISPLAY_PROPERTIES },
       notificationSettings: structuredClone(DEFAULT_NOTIFICATION_SETTINGS),
 
@@ -823,6 +833,41 @@ export const useStore = create<Store>()(
                   }
                 : i,
             ),
+          }
+        }),
+
+      archiveIssue: (id) =>
+        set((s) => {
+          const ts = nowIso()
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id ? { ...i, archivedAt: ts, updatedAt: ts } : i,
+            ),
+            // Drop from any transient selection / peek so it leaves the list cleanly.
+            selectedIssueIds: s.selectedIssueIds.filter((x) => x !== id),
+            peekIssueId: s.peekIssueId === id ? null : s.peekIssueId,
+          }
+        }),
+
+      unarchiveIssue: (id) =>
+        set((s) => ({
+          issues: s.issues.map((i) =>
+            i.id === id ? { ...i, archivedAt: undefined, updatedAt: nowIso() } : i,
+          ),
+        })),
+
+      setIssueReminder: (id, remindAt) =>
+        set((s) => ({
+          issues: s.issues.map((i) =>
+            i.id === id ? { ...i, remindAt, updatedAt: nowIso() } : i,
+          ),
+        })),
+
+      pushRecentIssue: (id) =>
+        set((s) => {
+          if (s.recentIssueIds[0] === id) return s
+          return {
+            recentIssueIds: [id, ...s.recentIssueIds.filter((x) => x !== id)].slice(0, 30),
           }
         }),
 
@@ -1853,6 +1898,7 @@ export const useStore = create<Store>()(
         }
         // Backfill customers / releases / attachments (added later).
         if (!Array.isArray(merged.publicIssueIds)) merged.publicIssueIds = []
+        if (!Array.isArray(merged.recentIssueIds)) merged.recentIssueIds = []
         if (!Array.isArray(merged.customers)) merged.customers = seed.customers
         if (!Array.isArray(merged.releases)) merged.releases = seed.releases
         if (!Array.isArray(merged.attachments)) merged.attachments = seed.attachments

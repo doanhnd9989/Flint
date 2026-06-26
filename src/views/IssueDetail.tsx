@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { IssueDetailBody } from '@/components/IssueDetailBody'
@@ -13,6 +14,13 @@ export function IssueDetail() {
   const navigate = useNavigate()
   const store = useStore()
   const issue = store.issues.find((i) => i.identifier === identifier)
+
+  // Track recently-viewed issues for the /recent view (newest first).
+  const issueId = issue?.id
+  const pushRecentIssue = store.pushRecentIssue
+  useEffect(() => {
+    if (issueId) pushRecentIssue(issueId)
+  }, [issueId, pushRecentIssue])
 
   if (!issue) {
     return (

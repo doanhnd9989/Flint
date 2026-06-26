@@ -24,6 +24,8 @@ import {
   ArrowLeftRight,
   Share2,
   GitFork,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react'
 
 const MENU_W = 232
@@ -330,6 +332,27 @@ export function IssueOptionsMenu({
 
               <div className="my-1 h-px bg-border" />
 
+              {issue.archivedAt ? (
+                <Row
+                  icon={<ArchiveRestore size={14} />}
+                  label="Restore from archive"
+                  onClick={() => {
+                    store.unarchiveIssue(issue.id)
+                    close()
+                  }}
+                />
+              ) : (
+                <Row
+                  icon={<Archive size={14} />}
+                  label="Archive"
+                  hint="⌘⇧⌫"
+                  onClick={() => {
+                    close()
+                    store.archiveIssue(issue.id)
+                    onDeleted()
+                  }}
+                />
+              )}
               <Row
                 icon={<Trash2 size={14} />}
                 label="Delete"
