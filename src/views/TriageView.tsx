@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ArrowDownUp, Check, ChevronDown, X } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
@@ -66,6 +66,77 @@ export function TriageView() {
     }
     return sorted
   }, [allQueue, priorityFilter, sort])
+
+  // ── Keyboard-driven queue navigation (Linear's signature Triage workflow) ──
+  // A single "active" card is highlighted; j/k (or arrows) move it, Enter opens
+  // it, and A/D accept or decline it. Accept/decline removes the card from the
+  // queue, so the cursor stays on the same slot to land on the next one.
+  const [cursor, setCursor] = useState(0)
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  // Keep the cursor in range as the queue shrinks (accept/decline/filter) or
+  // empties out — clamp to the last row so it never points past the end.
+  useEffect(() => {
+    setCursor((c) => (queue.length === 0 ? 0 : Math.min(c, queue.length - 1)))
+  }, [queue.length])
+
+  // Scroll the active card into view whenever the cursor moves.
+  useEffect(() => {
+    cardRefs.current[cursor]?.scrollIntoView({ block: 'nearest' })
+  }, [cursor])
+
+  // Capture-phase handler so we pre-empt the global j/k/arrow shortcuts, mirror
+  // of the Inbox queue. Guarded against typing targets and open overlays.
+  const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  onKeyRef.current = (e: KeyboardEvent) => {
+    const t = e.target as HTMLElement
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+      return
+    if (document.querySelector('[data-overlay]')) return
+    if (!queue.length || e.metaKey || e.ctrlKey || e.altKey) return
+    const cur = queue[Math.min(cursor, queue.length - 1)]
+    const own = () => {
+      e.preventDefault()
+      e.stopImmediatePropagation()
+    }
+
+    if (e.key === 'ArrowDown' || e.key === 'j') {
+      own()
+      setCursor((c) => Math.min(c + 1, queue.length - 1))
+      return
+    }
+    if (e.key === 'ArrowUp' || e.key === 'k') {
+      own()
+      setCursor((c) => Math.max(c - 1, 0))
+      return
+    }
+    // Open the active issue (Enter / O).
+    if (e.key === 'Enter' || e.code === 'KeyO') {
+      if (!cur) return
+      own()
+      store.setPeek(cur.id)
+      return
+    }
+    // Accept (A) — leaves the queue; cursor holds its slot for the next card.
+    if (e.code === 'KeyA') {
+      if (!cur) return
+      own()
+      store.acceptTriage(cur.id)
+      return
+    }
+    // Decline (D / ⌫).
+    if (e.code === 'KeyD' || e.key === 'Backspace' || e.key === 'Delete') {
+      if (!cur) return
+      own()
+      store.declineTriage(cur.id)
+      return
+    }
+  }
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => onKeyRef.current(e)
+    window.addEventListener('keydown', handler, true)
+    return () => window.removeEventListener('keydown', handler, true)
+  }, [])
 
   // Priority filter options: "All priorities" + every priority in visual order.
   const priorityOptions = useMemo<SelectOption[]>(
@@ -153,16 +224,25 @@ export function TriageView() {
           />
         ) : (
           <div className="mx-auto max-w-3xl space-y-3">
-            {queue.map((issue) => {
+            {queue.map((issue, i) => {
               const state = store.states.find((s) => s.id === issue.stateId)!
               const assignee = store.users.find((u) => u.id === issue.assigneeId)
               const labels = issue.labelIds
                 .map((id) => store.labels.find((l) => l.id === id))
                 .filter(Boolean)
+              const active = i === cursor
               return (
                 <div
                   key={issue.id}
-                  className="rounded-xl border border-border bg-bg-secondary p-4"
+                  ref={(el) => {
+                    cardRefs.current[i] = el
+                  }}
+                  onMouseDown={() => setCursor(i)}
+                  className={`rounded-xl border bg-bg-secondary p-4 transition-colors ${
+                    active
+                      ? 'border-accent ring-1 ring-accent'
+                      : 'border-border'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <button
@@ -248,9 +328,33 @@ export function TriageView() {
                 </div>
               )
             })}
+            {/* Keyboard hints — the active card responds to these. */}
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-1 text-[11px] text-faint">
+              <span>
+                <Kbd>J</Kbd> <Kbd>K</Kbd> navigate
+              </span>
+              <span>
+                <Kbd>A</Kbd> accept
+              </span>
+              <span>
+                <Kbd>D</Kbd> decline
+              </span>
+              <span>
+                <Kbd>↵</Kbd> open
+              </span>
+            </div>
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+/** Small inline keycap used by the Triage keyboard-hint footer. */
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded border border-border bg-bg-tertiary px-1 font-mono text-[10px] text-muted">
+      {children}
+    </kbd>
   )
 }

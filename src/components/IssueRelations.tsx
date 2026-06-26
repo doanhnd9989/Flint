@@ -1,19 +1,31 @@
+import { useState } from 'react'
 import { useStore } from '@/lib/store'
 import type { Issue, RelationType } from '@/lib/types'
 import { StatusIcon } from './StatusIcon'
 import { SelectMenu, type SelectOption } from './ui/SelectMenu'
-import { X, Plus } from 'lucide-react'
+import { X, Plus, ChevronDown, ChevronRight } from 'lucide-react'
 
 interface RelRow {
   relationId: string
   other: Issue
 }
 
-const ADD_KINDS: { label: string; apply: (selfId: string, targetId: string) => [string, string, RelationType] }[] = [
-  { label: 'Blocking', apply: (s, t) => [s, t, 'blocks'] },
-  { label: 'Blocked by', apply: (s, t) => [t, s, 'blocks'] },
-  { label: 'Related', apply: (s, t) => [s, t, 'related'] },
-  { label: 'Duplicate of', apply: (s, t) => [s, t, 'duplicate'] },
+/**
+ * Each add action knows the relation it creates *and* which `RelRow[]` already
+ * holds that exact relation, so the picker can hide issues already linked that
+ * way — Linear never offers a no-op target in a relation menu.
+ */
+type AddKind = {
+  label: string
+  bucket: 'blocking' | 'blockedBy' | 'related' | 'duplicateOf'
+  apply: (selfId: string, targetId: string) => [string, string, RelationType]
+}
+
+const ADD_KINDS: AddKind[] = [
+  { label: 'Blocking', bucket: 'blocking', apply: (s, t) => [s, t, 'blocks'] },
+  { label: 'Blocked by', bucket: 'blockedBy', apply: (s, t) => [t, s, 'blocks'] },
+  { label: 'Related', bucket: 'related', apply: (s, t) => [s, t, 'related'] },
+  { label: 'Duplicate of', bucket: 'duplicateOf', apply: (s, t) => [s, t, 'duplicate'] },
 ]
 
 function Group({
@@ -69,6 +81,7 @@ export function IssueRelations({
   onOpenIssue: (identifier: string) => void
 }) {
   const store = useStore()
+  const [collapsed, setCollapsed] = useState(false)
   const byId = (id: string) => store.issues.find((i) => i.id === id)
 
   const blocking: RelRow[] = []
@@ -106,28 +119,46 @@ export function IssueRelations({
   const total =
     blocking.length + blockedBy.length + related.length + duplicateOf.length + duplicatedBy.length
 
-  const issueOptions: SelectOption[] = store.issues
-    .filter((i) => i.id !== issue.id)
-    .map((i) => {
-      const st = store.states.find((s) => s.id === i.stateId)!
-      return {
-        id: i.id,
-        label: i.title,
-        hint: i.identifier,
-        keywords: `${i.identifier} ${i.title}`,
-        icon: <StatusIcon type={st.type} color={st.color} />,
-      }
-    })
+  // Issues already linked in a given bucket, so each picker can omit them
+  // (Linear never lets you re-add an existing relation as a no-op).
+  const buckets = { blocking, blockedBy, related, duplicateOf } as const
+  const linkedIds = (bucket: AddKind['bucket']) =>
+    new Set(buckets[bucket].map((r) => r.other.id))
+
+  const optionFor = (i: Issue): SelectOption => {
+    const st = store.states.find((s) => s.id === i.stateId)!
+    return {
+      id: i.id,
+      label: i.title,
+      hint: i.identifier,
+      keywords: `${i.identifier} ${i.title}`,
+      icon: <StatusIcon type={st.type} color={st.color} />,
+    }
+  }
+
+  const optionsFor = (bucket: AddKind['bucket']): SelectOption[] => {
+    const exclude = linkedIds(bucket)
+    return store.issues
+      .filter((i) => i.id !== issue.id && !exclude.has(i.id))
+      .map(optionFor)
+  }
 
   return (
     <div className="mt-6">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[12px] font-medium text-faint">Relations</span>
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="flex items-center gap-1 rounded px-0.5 text-[12px] font-medium text-faint hover:text-fg"
+        >
+          {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+          Relations
+          {total > 0 && <span className="text-faint">· {total}</span>}
+        </button>
         <div className="flex items-center gap-1">
           {ADD_KINDS.map((k) => (
             <SelectMenu
               key={k.label}
-              options={issueOptions}
+              options={optionsFor(k.bucket)}
               onSelect={(targetId) => {
                 const [from, to, type] = k.apply(issue.id, targetId)
                 store.addRelation(from, to, type)
@@ -145,17 +176,18 @@ export function IssueRelations({
         </div>
       </div>
 
-      {total === 0 ? (
-        <div className="text-[12px] text-faint">No relations.</div>
-      ) : (
-        <>
-          <Group title="Blocking" rows={blocking} onOpen={onOpenIssue} onRemove={store.removeRelation} />
-          <Group title="Blocked by" rows={blockedBy} onOpen={onOpenIssue} onRemove={store.removeRelation} />
-          <Group title="Related" rows={related} onOpen={onOpenIssue} onRemove={store.removeRelation} />
-          <Group title="Duplicate of" rows={duplicateOf} onOpen={onOpenIssue} onRemove={store.removeRelation} />
-          <Group title="Duplicated by" rows={duplicatedBy} onOpen={onOpenIssue} onRemove={store.removeRelation} />
-        </>
-      )}
+      {!collapsed &&
+        (total === 0 ? (
+          <div className="text-[12px] text-faint">No relations.</div>
+        ) : (
+          <>
+            <Group title="Blocking" rows={blocking} onOpen={onOpenIssue} onRemove={store.removeRelation} />
+            <Group title="Blocked by" rows={blockedBy} onOpen={onOpenIssue} onRemove={store.removeRelation} />
+            <Group title="Related" rows={related} onOpen={onOpenIssue} onRemove={store.removeRelation} />
+            <Group title="Duplicate of" rows={duplicateOf} onOpen={onOpenIssue} onRemove={store.removeRelation} />
+            <Group title="Duplicated by" rows={duplicatedBy} onOpen={onOpenIssue} onRemove={store.removeRelation} />
+          </>
+        ))}
     </div>
   )
 }

@@ -13,6 +13,8 @@ import {
   IterationCw,
   FolderClosed,
   UserRound,
+  LayoutList,
+  Columns3,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
@@ -96,7 +98,35 @@ export function MyIssues() {
           </button>
         ))}
         {tab !== 'activity' && (
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {/* Quick List/Board segmented toggle (Linear shows this in the
+                view header alongside the Display menu). */}
+            <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
+              <button
+                type="button"
+                aria-label="List layout"
+                aria-pressed={layout === 'list'}
+                onClick={() => setLayout('list')}
+                className={cn(
+                  'flex items-center rounded-[5px] p-1 text-muted hover:text-fg',
+                  layout === 'list' && 'bg-bg-selected text-fg',
+                )}
+              >
+                <LayoutList size={15} />
+              </button>
+              <button
+                type="button"
+                aria-label="Board layout"
+                aria-pressed={layout === 'board'}
+                onClick={() => setLayout('board')}
+                className={cn(
+                  'flex items-center rounded-[5px] p-1 text-muted hover:text-fg',
+                  layout === 'board' && 'bg-bg-selected text-fg',
+                )}
+              >
+                <Columns3 size={15} />
+              </button>
+            </div>
             <DisplayMenu
               layout={layout}
               groupBy={groupBy}

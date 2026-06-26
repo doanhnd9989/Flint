@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bookmark } from 'lucide-react'
+import { Bookmark, ChevronDown } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
 import type { GroupBy, Issue, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
@@ -9,6 +9,7 @@ import { IssueBoard } from '@/components/IssueBoard'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { ViewHeader } from '@/components/ViewHeader'
 import { FilterBar, emptyFilters } from '@/components/FilterBar'
+import { Popover } from '@/components/ui/Popover'
 import { cn } from '@/lib/utils'
 
 type Tab = 'active' | 'backlog' | 'all'
@@ -27,14 +28,22 @@ export function AllIssuesView() {
   const [nestedSubIssues, setNestedSubIssues] = useState(false)
   const [showEmptyGroups, setShowEmptyGroups] = useState(false)
   const [filters, setFilters] = useState(emptyFilters())
+  // Workspace-wide team scope. Empty = every team (Linear's "All issues" default);
+  // selecting teams narrows the view to just those teams' issues.
+  const [teamScope, setTeamScope] = useState<string[]>([])
 
   // Nesting only makes sense in the list view with sub-issues shown.
   const nested = layout === 'list' && showSubIssues && nestedSubIssues
 
   const { groups, childrenByParent, rows } = useMemo(() => {
     const statesByType = new Map(data.states.map((s) => [s.id, s.type]))
-    // Workspace-wide: every team's issues, excluding triage.
+    // Workspace-wide: every team's issues, excluding triage. A non-empty team
+    // scope narrows to just the selected teams.
     let scoped = data.issues.filter((i) => !i.triage)
+    if (teamScope.length > 0) {
+      const teamSet = new Set(teamScope)
+      scoped = scoped.filter((i) => teamSet.has(i.teamId))
+    }
     if (tab === 'active')
       scoped = scoped.filter((i) => {
         const t = statesByType.get(i.stateId)
@@ -97,6 +106,7 @@ export function AllIssuesView() {
   }, [
     data,
     tab,
+    teamScope,
     groupBy,
     subGroupBy,
     orderBy,
@@ -157,20 +167,86 @@ export function AllIssuesView() {
           </div>
         }
       >
-        <div className="flex items-center gap-1">
-          {(['active', 'backlog', 'all'] as Tab[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={cn(
-                'rounded-md px-2.5 py-1 text-[12px] capitalize text-muted hover:bg-bg-hover',
-                tab === t && 'bg-bg-selected text-fg font-medium',
-              )}
-            >
-              {t === 'all' ? 'All issues' : t}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          {/* Team scope — narrow the workspace-wide view to specific teams. */}
+          <Popover
+            align="start"
+            width={220}
+            trigger={
+              <span
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover',
+                  teamScope.length > 0 && 'text-fg',
+                )}
+              >
+                {teamScope.length === 0
+                  ? 'All teams'
+                  : teamScope.length === 1
+                    ? (data.teams.find((t) => t.id === teamScope[0])?.name ?? '1 team')
+                    : `${teamScope.length} teams`}
+                <ChevronDown size={12} className="text-faint" />
+              </span>
+            }
+          >
+            {() => (
+              <div className="max-h-72 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => setTeamScope([])}
+                  className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                >
+                  All teams
+                  {teamScope.length === 0 && (
+                    <svg width="14" height="14" viewBox="0 0 16 16" className="text-accent">
+                      <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </button>
+                <div className="-mx-1 my-1 border-t border-border" />
+                {[...data.teams]
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((t) => {
+                    const on = teamScope.includes(t.id)
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() =>
+                          setTeamScope((cur) =>
+                            cur.includes(t.id) ? cur.filter((x) => x !== t.id) : [...cur, t.id],
+                          )
+                        }
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                      >
+                        <span className="flex h-4 w-4 items-center justify-center">{t.icon}</span>
+                        <span className="flex-1 truncate">{t.name}</span>
+                        <span className="text-[11px] text-faint">{t.key}</span>
+                        {on && (
+                          <svg width="14" height="14" viewBox="0 0 16 16" className="text-accent">
+                            <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </button>
+                    )
+                  })}
+              </div>
+            )}
+          </Popover>
+          <div className="flex items-center gap-1">
+            {(['active', 'backlog', 'all'] as Tab[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-[12px] capitalize text-muted hover:bg-bg-hover',
+                  tab === t && 'bg-bg-selected text-fg font-medium',
+                )}
+              >
+                {t === 'all' ? 'All issues' : t}
+              </button>
+            ))}
+          </div>
         </div>
       </ViewHeader>
 

@@ -10,23 +10,22 @@ import { InitiativeProgressGraph } from '@/components/InitiativeProgressGraph'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { initiativeProgress, projectProgress } from '@/lib/selectors'
-import { INITIATIVE_STATUS, INITIATIVE_STATUS_ORDER } from '@/lib/constants'
-import type { InitiativeStatus } from '@/lib/types'
+import {
+  INITIATIVE_STATUS,
+  INITIATIVE_STATUS_ORDER,
+  PROJECT_STATUS,
+  PROJECT_STATUS_ORDER,
+} from '@/lib/constants'
+import type { InitiativeStatus, Project, ProjectStatus } from '@/lib/types'
 import { formatFullDate, cn } from '@/lib/utils'
-
-const PROJECT_STATUS_LABEL: Record<string, string> = {
-  backlog: 'Backlog',
-  planned: 'Planned',
-  started: 'In Progress',
-  paused: 'Paused',
-  completed: 'Completed',
-  canceled: 'Canceled',
-}
 
 export function InitiativeDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [tab, setTab] = useState<'overview' | 'updates'>('overview')
+  // Like Linear's initiative overview, projects can be shown as a flat list or
+  // grouped into status sections (Backlog / Planned / In Progress / …).
+  const [groupByStatus, setGroupByStatus] = useState(false)
   const { initiatives, projects, issues, users, initiativeUpdates } = useStoreShallow((s) => ({
     initiatives: s.initiatives,
     projects: s.projects,
@@ -64,6 +63,14 @@ export function InitiativeDetail() {
     .filter((p) => p.initiativeId === initiative.id)
     .sort((a, b) => a.sortOrder - b.sortOrder)
 
+  // Group projects into status sections, preserving Linear's status order and
+  // dropping empty groups. Used when "Group by status" is on.
+  const projectGroups: { status: ProjectStatus; projects: Project[] }[] =
+    PROJECT_STATUS_ORDER.map((status) => ({
+      status,
+      projects: inProjects.filter((p) => p.status === status),
+    })).filter((g) => g.projects.length > 0)
+
   const statusOptions: SelectOption[] = INITIATIVE_STATUS_ORDER.map((s) => ({
     id: s,
     label: INITIATIVE_STATUS[s].label,
@@ -90,6 +97,47 @@ export function InitiativeDetail() {
   const addable: SelectOption[] = projects
     .filter((p) => !p.initiativeId)
     .map((p) => ({ id: p.id, label: p.name, icon: <span>{p.icon}</span> }))
+
+  // A single project row, reused by both the flat and grouped layouts.
+  const renderProjectRow = (p: Project) => {
+    const pp = projectProgress(p.id, issues, data)
+    const lead = users.find((u) => u.id === p.leadId)
+    return (
+      <div
+        key={p.id}
+        className="group flex items-center gap-3 border-b border-border bg-bg-secondary px-4 py-2.5 last:border-b-0 hover:bg-bg-hover"
+      >
+        <button
+          onClick={() => navigate(`/project/${p.id}`)}
+          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+        >
+          <span className="text-base">{p.icon}</span>
+          <span className="truncate text-[13px] font-medium text-fg">{p.name}</span>
+          <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-[11px] text-muted">
+            {PROJECT_STATUS[p.status].label}
+          </span>
+        </button>
+        <div className="flex w-32 shrink-0 items-center gap-2">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+            <div
+              className="h-full rounded-full bg-accent"
+              style={{ width: `${pp.percent}%` }}
+            />
+          </div>
+          <span className="w-8 text-right text-[11px] text-faint">{pp.percent}%</span>
+        </div>
+        <Avatar user={lead} size={20} />
+        <button
+          type="button"
+          title="Remove from initiative"
+          onClick={() => setProjectInitiative(p.id, undefined)}
+          className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 hover:bg-bg-tertiary hover:text-fg group-hover:opacity-100"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -218,19 +266,34 @@ export function InitiativeDetail() {
             Projects
             <span className="ml-1.5 text-faint">{inProjects.length}</span>
           </h2>
-          {addable.length > 0 && (
-            <SelectMenu
-              align="end"
-              options={addable}
-              onSelect={(pid) => setProjectInitiative(pid, initiative.id)}
-              placeholder="Add a project…"
-              trigger={
-                <span className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover">
-                  <Plus size={13} /> Add project
-                </span>
-              }
-            />
-          )}
+          <div className="flex items-center gap-2">
+            {inProjects.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setGroupByStatus((g) => !g)}
+                title={groupByStatus ? 'Show as a flat list' : 'Group projects by status'}
+                className={cn(
+                  'rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover',
+                  groupByStatus && 'bg-bg-selected text-fg',
+                )}
+              >
+                Group by status
+              </button>
+            )}
+            {addable.length > 0 && (
+              <SelectMenu
+                align="end"
+                options={addable}
+                onSelect={(pid) => setProjectInitiative(pid, initiative.id)}
+                placeholder="Add a project…"
+                trigger={
+                  <span className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover">
+                    <Plus size={13} /> Add project
+                  </span>
+                }
+              />
+            )}
+          </div>
         </div>
 
         {inProjects.length === 0 ? (
@@ -239,51 +302,29 @@ export function InitiativeDetail() {
             title="No projects in this initiative"
             description="Add the projects that contribute toward this initiative to roll up their progress here."
           />
+        ) : groupByStatus ? (
+          <div className="space-y-5">
+            {projectGroups.map((group) => (
+              <div key={group.status}>
+                <div className="mb-1.5 flex items-center gap-2 text-[12px]">
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ background: PROJECT_STATUS[group.status].color }}
+                  />
+                  <span className="font-medium text-fg">
+                    {PROJECT_STATUS[group.status].label}
+                  </span>
+                  <span className="text-faint">{group.projects.length}</span>
+                </div>
+                <div className="overflow-hidden rounded-lg border border-border">
+                  {group.projects.map(renderProjectRow)}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border">
-            {inProjects.map((p) => {
-              const pp = projectProgress(p.id, issues, data)
-              const lead = users.find((u) => u.id === p.leadId)
-              return (
-                <div
-                  key={p.id}
-                  className="group flex items-center gap-3 border-b border-border bg-bg-secondary px-4 py-2.5 last:border-b-0 hover:bg-bg-hover"
-                >
-                  <button
-                    onClick={() => navigate(`/project/${p.id}`)}
-                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-                  >
-                    <span className="text-base">{p.icon}</span>
-                    <span className="truncate text-[13px] font-medium text-fg">
-                      {p.name}
-                    </span>
-                    <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-[11px] text-muted">
-                      {PROJECT_STATUS_LABEL[p.status]}
-                    </span>
-                  </button>
-                  <div className="flex w-32 shrink-0 items-center gap-2">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
-                      <div
-                        className="h-full rounded-full bg-accent"
-                        style={{ width: `${pp.percent}%` }}
-                      />
-                    </div>
-                    <span className="w-8 text-right text-[11px] text-faint">
-                      {pp.percent}%
-                    </span>
-                  </div>
-                  <Avatar user={lead} size={20} />
-                  <button
-                    type="button"
-                    title="Remove from initiative"
-                    onClick={() => setProjectInitiative(p.id, undefined)}
-                    className="flex h-6 w-6 items-center justify-center rounded text-faint opacity-0 hover:bg-bg-tertiary hover:text-fg group-hover:opacity-100"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )
-            })}
+            {inProjects.map(renderProjectRow)}
           </div>
         )}
       </div>

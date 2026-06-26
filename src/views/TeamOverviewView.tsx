@@ -124,6 +124,26 @@ export function TeamOverviewView() {
     [team, data.users],
   )
 
+  // Workload breakdown — active (non-done) issues per member, like Linear's
+  // team overview. Counts issues whose state isn't completed/canceled, sorted
+  // by load descending, with an Unassigned bucket appended.
+  const workload = useMemo(() => {
+    const counts = new Map<string, number>()
+    let unassigned = 0
+    for (const i of issues) {
+      const t = stateById.get(i.stateId)?.type
+      if (t === 'completed' || t === 'canceled') continue
+      if (i.assigneeId) counts.set(i.assigneeId, (counts.get(i.assigneeId) ?? 0) + 1)
+      else unassigned++
+    }
+    const rows = members
+      .map((u) => ({ user: u, count: counts.get(u.id) ?? 0 }))
+      .sort((a, b) => b.count - a.count || a.user.name.localeCompare(b.user.name))
+    const max = rows.reduce((m, r) => Math.max(m, r.count), unassigned)
+    const totalActive = rows.reduce((s, r) => s + r.count, 0) + unassigned
+    return { rows, unassigned, max, totalActive }
+  }, [issues, members, stateById])
+
   // Projects that include this team.
   const projects = useMemo(
     () => (team ? data.projects.filter((p) => p.teamIds.includes(team.id)) : []),
@@ -226,18 +246,58 @@ export function TeamOverviewView() {
               )}
             </Card>
 
-            {/* Members */}
-            <Card title="Members" subtitle={`${members.length}`}>
+            {/* Workload — active issues per member */}
+            <Card
+              title="Workload"
+              subtitle={workload.totalActive > 0 ? `${workload.totalActive} active` : undefined}
+            >
               {members.length === 0 ? (
                 <div className="py-2 text-[12px] text-muted">No members</div>
               ) : (
-                <div className="flex flex-wrap gap-x-4 gap-y-2.5">
-                  {members.map((u) => (
-                    <div key={u.id} className="flex items-center gap-2">
-                      <Avatar user={u} size={20} />
-                      <span className="text-[12px] text-fg">{display(u.name)}</span>
-                    </div>
+                <div className="-mx-2 space-y-0.5">
+                  {workload.rows.map(({ user, count }) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => navigate(`/team/${team.key}/active`)}
+                      className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-bg-hover"
+                    >
+                      <Avatar user={user} size={20} />
+                      <span className="flex-1 truncate text-[12px] text-fg">{display(user.name)}</span>
+                      <div className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-bg-tertiary">
+                        <div
+                          className="h-full rounded-full bg-accent"
+                          style={{ width: `${workload.max > 0 ? (count / workload.max) * 100 : 0}%` }}
+                        />
+                      </div>
+                      <span className="w-6 shrink-0 text-right text-[11px] tabular-nums text-faint">
+                        {count}
+                      </span>
+                    </button>
                   ))}
+                  {workload.unassigned > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/team/${team.key}/active`)}
+                      className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-bg-hover"
+                    >
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-dashed border-border text-[10px] text-faint">
+                        ?
+                      </span>
+                      <span className="flex-1 truncate text-[12px] text-muted">Unassigned</span>
+                      <div className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-bg-tertiary">
+                        <div
+                          className="h-full rounded-full bg-border-strong"
+                          style={{
+                            width: `${workload.max > 0 ? (workload.unassigned / workload.max) * 100 : 0}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="w-6 shrink-0 text-right text-[11px] tabular-nums text-faint">
+                        {workload.unassigned}
+                      </span>
+                    </button>
+                  )}
                 </div>
               )}
             </Card>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search as SearchIcon, Clock, X } from 'lucide-react'
+import { Search as SearchIcon, Clock, X, MessageSquare } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
@@ -36,6 +36,34 @@ export function SearchView() {
     return matched.slice(0, 50)
   }, [data, q, filters])
 
+  // Issues whose *comments* match the query — Linear's full-text search also
+  // covers discussion, surfacing the parent issue with a snippet of the
+  // matching comment. We exclude issues already matched on title/description so
+  // every result appears once, and apply the same filter chips.
+  const commentResults = useMemo(() => {
+    if (!q) return []
+    const alreadyMatched = new Set(issueResults.map((i) => i.id))
+    const seen = new Set<string>()
+    const out: { issue: (typeof data.issues)[number]; snippet: string }[] = []
+    for (const c of data.comments) {
+      const idx = c.body.toLowerCase().indexOf(q)
+      if (idx === -1) continue
+      if (alreadyMatched.has(c.issueId) || seen.has(c.issueId)) continue
+      const issue = data.issues.find((i) => i.id === c.issueId && !i.triage)
+      if (!issue) continue
+      if (filterIssues([issue], filters).length === 0) continue
+      seen.add(c.issueId)
+      // Build a short snippet centred on the match.
+      const start = Math.max(0, idx - 30)
+      const snippet =
+        (start > 0 ? '…' : '') +
+        c.body.slice(start, idx + q.length + 40).trim() +
+        (idx + q.length + 40 < c.body.length ? '…' : '')
+      out.push({ issue, snippet })
+    }
+    return out.slice(0, 25)
+  }, [data, q, filters, issueResults])
+
   const projectResults = useMemo(() => {
     if (!q) return []
     return data.projects.filter(
@@ -66,9 +94,16 @@ export function SearchView() {
       id: 'all',
       label: 'All',
       count:
-        issueResults.length + projectResults.length + documentResults.length,
+        issueResults.length +
+        commentResults.length +
+        projectResults.length +
+        documentResults.length,
     },
-    { id: 'issues', label: 'Issues', count: issueResults.length },
+    {
+      id: 'issues',
+      label: 'Issues',
+      count: issueResults.length + commentResults.length,
+    },
     { id: 'projects', label: 'Projects', count: projectResults.length },
     { id: 'documents', label: 'Documents', count: documentResults.length },
   ]
@@ -150,6 +185,7 @@ export function SearchView() {
               ))}
             </div>
             {issueResults.length === 0 &&
+            commentResults.length === 0 &&
             projectResults.length === 0 &&
             documentResults.length === 0 ? (
               <EmptyState
@@ -205,16 +241,44 @@ export function SearchView() {
                     ))}
                   </div>
                 )}
-                {showIssues && issueResults.length > 0 && (
-                  <div>
-                    <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
-                      Issues · {issueResults.length}
+                {showIssues &&
+                  (issueResults.length > 0 || commentResults.length > 0) && (
+                    <div>
+                      <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
+                        Issues · {issueResults.length + commentResults.length}
+                      </div>
+                      {issueResults.map((i) => (
+                        <IssueRow key={i.id} issue={i} />
+                      ))}
+                      {/* Issues matched only by a comment — show the parent issue
+                          with a snippet of the matching discussion. */}
+                      {commentResults.map(({ issue, snippet }) => (
+                        <button
+                          key={issue.id}
+                          onClick={() => navigate(`/issue/${issue.identifier}`)}
+                          className="flex w-full items-start gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover"
+                        >
+                          <MessageSquare
+                            size={14}
+                            className="mt-0.5 shrink-0 text-faint"
+                          />
+                          <span className="min-w-0">
+                            <span className="flex items-center gap-2">
+                              <span className="shrink-0 font-mono text-[11px] text-faint">
+                                {issue.identifier}
+                              </span>
+                              <span className="truncate text-[13px] text-fg">
+                                {issue.title}
+                              </span>
+                            </span>
+                            <span className="mt-0.5 block truncate text-[12px] text-muted">
+                              {snippet}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
                     </div>
-                    {issueResults.map((i) => (
-                      <IssueRow key={i.id} issue={i} />
-                    ))}
-                  </div>
-                )}
+                  )}
               </>
             )}
           </div>

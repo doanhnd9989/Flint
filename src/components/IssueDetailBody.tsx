@@ -40,6 +40,7 @@ import {
   formatFullDate,
   isDueSoon,
   isOverdue,
+  timeAgo,
 } from '@/lib/utils'
 import {
   GitBranch,
@@ -91,6 +92,7 @@ export function IssueDetailBody({
   const state = store.states.find((s) => s.id === issue.stateId)!
   const team = store.teams.find((t) => t.id === issue.teamId)
   const assignee = store.users.find((u) => u.id === issue.assigneeId)
+  const creator = store.users.find((u) => u.id === issue.creatorId)
   const project = store.projects.find((p) => p.id === issue.projectId)
   const projectMilestones = issue.projectId
     ? store.milestones.filter((m) => m.projectId === issue.projectId)
@@ -614,6 +616,30 @@ export function IssueDetailBody({
             </span>
           }
         />
+
+        {/* Metadata footer — mirrors Linear's "opened by / updated" block at the
+            bottom of the property sidebar. Each timestamp tooltips its full date. */}
+        <div className="mt-5 space-y-1 border-t border-border pt-3 text-[12px] text-faint">
+          <div className="flex items-center gap-1.5">
+            <Avatar user={creator} size={16} />
+            <span className="text-muted">{creator ? fmt(creator.name) : 'Someone'}</span>
+            <span>opened</span>
+            <span title={formatFullDate(issue.createdAt)}>{timeAgo(issue.createdAt)}</span>
+          </div>
+          {issue.completedAt ? (
+            <div title={formatFullDate(issue.completedAt)}>
+              Completed {timeAgo(issue.completedAt)}
+            </div>
+          ) : issue.canceledAt ? (
+            <div title={formatFullDate(issue.canceledAt)}>
+              Canceled {timeAgo(issue.canceledAt)}
+            </div>
+          ) : (
+            <div title={formatFullDate(issue.updatedAt)}>
+              Updated {timeAgo(issue.updatedAt)}
+            </div>
+          )}
+        </div>
       </aside>
     </div>
   )

@@ -71,6 +71,24 @@ function isSnoozed(until: string | undefined, now: number) {
   return !!until && new Date(until).getTime() > now
 }
 
+// ── date-group buckets (Linear groups the inbox list into Today / Yesterday /
+// This week / Older sticky sections) ─────────────────────────────────────────
+function dateGroup(iso: string, now: number): string {
+  const startOfDay = (t: number) => {
+    const d = new Date(t)
+    d.setHours(0, 0, 0, 0)
+    return d.getTime()
+  }
+  const today = startOfDay(now)
+  const created = startOfDay(new Date(iso).getTime())
+  const dayMs = 86_400_000
+  if (created >= today) return 'Today'
+  if (created >= today - dayMs) return 'Yesterday'
+  if (created >= today - 7 * dayMs) return 'This week'
+  if (created >= today - 30 * dayMs) return 'This month'
+  return 'Older'
+}
+
 // ── view + filter state (local, like the Issues view's display options) ──────
 type Ordering = 'newest' | 'oldest'
 interface InboxDisplay {
@@ -701,18 +719,31 @@ export function Inbox() {
                 : "You're all caught up."}
             </div>
           )}
-          {list.map((n) => (
-            <NotificationRow
-              key={n.id}
-              n={n}
-              now={now}
-              selected={n.id === selectedId}
-              onOpen={() => select(n.id)}
-              onSnooze={(id, ms) => actThenAdvance(id, (x) => snooze(x, ms))}
-              onUnsnooze={store.unsnoozeNotification}
-              onDelete={(id) => actThenAdvance(id, store.deleteNotification)}
-            />
-          ))}
+          {list.map((n, i) => {
+            // Emit a sticky date-section header whenever the group changes from
+            // the previous (already-sorted) row, so render order stays identical
+            // to `list` and j/k navigation keeps working on the flat sequence.
+            const group = dateGroup(n.createdAt, now)
+            const showHeader = i === 0 || dateGroup(list[i - 1].createdAt, now) !== group
+            return (
+              <div key={n.id}>
+                {showHeader && (
+                  <div className="sticky top-0 z-10 bg-bg/90 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-faint backdrop-blur-sm">
+                    {group}
+                  </div>
+                )}
+                <NotificationRow
+                  n={n}
+                  now={now}
+                  selected={n.id === selectedId}
+                  onOpen={() => select(n.id)}
+                  onSnooze={(id, ms) => actThenAdvance(id, (x) => snooze(x, ms))}
+                  onUnsnooze={store.unsnoozeNotification}
+                  onDelete={(id) => actThenAdvance(id, store.deleteNotification)}
+                />
+              </div>
+            )
+          })}
         </div>
       </div>
 

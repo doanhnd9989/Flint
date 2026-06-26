@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { cycleProgress, cycleState } from '@/lib/selectors'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
+import { Avatar } from '@/components/Avatar'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import type { Cycle, Issue, Team } from '@/lib/types'
+import type { Cycle, Issue, Team, User } from '@/lib/types'
 import type { WorkspaceData } from '@/lib/seed'
 
 // Workspace-level "Cycles" overview (Linear's cross-team cycles page): one card
@@ -211,6 +212,44 @@ export function ActiveCyclesView() {
   )
 }
 
+// One member's slice of a cycle's scope: how many issues they own and how many
+// of those are completed. `user` is undefined for the "Unassigned" bucket.
+interface AssigneeSlice {
+  user?: User
+  total: number
+  done: number
+}
+
+// "Scope by assignee" breakdown for a cycle — the per-member rows Linear shows
+// when you expand a cycle. Buckets issues by assignee (with an Unassigned
+// bucket), counts completed via the workspace's completed states, and sorts by
+// scope descending so the biggest owners surface first.
+function assigneeBreakdown(
+  cycleId: string,
+  issues: Issue[],
+  data: WorkspaceData,
+): AssigneeSlice[] {
+  const completed = new Set(
+    data.states.filter((s) => s.type === 'completed').map((s) => s.id),
+  )
+  const userById = new Map(data.users.map((u) => [u.id, u]))
+  const buckets = new Map<string, AssigneeSlice>()
+  for (const i of issues) {
+    if (i.cycleId !== cycleId || i.archivedAt) continue
+    const key = i.assigneeId ?? '__none__'
+    let slice = buckets.get(key)
+    if (!slice) {
+      slice = { user: i.assigneeId ? userById.get(i.assigneeId) : undefined, total: 0, done: 0 }
+      buckets.set(key, slice)
+    }
+    slice.total++
+    if (completed.has(i.stateId)) slice.done++
+  }
+  return [...buckets.values()].sort(
+    (a, b) => b.total - a.total || b.done - a.done,
+  )
+}
+
 function TeamCycleCard({
   team,
   active,
@@ -228,9 +267,15 @@ function TeamCycleCard({
   data: WorkspaceData
   onOpen: () => void
 }) {
+  // Expandable "Scope by assignee" disclosure (collapsed by default).
+  const [showBreakdown, setShowBreakdown] = useState(false)
   const prog = active ? cycleProgress(active.id, issues, data) : null
   const cs = active ? cycleState(active.startsAt, active.endsAt, nowMs) : null
   const remaining = prog ? Math.max(0, prog.total - prog.done - prog.started) : 0
+  const slices = useMemo(
+    () => (active ? assigneeBreakdown(active.id, issues, data) : []),
+    [active, issues, data],
+  )
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-bg">
@@ -310,6 +355,56 @@ function TeamCycleCard({
           <div className="mt-2 text-[12px] text-muted">No active cycle</div>
         )}
       </button>
+
+      {/* Scope-by-assignee disclosure — Linear's per-member cycle breakdown.
+          Lives outside the card-body button (no nested interactives). */}
+      {active && prog && prog.total > 0 && (
+        <div className="border-t border-border">
+          <button
+            type="button"
+            onClick={() => setShowBreakdown((v) => !v)}
+            className="flex w-full items-center gap-1 px-5 py-2 text-left text-[11px] font-medium text-muted transition-colors hover:bg-bg-hover hover:text-fg"
+            aria-expanded={showBreakdown}
+          >
+            {showBreakdown ? (
+              <ChevronDown size={13} className="shrink-0 text-faint" />
+            ) : (
+              <ChevronRight size={13} className="shrink-0 text-faint" />
+            )}
+            Scope by assignee
+            <span className="text-faint">· {slices.length}</span>
+          </button>
+
+          {showBreakdown && (
+            <div className="space-y-2 px-5 pb-3 pt-0.5">
+              {slices.map((s, idx) => {
+                const pct = s.total ? Math.round((s.done / s.total) * 100) : 0
+                return (
+                  <div
+                    key={s.user?.id ?? `none-${idx}`}
+                    className="flex items-center gap-2.5"
+                  >
+                    <Avatar user={s.user} size={18} />
+                    <span className="w-28 shrink-0 truncate text-[12px] text-fg">
+                      {s.user?.name ?? 'Unassigned'}
+                    </span>
+                    <div className="flex h-1.5 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+                      <div
+                        className="h-full bg-accent"
+                        style={{ width: `${pct}%` }}
+                        title={`${s.done} of ${s.total} completed`}
+                      />
+                    </div>
+                    <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-faint">
+                      {s.done}/{s.total} · {pct}%
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Upcoming cycle — a compact secondary row beneath the card body. */}
       {upcoming && (

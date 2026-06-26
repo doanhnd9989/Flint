@@ -26,9 +26,13 @@ import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { Popover } from '@/components/ui/Popover'
 import { StarButton } from '@/components/StarButton'
-import { PROJECT_STATUS, PROJECT_STATUS_ORDER } from '@/lib/constants'
+import {
+  PROJECT_STATUS,
+  PROJECT_STATUS_ORDER,
+  STATUS_TYPE_ORDER,
+} from '@/lib/constants'
 import { formatFullDate, cn } from '@/lib/utils'
-import type { Issue, Milestone, Project, ProjectStatus } from '@/lib/types'
+import type { Issue, Milestone, Project, ProjectStatus, WorkflowState } from '@/lib/types'
 
 const triggerCls =
   'flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] text-fg hover:bg-bg-hover'
@@ -89,6 +93,72 @@ function Section({
       ) : (
         issues.map((i) => <IssueRow key={i.id} issue={i} />)
       )}
+    </div>
+  )
+}
+
+/**
+ * Project "Scope" — a stacked segmented progress bar broken down by workflow
+ * state, mirroring Linear's project Overview progress bar. Each issue is
+ * bucketed into its resolved state; segments are ordered by status type then
+ * the state's own position, and a legend lists the per-state counts. Canceled
+ * issues are excluded from the bar (they don't count toward scope) but shown in
+ * the legend, exactly like Linear.
+ */
+function ScopeBar({ issues, states }: { issues: Issue[]; states: WorkflowState[] }) {
+  const byId = new Map(states.map((s) => [s.id, s]))
+  // Count issues per state, dropping any whose state no longer exists.
+  const counts = new Map<string, number>()
+  for (const i of issues) {
+    if (!byId.has(i.stateId)) continue
+    counts.set(i.stateId, (counts.get(i.stateId) ?? 0) + 1)
+  }
+  const segments = states
+    .filter((s) => (counts.get(s.id) ?? 0) > 0)
+    .sort(
+      (a, b) =>
+        STATUS_TYPE_ORDER[a.type] - STATUS_TYPE_ORDER[b.type] ||
+        a.position - b.position,
+    )
+    .map((s) => ({ state: s, count: counts.get(s.id) ?? 0 }))
+
+  // The bar represents real scope: everything except canceled issues.
+  const scopeTotal = segments
+    .filter((seg) => seg.state.type !== 'canceled')
+    .reduce((n, seg) => n + seg.count, 0)
+
+  if (segments.length === 0) return null
+
+  return (
+    <div className="mt-8">
+      <div className="mb-1.5 text-[13px] font-medium text-fg">Scope</div>
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-bg-tertiary">
+        {segments
+          .filter((seg) => seg.state.type !== 'canceled')
+          .map((seg) => (
+            <div
+              key={seg.state.id}
+              className="h-full"
+              title={`${seg.state.name} · ${seg.count}`}
+              style={{
+                width: `${scopeTotal ? (seg.count / scopeTotal) * 100 : 0}%`,
+                backgroundColor: seg.state.color,
+              }}
+            />
+          ))}
+      </div>
+      <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
+        {segments.map((seg) => (
+          <div key={seg.state.id} className="flex items-center gap-1.5 text-[12px]">
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: seg.state.color }}
+            />
+            <span className="text-muted">{seg.state.name}</span>
+            <span className="text-faint">{seg.count}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -378,6 +448,9 @@ export function ProjectDetail() {
                   <span className="text-muted">Write first project update</span>
                 )}
               </button>
+
+              {/* Scope — stacked progress bar by workflow state */}
+              <ScopeBar issues={scoped} states={data.states} />
 
               {/* Description */}
               <div className="mt-8">

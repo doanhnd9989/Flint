@@ -10,6 +10,7 @@ import {
   ProjectPicker,
 } from './pickers'
 import { DatePicker } from './DatePicker'
+import { SelectMenu } from './ui/SelectMenu'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
@@ -17,6 +18,8 @@ import {
   ChevronRight,
   Tag,
   Calendar,
+  IterationCw,
+  Hash,
   Box,
   Copy,
   Link2,
@@ -38,7 +41,9 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { RelationPickerKind } from '@/lib/types'
-import { branchName, issueUrl } from '@/lib/utils'
+import { branchName, issueUrl, formatDate } from '@/lib/utils'
+import { cycleState } from '@/lib/selectors'
+import { estimatePoints, estimateLabel, teamEstimationType } from '@/lib/constants'
 import { copyToClipboard, copyToast } from '@/lib/toast'
 
 const MENU_W = 232
@@ -108,6 +113,11 @@ export function IssueContextMenu() {
   const state = store.states.find((s) => s.id === issue.stateId)!
   const assignee = store.users.find((u) => u.id === issue.assigneeId)
   const project = store.projects.find((p) => p.id === issue.projectId)
+  const team = store.teams.find((t) => t.id === issue.teamId)
+  const cycle = store.cycles.find((c) => c.id === issue.cycleId)
+  const teamCycles = store.cycles
+    .filter((c) => c.teamId === issue.teamId)
+    .sort((a, b) => a.number - b.number)
   const me = store.users.find((u) => u.isMe)
   const starred = store.favorites.some((f) => f.type === 'issue' && f.id === issue.id)
   const subscribed = issue.subscriberIds.includes(store.currentUserId)
@@ -242,6 +252,62 @@ export function IssueContextMenu() {
               '⇧P',
             )}
           />
+          {teamCycles.length > 0 && (
+            <SelectMenu
+              align="start"
+              options={[
+                { id: '__none', label: 'No cycle', selected: !issue.cycleId },
+                ...teamCycles.map((c) => {
+                  const cs = cycleState(c.startsAt, c.endsAt, Date.now())
+                  return {
+                    id: c.id,
+                    label: c.name ?? `Cycle ${c.number}`,
+                    keywords: String(c.number),
+                    hint:
+                      cs.status === 'active'
+                        ? 'Active'
+                        : cs.status === 'upcoming'
+                          ? 'Upcoming'
+                          : `${formatDate(c.startsAt)} – ${formatDate(c.endsAt)}`,
+                    selected: issue.cycleId === c.id,
+                  }
+                }),
+              ]}
+              onSelect={(id) => {
+                store.setIssueCycle(issue.id, id === '__none' ? undefined : id)
+                close()
+              }}
+              trigger={pickRow(
+                <IterationCw size={14} className="text-faint" />,
+                cycle ? (cycle.name ?? `Cycle ${cycle.number}`) : 'Cycle',
+                '⇧C',
+              )}
+            />
+          )}
+          {teamEstimationType(team) !== 'notUsed' && (
+            <SelectMenu
+              align="start"
+              options={[
+                { id: '0', label: 'No estimate', selected: !issue.estimate },
+                ...estimatePoints(team)
+                  .filter((n) => n !== 0)
+                  .map((n) => ({
+                    id: String(n),
+                    label: estimateLabel(n, team),
+                    selected: issue.estimate === n,
+                  })),
+              ]}
+              onSelect={(id) => {
+                store.setIssueEstimate(issue.id, Number(id) || undefined)
+                close()
+              }}
+              trigger={pickRow(
+                <Hash size={14} className="text-faint" />,
+                issue.estimate ? estimateLabel(issue.estimate, team) : 'Estimate',
+                'E',
+              )}
+            />
+          )}
         </div>
 
         <SubRow id="more" icon={<Link2 size={14} />} label="More properties">

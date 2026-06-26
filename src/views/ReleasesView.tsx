@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronRight, MoreHorizontal, Plus, Rocket, X } from 'lucide-react'
+import {
+  ArrowDownUp,
+  ChevronDown,
+  ChevronRight,
+  MoreHorizontal,
+  Plus,
+  Rocket,
+  X,
+} from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
@@ -20,6 +28,34 @@ const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: 'released', label: 'Released' },
   { id: 'canceled', label: 'Canceled' },
 ]
+
+/** Sort modes ordering releases *within* each status group. */
+type SortMode = 'manual' | 'version' | 'target' | 'name' | 'created'
+const SORT_LABELS: Record<SortMode, string> = {
+  manual: 'Manual',
+  version: 'Version',
+  target: 'Target date',
+  name: 'Name',
+  created: 'Recently created',
+}
+
+/**
+ * Compare two version strings semantically (descending — newest first).
+ * Splits on non-digits so "v1.10.0" sorts above "v1.9.0", and falls back to
+ * a plain locale compare when a version has no numeric parts.
+ */
+function compareVersionDesc(a: string, b: string): number {
+  const pa = a.match(/\d+/g)?.map(Number) ?? []
+  const pb = b.match(/\d+/g)?.map(Number) ?? []
+  if (pa.length === 0 && pb.length === 0) return a.localeCompare(b)
+  const len = Math.max(pa.length, pb.length)
+  for (let i = 0; i < len; i++) {
+    const da = pa[i] ?? 0
+    const db = pb[i] ?? 0
+    if (da !== db) return db - da
+  }
+  return 0
+}
 
 /** Small status color dot used in headers, rows and pickers. */
 function StatusDot({ status }: { status: ReleaseStatus }) {
@@ -47,6 +83,7 @@ export function ReleasesView() {
   const [modalOpen, setModalOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [sort, setSort] = useState<SortMode>('manual')
 
   const projectById = useMemo(() => {
     const m: Record<string, Project> = {}
@@ -74,16 +111,39 @@ export function ReleasesView() {
     return m
   }, [issues, doneStateIds])
 
-  /** Releases grouped by status, in RELEASE_STATUS_ORDER (empty groups dropped). */
+  /**
+   * Releases grouped by status, in RELEASE_STATUS_ORDER (empty groups dropped).
+   * Within each group rows are ordered by the chosen sort mode; 'manual' keeps
+   * the persisted sortOrder.
+   */
   const groups = useMemo(() => {
     const sorted = [...releases]
       .filter((r) => statusFilter === 'all' || r.status === statusFilter)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .sort((a, b) => {
+        switch (sort) {
+          case 'version':
+            return compareVersionDesc(a.version, b.version)
+          case 'target':
+            // Releases without a target date sink to the bottom.
+            return (a.targetDate ?? '￿').localeCompare(b.targetDate ?? '￿')
+          case 'name':
+            return a.name.localeCompare(b.name)
+          case 'created':
+            return (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
+          default:
+            return a.sortOrder - b.sortOrder
+        }
+      })
     return RELEASE_STATUS_ORDER.map((status) => ({
       status,
       items: sorted.filter((r) => r.status === status),
     })).filter((g) => g.items.length > 0)
-  }, [releases, statusFilter])
+  }, [releases, statusFilter, sort])
+
+  /** Sort dropdown options for the header control. */
+  const sortOptions: SelectOption[] = (
+    Object.keys(SORT_LABELS) as SortMode[]
+  ).map((m) => ({ id: m, label: SORT_LABELS[m], selected: sort === m }))
 
   const statusOptions = (current: ReleaseStatus): SelectOption[] =>
     RELEASE_STATUS_ORDER.map((s) => ({
@@ -98,14 +158,33 @@ export function ReleasesView() {
       <ViewHeader
         title="Releases"
         right={
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-[12px] font-medium text-white hover:bg-accent-hover"
-          >
-            <Plus size={13} />
-            New release
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Sort dropdown — orders rows within each status group. */}
+            {releases.length > 0 && (
+              <SelectMenu
+                width={180}
+                align="end"
+                options={sortOptions}
+                onSelect={(id) => setSort(id as SortMode)}
+                placeholder="Sort by…"
+                trigger={
+                  <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
+                    <ArrowDownUp size={13} className="shrink-0 text-faint" />
+                    <span className="whitespace-nowrap">{SORT_LABELS[sort]}</span>
+                    <ChevronDown size={13} className="shrink-0 text-faint" />
+                  </span>
+                }
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-[12px] font-medium text-white hover:bg-accent-hover"
+            >
+              <Plus size={13} />
+              New release
+            </button>
+          </div>
         }
       />
 

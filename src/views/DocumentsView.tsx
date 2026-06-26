@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowDownUp, ChevronDown, FileText, FolderOpen, Plus } from 'lucide-react'
+import { ArrowDownUp, ChevronDown, FileText, FolderOpen, Plus, Search } from 'lucide-react'
 import { useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState } from '@/components/EmptyState'
@@ -21,9 +21,10 @@ const SORT_LABELS: Record<SortMode, string> = {
  * Documents list — Linear's Documents feature. Workspace-level rich-text docs,
  * each a row of icon + title + a muted "Updated {ago} by {name}" line. A "New
  * document" button (and the empty-state action) creates a fresh doc and opens
- * its editor. The header carries two local-only pickers — a sort dropdown
- * (Last updated · Created · Title A→Z) and a project filter (All projects +
- * each project + "No project") — that compose with AND.
+ * its editor. The header carries three local-only controls — a search box
+ * (matches title + body text), a sort dropdown (Last updated · Created · Title
+ * A→Z) and a project filter (All projects + each project + "No project") —
+ * that all compose with AND.
  */
 export function DocumentsView() {
   const navigate = useNavigate()
@@ -35,16 +36,25 @@ export function DocumentsView() {
     createDocument: s.createDocument,
   }))
 
-  // Local-only header controls: sort mode + project filter (composed with AND).
+  // Local-only header controls: search + sort mode + project filter (AND).
+  const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortMode>('updated')
   const [projectFilter, setProjectFilter] = useState<string>('all')
 
-  // Apply the project filter, then order by the chosen sort mode.
+  // Apply the search query + project filter, then order by the sort mode.
   const sorted = useMemo(() => {
+    const q = query.trim().toLowerCase()
     const filtered = documents.filter((d) => {
-      if (projectFilter === 'all') return true
-      if (projectFilter === 'none') return !d.projectId
-      return d.projectId === projectFilter
+      // Project filter.
+      if (projectFilter === 'none' && d.projectId) return false
+      if (projectFilter !== 'all' && projectFilter !== 'none' && d.projectId !== projectFilter)
+        return false
+      // Search — matches title or body text (case-insensitive substring).
+      if (q) {
+        const hay = `${d.title || 'Untitled'} ${d.content}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
     })
     return [...filtered].sort((a, b) => {
       if (sort === 'title')
@@ -52,7 +62,7 @@ export function DocumentsView() {
       if (sort === 'created') return (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
       return (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
     })
-  }, [documents, projectFilter, sort])
+  }, [documents, query, projectFilter, sort])
 
   // Sort dropdown options.
   const sortOptions = useMemo<SelectOption[]>(
@@ -104,6 +114,16 @@ export function DocumentsView() {
         title="Documents"
         right={
           <div className="flex items-center gap-2">
+            {/* Search box — matches title + body text, composes via AND. */}
+            <div className="flex items-center gap-1.5 rounded-md border border-border bg-bg-tertiary px-2 py-1 focus-within:border-accent">
+              <Search size={13} className="shrink-0 text-faint" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search documents…"
+                className="w-40 bg-transparent text-[12px] text-fg outline-none placeholder:text-faint"
+              />
+            </div>
             {/* Project filter — local-only, composes with sort via AND. */}
             <SelectMenu
               width={220}
@@ -154,7 +174,7 @@ export function DocumentsView() {
         <EmptyState
           illustration={<FileText size={34} strokeWidth={1.5} />}
           title="No matching documents"
-          description="No documents match the selected project filter."
+          description="No documents match your search and the selected project filter."
         />
       ) : (
         <div className="flex-1 overflow-y-auto">

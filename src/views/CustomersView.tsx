@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, X } from 'lucide-react'
+import { Plus, Search, X } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
@@ -46,7 +46,9 @@ export function CustomersView() {
 
   const [sort, setSort] = useState<SortKey>('arr')
   const [tierFilter, setTierFilter] = useState<TierFilter>('all')
+  const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   /** Linked-issue ("request") count per customer id. */
   const requestCounts = useMemo(() => {
@@ -59,8 +61,13 @@ export function CustomersView() {
   }, [issues])
 
   const sorted = useMemo(() => {
+    const q = query.trim().toLowerCase()
     const arr = customers.filter(
-      (c) => tierFilter === 'all' || c.tier === tierFilter,
+      (c) =>
+        (tierFilter === 'all' || c.tier === tierFilter) &&
+        (!q ||
+          c.name.toLowerCase().includes(q) ||
+          (c.domain?.toLowerCase().includes(q) ?? false)),
     )
     arr.sort((a, b) => {
       switch (sort) {
@@ -73,7 +80,7 @@ export function CustomersView() {
       }
     })
     return arr
-  }, [customers, tierFilter, sort, requestCounts])
+  }, [customers, tierFilter, sort, query, requestCounts])
 
   /** Summary reflects the *filtered* set (count + total ARR + requests). */
   const totals = useMemo(() => {
@@ -85,6 +92,20 @@ export function CustomersView() {
     }
     return { count: sorted.length, arr, requests }
   }, [sorted, requestCounts])
+
+  /** "/" focuses the filter, mirroring Linear's quick-search affordance. */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      const tag = el?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || el?.isContentEditable) return
+      e.preventDefault()
+      searchRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div className="flex h-full flex-col">
@@ -152,7 +173,7 @@ export function CustomersView() {
             </div>
           </div>
 
-          {/* Tier filter pills */}
+          {/* Tier filter pills + search */}
           <div className="flex items-center gap-1 border-b border-border px-4 py-2">
             {TIER_FILTERS.map((t) => (
               <button
@@ -175,10 +196,54 @@ export function CustomersView() {
                 {t.label}
               </button>
             ))}
+
+            {/* Filter-by-name search ("/" to focus, Esc to clear) */}
+            <div className="ml-auto flex items-center gap-1.5 rounded-md border border-border px-2 py-1 focus-within:border-accent">
+              <Search size={13} className="shrink-0 text-faint" />
+              <input
+                ref={searchRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    if (query) setQuery('')
+                    else searchRef.current?.blur()
+                  }
+                }}
+                placeholder="Filter by name…"
+                className="w-40 bg-transparent text-[12px] text-fg outline-none placeholder:text-faint"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery('')
+                    searchRef.current?.focus()
+                  }}
+                  className="shrink-0 text-faint hover:text-fg"
+                  aria-label="Clear filter"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* List */}
           <div className="flex-1 overflow-y-auto">
+            {sorted.length === 0 && (
+              <div className="px-4 py-10 text-center text-[13px] text-muted">
+                No customers match{' '}
+                {query.trim() ? (
+                  <>
+                    “<span className="text-fg">{query.trim()}</span>”
+                  </>
+                ) : (
+                  'this filter'
+                )}
+                .
+              </div>
+            )}
             {sorted.map((c) => {
               const owner = users.find((u) => u.id === c.ownerId)
               const tier = CUSTOMER_TIERS[c.tier]

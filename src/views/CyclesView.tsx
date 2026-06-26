@@ -13,6 +13,7 @@ import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { CycleBurndown } from '@/components/CycleBurndown'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
+import { Avatar } from '@/components/Avatar'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
@@ -50,6 +51,40 @@ export function CyclesView() {
     if (!current) return []
     const scoped = data.issues.filter((i) => i.cycleId === current.id && !i.archivedAt)
     return groupIssues(sortIssues(scoped, 'priority', data), 'status', data)
+  }, [data, current])
+
+  // Per-assignee workload within the cycle (scope / completed / in-progress),
+  // sorted by scope so the heaviest-loaded members surface first — mirrors
+  // Linear's cycle "workload by assignee" breakdown.
+  const workload = useMemo(() => {
+    if (!current) return []
+    const completed = new Set(
+      data.states.filter((s) => s.type === 'completed').map((s) => s.id),
+    )
+    const started = new Set(
+      data.states.filter((s) => s.type === 'started').map((s) => s.id),
+    )
+    const scoped = data.issues.filter(
+      (i) => i.cycleId === current.id && !i.archivedAt,
+    )
+    const byUser = new Map<
+      string,
+      { total: number; done: number; inProgress: number }
+    >()
+    for (const i of scoped) {
+      const key = i.assigneeId ?? '__none__'
+      const row = byUser.get(key) ?? { total: 0, done: 0, inProgress: 0 }
+      row.total += 1
+      if (completed.has(i.stateId)) row.done += 1
+      else if (started.has(i.stateId)) row.inProgress += 1
+      byUser.set(key, row)
+    }
+    return Array.from(byUser.entries())
+      .map(([key, row]) => ({
+        user: key === '__none__' ? undefined : data.users.find((u) => u.id === key),
+        ...row,
+      }))
+      .sort((a, b) => b.total - a.total || b.done - a.done)
   }, [data, current])
 
   if (cycles.length === 0 || !current) {
@@ -149,6 +184,45 @@ export function CyclesView() {
               scope={burndown.scope}
               nowMs={nowMs}
             />
+          </div>
+        )}
+
+        {/* Workload by assignee */}
+        {workload.length > 0 && (
+          <div className="mt-5">
+            <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint">
+              Workload by assignee
+            </div>
+            <div className="flex flex-col gap-2">
+              {workload.map((w, n) => (
+                <div
+                  key={w.user?.id ?? `none-${n}`}
+                  className="flex items-center gap-3"
+                >
+                  <div className="flex w-40 shrink-0 items-center gap-2">
+                    <Avatar user={w.user} size={18} />
+                    <span className="truncate text-[12px] text-fg">
+                      {w.user?.name ?? 'No assignee'}
+                    </span>
+                  </div>
+                  <div className="flex h-1.5 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+                    <div
+                      className="h-full bg-accent"
+                      style={{ width: `${(w.done / w.total) * 100}%` }}
+                      title={`${w.done} completed`}
+                    />
+                    <div
+                      className="h-full bg-[var(--status-started)]"
+                      style={{ width: `${(w.inProgress / w.total) * 100}%` }}
+                      title={`${w.inProgress} in progress`}
+                    />
+                  </div>
+                  <div className="w-20 shrink-0 text-right text-[11px] tabular-nums text-faint">
+                    {w.done}/{w.total} done
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

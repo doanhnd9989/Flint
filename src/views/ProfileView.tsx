@@ -16,8 +16,10 @@ import {
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
+import { PriorityIcon } from '@/components/PriorityIcon'
+import { PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
 import { timeAgo } from '@/lib/utils'
-import type { Activity, ActivityKind, Issue, User, WorkflowState } from '@/lib/types'
+import type { Activity, ActivityKind, Issue, Priority, User, WorkflowState } from '@/lib/types'
 
 // ── Stat card (matches InsightsView's Stat) ──────────────────────────────────
 
@@ -68,6 +70,48 @@ function BarChart({ bars, max }: { bars: Bar[]; max: number }) {
             <div
               className="absolute inset-y-0 left-0 rounded-full transition-all"
               style={{ width: `${max > 0 ? (b.value / max) * 100 : 0}%`, backgroundColor: b.color }}
+            />
+          </div>
+          <div className="w-7 shrink-0 text-right text-[12px] tabular-nums text-fg">{b.value}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Priority breakdown (open assigned work, by priority) ─────────────────────
+
+interface PriorityBar {
+  priority: Priority
+  value: number
+}
+
+/**
+ * Open assigned work grouped by priority — Linear renders priority with its
+ * glyph rather than a colored dot, so this mirrors that (urgent first, none
+ * last) and tints the bar with the urgent token for the Urgent row.
+ */
+function PriorityBreakdown({ bars, max }: { bars: PriorityBar[]; max: number }) {
+  if (bars.length === 0) {
+    return <div className="px-1 py-6 text-center text-[12px] text-faint">Nothing open — you're all caught up.</div>
+  }
+  return (
+    <div className="space-y-2.5">
+      {bars.map((b) => (
+        <div key={b.priority} className="group flex items-center gap-3">
+          <div className="flex w-28 shrink-0 items-center gap-1.5">
+            <PriorityIcon priority={b.priority} size={14} />
+            <span className="truncate text-[12px] text-muted group-hover:text-fg">
+              {PRIORITY_LABELS[b.priority]}
+            </span>
+          </div>
+          <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full transition-all"
+              style={{
+                width: `${max > 0 ? (b.value / max) * 100 : 0}%`,
+                backgroundColor: b.priority === 1 ? 'var(--priority-urgent)' : 'var(--accent)',
+              }}
             />
           </div>
           <div className="w-7 shrink-0 text-right text-[12px] tabular-nums text-fg">{b.value}</div>
@@ -261,6 +305,24 @@ export function ProfileView() {
 
   const maxStatus = byStatus.reduce((m, b) => Math.max(m, b.value), 0)
 
+  // ── my open issues by priority ───────────────────────────────────────────────
+  const byPriority = useMemo<PriorityBar[]>(() => {
+    const meId = me?.id
+    const open = data.issues.filter(
+      (i) =>
+        !i.triage &&
+        !i.archivedAt &&
+        i.assigneeId === meId &&
+        stateById.get(i.stateId)?.type !== 'completed',
+    )
+    return PRIORITY_ORDER.map((p) => ({
+      priority: p,
+      value: open.filter((i) => i.priority === p).length,
+    })).filter((b) => b.value > 0)
+  }, [data.issues, me, stateById])
+
+  const maxPriority = byPriority.reduce((m, b) => Math.max(m, b.value), 0)
+
   // ── recent activity (my own actions, newest first) ───────────────────────────
   const recent = useMemo<RecentEvent[]>(() => {
     const meId = me?.id
@@ -322,6 +384,10 @@ export function ProfileView() {
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card title="My open issues by status" subtitle="Active work assigned to you">
               <BarChart bars={byStatus} max={maxStatus} />
+            </Card>
+
+            <Card title="My open issues by priority" subtitle="Where your urgent work sits">
+              <PriorityBreakdown bars={byPriority} max={maxPriority} />
             </Card>
 
             <Card title="Recent activity" subtitle={`Your latest changes across issues (${periodHint})`}>

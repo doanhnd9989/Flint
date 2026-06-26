@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import {
   addMonths,
   differenceInCalendarDays,
@@ -10,10 +11,13 @@ import {
   startOfMonth,
 } from 'date-fns'
 import { useStore } from '@/lib/store'
+import type { Project, ProjectHealth } from '@/lib/types'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, InitiativeIllustration } from '@/components/EmptyState'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
+import { HEALTH } from '@/components/ProjectUpdates'
+import { Avatar } from '@/components/Avatar'
 import { projectProgress } from '@/lib/selectors'
 import { PROJECT_STATUS, PROJECT_STATUS_ORDER } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -26,6 +30,15 @@ const ZOOM: Record<'compact' | 'default' | 'wide', number> = {
   wide: 200,
 }
 
+/** How the timeline rows are bucketed into swimlanes — Linear's "Group by". */
+type GroupBy = 'none' | 'initiative' | 'status' | 'lead'
+const GROUP_LABEL: Record<GroupBy, string> = {
+  none: 'No grouping',
+  initiative: 'Initiative',
+  status: 'Status',
+  lead: 'Lead',
+}
+
 export function RoadmapView() {
   const navigate = useNavigate()
   const data = useStore()
@@ -36,6 +49,29 @@ export function RoadmapView() {
   // Both narrow which project bars render and compose with AND.
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [initiativeFilter, setInitiativeFilter] = useState<string>('all')
+
+  // Group-by swimlanes + which group keys are collapsed (local-only, like Linear).
+  const [groupBy, setGroupBy] = useState<GroupBy>('none')
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const toggleGroup = (key: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+
+  // Latest health update per project (most recent wins) — shown as a bar dot and
+  // used nowhere else; mirrors how ProjectsView derives current health.
+  const healthById = useMemo(() => {
+    const map: Record<string, ProjectHealth> = {}
+    for (const u of [...data.projectUpdates].sort((a, b) =>
+      a.createdAt.localeCompare(b.createdAt),
+    )) {
+      map[u.projectId] = u.health
+    }
+    return map
+  }, [data.projectUpdates])
 
   // Projects passing both header filters — fed into the timeline geometry below.
   const filteredProjects = useMemo(() => {
@@ -96,6 +132,17 @@ export function RoadmapView() {
         : (data.initiatives.find((i) => i.id === initiativeFilter)?.name ??
           'All initiatives')
 
+  // Group-by options — None / Initiative / Status / Lead, mirroring Linear.
+  const groupOptions = useMemo<SelectOption[]>(
+    () =>
+      (['none', 'initiative', 'status', 'lead'] as const).map((g) => ({
+        id: g,
+        label: GROUP_LABEL[g],
+        selected: groupBy === g,
+      })),
+    [groupBy],
+  )
+
   const { months, rangeStart, totalDays, totalWidth, projects } = useMemo(() => {
     const projects = [...filteredProjects].sort((a, b) => a.sortOrder - b.sortOrder)
     const now = new Date()
@@ -118,6 +165,54 @@ export function RoadmapView() {
   const pxPerDay = totalWidth / totalDays
   const dayOffset = (d: Date) => differenceInCalendarDays(d, rangeStart) * pxPerDay
   const todayLeft = dayOffset(new Date())
+
+  // Bucket the (already sorted) projects into ordered swimlanes for the chosen
+  // facet. `none` returns a single unlabeled group so rendering stays uniform.
+  type Group = { key: string; label: string; icon?: ReactNode; projects: Project[] }
+  const groups = useMemo<Group[]>(() => {
+    if (groupBy === 'none') return [{ key: 'all', label: '', projects }]
+
+    if (groupBy === 'status') {
+      return PROJECT_STATUS_ORDER.map<Group>((s) => ({
+        key: s,
+        label: PROJECT_STATUS[s].label,
+        icon: (
+          <span
+            className="h-2.5 w-2.5 rounded-full"
+            style={{ background: PROJECT_STATUS[s].color }}
+          />
+        ),
+        projects: projects.filter((p) => p.status === s),
+      })).filter((g) => g.projects.length)
+    }
+
+    if (groupBy === 'lead') {
+      const out = data.users
+        .map<Group>((u) => ({
+          key: u.id,
+          label: u.name,
+          icon: <Avatar user={u} size={16} />,
+          projects: projects.filter((p) => p.leadId === u.id),
+        }))
+        .filter((g) => g.projects.length)
+      const noLead = projects.filter((p) => !p.leadId)
+      if (noLead.length) out.push({ key: '__none', label: 'No lead', projects: noLead })
+      return out
+    }
+
+    // initiative
+    const out = data.initiatives
+      .map<Group>((i) => ({
+        key: i.id,
+        label: i.name,
+        icon: <span>{i.icon}</span>,
+        projects: projects.filter((p) => p.initiativeId === i.id),
+      }))
+      .filter((g) => g.projects.length)
+    const noInit = projects.filter((p) => !p.initiativeId)
+    if (noInit.length) out.push({ key: '__none', label: 'No initiative', projects: noInit })
+    return out
+  }, [groupBy, projects, data.users, data.initiatives])
 
   return (
     <div className="flex h-full flex-col">
@@ -148,6 +243,24 @@ export function RoadmapView() {
               trigger={
                 <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
                   <span className="max-w-[120px] truncate">{initiativeFilterLabel}</span>
+                  <ChevronDown size={13} className="shrink-0 text-faint" />
+                </span>
+              }
+            />
+            {/* Group-by picker — None / Initiative / Status / Lead swimlanes. */}
+            <SelectMenu
+              width={180}
+              align="end"
+              options={groupOptions}
+              onSelect={(id) => {
+                setGroupBy(id as GroupBy)
+                setCollapsed(new Set())
+              }}
+              placeholder="Group by…"
+              trigger={
+                <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
+                  <span className="text-faint">Group:</span>
+                  <span className="max-w-[100px] truncate">{GROUP_LABEL[groupBy]}</span>
                   <ChevronDown size={13} className="shrink-0 text-faint" />
                 </span>
               }
@@ -203,7 +316,7 @@ export function RoadmapView() {
             </div>
           </div>
 
-          {/* Rows */}
+          {/* Rows — flat when ungrouped, otherwise collapsible swimlanes. */}
           <div className="relative">
             {/* Today line */}
             {todayLeft >= 0 && todayLeft <= totalWidth && (
@@ -212,46 +325,90 @@ export function RoadmapView() {
                 style={{ left: NAME_W + todayLeft }}
               />
             )}
-            {projects.map((p) => {
-              const start = new Date(p.startDate ?? p.createdAt)
-              const target = new Date(
-                p.targetDate ?? addMonths(start, 1),
-              )
-              const left = Math.max(0, dayOffset(start))
-              const width = Math.max(56, dayOffset(target) - dayOffset(start))
-              const prog = projectProgress(p.id, data.issues, data)
+            {groups.map((group) => {
+              const isCollapsed = collapsed.has(group.key)
               return (
-                <div key={p.id} className="flex items-center border-b border-border/40 hover:bg-bg-hover">
-                  <button
-                    onClick={() => navigate(`/project/${p.id}`)}
-                    className="flex shrink-0 items-center gap-2 border-r border-border px-3 py-2 text-left"
-                    style={{ width: NAME_W }}
-                  >
-                    <span>{p.icon}</span>
-                    <span className="truncate text-[13px] text-fg">{p.name}</span>
-                  </button>
-                  <div className="relative h-10 flex-1" style={{ minWidth: totalWidth }}>
+                <div key={group.key}>
+                  {/* Group header — only when an actual facet is selected. */}
+                  {groupBy !== 'none' && (
                     <button
-                      onClick={() => navigate(`/project/${p.id}`)}
-                      className="absolute top-1/2 -translate-y-1/2 overflow-hidden rounded-md border text-left"
-                      style={{
-                        left,
-                        width,
-                        height: 24,
-                        borderColor: p.color,
-                        background: `${p.color}22`,
-                      }}
-                      title={`${p.name} · ${prog.percent}%`}
+                      type="button"
+                      onClick={() => toggleGroup(group.key)}
+                      className="sticky left-0 z-[1] flex w-full items-center gap-1.5 border-b border-border bg-bg-secondary/95 px-2 py-1.5 text-left backdrop-blur hover:bg-bg-hover"
+                      style={{ width: NAME_W }}
                     >
-                      <div
-                        className="absolute inset-y-0 left-0"
-                        style={{ width: `${prog.percent}%`, background: `${p.color}55` }}
+                      <ChevronRight
+                        size={13}
+                        className={cn(
+                          'shrink-0 text-faint transition-transform',
+                          !isCollapsed && 'rotate-90',
+                        )}
                       />
-                      <span className="relative truncate px-2 text-[11px]" style={{ color: p.color }}>
-                        {p.name} · {prog.percent}%
+                      {group.icon}
+                      <span className="truncate text-[12px] font-medium text-fg">
+                        {group.label}
+                      </span>
+                      <span className="ml-auto pr-1 text-[11px] tabular-nums text-faint">
+                        {group.projects.length}
                       </span>
                     </button>
-                  </div>
+                  )}
+                  {!isCollapsed &&
+                    group.projects.map((p) => {
+                      const start = new Date(p.startDate ?? p.createdAt)
+                      const target = new Date(p.targetDate ?? addMonths(start, 1))
+                      const left = Math.max(0, dayOffset(start))
+                      const width = Math.max(56, dayOffset(target) - dayOffset(start))
+                      const prog = projectProgress(p.id, data.issues, data)
+                      const health = healthById[p.id]
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex items-center border-b border-border/40 hover:bg-bg-hover"
+                        >
+                          <button
+                            onClick={() => navigate(`/project/${p.id}`)}
+                            className="flex shrink-0 items-center gap-2 border-r border-border px-3 py-2 text-left"
+                            style={{ width: NAME_W }}
+                          >
+                            <span>{p.icon}</span>
+                            <span className="truncate text-[13px] text-fg">{p.name}</span>
+                            {health && (
+                              <span
+                                className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full"
+                                style={{ background: HEALTH[health].color }}
+                                title={HEALTH[health].label}
+                              />
+                            )}
+                          </button>
+                          <div className="relative h-10 flex-1" style={{ minWidth: totalWidth }}>
+                            <button
+                              onClick={() => navigate(`/project/${p.id}`)}
+                              className="absolute top-1/2 -translate-y-1/2 overflow-hidden rounded-md border text-left"
+                              style={{
+                                left,
+                                width,
+                                height: 24,
+                                borderColor: p.color,
+                                background: `${p.color}22`,
+                              }}
+                              title={`${p.name} · ${prog.percent}%${health ? ` · ${HEALTH[health].label}` : ''}`}
+                            >
+                              <div
+                                className="absolute inset-y-0 left-0"
+                                style={{ width: `${prog.percent}%`, background: `${p.color}55` }}
+                              />
+                              <span
+                                className="relative truncate px-2 text-[11px]"
+                                style={{ color: p.color }}
+                              >
+                                {p.name} · {prog.percent}%
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
                 </div>
               )
             })}

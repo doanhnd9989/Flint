@@ -130,6 +130,8 @@ export function PulseView() {
   const [filter, setFilter] = useState<Filter>('all')
   // 'all' = every team; otherwise a specific team id.
   const [teamFilter, setTeamFilter] = useState<string>('all')
+  // 'all' = every actor; otherwise a specific user id (the person who acted).
+  const [actorFilter, setActorFilter] = useState<string>('all')
   const [scope, setScope] = useState<Scope>('all')
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
@@ -201,7 +203,8 @@ export function PulseView() {
     return fn
   }, [issues, projects])
 
-  // Apply the segmented kind filter, the team filter and the date scope.
+  // Apply the segmented kind filter, the team filter, the actor filter and the
+  // date scope.
   const filtered = useMemo(() => {
     const floor = scopeFloor(scope)
     return events.filter((e) => {
@@ -212,6 +215,8 @@ export function PulseView() {
       if (filter === 'comments' && e.type !== 'comment') return false
       if (filter === 'projects' && e.type !== 'project' && e.type !== 'initiative')
         return false
+      // Actor — narrow to a single person who performed the event.
+      if (actorFilter !== 'all' && e.userId !== actorFilter) return false
       // Team — events that can't be team-resolved are hidden for a specific team.
       if (teamFilter !== 'all') {
         const ids = teamIdsForEvent(e)
@@ -219,7 +224,7 @@ export function PulseView() {
       }
       return true
     })
-  }, [events, filter, teamFilter, scope, teamIdsForEvent])
+  }, [events, filter, teamFilter, actorFilter, scope, teamIdsForEvent])
 
   // Group into day buckets (stream is already newest-first).
   const days = useMemo(() => {
@@ -250,6 +255,27 @@ export function PulseView() {
     [teams, teamFilter],
   )
   const activeTeam = teams.find((t) => t.id === teamFilter)
+
+  // Actor filter — only offer people who actually appear in the feed, so the
+  // list stays meaningful (Linear scopes its activity feed by member the same
+  // way). Avatars render inline via the option's `icon` slot.
+  const actorOptions = useMemo<SelectOption[]>(() => {
+    const seen = new Set(events.map((e) => e.userId))
+    const people = users
+      .filter((u) => seen.has(u.id))
+      .sort((a, b) => fmt(a.name).localeCompare(fmt(b.name)))
+    return [
+      { id: 'all', label: 'All members', selected: actorFilter === 'all' },
+      ...people.map((u) => ({
+        id: u.id,
+        label: fmt(u.name),
+        icon: <Avatar user={u} size={16} />,
+        keywords: u.name,
+        selected: actorFilter === u.id,
+      })),
+    ]
+  }, [events, users, actorFilter, fmt])
+  const activeActor = users.find((u) => u.id === actorFilter)
 
   return (
     <div className="flex h-full flex-col">
@@ -286,6 +312,27 @@ export function PulseView() {
             }
           />
 
+          {/* Member filter — scope the feed to a single actor's activity */}
+          <SelectMenu
+            options={actorOptions}
+            onSelect={setActorFilter}
+            align="end"
+            placeholder="Filter member…"
+            trigger={
+              <span className="flex items-center gap-1 rounded-md px-2 py-1 text-[13px] text-muted hover:bg-bg-hover hover:text-fg">
+                {activeActor ? (
+                  <>
+                    <Avatar user={activeActor} size={16} />
+                    {fmt(activeActor.name)}
+                  </>
+                ) : (
+                  'All members'
+                )}
+                <ChevronDown size={13} className="text-faint" />
+              </span>
+            }
+          />
+
           {/* Date scope — All time / Today / This week */}
           <div className="flex items-center gap-0.5">
             {SCOPES.map((s) => (
@@ -308,8 +355,12 @@ export function PulseView() {
       {filtered.length === 0 ? (
         <EmptyState
           illustration={<CheckIllustration />}
-          title="No activity yet"
-          description="Recent activity across your workspace will show up here."
+          title={events.length === 0 ? 'No activity yet' : 'No matching activity'}
+          description={
+            events.length === 0
+              ? 'Recent activity across your workspace will show up here.'
+              : 'No activity matches the current filters. Try widening your selection.'
+          }
         />
       ) : (
         <div className="flex-1 overflow-y-auto">

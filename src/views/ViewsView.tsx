@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, Layers, Search, Trash2 } from 'lucide-react'
+import { ChevronDown, Copy, Layers, Search, Trash2 } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
+import { filterIssues } from '@/lib/selectors'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { SelectMenu } from '@/components/ui/SelectMenu'
@@ -9,19 +10,22 @@ import type { SelectOption } from '@/components/ui/SelectMenu'
 
 // How the saved-views list is ordered. "name" is alphabetical (the default);
 // "recent" mirrors creation recency — new views are appended to the store, so
-// newest-created sorts first.
-type SortKey = 'name' | 'recent'
+// newest-created sorts first. "count" orders by live match count, busiest first.
+type SortKey = 'name' | 'recent' | 'count'
 
 const SORT_LABELS: Record<SortKey, string> = {
   name: 'Name A→Z',
   recent: 'Recently created',
+  count: 'Most issues',
 }
 
 export function ViewsView() {
   const navigate = useNavigate()
-  const { savedViews, deleteView } = useStoreShallow((s) => ({
+  const { savedViews, issues, deleteView, createView } = useStoreShallow((s) => ({
     savedViews: s.savedViews,
+    issues: s.issues,
     deleteView: s.deleteView,
+    createView: s.createView,
   }))
 
   // Local-only header controls: a free-text query (name substring) and a sort
@@ -29,18 +33,41 @@ export function ViewsView() {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortKey>('name')
 
+  // Per-view issue count — how many (active) issues currently satisfy each
+  // saved view's stored filter set. Mirrors Linear, which shows the live match
+  // count next to every view so you can gauge a view's scope at a glance.
+  // Keyed by view id; recomputed only when the issue set or views change.
+  const counts = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const v of savedViews) {
+      try {
+        map[v.id] = filterIssues(issues, v.filters).length
+      } catch {
+        map[v.id] = 0
+      }
+    }
+    return map
+  }, [savedViews, issues])
+
   // Apply the name filter, then sort. We copy before sorting so we never mutate
-  // the store array. "recent" reverses insertion order (newest appended last).
+  // the store array. "recent" reverses insertion order (newest appended last);
+  // "count" sorts by live match count descending, name-breaking ties.
   const views = useMemo(() => {
     const q = query.trim().toLowerCase()
     const filtered = q
       ? savedViews.filter((v) => v.name.toLowerCase().includes(q))
       : savedViews
     if (sort === 'recent') return [...filtered].reverse()
+    if (sort === 'count')
+      return [...filtered].sort(
+        (a, b) =>
+          (counts[b.id] ?? 0) - (counts[a.id] ?? 0) ||
+          a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+      )
     return [...filtered].sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
     )
-  }, [savedViews, query, sort])
+  }, [savedViews, query, sort, counts])
 
   // Sort options for the dropdown trigger.
   const sortOptions = useMemo<SelectOption[]>(
@@ -105,33 +132,69 @@ export function ViewsView() {
           />
         ) : (
           <div className="space-y-1">
-            {views.map((v) => (
-              <div
-                key={v.id}
-                className="group flex items-center gap-3 rounded-lg border border-border bg-bg-secondary px-3 py-2.5 hover:border-border-strong"
-              >
-                <button
-                  onClick={() => navigate(`/view/${v.id}`)}
-                  className="flex flex-1 items-center gap-3 text-left"
+            {views.map((v) => {
+              const count = counts[v.id] ?? 0
+              return (
+                <div
+                  key={v.id}
+                  className="group flex items-center gap-3 rounded-lg border border-border bg-bg-secondary px-3 py-2.5 hover:border-border-strong"
                 >
-                  <Layers size={16} className="text-faint" />
-                  <div className="flex-1">
-                    <div className="text-[13px] font-medium text-fg">{v.name}</div>
-                    <div className="text-[11px] text-faint capitalize">
-                      {v.layout} · grouped by {v.groupBy} · sorted by {v.orderBy}
+                  <button
+                    onClick={() => navigate(`/view/${v.id}`)}
+                    className="flex flex-1 items-center gap-3 text-left"
+                  >
+                    <Layers size={16} className="text-faint" />
+                    <div className="flex-1">
+                      <div className="text-[13px] font-medium text-fg">
+                        {v.name}
+                      </div>
+                      <div className="text-[11px] text-faint capitalize">
+                        {v.layout} · grouped by {v.groupBy} · sorted by{' '}
+                        {v.orderBy}
+                      </div>
                     </div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm(`Delete view "${v.name}"?`)) deleteView(v.id)
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded text-faint opacity-0 hover:text-[var(--priority-urgent)] group-hover:opacity-100"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
+                  </button>
+                  {/* Live match count — how many issues currently satisfy this
+                      view's filters. Always-visible resting affordance, so the
+                      list reads like Linear's where every view shows its scope. */}
+                  <span
+                    className="shrink-0 rounded-full bg-bg-tertiary px-2 py-0.5 text-[11px] tabular-nums text-muted"
+                    title={`${count} ${count === 1 ? 'issue' : 'issues'} match this view`}
+                  >
+                    {count}
+                  </span>
+                  {/* Duplicate — clones the view's name + layout + grouping +
+                      filters into a fresh "(copy)" view, matching Linear's
+                      per-view duplicate action. createView makes the copy
+                      independently editable. */}
+                  <button
+                    onClick={() =>
+                      createView({
+                        name: `${v.name} (copy)`,
+                        icon: v.icon,
+                        layout: v.layout,
+                        groupBy: v.groupBy,
+                        orderBy: v.orderBy,
+                        filters: v.filters,
+                      })
+                    }
+                    title="Duplicate view"
+                    className="flex h-7 w-7 items-center justify-center rounded text-faint opacity-0 hover:text-fg group-hover:opacity-100"
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Delete view "${v.name}"?`)) deleteView(v.id)
+                    }}
+                    title="Delete view"
+                    className="flex h-7 w-7 items-center justify-center rounded text-faint opacity-0 hover:text-[var(--priority-urgent)] group-hover:opacity-100"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

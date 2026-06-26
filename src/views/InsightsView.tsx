@@ -27,6 +27,27 @@ const DIMENSIONS = [
 ] as const
 type DimensionId = (typeof DIMENSIONS)[number]['id']
 
+/**
+ * Insights "Measure by" toggle — count issues vs. sum their estimate points.
+ * Linear lets every breakdown be re-weighted by story points instead of a raw
+ * issue count, surfacing where effort (not just ticket volume) concentrates.
+ */
+const MEASURES = [
+  { id: 'count', label: 'Count' },
+  { id: 'points', label: 'Points' },
+] as const
+type MeasureId = (typeof MEASURES)[number]['id']
+
+/** Weight one issue under the active measure: 1 per issue, or its estimate. */
+function weight(i: Issue, measure: MeasureId): number {
+  return measure === 'points' ? i.estimate ?? 0 : 1
+}
+
+/** Sum the active-measure weight across a set of issues. */
+function weighSum(list: Issue[], measure: MeasureId): number {
+  return list.reduce((s, i) => s + weight(i, measure), 0)
+}
+
 /** RFC 4180 — quote a field and escape embedded quotes. */
 function csvField(v: string | number): string {
   const s = String(v)
@@ -132,6 +153,7 @@ export function InsightsView() {
   const data = useStore()
   const [teamFilter, setTeamFilter] = useState<string>('all')
   const [range, setRange] = useState<RangeId>('all')
+  const [measure, setMeasure] = useState<MeasureId>('count')
   const [exportDim, setExportDim] = useState<DimensionId>('status')
   const displayPref = data.preferences.displayNames
 
@@ -168,19 +190,22 @@ export function InsightsView() {
     let unstarted = 0
     for (const i of issues) {
       const t = stateById.get(i.stateId)?.type
-      // Count completion over the same range-filtered cohort as the denominator
-      // (`issues`), so the completion rate stays consistent (numerator ⊆ denominator).
-      if (t === 'completed') completed++
-      else if (t === 'started') started++
-      else if (t === 'backlog') backlog++
-      else if (t === 'unstarted') unstarted++
+      // Weight by the active measure (1 per issue, or its estimate points) so the
+      // summary tiles match the breakdown charts. Completion is summed over the
+      // same range-filtered cohort as the denominator (`issues`), keeping the
+      // completion rate consistent (numerator ⊆ denominator).
+      const w = weight(i, measure)
+      if (t === 'completed') completed += w
+      else if (t === 'started') started += w
+      else if (t === 'backlog') backlog += w
+      else if (t === 'unstarted') unstarted += w
     }
-    const total = issues.length
+    const total = weighSum(issues, measure)
     const rate = total > 0 ? Math.round((completed / total) * 100) : 0
     const scope = issues.filter((i) => stateById.get(i.stateId)?.type !== 'canceled')
     const points = scope.reduce((s, i) => s + (i.estimate ?? 0), 0)
     return { total, completed, started, backlog, unstarted, rate, points }
-  }, [issues, stateById, cutoff])
+  }, [issues, stateById, measure])
 
   // ── breakdown by workflow status ───────────────────────────────────────────
   const byStatus = useMemo<Bar[]>(() => {
@@ -189,16 +214,16 @@ export function InsightsView() {
       .map((s) => ({
         key: s.id,
         label: s.name,
-        value: issues.filter((i) => i.stateId === s.id).length,
+        value: weighSum(issues.filter((i) => i.stateId === s.id), measure),
         color: s.color,
       }))
       .filter((b) => b.value > 0)
-  }, [issues, data.states])
+  }, [issues, data.states, measure])
 
   // ── breakdown by assignee ──────────────────────────────────────────────────
   const byAssignee = useMemo<Bar[]>(() => {
     const counts = new Map<string, number>()
-    for (const i of issues) counts.set(i.assigneeId ?? '__none', (counts.get(i.assigneeId ?? '__none') ?? 0) + 1)
+    for (const i of issues) counts.set(i.assigneeId ?? '__none', (counts.get(i.assigneeId ?? '__none') ?? 0) + weight(i, measure))
     const bars: Bar[] = [...counts.entries()].map(([id, value]) => ({
       key: id,
       label: id === '__none' ? 'Unassigned' : displayName(data.users.find((u) => u.id === id)?.name ?? 'Unknown', displayPref),
@@ -207,7 +232,7 @@ export function InsightsView() {
     }))
     bars.sort((a, b) => b.value - a.value)
     return topN(bars, 6)
-  }, [issues, data.users, displayPref])
+  }, [issues, data.users, displayPref, measure])
 
   // ── breakdown by priority ──────────────────────────────────────────────────
   const byPriority = useMemo<Bar[]>(
@@ -215,16 +240,16 @@ export function InsightsView() {
       PRIORITY_ORDER.map((p) => ({
         key: String(p),
         label: PRIORITY_LABELS[p],
-        value: issues.filter((i) => i.priority === p).length,
+        value: weighSum(issues.filter((i) => i.priority === p), measure),
         color: PRIORITY_COLOR[p],
       })).filter((b) => b.value > 0),
-    [issues],
+    [issues, measure],
   )
 
   // ── breakdown by project ───────────────────────────────────────────────────
   const byProject = useMemo<Bar[]>(() => {
     const counts = new Map<string, number>()
-    for (const i of issues) counts.set(i.projectId ?? '__none', (counts.get(i.projectId ?? '__none') ?? 0) + 1)
+    for (const i of issues) counts.set(i.projectId ?? '__none', (counts.get(i.projectId ?? '__none') ?? 0) + weight(i, measure))
     const bars: Bar[] = [...counts.entries()].map(([id, value]) => ({
       key: id,
       label: id === '__none' ? 'No project' : data.projects.find((p) => p.id === id)?.name ?? 'Unknown',
@@ -233,19 +258,19 @@ export function InsightsView() {
     }))
     bars.sort((a, b) => b.value - a.value)
     return topN(bars, 6)
-  }, [issues, data.projects])
+  }, [issues, data.projects, measure])
 
   // ── breakdown by label ─────────────────────────────────────────────────────
   const byLabel = useMemo<Bar[]>(() => {
     const counts = new Map<string, number>()
-    for (const i of issues) for (const l of i.labelIds) counts.set(l, (counts.get(l) ?? 0) + 1)
+    for (const i of issues) for (const l of i.labelIds) counts.set(l, (counts.get(l) ?? 0) + weight(i, measure))
     const bars: Bar[] = [...counts.entries()].map(([id, value]) => {
       const label = data.labels.find((l) => l.id === id)
       return { key: id, label: label?.name ?? 'Unknown', value, color: label?.color ?? 'var(--accent)' }
     })
     bars.sort((a, b) => b.value - a.value)
     return topN(bars, 6)
-  }, [issues, data.labels])
+  }, [issues, data.labels, measure])
 
   const maxOf = (bars: Bar[]) => bars.reduce((m, b) => Math.max(m, b.value), 0)
 
@@ -261,7 +286,7 @@ export function InsightsView() {
   function exportCsv() {
     const dim = breakdowns[exportDim]
     const teamPart = teamFilter === 'all' ? 'all-teams' : (data.teams.find((t) => t.id === teamFilter)?.key ?? 'team')
-    const filename = `insights-${exportDim}-${teamPart}-${range}.csv`
+    const filename = `insights-${exportDim}-${measure}-${teamPart}-${range}.csv`
     downloadCsv(filename, dim.label, dim.bars)
   }
 
@@ -309,6 +334,24 @@ export function InsightsView() {
               />
             </div>
 
+            {/* Measure-by toggle — re-weight every breakdown by issue count or
+                estimate points, mirroring Linear's Insights "Measure by". */}
+            <div className="flex items-center gap-1 rounded-md bg-bg-secondary p-0.5">
+              {MEASURES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setMeasure(m.id)}
+                  className={cn(
+                    'rounded px-2 py-1 text-[12px]',
+                    measure === m.id ? 'bg-bg-elevated font-medium text-fg shadow-sm' : 'text-muted hover:text-fg',
+                  )}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
             {/* Team filter */}
             <div className="flex items-center gap-1 rounded-md bg-bg-secondary p-0.5">
               <button
@@ -342,7 +385,13 @@ export function InsightsView() {
         <div className="mx-auto max-w-5xl px-8 py-8">
           {/* Active scope summary */}
           <div className="mb-4 text-[12px] text-muted">
-            Showing <span className="font-medium text-fg">{totals.total}</span> issues
+            Showing <span className="font-medium text-fg">{issues.length}</span> issues
+            {measure === 'points' && (
+              <>
+                {' · '}
+                <span className="font-medium text-fg">{totals.total}</span> points
+              </>
+            )}
             {' · '}
             <span className="font-medium text-fg">{rangeMeta.label.toLowerCase()}</span>
             {teamFilter !== 'all' && (
@@ -355,11 +404,11 @@ export function InsightsView() {
 
           {/* Summary stats */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            <Stat label="Total issues" value={totals.total} />
+            <Stat label={measure === 'points' ? 'Total points' : 'Total issues'} value={totals.total} />
             <Stat label="Completed" value={totals.completed} hint={`${totals.rate}% completion`} />
             <Stat label="In progress" value={totals.started} />
             <Stat label="Backlog" value={totals.backlog} />
-            <Stat label="Total points" value={totals.points} hint="Excludes canceled" />
+            <Stat label="Scope points" value={totals.points} hint="Excludes canceled" />
           </div>
 
           {/* Breakdown charts */}
@@ -391,7 +440,7 @@ export function InsightsView() {
                   {totals.rate}%
                 </div>
                 <div className="text-[12px] text-muted">
-                  {totals.completed} of {totals.total} issues completed
+                  {totals.completed} of {totals.total} {measure === 'points' ? 'points' : 'issues'} completed
                 </div>
               </div>
             </Card>

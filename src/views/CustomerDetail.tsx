@@ -45,16 +45,41 @@ export function CustomerDetail() {
   const fmt = useDisplayName()
   const [confirming, setConfirming] = useState(false)
 
+  // Status filter for the Requests list — Linear defaults to hiding resolved
+  // requests so the open work stays front-and-centre.
+  const [reqFilter, setReqFilter] = useState<'open' | 'completed' | 'all'>('open')
+
   const customer = data.customers.find((c) => c.id === id)
 
-  // Issues linked to this customer (the "requests").
-  const requests = useMemo(
+  // All issues linked to this customer (the "requests"), before status filtering.
+  const allRequests = useMemo(
     () =>
       data.issues
         .filter((i) => i.customerIds?.includes(id ?? '') && !i.archivedAt)
         .sort((a, b) => a.priority - b.priority || b.createdAt.localeCompare(a.createdAt)),
     [data.issues, id],
   )
+
+  // A request is "resolved" when its workflow state is completed or canceled.
+  const isResolved = useMemo(() => {
+    const resolvedIds = new Set(
+      data.states.filter((s) => s.type === 'completed' || s.type === 'canceled').map((s) => s.id),
+    )
+    return (stateId: string) => resolvedIds.has(stateId)
+  }, [data.states])
+
+  const openCount = useMemo(
+    () => allRequests.filter((i) => !isResolved(i.stateId)).length,
+    [allRequests, isResolved],
+  )
+  const completedCount = allRequests.length - openCount
+
+  // The visible requests after applying the status filter.
+  const requests = useMemo(() => {
+    if (reqFilter === 'all') return allRequests
+    if (reqFilter === 'open') return allRequests.filter((i) => !isResolved(i.stateId))
+    return allRequests.filter((i) => isResolved(i.stateId))
+  }, [allRequests, reqFilter, isResolved])
 
   // Candidate issues for "Add request": non-triage and not already linked.
   const addOptions: SelectOption[] = useMemo(() => {
@@ -173,8 +198,8 @@ export function CustomerDetail() {
               <div className="mb-1.5 flex items-center justify-between">
                 <span className="text-[13px] font-medium text-fg">
                   Requests
-                  {requests.length > 0 && (
-                    <span className="ml-1.5 text-faint">{requests.length}</span>
+                  {allRequests.length > 0 && (
+                    <span className="ml-1.5 text-faint">{allRequests.length}</span>
                   )}
                 </span>
                 <SelectMenu
@@ -191,12 +216,53 @@ export function CustomerDetail() {
                 />
               </div>
 
+              {/* Status filter — Open / Completed / All, with live counts. */}
+              {allRequests.length > 0 && (
+                <div className="mb-2 flex items-center gap-0.5 text-[12px]">
+                  {(
+                    [
+                      ['open', 'Open', openCount],
+                      ['completed', 'Completed', completedCount],
+                      ['all', 'All', allRequests.length],
+                    ] as const
+                  ).map(([key, label, count]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setReqFilter(key)}
+                      className={`flex items-center gap-1 rounded-md px-2 py-1 ${
+                        reqFilter === key
+                          ? 'bg-bg-selected text-fg'
+                          : 'text-muted hover:bg-bg-hover hover:text-fg'
+                      }`}
+                    >
+                      {label}
+                      <span className={reqFilter === key ? 'text-muted' : 'text-faint'}>
+                        {count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {requests.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border py-10">
                   <EmptyState
                     illustration={<StackIllustration />}
-                    title="No requests yet"
-                    description="Link issues to this customer to track what they've asked for."
+                    title={
+                      allRequests.length === 0
+                        ? 'No requests yet'
+                        : reqFilter === 'open'
+                          ? 'No open requests'
+                          : 'No completed requests'
+                    }
+                    description={
+                      allRequests.length === 0
+                        ? "Link issues to this customer to track what they've asked for."
+                        : reqFilter === 'open'
+                          ? "Every linked request has been resolved — nice. Switch to All to see them."
+                          : 'No linked requests have been completed or canceled yet.'
+                    }
                   />
                 </div>
               ) : (
@@ -305,7 +371,10 @@ export function CustomerDetail() {
           <PropRow label="Requests">
             <div className="flex items-center gap-1.5 px-1.5 py-1 text-[13px] text-fg">
               <Building2 size={14} className="text-faint" />
-              {requests.length}
+              {allRequests.length}
+              {allRequests.length > 0 && (
+                <span className="text-faint">· {openCount} open</span>
+              )}
             </div>
           </PropRow>
 

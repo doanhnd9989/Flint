@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Search } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CheckIllustration } from '@/components/EmptyState'
@@ -40,10 +40,24 @@ function ShippedRow({ issue, time }: { issue: Issue; time?: string }) {
 export function ChangelogView() {
   const data = useStore()
 
-  // Local-only header filters: a type segment (all / releases / completed
-  // issues) and a team picker. They compose with AND.
+  // Local-only header filters: a full-text query, a type segment (all /
+  // releases / completed issues) and a team picker. All compose with AND.
+  const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [teamFilter, setTeamFilter] = useState<string>('all')
+
+  // Normalized search needle; empty string means "no text filter".
+  const needle = query.trim().toLowerCase()
+
+  // An issue matches the search when its title or identifier contains the
+  // needle (case-insensitive). Empty needle matches everything.
+  const issueMatches = useMemo(
+    () => (i: Issue) =>
+      needle === '' ||
+      i.title.toLowerCase().includes(needle) ||
+      i.identifier.toLowerCase().includes(needle),
+    [needle],
+  )
 
   // Map of stateId → workflow state, to read each issue's state type.
   const stateById = useMemo(() => {
@@ -86,6 +100,13 @@ export function ChangelogView() {
   // team is chosen the release can't be resolved into.
   const entries = useMemo<ChangelogEntry[]>(() => {
     if (typeFilter === 'issues') return []
+    // Does the release's own text (version / name / description) match search?
+    const releaseTextMatches = (r: Release) =>
+      needle === '' ||
+      r.version.toLowerCase().includes(needle) ||
+      r.name.toLowerCase().includes(needle) ||
+      (r.description?.toLowerCase().includes(needle) ?? false)
+
     const released = data.releases
       .filter((r) => r.status === 'released' && releaseInTeam(r))
       .sort((a, b) => {
@@ -93,19 +114,28 @@ export function ChangelogView() {
         const tb = b.releasedAt ? new Date(b.releasedAt).getTime() : 0
         return tb - ta
       })
-    return released.map((release) => ({
-      release,
-      issues: release.projectId
-        ? data.issues
-            .filter((i) => i.projectId === release.projectId && isCompleted(i) && !i.archivedAt)
-            .sort((a, b) => {
-              const ta = a.completedAt ? new Date(a.completedAt).getTime() : 0
-              const tb = b.completedAt ? new Date(b.completedAt).getTime() : 0
-              return tb - ta
-            })
-        : [],
-    }))
-  }, [data.releases, data.issues, isCompleted, typeFilter, releaseInTeam])
+    return released
+      .map((release) => {
+        const allIssues = release.projectId
+          ? data.issues
+              .filter((i) => i.projectId === release.projectId && isCompleted(i) && !i.archivedAt)
+              .sort((a, b) => {
+                const ta = a.completedAt ? new Date(a.completedAt).getTime() : 0
+                const tb = b.completedAt ? new Date(b.completedAt).getTime() : 0
+                return tb - ta
+              })
+          : []
+        // When the release header itself matches, keep all its issues;
+        // otherwise narrow to the issues that match the search needle.
+        const matchedIssues = releaseTextMatches(release)
+          ? allIssues
+          : allIssues.filter(issueMatches)
+        return { release, issues: matchedIssues, headerMatch: releaseTextMatches(release) }
+      })
+      // Drop a release entirely when neither it nor any of its issues match.
+      .filter((e) => e.headerMatch || e.issues.length > 0)
+      .map(({ release, issues }) => ({ release, issues }))
+  }, [data.releases, data.issues, isCompleted, typeFilter, releaseInTeam, needle, issueMatches])
 
   // ── "Recently completed" — 10 most-recent completed issues not in a release ──
   // Suppressed when the type filter is "releases"; team-filtered by issue teamId.
@@ -116,7 +146,11 @@ export function ChangelogView() {
     return data.issues
       .filter(
         (i) =>
-          isCompleted(i) && !covered.has(i.id) && !i.archivedAt && issueInTeam(i),
+          isCompleted(i) &&
+          !covered.has(i.id) &&
+          !i.archivedAt &&
+          issueInTeam(i) &&
+          issueMatches(i),
       )
       .sort((a, b) => {
         const ta = a.completedAt ? new Date(a.completedAt).getTime() : 0
@@ -124,7 +158,7 @@ export function ChangelogView() {
         return tb - ta
       })
       .slice(0, 10)
-  }, [data.issues, entries, isCompleted, typeFilter, issueInTeam])
+  }, [data.issues, entries, isCompleted, typeFilter, issueInTeam, issueMatches])
 
   // Team filter options: "All teams" + every team in the workspace.
   const teamOptions = useMemo<SelectOption[]>(
@@ -158,6 +192,15 @@ export function ChangelogView() {
             composed with AND. Hidden when there's no shipped data at all. */}
         {hasAnyData && (
           <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-1.5 rounded-md border border-border bg-bg-tertiary px-2 py-1 focus-within:border-accent">
+              <Search size={13} className="shrink-0 text-faint" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search changelog…"
+                className="w-40 bg-transparent text-[12px] text-fg outline-none placeholder:text-faint"
+              />
+            </div>
             <div className="flex items-center gap-0.5 rounded-md border border-border bg-bg-tertiary p-0.5">
               {TYPE_SEGMENTS.map((seg) => (
                 <button
@@ -194,10 +237,18 @@ export function ChangelogView() {
       {empty ? (
         <EmptyState
           illustration={<CheckIllustration />}
-          title={hasAnyData ? 'Nothing matches' : 'Nothing shipped yet'}
+          title={
+            hasAnyData
+              ? needle
+                ? 'No results'
+                : 'Nothing matches'
+              : 'Nothing shipped yet'
+          }
           description={
             hasAnyData
-              ? 'No shipped work matches the current type or team filter.'
+              ? needle
+                ? `No shipped work matches “${query.trim()}”.`
+                : 'No shipped work matches the current type or team filter.'
               : "When releases ship and issues are completed, they'll appear here as a timeline of everything that's shipped."
           }
         />

@@ -53,6 +53,32 @@ function thisEvening(): Date {
   return evening.getTime() <= Date.now() ? atTime(1, 18) : evening
 }
 
+// Upcoming-reminder time buckets — mirrors how Linear groups reminders by
+// proximity (Today / Tomorrow / This week / Later) instead of one flat list.
+type Bucket = 'today' | 'tomorrow' | 'week' | 'later'
+
+const BUCKET_LABELS: Record<Bucket, string> = {
+  today: 'Today',
+  tomorrow: 'Tomorrow',
+  week: 'This week',
+  later: 'Later',
+}
+
+/** Which upcoming bucket an ISO timestamp falls into, relative to now. */
+function bucketFor(iso: string): Bucket {
+  const d = new Date(iso)
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+  // Whole days between today's midnight and the reminder's day.
+  const day = new Date(d)
+  day.setHours(0, 0, 0, 0)
+  const days = Math.round((day.getTime() - start.getTime()) / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  if (days <= 7) return 'week'
+  return 'later'
+}
+
 /**
  * Reminders — every issue you've set a reminder on, soonest first.
  * Reminders are issues whose `remindAt` is set and which aren't archived. They're
@@ -69,16 +95,26 @@ export function RemindersView() {
   const users = useStore((s) => s.users)
   const setIssueReminder = useStore((s) => s.setIssueReminder)
 
-  // Issues with a live reminder, soonest first, split into overdue / upcoming.
-  const { overdue, upcoming, total } = useMemo(() => {
+  // Issues with a live reminder, soonest first, split into overdue + upcoming
+  // time buckets (Today / Tomorrow / This week / Later), Linear-style.
+  const { overdue, upcomingBuckets, total } = useMemo(() => {
     const withReminder = issues
       .filter((i): i is Issue & { remindAt: string } =>
         Boolean(i.remindAt) && !i.archivedAt,
       )
       .sort((a, b) => a.remindAt.localeCompare(b.remindAt))
+    const upcoming = withReminder.filter((i) => !isOverdue(i.remindAt))
+    // Group upcoming into ordered buckets, dropping empty ones.
+    const order: Bucket[] = ['today', 'tomorrow', 'week', 'later']
+    const upcomingBuckets = order
+      .map((bucket) => ({
+        bucket,
+        items: upcoming.filter((i) => bucketFor(i.remindAt) === bucket),
+      }))
+      .filter((g) => g.items.length > 0)
     return {
       overdue: withReminder.filter((i) => isOverdue(i.remindAt)),
-      upcoming: withReminder.filter((i) => !isOverdue(i.remindAt)),
+      upcomingBuckets,
       total: withReminder.length,
     }
   }, [issues])
@@ -213,20 +249,22 @@ export function RemindersView() {
         <div className="flex-1 overflow-y-auto">
           {overdue.length > 0 && (
             <>
-              <div className="bg-bg-secondary px-4 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
-                Overdue
+              <div className="flex items-center justify-between bg-bg-secondary px-4 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
+                <span style={{ color: 'var(--priority-urgent)' }}>Overdue</span>
+                <span className="tabular-nums text-faint">{overdue.length}</span>
               </div>
               {overdue.map(renderRow)}
             </>
           )}
-          {upcoming.length > 0 && (
-            <>
-              <div className="bg-bg-secondary px-4 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
-                Upcoming
+          {upcomingBuckets.map(({ bucket, items }) => (
+            <div key={bucket}>
+              <div className="flex items-center justify-between bg-bg-secondary px-4 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
+                <span>{BUCKET_LABELS[bucket]}</span>
+                <span className="tabular-nums text-faint">{items.length}</span>
               </div>
-              {upcoming.map(renderRow)}
-            </>
-          )}
+              {items.map(renderRow)}
+            </div>
+          ))}
         </div>
       )}
     </div>

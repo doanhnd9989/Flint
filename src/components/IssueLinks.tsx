@@ -48,14 +48,62 @@ export function IssueLinks({ issue }: { issue: Issue }) {
         >
           {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
           Resources
+          <span className="ml-0.5 rounded bg-secondary px-1 text-[11px] tabular-nums text-faint">
+            {links.length}
+          </span>
         </button>
-        <button
-          onClick={() => openLinkModal(issue.id)}
-          title="Add link"
-          className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-faint hover:bg-bg-hover hover:text-fg"
-        >
-          <Plus size={14} />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Section-level actions — Linear's Resources overflow menu lets you
+              act on every link at once. */}
+          <Popover
+            width={180}
+            align="end"
+            trigger={
+              <span className="flex h-6 w-6 items-center justify-center rounded-full text-faint hover:bg-bg-hover hover:text-fg">
+                <MoreHorizontal size={15} />
+              </span>
+            }
+          >
+            {(close) => (
+              <>
+                <button
+                  onClick={() => {
+                    links.forEach((l) =>
+                      window.open(l.url, '_blank', 'noopener,noreferrer'),
+                    )
+                    close()
+                  }}
+                  className={menuRow}
+                >
+                  <ExternalLink size={14} className="text-faint" />
+                  Open all links
+                </button>
+                <button
+                  onClick={() => {
+                    copyToClipboard(
+                      links.map((l) => l.url).join('\n'),
+                      links.length === 1
+                        ? 'Link copied to clipboard'
+                        : `${links.length} links copied to clipboard`,
+                    )
+                    close()
+                  }}
+                  className={menuRow}
+                >
+                  <Link2 size={14} className="text-faint" />
+                  Copy all links
+                </button>
+              </>
+            )}
+          </Popover>
+          <button
+            onClick={() => openLinkModal(issue.id)}
+            title="Add link"
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-faint hover:bg-bg-hover hover:text-fg"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
       </div>
 
       {!collapsed && (

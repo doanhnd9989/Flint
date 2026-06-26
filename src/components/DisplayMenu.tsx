@@ -7,9 +7,15 @@ import {
 } from 'lucide-react'
 import { Popover } from './ui/Popover'
 import { useStoreShallow } from '@/lib/store'
-import { DISPLAY_PROPERTIES } from '@/lib/constants'
+import { DISPLAY_PROPERTIES, DEFAULT_DISPLAY_PROPERTIES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
-import type { GroupBy, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
+import type {
+  DisplayProperty,
+  GroupBy,
+  OrderBy,
+  OrderDir,
+  ViewLayout,
+} from '@/lib/types'
 
 interface Props {
   layout: ViewLayout
@@ -174,6 +180,38 @@ export function DisplayMenu({
     displayProperties: s.displayProperties,
     toggleDisplayProperty: s.toggleDisplayProperty,
   }))
+
+  // Linear's "Reset to default" — restores the view's display config to the
+  // app defaults. Display properties have no bulk-reset store action, so we
+  // toggle just the ones that currently differ from DEFAULT_DISPLAY_PROPERTIES.
+  // Layout/grouping/ordering reset through the parent callbacks. The button is
+  // disabled (greyed, like Linear) when everything already matches the default.
+  const propsDirty = DISPLAY_PROPERTIES.some(
+    (p) => displayProperties[p.id] !== DEFAULT_DISPLAY_PROPERTIES[p.id],
+  )
+  const configDirty =
+    layout !== 'list' ||
+    groupBy !== 'status' ||
+    orderBy !== 'manual' ||
+    (orderDir ?? 'asc') !== 'asc' ||
+    (subGroupBy ?? 'none') !== 'none' ||
+    orderCompletedByRecency === true
+  const isDirty = propsDirty || configDirty
+
+  function resetToDefault() {
+    onLayout('list')
+    onGroupBy('status')
+    onOrderBy('manual')
+    onOrderDir?.('asc')
+    onSubGroupBy?.('none')
+    onOrderCompletedByRecency?.(false)
+    for (const p of DISPLAY_PROPERTIES) {
+      if (displayProperties[p.id] !== DEFAULT_DISPLAY_PROPERTIES[p.id]) {
+        toggleDisplayProperty(p.id as DisplayProperty)
+      }
+    }
+  }
+
   return (
     <Popover
       width={272}
@@ -310,6 +348,21 @@ export function DisplayMenu({
               )
             })}
           </div>
+
+          <div className="my-1.5 border-t border-border" />
+          <button
+            type="button"
+            disabled={!isDirty}
+            onClick={resetToDefault}
+            className={cn(
+              'w-full rounded-md px-2 py-1.5 text-left text-[12px] transition-colors',
+              isDirty
+                ? 'text-fg hover:bg-bg-hover'
+                : 'cursor-default text-faint',
+            )}
+          >
+            Reset to default
+          </button>
         </div>
       )}
     </Popover>

@@ -1,3 +1,4 @@
+import { useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, FolderKanban, Trash2 } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
@@ -11,6 +12,39 @@ import { timeAgo } from '@/lib/utils'
 // picker; we ship a representative grid).
 const DOC_EMOJI = ['📄', '📝', '📋', '📐', '🎨', '🚀', '🧭', '💡', '📊', '🔖', '🗂️', '⚙️']
 
+/** A single entry in the document outline (Linear's table-of-contents rail). */
+interface Heading {
+  level: 1 | 2 | 3
+  text: string
+}
+
+/**
+ * Parse `# / ## / ###` Markdown headings out of the document body, skipping any
+ * inside fenced code blocks (which the renderer leaves verbatim). The order here
+ * matches the DOM order of the rendered <h1>/<h2>/<h3> nodes, so the outline can
+ * scroll to the Nth heading element by index.
+ */
+function extractHeadings(content: string): Heading[] {
+  const out: Heading[] = []
+  let inFence = false
+  for (const raw of content.replace(/\r\n/g, '\n').split('\n')) {
+    if (/^\s*```/.test(raw)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+    const m = /^(#{1,3})\s+(.+?)\s*#*\s*$/.exec(raw)
+    if (m) {
+      out.push({
+        level: m[1].length as 1 | 2 | 3,
+        // Strip inline Markdown emphasis so the outline reads as plain text.
+        text: m[2].replace(/[*_`]/g, '').trim(),
+      })
+    }
+  }
+  return out
+}
+
 export function DocumentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -22,6 +56,21 @@ export function DocumentDetail() {
     updateDocument: s.updateDocument,
     deleteDocument: s.deleteDocument,
   }))
+
+  // The scrollable body, so the outline can scroll a heading into view.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  // Document outline (Linear's table-of-contents rail), derived from the body.
+  const headings = useMemo(() => extractHeadings(doc?.content ?? ''), [doc?.content])
+
+  // Scroll to the Nth rendered heading element by DOM order — keeps us decoupled
+  // from the Markdown renderer (no slug/anchor coupling needed).
+  const scrollToHeading = (index: number) => {
+    const root = scrollRef.current
+    if (!root) return
+    const nodes = root.querySelectorAll('h1, h2, h3')
+    const el = nodes[index] as HTMLElement | undefined
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   if (!doc) {
     return (
@@ -66,7 +115,33 @@ export function DocumentDetail() {
         </button>
       </ViewHeader>
 
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="relative flex-1 overflow-y-auto">
+        {/* Outline rail — Linear's document table of contents. Sits in the right
+            margin and scrolls a heading into view when clicked. */}
+        {headings.length > 1 && (
+          <aside className="pointer-events-none absolute right-6 top-10 hidden w-52 xl:block">
+            <div className="pointer-events-auto sticky top-0">
+              <div className="mb-2 px-2 text-[11px] font-medium uppercase tracking-wide text-faint">
+                On this page
+              </div>
+              <nav className="flex flex-col">
+                {headings.map((h, i) => (
+                  <button
+                    key={`${i}-${h.text}`}
+                    type="button"
+                    onClick={() => scrollToHeading(i)}
+                    title={h.text}
+                    style={{ paddingLeft: 8 + (h.level - 1) * 12 }}
+                    className="truncate rounded-md py-1 pr-2 text-left text-[12px] text-muted hover:bg-bg-hover hover:text-fg"
+                  >
+                    {h.text}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </aside>
+        )}
+
         <div className="mx-auto max-w-3xl px-10 py-10">
           {/* Icon + title */}
           <div className="flex items-start gap-3">

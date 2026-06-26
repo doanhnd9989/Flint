@@ -249,14 +249,20 @@ function ValueList({
   options,
   selected,
   onToggle,
+  query,
 }: {
   options: ValueOption[]
   selected: string[]
   onToggle: (id: string) => void
+  query?: string
 }) {
+  const q = (query ?? '').trim().toLowerCase()
+  const shown = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options
+  if (shown.length === 0)
+    return <div className="px-2 py-3 text-center text-[12px] text-faint">No results</div>
   return (
     <div className="max-h-64 overflow-y-auto">
-      {options.map((o) => (
+      {shown.map((o) => (
         <button
           key={o.id}
           type="button"
@@ -296,7 +302,16 @@ function AddFilterPanel({
   // null = root · Dim = that dimension's value list · 'dates' = date-field list ·
   // DateField = that field's relative-period list.
   const [nav, setNav] = useState<Dim | 'dates' | DateField | null>(null)
+  // Type-to-filter query, shared by the root dimension menu and each value list
+  // (Linear's filter popover always opens focused on this input). Cleared on
+  // every navigation so each level starts fresh.
+  const [query, setQuery] = useState('')
   const dimOptions = useDimOptions()
+
+  function go(to: Dim | 'dates' | DateField | null) {
+    setQuery('')
+    setNav(to)
+  }
 
   function toggle(d: Dim, id: string) {
     const cur = valuesOf(filters, d)
@@ -305,15 +320,26 @@ function AddFilterPanel({
     onChange(next.length ? f : setNegate(f, d, false))
   }
 
-  // Root menu.
+  // Root menu — type-to-filter across every dimension (incl. Dates).
   if (nav === null) {
+    const q = query.trim().toLowerCase()
+    const dims = q ? DIMS.filter((d) => d.label.toLowerCase().includes(q)) : DIMS
+    const showDates = !q || 'dates'.includes(q)
     return (
       <div>
-        {DIMS.map((d) => (
+        <input
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Filter…"
+          className="mb-1 w-full rounded-md bg-bg px-2 py-1.5 text-[13px] text-fg outline-none placeholder:text-faint"
+        />
+        <div className="-mx-1 mb-1 border-t border-border" />
+        {dims.map((d) => (
           <button
             key={d.id}
             type="button"
-            onClick={() => setNav(d.id)}
+            onClick={() => go(d.id)}
             className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
           >
             {d.label}
@@ -322,15 +348,20 @@ function AddFilterPanel({
             )}
           </button>
         ))}
-        <button
-          type="button"
-          onClick={() => setNav('dates')}
-          className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
-        >
-          <span className="flex items-center gap-2">
-            <CalendarDays size={14} className="text-faint" /> Dates
-          </span>
-        </button>
+        {showDates && (
+          <button
+            type="button"
+            onClick={() => go('dates')}
+            className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+          >
+            <span className="flex items-center gap-2">
+              <CalendarDays size={14} className="text-faint" /> Dates
+            </span>
+          </button>
+        )}
+        {dims.length === 0 && !showDates && (
+          <div className="px-2 py-3 text-center text-[12px] text-faint">No results</div>
+        )}
       </div>
     )
   }
@@ -341,7 +372,7 @@ function AddFilterPanel({
       <div>
         <button
           type="button"
-          onClick={() => setNav(null)}
+          onClick={() => go(null)}
           className="mb-1 flex items-center gap-1 px-2 py-1 text-[11px] text-faint hover:text-fg"
         >
           ‹ Dates
@@ -350,7 +381,7 @@ function AddFilterPanel({
           <button
             key={f.id}
             type="button"
-            onClick={() => setNav(f.id)}
+            onClick={() => go(f.id)}
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
           >
             <CalendarDays size={14} className="text-faint" /> {f.label}
@@ -367,7 +398,7 @@ function AddFilterPanel({
       <div>
         <button
           type="button"
-          onClick={() => setNav('dates')}
+          onClick={() => go('dates')}
           className="mb-1 flex items-center gap-1 px-2 py-1 text-[11px] text-faint hover:text-fg"
         >
           ‹ {dateFieldLabel(field)}
@@ -400,21 +431,30 @@ function AddFilterPanel({
     )
   }
 
-  // A regular dimension is selected → value list.
+  // A regular dimension is selected → searchable value list.
   const dim = nav
   return (
     <div>
       <button
         type="button"
-        onClick={() => setNav(null)}
+        onClick={() => go(null)}
         className="mb-1 flex items-center gap-1 px-2 py-1 text-[11px] text-faint hover:text-fg"
       >
         ‹ {DIMS.find((d) => d.id === dim)!.label}
       </button>
+      <input
+        autoFocus
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={`Filter ${DIMS.find((d) => d.id === dim)!.label.toLowerCase()}…`}
+        className="mb-1 w-full rounded-md bg-bg px-2 py-1.5 text-[13px] text-fg outline-none placeholder:text-faint"
+      />
+      <div className="-mx-1 mb-1 border-t border-border" />
       <ValueList
         options={dimOptions[dim]}
         selected={valuesOf(filters, dim)}
         onToggle={(id) => toggle(dim, id)}
+        query={query}
       />
     </div>
   )

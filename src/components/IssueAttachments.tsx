@@ -13,6 +13,7 @@ import {
 import { useStore, useStoreShallow } from '@/lib/store'
 import type { Attachment, Issue } from '@/lib/types'
 import { Popover } from './ui/Popover'
+import { Avatar } from './Avatar'
 import { timeAgo } from '@/lib/utils'
 
 type Kind = Attachment['kind']
@@ -31,6 +32,9 @@ const KIND_OPTIONS: { value: Kind; label: string }[] = [
   { value: 'video', label: 'Video' },
 ]
 
+/** Header filter: 'all' or a specific {@link Kind} to narrow the list by type. */
+type KindFilter = 'all' | Kind
+
 const fieldCls =
   'w-full rounded-md border border-border bg-bg px-2 py-1.5 text-[13px] text-fg placeholder:text-faint outline-none focus:border-accent'
 
@@ -44,15 +48,34 @@ const fieldCls =
  */
 export function IssueAttachments({ issue }: { issue: Issue }) {
   const attachments = useStore((s) => s.attachments)
+  const users = useStore((s) => s.users)
   const { addAttachment, removeAttachment } = useStoreShallow((s) => ({
     addAttachment: s.addAttachment,
     removeAttachment: s.removeAttachment,
   }))
   const [collapsed, setCollapsed] = useState(false)
+  const [filter, setFilter] = useState<KindFilter>('all')
 
-  const items = attachments
+  const all = attachments
     .filter((a) => a.issueId === issue.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+
+  // Per-kind counts drive which filter chips are worth showing.
+  const counts = all.reduce<Record<Kind, number>>(
+    (acc, a) => {
+      acc[a.kind] += 1
+      return acc
+    },
+    { image: 0, file: 0, design: 0, video: 0 },
+  )
+  // Only offer a type filter once it can actually partition the list — i.e.
+  // there are 2+ attachments spanning at least two kinds (matches Linear,
+  // which hides the affordance when there's nothing to filter).
+  const kindsPresent = KIND_OPTIONS.filter((o) => counts[o.value] > 0)
+  const showFilter = all.length > 1 && kindsPresent.length > 1
+
+  const items =
+    filter === 'all' ? all : all.filter((a) => a.kind === filter)
 
   return (
     <div className="mt-6">
@@ -63,8 +86,8 @@ export function IssueAttachments({ issue }: { issue: Issue }) {
         >
           {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
           Attachments
-          {items.length > 0 && (
-            <span className="text-faint">· {items.length}</span>
+          {all.length > 0 && (
+            <span className="text-faint">· {all.length}</span>
           )}
         </button>
         <Popover
@@ -88,10 +111,37 @@ export function IssueAttachments({ issue }: { issue: Issue }) {
         </Popover>
       </div>
 
+      {!collapsed && showFilter && (
+        <div className="mb-1.5 flex flex-wrap items-center gap-1">
+          <FilterChip
+            label="All"
+            count={all.length}
+            active={filter === 'all'}
+            onClick={() => setFilter('all')}
+          />
+          {kindsPresent.map((o) => (
+            <FilterChip
+              key={o.value}
+              label={o.label}
+              count={counts[o.value]}
+              active={filter === o.value}
+              onClick={() => setFilter(o.value)}
+            />
+          ))}
+        </div>
+      )}
+
+      {!collapsed && all.length > 0 && items.length === 0 && (
+        <div className="rounded-md border border-border px-3 py-4 text-center text-[12px] text-faint">
+          No {filter} attachments.
+        </div>
+      )}
+
       {!collapsed && items.length > 0 && (
         <div className="divide-y divide-border rounded-md border border-border">
           {items.map((att) => {
             const Icon = KIND_ICON[att.kind]
+            const creator = users.find((u) => u.id === att.creatorId)
             return (
               <div
                 key={att.id}
@@ -118,6 +168,14 @@ export function IssueAttachments({ issue }: { issue: Issue }) {
                     {att.size}
                   </span>
                 )}
+                {creator && (
+                  <span
+                    className="shrink-0"
+                    title={`Added by ${creator.name}`}
+                  >
+                    <Avatar user={creator} size={16} />
+                  </span>
+                )}
                 <span className="shrink-0 text-[11px] text-faint">
                   {timeAgo(att.createdAt)}
                 </span>
@@ -134,6 +192,34 @@ export function IssueAttachments({ issue }: { issue: Issue }) {
         </div>
       )}
     </div>
+  )
+}
+
+/** A single segmented filter chip in the header row (kind + its count). */
+function FilterChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string
+  count: number
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={
+        'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ' +
+        (active
+          ? 'border-accent bg-accent/10 text-fg'
+          : 'border-border text-muted hover:bg-bg-hover hover:text-fg')
+      }
+    >
+      {label}
+      <span className="text-faint">{count}</span>
+    </button>
   )
 }
 

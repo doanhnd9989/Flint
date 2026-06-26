@@ -1,20 +1,33 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useStore } from '@/lib/store'
-import { groupIssues, sortIssues } from '@/lib/selectors'
+import { boardColumnGroupBy, groupIssues, sortIssues } from '@/lib/selectors'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
+import { IssueBoard } from '@/components/IssueBoard'
+import { DisplayMenu } from '@/components/DisplayMenu'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, IssuesIllustration } from '@/components/EmptyState'
+import type { GroupBy, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
 
 /**
  * Label issues view — Linear's "click a label, see every issue carrying it".
  * Shows all non-triage issues whose `labelIds` includes this label (or, when
- * the label is a group, any of its child labels), grouped by status and ordered
- * by priority like the default Issues view.
+ * the label is a group, any of its child labels). Like every Linear issue list,
+ * the view carries its own Display menu: list/board layout, grouping, ordering
+ * (with direction) and an empty-groups toggle — defaulting to status × priority
+ * the way the default Issues view does.
  */
 export function LabelView() {
   const { id } = useParams()
   const data = useStore()
+
+  // Per-view display config — local to this surface, just like Linear's
+  // unsaved Display options on a label page.
+  const [layout, setLayout] = useState<ViewLayout>('list')
+  const [groupBy, setGroupBy] = useState<GroupBy>('status')
+  const [orderBy, setOrderBy] = useState<OrderBy>('priority')
+  const [orderDir, setOrderDir] = useState<OrderDir>('asc')
+  const [showEmptyGroups, setShowEmptyGroups] = useState(false)
 
   const label = data.labels.find((l) => l.id === id)
 
@@ -34,9 +47,17 @@ export function LabelView() {
     const scoped = data.issues.filter(
       (i) => !i.triage && !i.archivedAt && i.labelIds.some((l) => labelIds.has(l)),
     )
-    const sorted = sortIssues(scoped, 'priority', data)
-    return groupIssues(sorted, 'status', data, false, data.preferences.displayNames)
-  }, [label, labelIds, data])
+    const sorted = sortIssues(scoped, orderBy, data, false, orderDir)
+    // The board groups by columns; label/cycle/milestone fall back to status.
+    const effectiveGroupBy = layout === 'board' ? boardColumnGroupBy(groupBy) : groupBy
+    return groupIssues(
+      sorted,
+      effectiveGroupBy,
+      data,
+      showEmptyGroups,
+      data.preferences.displayNames,
+    )
+  }, [label, labelIds, data, groupBy, orderBy, orderDir, layout, showEmptyGroups])
 
   if (!label) {
     return (
@@ -52,15 +73,30 @@ export function LabelView() {
   }
 
   const count = groups.reduce((n, g) => n + g.count, 0)
+  const boardGroupBy = boardColumnGroupBy(groupBy)
 
   return (
     <div className="flex h-full flex-col">
       <ViewHeader
         title={label.name}
         right={
-          <span className="text-[12px] text-faint">
-            {count} {count === 1 ? 'issue' : 'issues'}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-[12px] text-faint">
+              {count} {count === 1 ? 'issue' : 'issues'}
+            </span>
+            <DisplayMenu
+              layout={layout}
+              groupBy={groupBy}
+              orderBy={orderBy}
+              orderDir={orderDir}
+              onLayout={setLayout}
+              onGroupBy={setGroupBy}
+              onOrderBy={setOrderBy}
+              onOrderDir={setOrderDir}
+              showEmptyGroups={showEmptyGroups}
+              onShowEmptyGroups={setShowEmptyGroups}
+            />
+          </div>
         }
       >
         <span className="flex items-center gap-2 text-[13px]">
@@ -72,14 +108,23 @@ export function LabelView() {
         </span>
       </ViewHeader>
 
-      <GroupedIssueList
-        groups={groups}
-        groupBy="status"
-        empty={{
-          title: 'No issues with this label',
-          description: 'Issues tagged with this label will show up here.',
-        }}
-      />
+      {layout === 'board' ? (
+        <IssueBoard groups={groups} groupBy={boardGroupBy} />
+      ) : (
+        <GroupedIssueList
+          groups={groups}
+          groupBy={groupBy}
+          onReorder={
+            orderBy === 'manual'
+              ? (issueId, sortOrder) => data.setIssueSortOrder(issueId, sortOrder)
+              : undefined
+          }
+          empty={{
+            title: 'No issues with this label',
+            description: 'Issues tagged with this label will show up here.',
+          }}
+        />
+      )}
     </div>
   )
 }
