@@ -8,12 +8,14 @@ import {
   Trash2,
   MoreHorizontal,
   Check,
+  Copy,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import type { Issue, PullRequest, PullRequestStatus } from '@/lib/types'
 import { Popover } from './ui/Popover'
 import { Avatar } from './Avatar'
 import { branchName, timeAgo } from '@/lib/utils'
+import { copyToClipboard } from '@/lib/toast'
 
 const menuRow =
   'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover'
@@ -28,6 +30,28 @@ const STATUSES: { value: PullRequestStatus; label: string; color: string }[] = [
 
 function statusMeta(status: PullRequestStatus) {
   return STATUSES.find((s) => s.value === status) ?? STATUSES[0]
+}
+
+/**
+ * Review posture for a PR row. We have no review backend, so the review state
+ * is derived from the PR's lifecycle status — the same summary Linear surfaces
+ * next to a linked PR: drafts await review, open PRs need one, merged PRs are
+ * approved, closed PRs no longer apply. Returns `null` when there's nothing
+ * meaningful to show. Color is a token string for the dot.
+ */
+function reviewMeta(
+  status: PullRequestStatus,
+): { label: string; color: string } | null {
+  switch (status) {
+    case 'draft':
+      return { label: 'In review', color: 'var(--status-backlog)' }
+    case 'open':
+      return { label: 'Review required', color: 'var(--status-started)' }
+    case 'merged':
+      return { label: 'Approved', color: 'var(--accent)' }
+    case 'closed':
+      return null
+  }
 }
 
 /**
@@ -98,6 +122,7 @@ export function IssueDevelopment({ issue }: { issue: Issue }) {
         <div className="divide-y divide-border rounded-md border border-border">
           {prs.map((pr) => {
             const meta = statusMeta(pr.status)
+            const review = reviewMeta(pr.status)
             const author = users.find((u) => u.id === pr.authorId)
             return (
               <div
@@ -134,6 +159,15 @@ export function IssueDevelopment({ issue }: { issue: Issue }) {
                     />
                     {meta.label}
                   </span>
+                  {review && (
+                    <span className="hidden shrink-0 items-center gap-1 rounded-full bg-secondary px-1.5 py-px text-[11px] text-muted sm:flex">
+                      <span
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ background: review.color }}
+                      />
+                      {review.label}
+                    </span>
+                  )}
                   {pr.branch && (
                     <span className="hidden min-w-0 shrink truncate font-mono text-[11px] text-muted sm:inline">
                       {pr.branch}
@@ -156,19 +190,31 @@ export function IssueDevelopment({ issue }: { issue: Issue }) {
                   {(close) => (
                     <>
                       {pr.url && (
-                        <>
-                          <a
-                            href={pr.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={close}
-                            className={menuRow}
-                          >
-                            <ExternalLink size={14} className="text-faint" />
-                            Open PR
-                          </a>
-                          <div className="my-1 h-px bg-border" />
-                        </>
+                        <a
+                          href={pr.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={close}
+                          className={menuRow}
+                        >
+                          <ExternalLink size={14} className="text-faint" />
+                          Open PR
+                        </a>
+                      )}
+                      {pr.branch && (
+                        <button
+                          onClick={() => {
+                            copyToClipboard(pr.branch!, 'Branch name copied')
+                            close()
+                          }}
+                          className={menuRow}
+                        >
+                          <Copy size={14} className="text-faint" />
+                          Copy branch name
+                        </button>
+                      )}
+                      {(pr.url || pr.branch) && (
+                        <div className="my-1 h-px bg-border" />
                       )}
                       {STATUSES.map((s) => (
                         <button

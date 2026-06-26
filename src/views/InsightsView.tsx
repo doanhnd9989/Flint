@@ -356,7 +356,26 @@ export function InsightsView() {
     const rate = total > 0 ? Math.round((completed / total) * 100) : 0
     const scope = issues.filter((i) => stateById.get(i.stateId)?.type !== 'canceled')
     const points = scope.reduce((s, i) => s + (i.estimate ?? 0), 0)
-    return { total, completed, started, backlog, unstarted, rate, points }
+
+    // Avg. cycle time (days) — Linear measures how long completed work takes from
+    // when it was opened to when it landed. Issues carry no explicit "started"
+    // timestamp, so we measure createdAt → completedAt, averaged over the
+    // completed issues in the active cohort. A null result renders as '—' when
+    // nothing has been completed yet.
+    let cycleSum = 0
+    let cycleCount = 0
+    for (const i of issues) {
+      if (stateById.get(i.stateId)?.type !== 'completed' || !i.completedAt) continue
+      const start = new Date(i.createdAt).getTime()
+      const end = new Date(i.completedAt).getTime()
+      const ms = end - start
+      if (!Number.isFinite(ms) || ms < 0) continue
+      cycleSum += ms / 86_400_000
+      cycleCount++
+    }
+    const avgCycle = cycleCount > 0 ? cycleSum / cycleCount : null
+
+    return { total, completed, started, backlog, unstarted, rate, points, avgCycle }
   }, [issues, stateById, measure])
 
   // ── breakdown by workflow status ───────────────────────────────────────────
@@ -694,12 +713,18 @@ export function InsightsView() {
           </div>
 
           {/* Summary stats */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Stat label={measure === 'points' ? 'Total points' : 'Total issues'} value={totals.total} />
             <Stat label="Completed" value={totals.completed} hint={`${totals.rate}% completion`} />
             <Stat label="In progress" value={totals.started} />
             <Stat label="Backlog" value={totals.backlog} />
             <Stat label="Scope points" value={totals.points} hint="Excludes canceled" />
+            {/* Avg. cycle time — createdAt → completedAt across completed issues. */}
+            <Stat
+              label="Avg. cycle time"
+              value={totals.avgCycle === null ? '—' : `${totals.avgCycle.toFixed(1)}d`}
+              hint={totals.avgCycle === null ? undefined : 'Created → completed'}
+            />
           </div>
 
           {/* Featured breakdown — driven by the "Group by" selector + sort, and
