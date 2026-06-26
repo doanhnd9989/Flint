@@ -168,10 +168,10 @@ export function InsightsView() {
     let unstarted = 0
     for (const i of issues) {
       const t = stateById.get(i.stateId)?.type
-      if (t === 'completed') {
-        // Completed-stat respects the range by completedAt (when it happened).
-        if (cutoff === null || (i.completedAt && new Date(i.completedAt).getTime() >= cutoff)) completed++
-      } else if (t === 'started') started++
+      // Count completion over the same range-filtered cohort as the denominator
+      // (`issues`), so the completion rate stays consistent (numerator ⊆ denominator).
+      if (t === 'completed') completed++
+      else if (t === 'started') started++
       else if (t === 'backlog') backlog++
       else if (t === 'unstarted') unstarted++
     }

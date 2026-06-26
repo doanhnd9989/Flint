@@ -229,7 +229,12 @@ export function ProfileView() {
     const completed = assigned.filter(
       (i) => stateById.get(i.stateId)?.type === 'completed' && inPeriod(i.completedAt, start),
     ).length
-    const rate = assigned.length > 0 ? Math.round((completed / assigned.length) * 100) : 0
+    // Completion rate is "% of your assigned work that's done" — period-agnostic,
+    // so narrowing the period (which scopes the Completed card) doesn't collapse it.
+    const completedAll = assigned.filter(
+      (i) => stateById.get(i.stateId)?.type === 'completed',
+    ).length
+    const rate = assigned.length > 0 ? Math.round((completedAll / assigned.length) * 100) : 0
     return { assigned: assigned.length, created, completed, rate }
   }, [data.issues, me, stateById, start])
 

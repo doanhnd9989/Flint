@@ -176,15 +176,23 @@ export function InitiativesView() {
 
       <div className="flex-1 overflow-y-auto">
         {shown.length === 0 ? (
-          <EmptyState
-            illustration={<InitiativeIllustration />}
-            title="Initiatives"
-            description="Initiatives are larger, strategic product efforts that set the direction of your company. They are comprised of all projects that align with the goals of the initiative and allow you to monitor their progress at scale."
-            action={{
-              label: 'Create new initiative',
-              onClick: () => setCreateInitiativeOpen(true),
-            }}
-          />
+          initiatives.length === 0 ? (
+            <EmptyState
+              illustration={<InitiativeIllustration />}
+              title="Initiatives"
+              description="Initiatives are larger, strategic product efforts that set the direction of your company. They are comprised of all projects that align with the goals of the initiative and allow you to monitor their progress at scale."
+              action={{
+                label: 'Create new initiative',
+                onClick: () => setCreateInitiativeOpen(true),
+              }}
+            />
+          ) : (
+            <EmptyState
+              illustration={<InitiativeIllustration />}
+              title="No matching initiatives"
+              description="No initiatives match the selected tab or owner filter."
+            />
+          )
         ) : (
           <div>
             {shown.map(({ initiative: i, prog }) => {

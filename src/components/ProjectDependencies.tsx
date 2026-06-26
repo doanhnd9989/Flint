@@ -25,10 +25,16 @@ export function ProjectDependencies({ projectId }: { projectId: string }) {
   // Inverse: projects that list this one in their dependsOn are "blocking"-ed by it.
   const blocking = projects.filter((p) => (p.dependsOn ?? []).includes(projectId))
 
-  // Candidates to add as a blocker: not self, not already a blocker. (The store
-  // cycle-guards the actual add, so we keep the list permissive.)
+  // Candidates to add as a blocker: not self, not already a blocker, and not a
+  // project this one already blocks (the store cycle-guard would reject those).
+  const blockingIds = new Set(blocking.map((p) => p.id))
   const candidates: SelectOption[] = projects
-    .filter((p) => p.id !== projectId && !(project.dependsOn ?? []).includes(p.id))
+    .filter(
+      (p) =>
+        p.id !== projectId &&
+        !(project.dependsOn ?? []).includes(p.id) &&
+        !blockingIds.has(p.id),
+    )
     .map((p) => ({
       id: p.id,
       label: p.name,
