@@ -4,9 +4,10 @@ import { RotateCcw, Trash2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
+import { StatusIcon } from '@/components/StatusIcon'
 import { EmptyState, IssuesIllustration } from '@/components/EmptyState'
 import { timeAgo } from '@/lib/utils'
-import type { Issue, Team, User } from '@/lib/types'
+import type { Issue, Team, User, WorkflowState } from '@/lib/types'
 
 /**
  * Archive — workspace view listing every archived issue (those with a truthy
@@ -19,6 +20,7 @@ export function ArchiveView() {
   const issues = useStore((s) => s.issues)
   const teams = useStore((s) => s.teams)
   const users = useStore((s) => s.users)
+  const states = useStore((s) => s.states)
   const unarchiveIssue = useStore((s) => s.unarchiveIssue)
   const deleteIssue = useStore((s) => s.deleteIssue)
 
@@ -28,6 +30,13 @@ export function ArchiveView() {
     for (const u of users) m.set(u.id, u)
     return m
   }, [users])
+
+  // stateId → workflow state, for the row's status glyph.
+  const stateById = useMemo(() => {
+    const m = new Map<string, WorkflowState>()
+    for (const s of states) m.set(s.id, s)
+    return m
+  }, [states])
 
   // All archived issues, newest-archived first.
   const archived = useMemo(
@@ -85,12 +94,19 @@ export function ArchiveView() {
                     const assignee = i.assigneeId
                       ? userById.get(i.assigneeId)
                       : undefined
+                    const state = stateById.get(i.stateId)
                     return (
                       <div
                         key={i.id}
                         onClick={() => navigate(`/issue/${i.identifier}`)}
                         className="group flex cursor-pointer items-center gap-3 bg-bg px-3 py-2.5 transition-colors hover:bg-bg-hover"
                       >
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                          {state && (
+                            <StatusIcon type={state.type} color={state.color} />
+                          )}
+                        </span>
+
                         <span className="w-16 shrink-0 font-mono text-[12px] text-faint">
                           {i.identifier}
                         </span>
@@ -101,11 +117,6 @@ export function ArchiveView() {
 
                         {/* Default trailing meta — hidden on hover to make room for actions */}
                         <div className="flex items-center gap-2.5 text-[12px] text-muted group-hover:hidden">
-                          {g.team && (
-                            <span className="hidden truncate sm:inline">
-                              {g.team.name}
-                            </span>
-                          )}
                           {assignee && <Avatar user={assignee} size={20} />}
                           <span className="whitespace-nowrap text-faint">
                             archived {i.archivedAt ? timeAgo(i.archivedAt) : ''}
