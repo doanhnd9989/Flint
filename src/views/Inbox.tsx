@@ -24,8 +24,10 @@ import {
   Maximize2,
   Minus,
   RotateCcw,
+  CalendarDays,
 } from 'lucide-react'
 import { EmptyState, InboxIllustration } from '@/components/EmptyState'
+import { DatePicker } from '@/components/DatePicker'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { IssueDetailBody } from '@/components/IssueDetailBody'
@@ -86,6 +88,61 @@ const STATUS_TYPES: StatusType[] = [
 
 function isSnoozed(until: string | undefined, now: number) {
   return !!until && new Date(until).getTime() > now
+}
+
+// ── snooze menu body ─────────────────────────────────────────────────────────
+// Shared across every snooze popover in the inbox (reading pane, bulk action
+// bar, notification row). The fixed presets snooze relative to `now`; the
+// trailing "Custom…" row reveals a DatePicker (reusing the same calendar as the
+// issue due-date picker) and snoozes to the picked date's ISO. Picking from the
+// calendar closes both popovers via the parent's `close`.
+const SNOOZE_PRESETS = [
+  { label: 'In 1 hour', ms: 3_600_000 },
+  { label: 'Tomorrow', ms: 86_400_000 },
+  { label: 'Next week', ms: 7 * 86_400_000 },
+]
+function SnoozeMenu({
+  onSnoozeMs,
+  onSnoozeAt,
+  close,
+}: {
+  onSnoozeMs: (ms: number) => void
+  onSnoozeAt: (iso: string) => void
+  close: () => void
+}) {
+  return (
+    <div>
+      {SNOOZE_PRESETS.map((o) => (
+        <button
+          key={o.label}
+          onClick={() => {
+            onSnoozeMs(o.ms)
+            close()
+          }}
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+        >
+          <Clock size={13} className="text-faint" /> {o.label}
+        </button>
+      ))}
+      <DatePicker
+        align="start"
+        onChange={(iso) => {
+          if (iso) {
+            onSnoozeAt(iso)
+            close()
+          }
+        }}
+        trigger={
+          <span
+            onClick={(e) => e.stopPropagation()}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+          >
+            <CalendarDays size={13} className="text-faint" /> Custom…
+          </span>
+        }
+      />
+    </div>
+  )
 }
 
 // ── date-group buckets (Linear groups the inbox list into Today / Yesterday /
@@ -961,6 +1018,9 @@ export function Inbox() {
                       ),
                     )
                   }
+                  onSnoozeAt={(_, iso) =>
+                    threadAct(th, (x) => store.snoozeNotification(x, iso))
+                  }
                   onUnsnooze={() => threadAct(th, store.unsnoozeNotification)}
                   onDelete={() => threadAct(th, store.deleteNotification)}
                   onMarkUnread={() =>
@@ -985,6 +1045,11 @@ export function Inbox() {
                       onOpen={() => select(m.id)}
                       onSnooze={(id, ms) =>
                         actThenAdvance(id, (x) => snooze(x, ms))
+                      }
+                      onSnoozeAt={(id, iso) =>
+                        actThenAdvance(id, (x) =>
+                          store.snoozeNotification(x, iso),
+                        )
                       }
                       onUnsnooze={store.unsnoozeNotification}
                       onDelete={(id) =>
@@ -1022,29 +1087,20 @@ export function Inbox() {
                 }
               >
                 {(close) => (
-                  <div>
-                    {[
-                      { label: 'In 1 hour', ms: 3_600_000 },
-                      { label: 'Tomorrow', ms: 86_400_000 },
-                      { label: 'Next week', ms: 7 * 86_400_000 },
-                    ].map((o) => (
-                      <button
-                        key={o.label}
-                        onClick={() => {
-                          bulkAct((id) =>
-                            store.snoozeNotification(
-                              id,
-                              new Date(now + o.ms).toISOString(),
-                            ),
-                          )
-                          close()
-                        }}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
-                      >
-                        <Clock size={13} className="text-faint" /> {o.label}
-                      </button>
-                    ))}
-                  </div>
+                  <SnoozeMenu
+                    close={close}
+                    onSnoozeMs={(ms) =>
+                      bulkAct((id) =>
+                        store.snoozeNotification(
+                          id,
+                          new Date(now + ms).toISOString(),
+                        ),
+                      )
+                    }
+                    onSnoozeAt={(iso) =>
+                      bulkAct((id) => store.snoozeNotification(id, iso))
+                    }
+                  />
                 )}
               </Popover>
               <button
@@ -1074,6 +1130,11 @@ export function Inbox() {
             key={selected.id}
             n={selected}
             onSnooze={(ms) => actThenAdvance(selected.id, (x) => snooze(x, ms))}
+            onSnoozeAt={(iso) =>
+              actThenAdvance(selected.id, (x) =>
+                store.snoozeNotification(x, iso),
+              )
+            }
             onUnsnooze={() => store.unsnoozeNotification(selected.id)}
             onDone={() => actThenAdvance(selected.id, store.deleteNotification)}
             onOpenFull={(identifier) => navigate(`/issue/${identifier}`)}
@@ -1109,12 +1170,14 @@ export function Inbox() {
 function ReadingPane({
   n,
   onSnooze,
+  onSnoozeAt,
   onUnsnooze,
   onDone,
   onOpenFull,
 }: {
   n: Notification
   onSnooze: (ms: number) => void
+  onSnoozeAt: (iso: string) => void
   onUnsnooze: () => void
   onDone: () => void
   onOpenFull: (identifier: string) => void
@@ -1173,24 +1236,11 @@ function ReadingPane({
           }
         >
           {(close) => (
-            <div>
-              {[
-                { label: 'In 1 hour', ms: 3_600_000 },
-                { label: 'Tomorrow', ms: 86_400_000 },
-                { label: 'Next week', ms: 7 * 86_400_000 },
-              ].map((o) => (
-                <button
-                  key={o.label}
-                  onClick={() => {
-                    onSnooze(o.ms)
-                    close()
-                  }}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
-                >
-                  <Clock size={13} className="text-faint" /> {o.label}
-                </button>
-              ))}
-            </div>
+            <SnoozeMenu
+              close={close}
+              onSnoozeMs={onSnooze}
+              onSnoozeAt={onSnoozeAt}
+            />
           )}
         </Popover>
       )}
@@ -1255,6 +1305,7 @@ function NotificationRow({
   onToggleCheck,
   onOpen,
   onSnooze,
+  onSnoozeAt,
   onUnsnooze,
   onDelete,
   onMarkUnread,
@@ -1272,6 +1323,7 @@ function NotificationRow({
   onToggleCheck: () => void
   onOpen: () => void
   onSnooze: (id: string, ms: number) => void
+  onSnoozeAt: (id: string, iso: string) => void
   onUnsnooze: (id: string) => void
   onDelete: (id: string) => void
   onMarkUnread: (id: string) => void
@@ -1420,24 +1472,11 @@ function NotificationRow({
             }
           >
             {(close) => (
-              <div>
-                {[
-                  { label: 'In 1 hour', ms: 3_600_000 },
-                  { label: 'Tomorrow', ms: 86_400_000 },
-                  { label: 'Next week', ms: 7 * 86_400_000 },
-                ].map((o) => (
-                  <button
-                    key={o.label}
-                    onClick={() => {
-                      onSnooze(n.id, o.ms)
-                      close()
-                    }}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
-                  >
-                    <Clock size={13} className="text-faint" /> {o.label}
-                  </button>
-                ))}
-              </div>
+              <SnoozeMenu
+                close={close}
+                onSnoozeMs={(ms) => onSnooze(n.id, ms)}
+                onSnoozeAt={(iso) => onSnoozeAt(n.id, iso)}
+              />
             )}
           </Popover>
         )}

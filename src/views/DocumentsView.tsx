@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowDownUp, ChevronDown, FileText, FolderOpen, LayoutGrid, List, Maximize2, Plus, Search, Trash2 } from 'lucide-react'
+import { ArrowDownUp, ChevronDown, FileText, FolderOpen, LayoutGrid, List, Maximize2, Plus, Search, Star, Trash2 } from 'lucide-react'
 import { useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
+import { StarButton } from '@/components/StarButton'
 import { EmptyState } from '@/components/EmptyState'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
@@ -38,10 +39,11 @@ function snippet(content: string): string {
 export function DocumentsView() {
   const navigate = useNavigate()
   const fmt = useDisplayName()
-  const { documents, users, projects, createDocument, deleteDocument } = useStoreShallow((s) => ({
+  const { documents, users, projects, favorites, createDocument, deleteDocument } = useStoreShallow((s) => ({
     documents: s.documents,
     users: s.users,
     projects: s.projects,
+    favorites: s.favorites,
     createDocument: s.createDocument,
     deleteDocument: s.deleteDocument,
   }))
@@ -74,6 +76,24 @@ export function DocumentsView() {
       return (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
     })
   }, [documents, query, projectFilter, sort])
+
+  // Set of favorited document ids (type 'document') — drives the pinned
+  // "Favorites" section and each row/card's filled star.
+  const favoriteIds = useMemo(
+    () => new Set(favorites.filter((f) => f.type === 'document').map((f) => f.id)),
+    [favorites],
+  )
+
+  // Split the filtered+sorted docs into a pinned favorites group + the rest,
+  // each preserving the active sort order.
+  const favoriteDocs = useMemo(
+    () => sorted.filter((d) => favoriteIds.has(d.id)),
+    [sorted, favoriteIds],
+  )
+  const otherDocs = useMemo(
+    () => sorted.filter((d) => !favoriteIds.has(d.id)),
+    [sorted, favoriteIds],
+  )
 
   // Sort dropdown options.
   const sortOptions = useMemo<SelectOption[]>(
@@ -117,6 +137,141 @@ export function DocumentsView() {
   function create() {
     const doc = createDocument()
     navigate(`/document/${doc.id}`)
+  }
+
+  /** A bordered, divided list of document rows — each with a star toggle. */
+  function listGroup(docs: typeof documents) {
+    return (
+      <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+        {docs.map((doc) => {
+          const author = users.find((u) => u.id === doc.creatorId)
+          const project = projects.find((p) => p.id === doc.projectId)
+          return (
+            <div
+              key={doc.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/document/${doc.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  navigate(`/document/${doc.id}`)
+                }
+              }}
+              className="group flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left hover:bg-bg-hover focus:outline-none focus-visible:border-accent"
+            >
+              <span className="text-[18px] leading-none">{doc.icon}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium text-fg">
+                  {doc.title || 'Untitled'}
+                </span>
+                <span className="mt-0.5 block truncate text-[12px] text-faint">
+                  Updated {timeAgo(doc.updatedAt)}
+                  {author ? ` by ${fmt(author.name)}` : ''}
+                </span>
+              </span>
+              {project && (
+                <span className="flex shrink-0 items-center gap-1 rounded-md bg-bg-tertiary px-1.5 py-0.5 text-[12px] text-muted">
+                  <span>{project.icon}</span>
+                  <span className="max-w-[140px] truncate">{project.name}</span>
+                </span>
+              )}
+              {/* Star toggle — shows on hover unless already favorited. */}
+              <span
+                className={`shrink-0 transition-opacity ${
+                  favoriteIds.has(doc.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                }`}
+              >
+                <StarButton type="document" id={doc.id} size={14} />
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  /** A responsive grid of document cards — each with a star toggle. */
+  function gridGroup(docs: typeof documents) {
+    return (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {docs.map((doc) => {
+          const author = users.find((u) => u.id === doc.creatorId)
+          const project = projects.find((p) => p.id === doc.projectId)
+          const preview = snippet(doc.content)
+          const open = () => navigate(`/document/${doc.id}`)
+          return (
+            <div
+              key={doc.id}
+              role="button"
+              tabIndex={0}
+              onClick={open}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  open()
+                }
+              }}
+              className="group relative flex h-40 cursor-pointer flex-col rounded-lg border border-border bg-bg p-4 text-left hover:bg-bg-hover focus:outline-none focus-visible:border-accent"
+            >
+              {/* Hover-revealed actions — star + open + delete, top-right. Each
+                 stops propagation so it doesn't also open the card. A favorited
+                 doc keeps its star visible even when not hovered. */}
+              <div
+                className={`absolute right-2 top-2 flex items-center gap-0.5 rounded-md border border-border bg-bg p-0.5 shadow-sm transition-opacity ${
+                  favoriteIds.has(doc.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                }`}
+              >
+                <StarButton type="document" id={doc.id} size={13} />
+                <button
+                  type="button"
+                  title="Open document"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    open()
+                  }}
+                  className="flex items-center rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
+                >
+                  <Maximize2 size={13} />
+                </button>
+                <button
+                  type="button"
+                  title="Delete document"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    deleteDocument(doc.id)
+                  }}
+                  className="flex items-center rounded p-1 text-faint hover:bg-bg-hover hover:text-red-500"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-[18px] leading-none">{doc.icon}</span>
+                <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-medium text-fg">
+                  {doc.title || 'Untitled'}
+                </span>
+              </div>
+              <p className="mt-2 line-clamp-3 flex-1 text-[12px] leading-relaxed text-muted">
+                {preview || 'Empty document'}
+              </p>
+              <div className="mt-2 flex items-center gap-2 text-[12px] text-faint">
+                <span className="truncate">
+                  Updated {timeAgo(doc.updatedAt)}
+                  {author ? ` by ${fmt(author.name)}` : ''}
+                </span>
+                {project && (
+                  <span className="ml-auto flex shrink-0 items-center gap-1 rounded bg-bg-tertiary px-1.5 py-0.5 text-muted">
+                    <span>{project.icon}</span>
+                    <span className="max-w-[80px] truncate">{project.name}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
   }
 
   return (
@@ -215,113 +370,19 @@ export function DocumentsView() {
       ) : (
         <div className="flex-1 overflow-y-auto">
           <div className={`mx-auto px-6 py-6 ${layout === 'grid' ? 'max-w-5xl' : 'max-w-3xl'}`}>
-            {layout === 'list' ? (
-              <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-                {sorted.map((doc) => {
-                  const author = users.find((u) => u.id === doc.creatorId)
-                  const project = projects.find((p) => p.id === doc.projectId)
-                  return (
-                    <button
-                      key={doc.id}
-                      type="button"
-                      onClick={() => navigate(`/document/${doc.id}`)}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg-hover"
-                    >
-                      <span className="text-[18px] leading-none">{doc.icon}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-medium text-fg">
-                          {doc.title || 'Untitled'}
-                        </span>
-                        <span className="mt-0.5 block truncate text-[12px] text-faint">
-                          Updated {timeAgo(doc.updatedAt)}
-                          {author ? ` by ${fmt(author.name)}` : ''}
-                        </span>
-                      </span>
-                      {project && (
-                        <span className="flex shrink-0 items-center gap-1 rounded-md bg-bg-tertiary px-1.5 py-0.5 text-[12px] text-muted">
-                          <span>{project.icon}</span>
-                          <span className="max-w-[140px] truncate">{project.name}</span>
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              /* Grid layout — a card per document: icon + title, a body snippet,
-                 and a footer with the updated time + an optional project chip. */
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {sorted.map((doc) => {
-                  const author = users.find((u) => u.id === doc.creatorId)
-                  const project = projects.find((p) => p.id === doc.projectId)
-                  const preview = snippet(doc.content)
-                  const open = () => navigate(`/document/${doc.id}`)
-                  return (
-                    <div
-                      key={doc.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={open}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          open()
-                        }
-                      }}
-                      className="group relative flex h-40 cursor-pointer flex-col rounded-lg border border-border bg-bg p-4 text-left hover:bg-bg-hover focus:outline-none focus-visible:border-accent"
-                    >
-                      {/* Hover-revealed actions — open + delete, top-right. Each
-                         stops propagation so it doesn't also open the card. */}
-                      <div className="absolute right-2 top-2 flex items-center gap-0.5 rounded-md border border-border bg-bg p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
-                        <button
-                          type="button"
-                          title="Open document"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            open()
-                          }}
-                          className="flex items-center rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
-                        >
-                          <Maximize2 size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          title="Delete document"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            deleteDocument(doc.id)
-                          }}
-                          className="flex items-center rounded p-1 text-faint hover:bg-bg-hover hover:text-red-500"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="text-[18px] leading-none">{doc.icon}</span>
-                        <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-medium text-fg">
-                          {doc.title || 'Untitled'}
-                        </span>
-                      </div>
-                      <p className="mt-2 line-clamp-3 flex-1 text-[12px] leading-relaxed text-muted">
-                        {preview || 'Empty document'}
-                      </p>
-                      <div className="mt-2 flex items-center gap-2 text-[12px] text-faint">
-                        <span className="truncate">
-                          Updated {timeAgo(doc.updatedAt)}
-                          {author ? ` by ${fmt(author.name)}` : ''}
-                        </span>
-                        {project && (
-                          <span className="ml-auto flex shrink-0 items-center gap-1 rounded bg-bg-tertiary px-1.5 py-0.5 text-muted">
-                            <span>{project.icon}</span>
-                            <span className="max-w-[80px] truncate">{project.name}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+            {/* Favorited docs are pinned above the main list in their own
+                section, matching how Projects/Views surface favorites. */}
+            {favoriteDocs.length > 0 && (
+              <div className="mb-6">
+                <h2 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-faint">
+                  <Star size={12} className="fill-current text-[var(--status-started)]" />
+                  Favorites
+                </h2>
+                {layout === 'list' ? listGroup(favoriteDocs) : gridGroup(favoriteDocs)}
               </div>
             )}
+            {otherDocs.length > 0 &&
+              (layout === 'list' ? listGroup(otherDocs) : gridGroup(otherDocs))}
           </div>
         </div>
       )}

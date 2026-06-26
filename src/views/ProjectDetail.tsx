@@ -12,6 +12,7 @@ import {
   Link2,
   Copy,
   SlidersHorizontal,
+  FileText,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import {
@@ -506,7 +507,9 @@ export function ProjectDetail() {
   const data = useStore()
   const fmt = useDisplayName()
   const project = data.projects.find((p) => p.id === id)
-  const [tab, setTab] = useState<'overview' | 'activity' | 'graph' | 'issues'>('overview')
+  const [tab, setTab] = useState<
+    'overview' | 'activity' | 'graph' | 'issues' | 'documents'
+  >('overview')
   const [editingDesc, setEditingDesc] = useState(false)
   const [descDraft, setDescDraft] = useState('')
   const [focusMilestoneId, setFocusMilestoneId] = useState<string | null>(null)
@@ -552,6 +555,16 @@ export function ProjectDetail() {
       data,
     )
   }, [data, project, issuesOrderBy])
+
+  // Workspace documents attached to this project, newest-updated first —
+  // mirrors Linear's project Documents tab.
+  const projectDocs = useMemo(
+    () =>
+      data.documents
+        .filter((d) => d.projectId === id)
+        .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')),
+    [data.documents, id],
+  )
 
   if (!project) {
     return (
@@ -657,7 +670,7 @@ export function ProjectDetail() {
 
       {/* Tabs */}
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-1.5">
-        {(['overview', 'activity', 'graph', 'issues'] as const).map((t) => (
+        {(['overview', 'activity', 'graph', 'issues', 'documents'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -1025,7 +1038,7 @@ export function ProjectDetail() {
             <ProjectProgressGraph projectId={project.id} />
           </div>
         </div>
-      ) : (
+      ) : tab === 'issues' ? (
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Issues-tab toolbar — grouping/ordering controls. */}
           <div className="flex shrink-0 items-center justify-end border-b border-border px-2 py-1">
@@ -1078,6 +1091,66 @@ export function ProjectDetail() {
                   }
                 />
               ))
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Documents tab — workspace docs attached to this project (Linear). */
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-2xl px-10 py-8">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-[15px] font-semibold text-fg">Documents</div>
+              <button
+                type="button"
+                onClick={() => {
+                  const doc = data.createDocument({ projectId: project.id })
+                  navigate(`/document/${doc.id}`)
+                }}
+                className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[13px] font-medium text-white hover:bg-accent-hover"
+              >
+                <Plus size={14} /> New document
+              </button>
+            </div>
+            {projectDocs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border py-16 text-center">
+                <FileText size={28} strokeWidth={1.5} className="text-faint" />
+                <div className="text-[13px] font-medium text-fg">No documents yet</div>
+                <p className="max-w-xs text-[12px] text-muted">
+                  Documents are a place to write specs, notes, and plans for this
+                  project.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const doc = data.createDocument({ projectId: project.id })
+                    navigate(`/document/${doc.id}`)
+                  }}
+                  className="mt-1 flex items-center gap-1 rounded-md px-2.5 py-1 text-[13px] font-medium text-accent hover:bg-bg-hover"
+                >
+                  <Plus size={14} /> Create a document
+                </button>
+              </div>
+            ) : (
+              <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+                {projectDocs.map((doc) => (
+                  <button
+                    key={doc.id}
+                    type="button"
+                    onClick={() => navigate(`/document/${doc.id}`)}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg-hover"
+                  >
+                    <span className="text-[18px] leading-none">{doc.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-medium text-fg">
+                        {doc.title || 'Untitled'}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[12px] text-faint">
+                        Updated {timeAgo(doc.updatedAt)}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </div>

@@ -19,6 +19,7 @@ import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { PriorityIcon } from '@/components/PriorityIcon'
+import { StatusIcon } from '@/components/StatusIcon'
 import { PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
 import { timeAgo } from '@/lib/utils'
 import type { Activity, ActivityKind, Issue, Priority, User, WorkflowState } from '@/lib/types'
@@ -561,6 +562,28 @@ export function ProfileView() {
 
   const maxPriority = byPriority.reduce((m, b) => Math.max(m, b.value), 0)
 
+  // ── my active issues (open work assigned to me, capped for a tidy list) ──────
+  // Open == not completed and not canceled. Sorted urgent-first by priority,
+  // then by workflow-state position so the list reads like My Issues. Capped at
+  // 8 rows with a "View all" link when there's more.
+  const activeIssues = useMemo(() => {
+    const meId = me?.id
+    const posById = new Map(data.states.map((s) => [s.id, s.position]))
+    const open = data.issues.filter((i) => {
+      if (i.triage || i.archivedAt || i.assigneeId !== meId) return false
+      const type = stateById.get(i.stateId)?.type
+      return type !== 'completed' && type !== 'canceled'
+    })
+    const sorted = [...open].sort((a, b) => {
+      // Priority order: Urgent(1) → High(2) → Medium(3) → Low(4) → None(0) last.
+      const pa = a.priority === 0 ? 99 : a.priority
+      const pb = b.priority === 0 ? 99 : b.priority
+      if (pa !== pb) return pa - pb
+      return (posById.get(a.stateId) ?? 0) - (posById.get(b.stateId) ?? 0)
+    })
+    return { rows: sorted.slice(0, 8), total: sorted.length }
+  }, [data.issues, data.states, me, stateById])
+
   // ── recent activity (my own actions, newest first) ───────────────────────────
   const recent = useMemo<RecentEvent[]>(() => {
     const meId = me?.id
@@ -666,6 +689,57 @@ export function ProfileView() {
           <div className="mt-6">
             <Card title="Contribution activity" subtitle="Your issue activity over the last 3 months">
               <ContributionHeatmap weeks={heatmap.weeks} total={heatmap.total} />
+            </Card>
+          </div>
+
+          {/* Active issues — current open work assigned to you, urgent first. */}
+          <div className="mt-6">
+            <Card title="Active issues" subtitle="Open issues assigned to you">
+              {activeIssues.rows.length === 0 ? (
+                <div className="px-1 py-6 text-center text-[12px] text-faint">
+                  Nothing open — you're all caught up.
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-0.5">
+                    {activeIssues.rows.map((issue) => {
+                      const state = stateById.get(issue.stateId)
+                      return (
+                        <button
+                          key={issue.id}
+                          type="button"
+                          onClick={() => setPeek(issue.id)}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-bg-hover"
+                        >
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                            <PriorityIcon priority={issue.priority} />
+                          </span>
+                          {state && (
+                            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                              <StatusIcon type={state.type} color={state.color} />
+                            </span>
+                          )}
+                          <span className="w-14 shrink-0 font-mono text-[12px] text-faint">
+                            {issue.identifier}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-[13px] text-fg">
+                            {issue.title}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {activeIssues.total > activeIssues.rows.length && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/my-issues/assigned')}
+                      className="mt-2 px-2 text-[12px] text-accent hover:underline"
+                    >
+                      View all {activeIssues.total} in My Issues
+                    </button>
+                  )}
+                </>
+              )}
             </Card>
           </div>
 

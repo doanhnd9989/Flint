@@ -18,7 +18,7 @@ import {
   PROJECT_STATUS_ORDER,
 } from '@/lib/constants'
 import type { InitiativeStatus, Project, ProjectStatus } from '@/lib/types'
-import { formatFullDate, timeAgo, cn } from '@/lib/utils'
+import { formatDate, formatFullDate, timeAgo, cn } from '@/lib/utils'
 
 export function InitiativeDetail() {
   const { id } = useParams()
@@ -89,6 +89,29 @@ export function InitiativeDetail() {
       involvedTeams: teams.filter((t) => teamIds.has(t.id)),
     }
   }, [inProjects, users, teams])
+
+  // ── Key dates / milestones ─────────────────────────────────────────────
+  // Linear initiatives surface a roll-up of target dates. We have no separate
+  // initiative-milestone model, so we synthesize the timeline from each linked
+  // project's target date (with a status dot + completion %), plus a pinned row
+  // for the initiative's own target date. Sorted chronologically, like Linear's
+  // "key dates" rail. Purely derived — no store writes.
+  const keyDates = useMemo(() => {
+    const rows = inProjects
+      .filter((p) => p.targetDate)
+      .map((p) => ({
+        kind: 'project' as const,
+        id: p.id,
+        date: p.targetDate as string,
+        label: p.name,
+        icon: p.icon,
+        color: PROJECT_STATUS[p.status].color,
+        statusLabel: PROJECT_STATUS[p.status].label,
+        percent: projectProgress(p.id, issues, data).percent,
+      }))
+    return rows.sort((a, b) => a.date.localeCompare(b.date))
+    // `issues` / `data` feed projectProgress; recompute when they change.
+  }, [inProjects, issues, data])
 
   if (!initiative) {
     return (
@@ -396,6 +419,64 @@ export function InitiativeDetail() {
             <InitiativeProgressGraph initiativeId={initiative.id} />
           </div>
         )}
+
+        {/* Key dates — a chronological roll-up of the linked projects' target
+            dates plus the initiative's own target, mirroring Linear's initiative
+            "key dates" / milestones rail. Each project row shows a status dot and
+            its completion %; the initiative's target is pinned and highlighted.
+            Hidden when nothing has a target date. */}
+        {(keyDates.length > 0 || initiative.targetDate) && (
+          <div className="mb-8">
+            <h2 className="mb-3 text-[13px] font-semibold text-fg">Key dates</h2>
+            <div className="overflow-hidden rounded-lg border border-border">
+              {keyDates.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => navigate(`/project/${row.id}`)}
+                  className="group flex w-full items-center gap-3 border-b border-border bg-bg-secondary px-4 py-2.5 text-left last:border-b-0 hover:bg-bg-hover"
+                >
+                  <span
+                    className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ background: row.color }}
+                    title={row.statusLabel}
+                  />
+                  <span className="shrink-0 text-base">{row.icon}</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-fg">
+                    {row.label}
+                  </span>
+                  <span className="w-9 shrink-0 text-right text-[11px] text-faint">
+                    {row.percent}%
+                  </span>
+                  <span
+                    className="w-24 shrink-0 text-right text-[12px] text-muted"
+                    title={formatFullDate(row.date)}
+                  >
+                    {formatDate(row.date)}
+                  </span>
+                </button>
+              ))}
+              {initiative.targetDate && (
+                <div className="flex items-center gap-3 bg-accent/5 px-4 py-2.5">
+                  <CalendarRange size={14} className="shrink-0 text-accent" />
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-accent">
+                    Initiative target
+                  </span>
+                  <span className="w-9 shrink-0 text-right text-[11px] text-faint">
+                    {prog.percent}%
+                  </span>
+                  <span
+                    className="w-24 shrink-0 text-right text-[12px] font-medium text-accent"
+                    title={formatFullDate(initiative.targetDate)}
+                  >
+                    {formatDate(initiative.targetDate)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[13px] font-semibold text-fg">
             Projects

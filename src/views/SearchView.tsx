@@ -10,6 +10,7 @@ import {
   Building2,
   Bookmark,
   Users,
+  Save,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues } from '@/lib/selectors'
@@ -29,6 +30,7 @@ export function SearchView() {
   const data = useStore()
   const addRecentSearch = useStore((s) => s.addRecentSearch)
   const clearRecentSearches = useStore((s) => s.clearRecentSearches)
+  const createView = useStore((s) => s.createView)
 
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState(emptyFilters())
@@ -325,9 +327,49 @@ export function SearchView() {
       }
     })
 
+  // "Save as view" — persist the current query + filter chips as a SavedView and
+  // jump to it. Linear lets you snapshot any active search/filter into a named
+  // view from the header. The free-text query is folded into `filters.text` so
+  // the saved view reproduces the same result set on its own list screen.
+  const [savingView, setSavingView] = useState(false)
+  const [viewName, setViewName] = useState('')
+  const saveInputRef = useRef<HTMLInputElement>(null)
+
+  const openSaveView = () => {
+    // Seed the name with the current query for a sensible default.
+    setViewName(query.trim())
+    setSavingView(true)
+  }
+
+  // Focus the name input as soon as the popover opens.
+  useEffect(() => {
+    if (savingView) saveInputRef.current?.select()
+  }, [savingView])
+
+  const commitSaveView = () => {
+    const name = viewName.trim()
+    if (!name) return
+    const text = query.trim()
+    const viewFilters: typeof filters = {
+      ...filters,
+      ...(text ? { text } : {}),
+    }
+    const view = createView({
+      name,
+      icon: '🔍',
+      layout: 'list',
+      groupBy: 'status',
+      orderBy: 'manual',
+      filters: viewFilters,
+    })
+    setSavingView(false)
+    setViewName('')
+    navigate(`/view/${view.id}`)
+  }
+
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
+      <header className="relative flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
         <SearchIcon size={16} className="text-faint" />
         <input
           autoFocus
@@ -365,6 +407,67 @@ export function SearchView() {
           placeholder="Search issues, projects and documents…"
           className="flex-1 bg-transparent text-[15px] text-fg outline-none"
         />
+        {active && (
+          <div className="relative shrink-0">
+            <button
+              onClick={() => (savingView ? setSavingView(false) : openSaveView())}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] font-medium text-muted hover:bg-bg-hover hover:text-fg',
+                savingView && 'bg-bg-hover text-fg',
+              )}
+              title="Save the current search and filters as a view"
+            >
+              <Save size={13} />
+              Save as view
+            </button>
+            {savingView && (
+              <>
+                {/* Click-away backdrop closes the popover. */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setSavingView(false)}
+                />
+                <div className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded-lg border border-border bg-bg-elevated p-2 shadow-lg">
+                  <div className="mb-1.5 px-0.5 text-[11px] font-medium uppercase tracking-wide text-faint">
+                    Save as view
+                  </div>
+                  <input
+                    ref={saveInputRef}
+                    value={viewName}
+                    onChange={(e) => setViewName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        commitSaveView()
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setSavingView(false)
+                      }
+                    }}
+                    placeholder="View name…"
+                    className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-[13px] text-fg outline-none placeholder:text-faint focus:border-accent"
+                  />
+                  <div className="mt-2 flex items-center justify-end gap-1.5">
+                    <button
+                      onClick={() => setSavingView(false)}
+                      className="rounded-md px-2 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-fg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={commitSaveView}
+                      disabled={!viewName.trim()}
+                      className="rounded-md bg-accent px-2.5 py-1 text-[12px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
         {active && (
           <span className="shrink-0 text-[12px] tabular-nums text-faint">
             {totalResults === 0
