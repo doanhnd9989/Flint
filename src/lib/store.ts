@@ -335,8 +335,8 @@ export interface Store extends WorkspaceData, UIState {
   toggleIssuePublic: (issueId: string) => void
   openMoveIssue: (issueId: string) => void
   closeMoveIssue: () => void
-  /** Move an issue to a different team (re-numbers its identifier). */
-  moveIssueToTeam: (issueId: string, teamId: string) => void
+  /** Move an issue to a different team (re-numbers its identifier). Returns the new identifier. */
+  moveIssueToTeam: (issueId: string, teamId: string) => string | undefined
 
   resetWorkspace: () => void
 
@@ -1666,33 +1666,35 @@ export const useStore = create<Store>()(
         })),
       openMoveIssue: (issueId) => set({ moveIssueId: issueId }),
       closeMoveIssue: () => set({ moveIssueId: null }),
-      moveIssueToTeam: (issueId, teamId) =>
-        set((s) => {
-          const issue = s.issues.find((i) => i.id === issueId)
-          if (!issue || issue.teamId === teamId) return {}
-          const team = s.teams.find((t) => t.id === teamId)
-          if (!team) return {}
-          // Next number within the destination team.
-          const number =
-            s.issues
-              .filter((i) => i.teamId === teamId)
-              .reduce((max, i) => Math.max(max, i.number), 0) + 1
-          return {
-            issues: s.issues.map((i) =>
-              i.id === issueId
-                ? {
-                    ...i,
-                    teamId,
-                    number,
-                    identifier: `${team.key}-${number}`,
-                    // Cycles are team-specific — drop the old one on a move.
-                    cycleId: undefined,
-                    updatedAt: nowIso(),
-                  }
-                : i,
-            ),
-          }
-        }),
+      moveIssueToTeam: (issueId, teamId) => {
+        const s = get()
+        const issue = s.issues.find((i) => i.id === issueId)
+        if (!issue || issue.teamId === teamId) return undefined
+        const team = s.teams.find((t) => t.id === teamId)
+        if (!team) return undefined
+        // Next number within the destination team.
+        const number =
+          s.issues
+            .filter((i) => i.teamId === teamId)
+            .reduce((max, i) => Math.max(max, i.number), 0) + 1
+        const identifier = `${team.key}-${number}`
+        set({
+          issues: s.issues.map((i) =>
+            i.id === issueId
+              ? {
+                  ...i,
+                  teamId,
+                  number,
+                  identifier,
+                  // Cycles are team-specific — drop the old one on a move.
+                  cycleId: undefined,
+                  updatedAt: nowIso(),
+                }
+              : i,
+          ),
+        })
+        return identifier
+      },
 
       resetWorkspace: () => {
         const fresh = buildSeed()

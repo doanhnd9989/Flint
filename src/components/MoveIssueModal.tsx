@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { X, ArrowRightLeft, Check } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { toast } from '@/lib/toast'
@@ -18,6 +19,8 @@ export function MoveIssueModal() {
   }))
   const closeMoveIssue = useStore((s) => s.closeMoveIssue)
   const moveIssueToTeam = useStore((s) => s.moveIssueToTeam)
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const issue = issues.find((i) => i.id === moveIssueId)
 
@@ -34,9 +37,13 @@ export function MoveIssueModal() {
   function pick(teamId: string) {
     if (!issue || teamId === issue.teamId) return
     const team = teams.find((t) => t.id === teamId)
-    moveIssueToTeam(issue.id, teamId)
+    // The issue is re-keyed into the destination team (new identifier). If we're
+    // viewing its detail route (keyed by the old identifier), follow it across.
+    const onDetail = location.pathname === `/issue/${issue.identifier}`
+    const newIdentifier = moveIssueToTeam(issue.id, teamId)
     if (team) toast(`Moved to ${team.name}`)
     closeMoveIssue()
+    if (onDetail && newIdentifier) navigate(`/issue/${newIdentifier}`, { replace: true })
   }
 
   return createPortal(
