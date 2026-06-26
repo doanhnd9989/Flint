@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, FolderKanban, Trash2 } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
@@ -17,6 +17,14 @@ interface Heading {
   level: 1 | 2 | 3
   text: string
 }
+
+/** Outline depth filter — how deep the table of contents shows headings. */
+const OUTLINE_DEPTHS = [
+  { key: 'all', label: 'All', max: 3 },
+  { key: 'h1', label: 'H1', max: 1 },
+  { key: 'h12', label: 'H1+H2', max: 2 },
+] as const
+type OutlineDepth = (typeof OUTLINE_DEPTHS)[number]['key']
 
 /**
  * Parse `# / ## / ###` Markdown headings out of the document body, skipping any
@@ -68,6 +76,15 @@ export function DocumentDetail() {
   const scrollRef = useRef<HTMLDivElement>(null)
   // Document outline (Linear's table-of-contents rail), derived from the body.
   const headings = useMemo(() => extractHeadings(doc?.content ?? ''), [doc?.content])
+  // Outline depth filter — how deep the rail renders headings (default: all).
+  const [depth, setDepth] = useState<OutlineDepth>('all')
+  // Filter by depth, keeping each heading's original index so scrollToHeading
+  // still maps onto the Nth rendered <h1>/<h2>/<h3> node in DOM order.
+  const maxLevel = OUTLINE_DEPTHS.find((d) => d.key === depth)?.max ?? 3
+  const visibleHeadings = useMemo(
+    () => headings.map((h, i) => ({ h, i })).filter(({ h }) => h.level <= maxLevel),
+    [headings, maxLevel],
+  )
 
   // Word count + reading time (Linear shows these in the document header). Strip
   // the common Markdown syntax so fences, links and emphasis don't inflate the
@@ -145,8 +162,26 @@ export function DocumentDetail() {
               <div className="mb-2 px-2 text-[11px] font-medium uppercase tracking-wide text-faint">
                 On this page
               </div>
+              {/* Depth filter — Linear lets you collapse the outline to top-level
+                  headings. Segmented control; purely local, derives the list. */}
+              <div className="mb-2 flex items-center gap-0.5 rounded-md bg-secondary p-0.5">
+                {OUTLINE_DEPTHS.map((d) => (
+                  <button
+                    key={d.key}
+                    type="button"
+                    onClick={() => setDepth(d.key)}
+                    className={`flex-1 rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                      depth === d.key
+                        ? 'bg-bg text-fg shadow-sm'
+                        : 'text-muted hover:text-fg'
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
               <nav className="flex flex-col">
-                {headings.map((h, i) => (
+                {visibleHeadings.map(({ h, i }) => (
                   <button
                     key={`${i}-${h.text}`}
                     type="button"

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowDownUp, ChevronDown, FileText, FolderOpen, LayoutGrid, List, Plus, Search } from 'lucide-react'
+import { ArrowDownUp, ChevronDown, FileText, FolderOpen, LayoutGrid, List, Maximize2, Plus, Search, Trash2 } from 'lucide-react'
 import { useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState } from '@/components/EmptyState'
@@ -38,11 +38,12 @@ function snippet(content: string): string {
 export function DocumentsView() {
   const navigate = useNavigate()
   const fmt = useDisplayName()
-  const { documents, users, projects, createDocument } = useStoreShallow((s) => ({
+  const { documents, users, projects, createDocument, deleteDocument } = useStoreShallow((s) => ({
     documents: s.documents,
     users: s.users,
     projects: s.projects,
     createDocument: s.createDocument,
+    deleteDocument: s.deleteDocument,
   }))
 
   // Local-only header controls: search + sort mode + project filter (AND).
@@ -254,13 +255,47 @@ export function DocumentsView() {
                   const author = users.find((u) => u.id === doc.creatorId)
                   const project = projects.find((p) => p.id === doc.projectId)
                   const preview = snippet(doc.content)
+                  const open = () => navigate(`/document/${doc.id}`)
                   return (
-                    <button
+                    <div
                       key={doc.id}
-                      type="button"
-                      onClick={() => navigate(`/document/${doc.id}`)}
-                      className="flex h-40 flex-col rounded-lg border border-border bg-bg p-4 text-left hover:bg-bg-hover"
+                      role="button"
+                      tabIndex={0}
+                      onClick={open}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          open()
+                        }
+                      }}
+                      className="group relative flex h-40 cursor-pointer flex-col rounded-lg border border-border bg-bg p-4 text-left hover:bg-bg-hover focus:outline-none focus-visible:border-accent"
                     >
+                      {/* Hover-revealed actions — open + delete, top-right. Each
+                         stops propagation so it doesn't also open the card. */}
+                      <div className="absolute right-2 top-2 flex items-center gap-0.5 rounded-md border border-border bg-bg p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                        <button
+                          type="button"
+                          title="Open document"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            open()
+                          }}
+                          className="flex items-center rounded p-1 text-faint hover:bg-bg-hover hover:text-fg"
+                        >
+                          <Maximize2 size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete document"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteDocument(doc.id)
+                          }}
+                          className="flex items-center rounded p-1 text-faint hover:bg-bg-hover hover:text-red-500"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                       <div className="flex items-start gap-2">
                         <span className="text-[18px] leading-none">{doc.icon}</span>
                         <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-medium text-fg">
@@ -282,7 +317,7 @@ export function DocumentsView() {
                           </span>
                         )}
                       </div>
-                    </button>
+                    </div>
                   )
                 })}
               </div>

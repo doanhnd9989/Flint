@@ -84,6 +84,14 @@ export function SearchView() {
 
   const active = q.length > 0 || hasActiveFilters(filters)
 
+  // Total matches across every entity type — shown as a muted count beside the
+  // input (Linear surfaces a running result tally while you type).
+  const totalResults =
+    issueResults.length +
+    commentResults.length +
+    projectResults.length +
+    documentResults.length
+
   // Which groups render given the selected tab.
   const showIssues = tab === 'all' || tab === 'issues'
   const showProjects = tab === 'all' || tab === 'projects'
@@ -186,11 +194,24 @@ export function SearchView() {
                 e.preventDefault()
                 navigate(hit.href)
               }
+            } else if (e.key === 'Escape' && query) {
+              // Escape clears the query (back to recent searches) rather than
+              // blurring or navigating away — matches Linear's search input.
+              e.preventDefault()
+              e.stopPropagation()
+              setQuery('')
             }
           }}
           placeholder="Search issues, projects and documents…"
           className="flex-1 bg-transparent text-[15px] text-fg outline-none"
         />
+        {active && (
+          <span className="shrink-0 text-[12px] tabular-nums text-faint">
+            {totalResults === 0
+              ? 'No results'
+              : `${totalResults} result${totalResults === 1 ? '' : 's'}`}
+          </span>
+        )}
         {query && (
           <button onClick={() => setQuery('')} className="text-faint hover:text-fg">
             <X size={16} />

@@ -292,8 +292,52 @@ export function RemindersView() {
               {overdue.length > 0 && (
                 <>
                   <div className="flex items-center justify-between bg-bg-secondary px-4 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
-                    <span style={{ color: 'var(--priority-urgent)' }}>Overdue</span>
-                    <span className="tabular-nums text-faint">{overdue.length}</span>
+                    <div className="flex items-center gap-2">
+                      <span style={{ color: 'var(--priority-urgent)' }}>Overdue</span>
+                      <span className="tabular-nums text-faint">{overdue.length}</span>
+                    </div>
+                    {/* Bulk-reschedule every overdue reminder to one preset at once. */}
+                    <Popover
+                      align="end"
+                      width={240}
+                      trigger={
+                        <span
+                          title="Reschedule all overdue reminders"
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium normal-case tracking-normal text-muted transition-colors hover:bg-bg-selected hover:text-fg"
+                        >
+                          <Clock size={12} />
+                          Reschedule all
+                        </span>
+                      }
+                    >
+                      {(close) => {
+                        const options: { label: string; at: Date }[] = [
+                          { label: 'In 1 hour', at: inHours(1) },
+                          { label: 'This evening', at: thisEvening() },
+                          { label: 'Tomorrow', at: atTime(1, 9) },
+                          { label: 'Next week', at: nextMonday() },
+                        ]
+                        return (
+                          <div className="flex flex-col">
+                            {options.map((o) => (
+                              <button
+                                key={o.label}
+                                type="button"
+                                onClick={() => {
+                                  const iso = o.at.toISOString()
+                                  overdue.forEach((i) => setIssueReminder(i.id, iso))
+                                  close()
+                                }}
+                                className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                              >
+                                <span>{o.label}</span>
+                                <span className="text-[12px] text-faint">{formatTime(o.at)}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      }}
+                    </Popover>
                   </div>
                   {overdue.map(renderRow)}
                 </>

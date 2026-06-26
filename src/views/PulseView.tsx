@@ -6,7 +6,9 @@ import {
   Activity as ActivityGlyph,
   FolderClosed,
   Download,
+  Copy,
 } from 'lucide-react'
+import { copyToClipboard } from '@/lib/toast'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import type {
   Activity,
@@ -121,6 +123,33 @@ function downloadText(filename: string, text: string) {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+/**
+ * Build a one-line plain-text summary of a feed event for the copy-to-clipboard
+ * action — e.g. "Alice commented on CLA-123" or "Bob posted an at-risk update on
+ * Mobile App". Mirrors the human-readable sentence each row renders.
+ */
+function summarizeEvent(
+  e: Event,
+  lookups: Pick<RowProps, 'issues' | 'projects' | 'initiatives' | 'users' | 'fmt'>,
+): string {
+  const { issues, projects, initiatives, users, fmt } = lookups
+  const name = fmt(users.find((u) => u.id === e.userId)?.name)
+  if (e.type === 'activity') {
+    const issue = issues.find((i) => i.id === e.activity.issueId)
+    return `${name} ${e.activity.kind} ${issue?.identifier ?? '—'}`.trim()
+  }
+  if (e.type === 'comment') {
+    const issue = issues.find((i) => i.id === e.issueId)
+    return `${name} commented on ${issue?.identifier ?? '—'}`
+  }
+  if (e.type === 'project') {
+    const project = projects.find((p) => p.id === e.projectId)
+    return `${name} posted a ${HEALTH_LABEL[e.health]} update on ${project?.name ?? 'project'}`
+  }
+  const initiative = initiatives.find((i) => i.id === e.initiativeId)
+  return `${name} posted a ${HEALTH_LABEL[e.health]} update on ${initiative?.name ?? 'initiative'}`
 }
 
 export function PulseView() {
@@ -513,24 +542,30 @@ function PulseRow({
 }: RowProps) {
   // Issue activities reuse ActivityItem verbatim (it already renders the
   // Linear-style sentence), wrapped so the whole row peeks the issue.
+  // One-line plain-text summary for the hover copy action.
+  const summary = summarizeEvent(e, { issues, projects, initiatives, users, fmt })
+
   if (e.type === 'activity') {
     const issue = issues.find((i) => i.id === e.activity.issueId)
     return (
-      <button
-        type="button"
-        onClick={() => issue && onPeek(issue.id)}
-        className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-left transition-colors hover:bg-bg-hover"
-      >
-        <GlyphFor kind={e.activity.kind} />
-        <span className="min-w-0 flex-1">
-          <ActivityItem activity={e.activity} />
-        </span>
-        {issue && (
-          <span className="ml-auto shrink-0 truncate text-[12px] text-faint">
-            {issue.identifier} · {issue.title}
+      <div className="group relative flex items-center transition-colors hover:bg-bg-hover">
+        <button
+          type="button"
+          onClick={() => issue && onPeek(issue.id)}
+          className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-left"
+        >
+          <GlyphFor kind={e.activity.kind} />
+          <span className="min-w-0 flex-1">
+            <ActivityItem activity={e.activity} />
           </span>
-        )}
-      </button>
+          {issue && (
+            <span className="ml-auto shrink-0 truncate text-[12px] text-faint">
+              {issue.identifier} · {issue.title}
+            </span>
+          )}
+        </button>
+        <CopyButton summary={summary} />
+      </div>
     )
   }
 
@@ -540,25 +575,28 @@ function PulseRow({
   if (e.type === 'comment') {
     const issue = issues.find((i) => i.id === e.issueId)
     return (
-      <button
-        type="button"
-        onClick={() => issue && onPeek(issue.id)}
-        className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-left text-[12px] text-muted transition-colors hover:bg-bg-hover"
-      >
-        <GlyphFor kind="comment" />
-        <Avatar user={actor} size={18} />
-        <span className="text-fg">{name}</span>
-        <span>commented on</span>
-        <span className="font-mono text-[11px] text-faint">
-          {issue?.identifier ?? '—'}
-        </span>
-        {issue && (
-          <span className="ml-auto shrink-0 truncate text-faint">
-            {issue.title}
+      <div className="group relative flex items-center transition-colors hover:bg-bg-hover">
+        <button
+          type="button"
+          onClick={() => issue && onPeek(issue.id)}
+          className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-left text-[12px] text-muted"
+        >
+          <GlyphFor kind="comment" />
+          <Avatar user={actor} size={18} />
+          <span className="text-fg">{name}</span>
+          <span>commented on</span>
+          <span className="font-mono text-[11px] text-faint">
+            {issue?.identifier ?? '—'}
           </span>
-        )}
-        <span className="ml-auto shrink-0 text-faint">· {timeAgo(e.createdAt)}</span>
-      </button>
+          {issue && (
+            <span className="ml-auto shrink-0 truncate text-faint">
+              {issue.title}
+            </span>
+          )}
+          <span className="ml-auto shrink-0 text-faint">· {timeAgo(e.createdAt)}</span>
+        </button>
+        <CopyButton summary={summary} />
+      </div>
     )
   }
 
@@ -568,7 +606,7 @@ function PulseRow({
       ? projects.find((p) => p.id === e.projectId)
       : initiatives.find((i) => i.id === e.initiativeId)
   return (
-    <div className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-[12px] text-muted">
+    <div className="group relative flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-[12px] text-muted transition-colors hover:bg-bg-hover">
       <GlyphFor kind="project" />
       <Avatar user={actor} size={18} />
       <span className="text-fg">{name}</span>
@@ -577,6 +615,26 @@ function PulseRow({
       <span>update on</span>
       <span className="font-medium text-fg">{target?.name ?? 'project'}</span>
       <span className="ml-auto shrink-0 text-faint">· {timeAgo(e.createdAt)}</span>
+      <CopyButton summary={summary} />
     </div>
+  )
+}
+
+// Hover-revealed button that copies the row's plain-text summary to the
+// clipboard, confirming with a Linear-style toast. Overlaid at the row's right
+// edge (the rows are dense, so it floats above the trailing metadata).
+function CopyButton({ summary }: { summary: string }) {
+  return (
+    <button
+      type="button"
+      onClick={(ev) => {
+        ev.stopPropagation()
+        copyToClipboard(summary, 'Copied to clipboard')
+      }}
+      title="Copy summary"
+      className="absolute right-2 top-1/2 -translate-y-1/2 shrink-0 rounded bg-bg p-1 text-faint opacity-0 transition-opacity hover:bg-bg-hover hover:text-fg group-hover:opacity-100"
+    >
+      <Copy size={13} />
+    </button>
   )
 }

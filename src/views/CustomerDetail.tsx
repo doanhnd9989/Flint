@@ -59,6 +59,10 @@ export function CustomerDetail() {
   // requests so the open work stays front-and-centre.
   const [reqFilter, setReqFilter] = useState<'open' | 'completed' | 'all'>('open')
 
+  // Activity feed filter — Linear lets you narrow the timeline to a single
+  // event kind. Defaults to All.
+  const [actFilter, setActFilter] = useState<'all' | 'created' | 'requested' | 'completed' | 'canceled'>('all')
+
   const customer = data.customers.find((c) => c.id === id)
 
   // All issues linked to this customer (the "requests"), before status filtering.
@@ -111,6 +115,18 @@ export function CustomerDetail() {
       .filter((e) => e.at)
       .sort((a, b) => b.at.localeCompare(a.at))
   }, [allRequests, customer?.id, customer?.createdAt])
+
+  // Per-kind counts for the activity filter pills, plus the visible subset.
+  const actCounts = useMemo(() => {
+    const c = { created: 0, requested: 0, completed: 0, canceled: 0 }
+    for (const e of activity) c[e.kind]++
+    return c
+  }, [activity])
+
+  const visibleActivity = useMemo(
+    () => (actFilter === 'all' ? activity : activity.filter((e) => e.kind === actFilter)),
+    [activity, actFilter],
+  )
 
   // Candidate issues for "Add request": non-triage and not already linked.
   const addOptions: SelectOption[] = useMemo(() => {
@@ -336,13 +352,48 @@ export function CustomerDetail() {
                 events for this customer. */}
             <div className="mt-10">
               <div className="mb-3 text-[13px] font-medium text-fg">Activity</div>
+
+              {/* Kind filter — narrow the timeline to a single event kind. */}
+              {activity.length > 0 && (
+                <div className="mb-3 flex items-center gap-0.5 text-[12px]">
+                  {(
+                    [
+                      ['all', 'All', activity.length],
+                      ['created', 'Created', actCounts.created],
+                      ['requested', 'Requested', actCounts.requested],
+                      ['completed', 'Completed', actCounts.completed],
+                      ['canceled', 'Canceled', actCounts.canceled],
+                    ] as const
+                  ).map(([key, label, count]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setActFilter(key)}
+                      className={`flex items-center gap-1 rounded-md px-2 py-1 ${
+                        actFilter === key
+                          ? 'bg-bg-selected text-fg'
+                          : 'text-muted hover:bg-bg-hover hover:text-fg'
+                      }`}
+                    >
+                      {label}
+                      <span className={actFilter === key ? 'text-muted' : 'text-faint'}>
+                        {count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="relative">
                 {/* Vertical rail joining the event dots. */}
-                {activity.length > 1 && (
+                {visibleActivity.length > 1 && (
                   <span className="absolute left-[9px] top-1 bottom-1 w-px bg-border" aria-hidden />
                 )}
+                {visibleActivity.length === 0 ? (
+                  <div className="py-6 text-[13px] text-faint">No {actFilter} activity.</div>
+                ) : (
                 <ul className="space-y-3">
-                  {activity.map((ev) => {
+                  {visibleActivity.map((ev) => {
                     const issue = ev.issueId
                       ? allRequests.find((i) => i.id === ev.issueId)
                       : undefined
@@ -394,6 +445,7 @@ export function CustomerDetail() {
                     )
                   })}
                 </ul>
+                )}
               </div>
             </div>
           </div>

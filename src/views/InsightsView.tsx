@@ -137,26 +137,52 @@ function BarChart({ bars, max }: { bars: Bar[]; max: number }) {
   if (bars.length === 0) {
     return <div className="px-1 py-6 text-center text-[12px] text-faint">No data</div>
   }
+  // Denominator for each bar's share of the breakdown — drives the hover tooltip
+  // (and decides which bars are wide enough to carry an inline value label).
+  const total = bars.reduce((s, b) => s + b.value, 0)
   return (
     <div className="space-y-2.5">
-      {bars.map((b) => (
-        <div key={b.key} className="group flex items-center gap-3">
-          <div className="flex w-28 shrink-0 items-center gap-1.5" title={b.label}>
-            <span
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: b.color }}
-            />
-            <span className="truncate text-[12px] text-muted group-hover:text-fg">{b.label}</span>
-          </div>
-          <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+      {bars.map((b) => {
+        const pct = max > 0 ? (b.value / max) * 100 : 0
+        const share = total > 0 ? Math.round((b.value / total) * 100) : 0
+        // Render the value INSIDE the bar once it's wide enough to hold the
+        // glyph legibly; otherwise it falls through to the trailing label as
+        // before. ~14% keeps a 2-digit number from clipping its own track.
+        const inside = pct >= 14
+        return (
+          <div
+            key={b.key}
+            className="group flex items-center gap-3"
+            title={`${b.label}: ${b.value} (${share}%)`}
+          >
+            <div className="flex w-28 shrink-0 items-center gap-1.5">
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: b.color }}
+              />
+              <span className="truncate text-[12px] text-muted group-hover:text-fg">{b.label}</span>
+            </div>
+            <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+              <div
+                className="absolute inset-y-0 left-0 flex items-center justify-end rounded-full pr-1.5 transition-all"
+                style={{ width: `${pct}%`, backgroundColor: b.color }}
+              >
+                {inside && (
+                  <span className="text-[9px] font-medium leading-none tabular-nums text-bg">{b.value}</span>
+                )}
+              </div>
+            </div>
             <div
-              className="absolute inset-y-0 left-0 rounded-full transition-all"
-              style={{ width: `${max > 0 ? (b.value / max) * 100 : 0}%`, backgroundColor: b.color }}
-            />
+              className={cn(
+                'w-7 shrink-0 text-right text-[12px] tabular-nums text-fg',
+                inside && 'invisible',
+              )}
+            >
+              {b.value}
+            </div>
           </div>
-          <div className="w-7 shrink-0 text-right text-[12px] tabular-nums text-fg">{b.value}</div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

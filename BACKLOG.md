@@ -346,3 +346,14 @@ _Wave 3 (workspace dirs · inbox · recent):_
 - [x] 🟡 **Inbox bulk select + actions** — `Inbox` per-row + master checkbox and a floating Mark-read / Snooze / Delete bar over the selection; Esc + route change clear.
 - [x] 🟢 **Recent sort menu** — `RecentView` sort dropdown (Recency / Title A–Z / Priority) applied in the same memo feeding j/k nav.
 - [x] 🟡 **Archive bulk restore/delete** — `ArchiveView` per-row + master checkboxes and a sticky Restore / Delete bar over the selection; Esc clears, selection auto-prunes.
+
+_Wave 4 (search · docs · customers · feeds · insights):_
+- [x] 🟡 **Reminders bulk reschedule** — `RemindersView` Overdue header "Reschedule all" preset popover (1h / This evening / Tomorrow / Next week) reschedules every overdue reminder via `setIssueReminder`.
+- [x] 🟢 **Search result count + Esc-clear** — `SearchView` shows a muted result count and Escape clears a non-empty query (back to recents).
+- [x] 🟢 **Changelog copy version** — `ChangelogView` hover Copy button on each version pill copies the full version string with a toast.
+- [x] 🟢 **Documents grid hover actions** — `DocumentsView` grid cards reveal Open + Delete icon buttons on hover (`deleteDocument`, stopPropagation).
+- [x] 🟢 **Document outline depth filter** — `DocumentDetail` outline rail gains an All / H1 / H1+H2 segmented control filtering the TOC.
+- [x] 🟡 **Customers bulk-select toolbar** — `CustomersView` per-row + master checkboxes and a sticky Delete / Clear toolbar (`deleteCustomer`); Esc clears, selection prunes.
+- [x] 🟢 **Customer activity filter** — `CustomerDetail` segmented pills (All / Created / Requested / Completed / Canceled, with counts) filter the activity timeline.
+- [x] 🟢 **Pulse event copy** — `PulseView` hover Copy button on each event copies a one-line summary via `copyToClipboard` + toast.
+- [x] 🟢 **Insights bar value labels + tooltip** — `InsightsView` BarChart renders values inside wide bars (trailing fallback) with a category/value/percent hover tooltip.

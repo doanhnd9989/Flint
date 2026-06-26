@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, Search } from 'lucide-react'
+import { ChevronDown, Copy, Search } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { copyToClipboard } from '@/lib/toast'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CheckIllustration } from '@/components/EmptyState'
 import { SelectMenu } from '@/components/ui/SelectMenu'
@@ -320,13 +321,28 @@ export function ChangelogView() {
                         <div className="text-[12px] font-medium uppercase tracking-wide text-faint">
                           {formatFullDate(entry.release.releasedAt)}
                         </div>
-                        <div className="mt-1.5 flex items-center gap-2">
+                        <div className="group/version mt-1.5 flex items-center gap-2">
                           <span
                             className="rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white"
                             style={{ backgroundColor: meta.color }}
                           >
                             {entry.release.version}
                           </span>
+                          {/* Hover-revealed copy affordance for the version string. */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              copyToClipboard(
+                                entry.release.version,
+                                `"${entry.release.version}" copied to clipboard`,
+                              )
+                            }
+                            title="Copy version"
+                            aria-label={`Copy version ${entry.release.version}`}
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-bg-hover hover:text-fg group-hover/version:opacity-100"
+                          >
+                            <Copy size={12} />
+                          </button>
                           <h2 className="text-[15px] font-semibold text-fg">
                             {entry.release.name}
                           </h2>

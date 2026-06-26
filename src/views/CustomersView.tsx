@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, X } from 'lucide-react'
+import { Check, Minus, Plus, Search, Trash2, X } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
@@ -78,12 +78,15 @@ export function CustomersView() {
     users: s.users,
   }))
   const createCustomer = useStore((s) => s.createCustomer)
+  const deleteCustomer = useStore((s) => s.deleteCustomer)
 
   const [sort, setSort] = useState<SortKey>('arr')
   const [tierFilter, setTierFilter] = useState<TierFilter>('all')
   const [healthFilter, setHealthFilter] = useState<HealthFilter>('all')
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
+  /** Ids of rows ticked for bulk actions; cleared when the filter set shifts. */
+  const [selected, setSelected] = useState<Set<string>>(() => new Set())
   const searchRef = useRef<HTMLInputElement>(null)
 
   /**
@@ -145,6 +148,67 @@ export function CustomersView() {
     }
     return { count: sorted.length, arr, requests }
   }, [sorted, requestCounts])
+
+  /**
+   * Selection counted against the *visible* rows only — a row hidden by the
+   * active filter never participates in select-all or the bulk count.
+   */
+  const selectedVisible = useMemo(
+    () => sorted.filter((c) => selected.has(c.id)),
+    [sorted, selected],
+  )
+  const allSelected = sorted.length > 0 && selectedVisible.length === sorted.length
+  const someSelected = selectedVisible.length > 0 && !allSelected
+
+  /** Toggle a single row in/out of the selection set. */
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  /** Header checkbox: select every visible row, or clear when already full. */
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(sorted.map((c) => c.id)))
+  }
+
+  /** Bulk-delete the visible selection, then drop the now-stale ids. */
+  function deleteSelected() {
+    for (const c of selectedVisible) deleteCustomer(c.id)
+    setSelected(new Set())
+  }
+
+  /** Drop ids that have filtered out of view so the toolbar stays accurate. */
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev
+      const visible = new Set(sorted.map((c) => c.id))
+      let changed = false
+      const next = new Set<string>()
+      for (const id of prev) {
+        if (visible.has(id)) next.add(id)
+        else changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [sorted])
+
+  /** Esc anywhere clears an active selection (mirrors Linear's list views). */
+  useEffect(() => {
+    if (selectedVisible.length === 0) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      const el = e.target as HTMLElement | null
+      const tag = el?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || el?.isContentEditable) return
+      setSelected(new Set())
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedVisible.length])
 
   /** "/" focuses the filter, mirroring Linear's quick-search affordance. */
   useEffect(() => {
@@ -309,7 +373,58 @@ export function CustomersView() {
           </div>
 
           {/* List */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="relative flex-1 overflow-y-auto">
+            {/* Sticky bulk-action toolbar — only while a selection is active */}
+            {selectedVisible.length > 0 && (
+              <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-bg/95 px-4 py-2 backdrop-blur">
+                <span className="text-[12px] font-medium text-fg tabular-nums">
+                  {selectedVisible.length} selected
+                </span>
+                <span className="mx-0.5 h-4 w-px bg-border" />
+                <button
+                  type="button"
+                  onClick={deleteSelected}
+                  className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] font-medium text-muted hover:bg-bg-selected hover:text-red-500"
+                >
+                  <Trash2 size={13} />
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set())}
+                  className="ml-auto rounded-md px-2 py-1 text-[12px] font-medium text-muted hover:text-fg"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
+            {/* Select-all header — only meaningful when rows are present */}
+            {sorted.length > 0 && (
+              <div className="flex items-center gap-3 border-b border-border px-4 py-1.5">
+                <button
+                  type="button"
+                  onClick={toggleAll}
+                  aria-label={allSelected ? 'Deselect all' : 'Select all'}
+                  className={cn(
+                    'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
+                    allSelected || someSelected
+                      ? 'border-accent bg-accent text-white'
+                      : 'border-border text-transparent hover:border-muted',
+                  )}
+                >
+                  {allSelected ? (
+                    <Check size={11} strokeWidth={3} />
+                  ) : someSelected ? (
+                    <Minus size={11} strokeWidth={3} />
+                  ) : null}
+                </button>
+                <span className="text-[11px] font-medium tracking-wide text-faint uppercase">
+                  {sorted.length} {sorted.length === 1 ? 'customer' : 'customers'}
+                </span>
+              </div>
+            )}
+
             {sorted.length === 0 && (
               <div className="px-4 py-10 text-center text-[13px] text-muted">
                 No customers match{' '}
@@ -328,12 +443,37 @@ export function CustomersView() {
               const tier = CUSTOMER_TIERS[c.tier]
               const reqs = requestCounts[c.id] ?? 0
               const hm = HEALTH_META[health[c.id]]
+              const isSelected = selected.has(c.id)
               return (
-                <button
+                <div
                   key={c.id}
-                  onClick={() => navigate(`/customer/${c.id}`)}
-                  className="flex w-full items-center gap-3 border-b border-border px-4 py-2.5 text-left transition-colors hover:bg-bg-hover"
+                  className={cn(
+                    'group flex w-full items-center border-b border-border transition-colors',
+                    isSelected ? 'bg-bg-selected' : 'hover:bg-bg-hover',
+                  )}
                 >
+                  {/* Leading select checkbox — sibling of the nav button so we
+                      never nest interactive elements; hidden until hover/select. */}
+                  <button
+                    type="button"
+                    onClick={() => toggleOne(c.id)}
+                    aria-label={isSelected ? 'Deselect customer' : 'Select customer'}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
+                      isSelected
+                        ? 'border-accent bg-accent text-white'
+                        : 'border-border text-transparent opacity-0 hover:border-muted group-hover:opacity-100',
+                    )}
+                    style={{ marginLeft: 16, marginRight: -4 }}
+                  >
+                    {isSelected && <Check size={11} strokeWidth={3} />}
+                  </button>
+
+                  <button
+                    onClick={() => navigate(`/customer/${c.id}`)}
+                    className="flex min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left"
+                  >
                   {/* Square avatar tile */}
                   <span
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[13px] font-semibold text-white select-none"
@@ -388,7 +528,8 @@ export function CustomersView() {
                       <Avatar user={owner} size={20} />
                     </span>
                   </div>
-                </button>
+                  </button>
+                </div>
               )
             })}
           </div>
