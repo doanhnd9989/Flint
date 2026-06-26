@@ -15,7 +15,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import { filterIssues, groupIssues, sortIssues } from '@/lib/selectors'
+import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
 import type {
   Activity,
   ActivityKind,
@@ -217,7 +217,7 @@ function IssueTab({
     const dn = data.preferences.displayNames
     const top = groupIssues(
       forGrouping,
-      layout === 'board' && groupBy === 'label' ? 'status' : groupBy,
+      layout === 'board' ? boardColumnGroupBy(groupBy) : groupBy,
       data,
       showEmptyGroups,
       dn,
@@ -257,7 +257,7 @@ function IssueTab({
           groups={groups}
           rows={rows}
           subGroupBy={subGroupBy}
-          groupBy={groupBy === 'label' ? 'status' : groupBy}
+          groupBy={boardColumnGroupBy(groupBy)}
         />
       ) : (
         <GroupedIssueList

@@ -393,6 +393,42 @@ export function groupIssues(
     return groups.map((g) => ({ ...g, count: g.issues.length })).filter((g) => showEmptyGroups || g.count > 0)
   }
 
+  if (groupBy === 'cycle') {
+    const groups: IssueGroup[] = [...data.cycles]
+      .sort((a, b) => b.number - a.number)
+      .map((c) => ({
+        key: c.id,
+        label: c.name ?? `Cycle ${c.number}`,
+        count: 0,
+        issues: issues.filter((i) => i.cycleId === c.id),
+      }))
+    groups.push({
+      key: 'none',
+      label: 'No cycle',
+      count: 0,
+      issues: issues.filter((i) => !i.cycleId),
+    })
+    return groups.map((g) => ({ ...g, count: g.issues.length })).filter((g) => showEmptyGroups || g.count > 0)
+  }
+
+  if (groupBy === 'milestone') {
+    const groups: IssueGroup[] = [...data.milestones]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((m) => ({
+        key: m.id,
+        label: m.name,
+        count: 0,
+        issues: issues.filter((i) => i.milestoneId === m.id),
+      }))
+    groups.push({
+      key: 'none',
+      label: 'No milestone',
+      count: 0,
+      issues: issues.filter((i) => !i.milestoneId),
+    })
+    return groups.map((g) => ({ ...g, count: g.issues.length })).filter((g) => showEmptyGroups || g.count > 0)
+  }
+
   // label
   const groups: IssueGroup[] = data.labels.filter((l) => !l.isGroup).map((l) => ({
     key: l.id,
@@ -408,6 +444,17 @@ export function groupIssues(
     issues: issues.filter((i) => i.labelIds.length === 0),
   })
   return groups.map((g) => ({ ...g, count: g.issues.length })).filter((g) => showEmptyGroups || g.count > 0)
+}
+
+/**
+ * The board renders one column per "settable" property (status/assignee/
+ * priority/project). Label, cycle and milestone groupings have no draggable
+ * column semantics, so the board falls back to status columns for them.
+ */
+export function boardColumnGroupBy(groupBy: GroupBy): GroupBy {
+  return groupBy === 'label' || groupBy === 'cycle' || groupBy === 'milestone'
+    ? 'status'
+    : groupBy
 }
 
 export function projectProgress(

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, Plus } from 'lucide-react'
+import { ChevronDown, Plus, IterationCw, Diamond } from 'lucide-react'
 import {
   DndContext,
   PointerSensor,
@@ -65,6 +65,12 @@ function GroupGlyph({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy })
   }
   if (groupBy === 'label') {
     return group.color ? <LabelDot color={group.color} /> : null
+  }
+  if (groupBy === 'cycle') {
+    return <IterationCw size={14} className="text-muted" />
+  }
+  if (groupBy === 'milestone') {
+    return <Diamond size={13} className="text-muted" />
   }
   return null
 }

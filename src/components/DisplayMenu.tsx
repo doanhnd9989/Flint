@@ -44,6 +44,8 @@ const GROUPS: { id: GroupBy; label: string }[] = [
   { id: 'assignee', label: 'Assignee' },
   { id: 'project', label: 'Project' },
   { id: 'priority', label: 'Priority' },
+  { id: 'cycle', label: 'Cycle' },
+  { id: 'milestone', label: 'Milestone' },
   { id: 'label', label: 'Label' },
 ]
 
@@ -55,6 +57,8 @@ const SUBGROUPS: { id: GroupBy; label: string }[] = [
   { id: 'assignee', label: 'Assignee' },
   { id: 'project', label: 'Project' },
   { id: 'priority', label: 'Priority' },
+  { id: 'cycle', label: 'Cycle' },
+  { id: 'milestone', label: 'Milestone' },
   { id: 'label', label: 'Label' },
 ]
 

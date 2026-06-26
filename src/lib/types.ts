@@ -388,6 +388,8 @@ export type GroupBy =
   | 'priority'
   | 'project'
   | 'label'
+  | 'cycle'
+  | 'milestone'
   | 'none'
 export type OrderBy =
   | 'manual'

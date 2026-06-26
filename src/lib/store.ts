@@ -334,6 +334,12 @@ export interface Store extends WorkspaceData, UIState {
   bulkSetPriority: (ids: string[], priority: Priority) => void
   bulkSetAssignee: (ids: string[], assigneeId?: string) => void
   bulkAddLabel: (ids: string[], labelId: string) => void
+  bulkSetProject: (ids: string[], projectId?: string) => void
+  bulkSetCycle: (ids: string[], cycleId?: string) => void
+  bulkSetDueDate: (ids: string[], dueDate?: string) => void
+  bulkSetEstimate: (ids: string[], estimate?: number) => void
+  bulkSubscribe: (ids: string[], subscribe: boolean) => void
+  bulkFavorite: (ids: string[]) => void
   bulkArchive: (ids: string[]) => void
   bulkDelete: (ids: string[]) => void
 
@@ -1691,6 +1697,73 @@ export const useStore = create<Store>()(
                 : i,
             ),
           }
+        }),
+      bulkSetProject: (ids, projectId) =>
+        set((s) => {
+          const set_ = new Set(ids)
+          return {
+            issues: s.issues.map((i) =>
+              set_.has(i.id)
+                ? { ...i, projectId, milestoneId: undefined, updatedAt: nowIso() }
+                : i,
+            ),
+          }
+        }),
+      bulkSetCycle: (ids, cycleId) =>
+        set((s) => {
+          const set_ = new Set(ids)
+          return {
+            issues: s.issues.map((i) =>
+              set_.has(i.id) ? { ...i, cycleId, updatedAt: nowIso() } : i,
+            ),
+          }
+        }),
+      bulkSetDueDate: (ids, dueDate) =>
+        set((s) => {
+          const set_ = new Set(ids)
+          return {
+            issues: s.issues.map((i) =>
+              set_.has(i.id) ? { ...i, dueDate, updatedAt: nowIso() } : i,
+            ),
+          }
+        }),
+      bulkSetEstimate: (ids, estimate) =>
+        set((s) => {
+          const set_ = new Set(ids)
+          return {
+            issues: s.issues.map((i) =>
+              set_.has(i.id) ? { ...i, estimate, updatedAt: nowIso() } : i,
+            ),
+          }
+        }),
+      bulkSubscribe: (ids, subscribe) =>
+        set((s) => {
+          const set_ = new Set(ids)
+          const me = s.currentUserId
+          return {
+            issues: s.issues.map((i) => {
+              if (!set_.has(i.id)) return i
+              const has = i.subscriberIds.includes(me)
+              if (subscribe === has) return i
+              return {
+                ...i,
+                subscriberIds: subscribe
+                  ? [...i.subscriberIds, me]
+                  : i.subscriberIds.filter((x) => x !== me),
+                updatedAt: nowIso(),
+              }
+            }),
+          }
+        }),
+      bulkFavorite: (ids) =>
+        set((s) => {
+          const existing = new Set(
+            s.favorites.filter((f) => f.type === 'issue').map((f) => f.id),
+          )
+          const toAdd = ids
+            .filter((id) => !existing.has(id))
+            .map((id) => ({ type: 'issue' as const, id }))
+          return { favorites: [...s.favorites, ...toAdd] }
         }),
       bulkArchive: (ids) =>
         set((s) => {

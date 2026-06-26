@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useStore } from '@/lib/store'
-import { filterIssues, groupIssues, sortIssues } from '@/lib/selectors'
+import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { IssueBoard } from '@/components/IssueBoard'
 import { DisplayMenu } from '@/components/DisplayMenu'
@@ -21,7 +21,7 @@ export function SavedViewScreen() {
     const sorted = sortIssues(filtered, view.orderBy, data)
     return groupIssues(
       sorted,
-      view.layout === 'board' && view.groupBy === 'label' ? 'status' : view.groupBy,
+      view.layout === 'board' ? boardColumnGroupBy(view.groupBy) : view.groupBy,
       data,
       false,
       data.preferences.displayNames,
@@ -61,7 +61,7 @@ export function SavedViewScreen() {
       {view.layout === 'board' ? (
         <IssueBoard
           groups={groups}
-          groupBy={view.groupBy === 'label' ? 'status' : view.groupBy}
+          groupBy={boardColumnGroupBy(view.groupBy)}
         />
       ) : (
         <GroupedIssueList groups={groups} groupBy={view.groupBy} />

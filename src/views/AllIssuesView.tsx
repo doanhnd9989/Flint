@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bookmark } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import { filterIssues, groupIssues, sortIssues } from '@/lib/selectors'
+import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
 import type { GroupBy, Issue, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { IssueBoard } from '@/components/IssueBoard'
@@ -72,7 +72,7 @@ export function AllIssuesView() {
     const dn = data.preferences.displayNames
     const top = groupIssues(
       forGrouping,
-      layout === 'board' && groupBy === 'label' ? 'status' : groupBy,
+      layout === 'board' ? boardColumnGroupBy(groupBy) : groupBy,
       data,
       showEmptyGroups,
       dn,
@@ -181,7 +181,7 @@ export function AllIssuesView() {
           groups={groups}
           rows={rows}
           subGroupBy={subGroupBy}
-          groupBy={groupBy === 'label' ? 'status' : groupBy}
+          groupBy={boardColumnGroupBy(groupBy)}
         />
       ) : (
         <GroupedIssueList

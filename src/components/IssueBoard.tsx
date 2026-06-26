@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, Plus } from 'lucide-react'
+import { ChevronDown, Plus, IterationCw, Diamond } from 'lucide-react'
 import {
   DndContext,
   PointerSensor,
@@ -122,6 +122,8 @@ function RowGlyph({ group, by }: { group: IssueGroup; by: GroupBy }) {
   }
   if (by === 'project') return <span className="text-[13px]">{group.icon ?? '○'}</span>
   if (by === 'label') return group.color ? <LabelDot color={group.color} /> : null
+  if (by === 'cycle') return <IterationCw size={14} className="text-muted" />
+  if (by === 'milestone') return <Diamond size={13} className="text-muted" />
   return null
 }
 
