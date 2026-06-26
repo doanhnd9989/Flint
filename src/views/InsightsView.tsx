@@ -471,23 +471,35 @@ export function InsightsView() {
             </Card>
           </div>
 
-          {/* Breakdown charts */}
+          {/* Breakdown charts. The card matching the active "Group by" dimension
+              is omitted here — the featured chart above already shows it (with the
+              chosen sort), so we never render the same breakdown twice. */}
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Card title="By status" subtitle="Issues in each workflow state">
-              <BarChart bars={byStatus} max={maxOf(byStatus)} />
-            </Card>
-            <Card title="By priority" subtitle="Distribution across priority levels">
-              <BarChart bars={byPriority} max={maxOf(byPriority)} />
-            </Card>
-            <Card title="By assignee" subtitle="Top assignees by open + closed work">
-              <BarChart bars={byAssignee} max={maxOf(byAssignee)} />
-            </Card>
-            <Card title="By project" subtitle="Where the work lives">
-              <BarChart bars={byProject} max={maxOf(byProject)} />
-            </Card>
-            <Card title="By label" subtitle="Most-used labels">
-              <BarChart bars={byLabel} max={maxOf(byLabel)} />
-            </Card>
+            {groupBy !== 'status' && (
+              <Card title="By status" subtitle="Issues in each workflow state">
+                <BarChart bars={byStatus} max={maxOf(byStatus)} />
+              </Card>
+            )}
+            {groupBy !== 'priority' && (
+              <Card title="By priority" subtitle="Distribution across priority levels">
+                <BarChart bars={byPriority} max={maxOf(byPriority)} />
+              </Card>
+            )}
+            {groupBy !== 'assignee' && (
+              <Card title="By assignee" subtitle="Top assignees by open + closed work">
+                <BarChart bars={byAssignee} max={maxOf(byAssignee)} />
+              </Card>
+            )}
+            {groupBy !== 'project' && (
+              <Card title="By project" subtitle="Where the work lives">
+                <BarChart bars={byProject} max={maxOf(byProject)} />
+              </Card>
+            )}
+            {groupBy !== 'label' && (
+              <Card title="By label" subtitle="Most-used labels">
+                <BarChart bars={byLabel} max={maxOf(byLabel)} />
+              </Card>
+            )}
             <Card title="Progress" subtitle="Share of work completed">
               <div className="flex flex-col items-center justify-center py-2">
                 <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-bg-tertiary">

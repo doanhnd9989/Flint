@@ -2,6 +2,69 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-26 — Loop #90: 34 features (recovery + new wave) + 2 bug fixes + Insights polish
+
+This run opened on a **stale lock reclaim** and a working tree carrying **2485
+uncommitted insertions across 33 files** — a prior loop that crashed after
+editing but before committing. Rather than discard it, an 8-agent parallel
+**catalog workflow** read the whole `git diff`, confirmed it was coherent
+feature work (tsc -b ✅, build ✅, app loads console-clean), and itemised it; one
+leftover `__vverr` debug residue in `ViewsView` was removed. Committed as
+**wave 1 (recovered, 32 features)**, then a fresh **wave 2** added net-new
+capability, an adversarial bug pass swept the entire run's diff, and Insights
+got a polish pass. Verified throughout via the Preview MCP (zero console errors,
+no "Maximum update depth") + `tsc -b` + `npm run build`.
+
+_Wave 1 — recovered (32, one per file, no shared-file deltas):_ Display-menu
+**Reset to default** · FilterBar **type-to-filter** search · IssueAttachments
+**type chips + creator avatars** · IssueContextMenu **Cycle + Estimate
+submenus** · issue-sidebar **opened-by / completed metadata footer** ·
+IssueLinks **count badge + open-all/copy-all** · IssuePeek **draggable resize
+grip** (persisted) · IssueRelations **collapsible + no-op-target exclusion** ·
+ActiveCycles **scope-by-assignee** · AllIssues **team-scope picker** · Changelog
+**full-text search** · CustomerDetail **request status filter** · Customers
+**name search** · Cycles **workload-by-assignee** · DocumentDetail **TOC outline
+rail** · Documents **body search** · Inbox **sticky date-section headers** ·
+Initiative **group-by-status** · Insights **count/points measure toggle** ·
+LabelView **full Display menu** · MyIssues **List/Board toggle** · Profile
+**open-by-priority card** · ProjectDetail **scope stacked bar** · Projects
+**filter bar** · Pulse **actor filter** · Releases **sort dropdown** · Reminders
+**proximity buckets** · Roadmap **group-by swimlanes** · Search **comment
+matches** · TeamOverview **workload card** · Triage **keyboard navigation** ·
+Views **match-count badge + duplicate**.
+
+_Wave 2 — new (2 net-new + 3 enhancements):_ **Collapsible board columns**
+(chevron collapses a column to a narrow rail with glyph + count + rotated name;
+state-tracked; works in plain + swimlane modes; rails stay droppable) ·
+**Insights "Group by" dimension selector** (Status/Priority/Assignee/Project/
+Label) **+ Largest/Smallest sort** driving a featured headline chart, CSV
+reflects the choice. Enhancements: Releases **target-date field**, Customers
+**navigate-after-create**, MyIssues **tab count badges**. (Documents'
+new-document flow was already present — no edit needed.)
+
+**Phase 2 — bug hunt (find → adversarially verify → fix):** 7 parallel finder
+slices over the full `9afd099..HEAD` diff surfaced only **2 candidates** — a
+strong health signal (no Zustand object-literal selector hazards, no broken
+store-action calls, no infinite-loop risks). A separate adversarial verifier
+**CONFIRMED both** (0 discarded), both fixed: (1) **Inbox date-section headers**
+could repeat/misorder when "Show unread first" partitions the list non-monotonically
+— header emission is now partition-aware; (2) **Document outline** used a looser
+fence regex than the Markdown renderer, so on indented/trailing-text fences the
+"On this page" index diverged from the rendered headings — now byte-for-byte
+aligned to the renderer's open/close regexes.
+
+**Phase 3 — polish (Insights, both themes):** the new featured Group-by chart
+duplicated the fixed breakdown card for the active dimension (e.g. two "By
+status" charts by default). The fixed grid now omits whichever card matches the
+active dimension, so each breakdown renders exactly once. Verified in light and
+dark — exactly one "By status", clean tokens in both themes.
+
+`tsc -b ✅ · build ✅ · console clean`
+
+Next: backlog is fully checked (200/200) — keep feeding the queue from
+linear.app/changelog; candidate next surfaces are board label-swimlane de-duped
+DnD ids and a real (mocked) audit-log / GitHub integration flow.
+
 ## 2026-06-26 — Loop #89: 24 features (3 waves) + 4 bug fixes + both-theme polish
 
 Shipped **24 features** across three committed waves, then an adversarial bug
