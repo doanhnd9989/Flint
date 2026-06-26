@@ -2523,3 +2523,55 @@ console clean`.
 Next: top remaining BACKLOG item — board group-by could extend to label
 swimlanes (needs de-duped DnD ids), and the audit log / import flows are faithful
 mocks that could deepen if a backend is ever added.
+
+## 2026-06-26 — Loop #88 (15 features + 1 bug fix + polish)
+
+The clone is at deep Linear parity, so this run filled real cross-cutting gaps
+rather than net-new top-level surfaces, in five committed waves.
+
+**Phase 1 — 15 features shipped (verified in-browser via the Preview MCP):**
+
+_Wave 1 — bulk-action bar + grouping:_ six new bulk actions on the floating
+selection bar — **Project** (clears the dangling milestone), **Cycle** (hidden
+when no cycles), **Due date** (shared `DatePicker`, ISO storage), **Estimate**,
+**Subscribe/Unsubscribe** (current user across the selection), **Favorite/
+Unfavorite** — each a new `bulk*` store action; plus **Group by Cycle** and
+**Group by Milestone** (`groupIssues` branches + glyphs), with a shared
+`boardColumnGroupBy` helper so the board falls back to status columns for
+label/cycle/milestone groupings, wired through IssuesView / AllIssuesView /
+MyIssues / SavedViewScreen (columns + sub-grouping + swimlanes).
+
+_Wave 2 — shell + lifecycle:_ **Collapsible sidebar** (wires the dormant
+`sidebarCollapsed`/`toggleSidebar` — header collapse button, floating expand
+button, **⌘/** shortcut, help-overlay entry) and **Convert sub-issue to issue**
+(in both the ⋯ options menu and the right-click context menu, gated on a parent).
+
+_Wave 3 — roadmap + ⌘K:_ **Roadmap zoom** (Compact/Default/Wide month widths),
+**⌘K Switch team** (per-team commands), **⌘K Toggle sidebar** command.
+
+_Waves 4–5 — issue-row display:_ **Comment-count indicator** (always-on when an
+issue has comments) and an **Estimate** Display-options property (team-aware
+points / t-shirt rendering, default off).
+
+**Phase 2 — bug hunt (find → adversarially verify → fix):** an independent
+adversarial reviewer swept the whole `de2d383..HEAD` diff (Zustand v5 selector
+hazards, the new bulk actions, grouping/board wiring, sidebar-collapse states,
+row rendering). **No release-blockers** — every multi-field component correctly
+uses `useStoreShallow`, the board fallback is consistent across all four views,
+and dueDate stays ISO end-to-end. **1 bug CONFIRMED + fixed:** `bulkFavorite`
+was add-only while the bar rendered a filled "remove" star — made it a real
+two-way toggle (`bulkFavorite(ids, on)`).
+
+**Phase 3 — polish (bulk-action bar, both themes):** verified the expanded bar in
+light **and** dark; fixed "Due date" wrapping to two lines by adding
+`whitespace-nowrap` to the bar's button class.
+
+Verified in-browser throughout: bulk bar renders all 12 actions (light + dark),
+group-by-Cycle regroups into "Cycle 1 / No cycle" with the iteration glyph,
+board falls back to status columns under cycle grouping (no crash), sidebar
+⌘/-collapses with a clean floating toggle, ⌘K shows "Switch to {team}", rows
+show comment-count + estimate chips. `tsc -b ✅ · build ✅ · console clean`.
+
+Next: the clone is at near-complete Linear parity — remaining top item is board
+**label swimlanes** (needs de-duped DnD ids); otherwise deepen the mocked
+audit-log / import flows if a backend is ever added.

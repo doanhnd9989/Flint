@@ -210,3 +210,31 @@ New nav/lifecycle surfaces, issue-detail & board enhancements, settings pages, r
 - [x] 🟡 **Bulk archive** — an Archive action in the floating bulk-action bar (`bulkArchive`).
 - [x] 🟢 **Duplicate issue** (⋯ menu) — wires the existing `duplicateIssue` into the issue options header menu, opening the copy.
 - [x] 🟢 **Archive from right-click** — Archive / Restore row in the issue context menu.
+
+## Loop #88 — shipped (bulk actions + grouping + shell/display polish)
+
+The app is at deep Linear parity; this run filled real cross-cutting gaps in the
+bulk-action bar, grouping, the app shell, and issue-row display properties.
+
+**Wave 1 — bulk-action bar + grouping (model: bulk* store actions):**
+- [x] 🟡 **Bulk set Project** — `bulkSetProject` (clears the now-dangling milestone) + a Project picker in the floating bulk bar.
+- [x] 🟡 **Bulk set Cycle** — `bulkSetCycle` + a Cycle picker (hidden when no cycles exist).
+- [x] 🟡 **Bulk set Due date** — `bulkSetDueDate` + the shared `DatePicker` (stores ISO, matching the single-issue path).
+- [x] 🟡 **Bulk set Estimate** — `bulkSetEstimate` + a 1/2/3/5/8 picker.
+- [x] 🟡 **Bulk Subscribe / Unsubscribe** — `bulkSubscribe(ids, on)` toggling the current user across the selection (label flips when all are already subscribed).
+- [x] 🟢 **Bulk Favorite / Unfavorite** — `bulkFavorite(ids, on)` adds/removes issue favorites (real two-way toggle).
+- [x] 🟡 **Group by Cycle** — `groupIssues` cycle branch + `IterationCw` group glyph; board falls back to status columns via `boardColumnGroupBy`.
+- [x] 🟡 **Group by Milestone** — `groupIssues` milestone branch + `Diamond` glyph; same board fallback. Both wired into IssuesView / AllIssuesView / MyIssues / SavedViewScreen (columns + sub-grouping + swimlanes).
+
+**Wave 2 — app shell + issue lifecycle:**
+- [x] 🟡 **Collapsible sidebar** — wires the long-existing `sidebarCollapsed`/`toggleSidebar`: a `PanelLeftClose` button in the workspace header collapses the sidebar (content shifts right with a floating `PanelLeft` expand button); **⌘/** toggles it; documented in the `?` help overlay.
+- [x] 🟡 **Convert sub-issue to issue** — a "Convert to issue" row (shown only when the issue has a parent) in both the ⋯ `IssueOptionsMenu` and the right-click `IssueContextMenu`, calling `setIssueParent(id, undefined)`.
+
+**Wave 3 — roadmap + command menu:**
+- [x] 🟢 **Roadmap zoom** — Compact / Default / Wide per-month-column widths (72/120/200px) via a segmented control in the Roadmap header.
+- [x] 🟡 **⌘K Switch team** — per-team "Switch to {team}" commands in the command menu.
+- [x] 🟢 **⌘K Toggle sidebar** — a "Toggle sidebar" command (⌘/ hint) in the command menu.
+
+**Wave 4–5 — issue-row display properties:**
+- [x] 🟡 **Comment-count indicator** — a `MessageSquare` + count on issue rows whenever an issue has comments (always-on, like Linear).
+- [x] 🟢 **Estimate display property** — a new `estimate` Display-options pill (default off) rendering a `Gauge` + team-aware estimate (points / t-shirt) on issue rows.
