@@ -20,6 +20,29 @@ import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { cn } from '@/lib/utils'
 
+/** Sum of estimate points across a group's issues (0/undefined estimates skip). */
+function estimateSum(issues: Issue[]) {
+  return issues.reduce((n, i) => n + (i.estimate ?? 0), 0)
+}
+
+/**
+ * A small estimate-points badge shown beside a column's issue count — mirrors
+ * Linear's board header, which surfaces the summed estimate for the column so
+ * you can read its total scope at a glance. Hidden when the sum is zero.
+ */
+function EstimateBadge({ issues }: { issues: Issue[] }) {
+  const sum = estimateSum(issues)
+  if (sum <= 0) return null
+  return (
+    <span
+      title={`${sum} estimate points`}
+      className="rounded bg-secondary px-1 font-mono text-[11px] text-faint"
+    >
+      {sum}
+    </span>
+  )
+}
+
 function Card({ issue, dragging }: { issue: Issue; dragging?: boolean }) {
   const setPeek = useStore((s) => s.setPeek)
   const { users, labels } = useStoreShallow((s) => ({ users: s.users, labels: s.labels }))
@@ -154,6 +177,7 @@ function Column({
         <RowGlyph group={group} by={groupBy} />
         <span className="text-[13px] font-medium text-fg">{group.label}</span>
         <span className="text-[12px] text-faint">{group.count}</span>
+        <EstimateBadge issues={group.issues} />
         <div className="flex-1" />
         <button
           type="button"
@@ -464,6 +488,7 @@ function ColumnHeader({
       <RowGlyph group={group} by={groupBy} />
       <span className="text-[13px] font-medium text-fg">{group.label}</span>
       <span className="text-[12px] text-faint">{group.count}</span>
+      <EstimateBadge issues={group.issues} />
       <div className="flex-1" />
       <button
         type="button"

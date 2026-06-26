@@ -7,7 +7,7 @@ import { IssueNav } from './IssueNav'
 import { IssueOptionsMenu } from './IssueOptionsMenu'
 import { branchName, issueUrl } from '@/lib/utils'
 import { copyToClipboard, copyToast } from '@/lib/toast'
-import { X, Maximize2, Trash2, Link2, GitBranch } from 'lucide-react'
+import { X, Maximize2, Trash2, Link2, GitBranch, Expand, Shrink } from 'lucide-react'
 
 // Drag-to-resize bounds for the panel (Linear lets you widen/narrow the peek).
 const MIN_W = 520
@@ -32,6 +32,9 @@ export function IssuePeek() {
   // edge; the chosen width sticks across opens (persisted to localStorage).
   const [width, setWidth] = useState(readStoredWidth)
   const [dragging, setDragging] = useState(false)
+  // Linear's peek can be expanded to near full-width (and restored) without
+  // leaving the list — distinct from "open full page", which navigates away.
+  const [maximized, setMaximized] = useState(false)
 
   const startResize = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -65,6 +68,11 @@ export function IssuePeek() {
     }
   }, [dragging])
 
+  // A fresh peek always starts at its normal (resizable) width.
+  useEffect(() => {
+    setMaximized(false)
+  }, [peekId])
+
   useEffect(() => {
     if (!peekId) return
     function onKey(e: KeyboardEvent) {
@@ -93,26 +101,31 @@ export function IssuePeek() {
       onMouseDown={close}
     >
       <div
-        className="relative flex h-full max-w-[92vw] flex-col border-l border-border bg-bg shadow-lg animate-pop"
-        style={{ width }}
+        className={`relative flex h-full flex-col border-l border-border bg-bg shadow-lg animate-pop ${
+          maximized ? 'w-[96vw] max-w-[1600px]' : 'max-w-[92vw]'
+        }`}
+        style={maximized ? undefined : { width }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* Left-edge resize grip — drag to size, double-click to reset. */}
-        <div
-          title="Drag to resize"
-          onMouseDown={startResize}
-          onDoubleClick={() => {
-            setWidth(DEFAULT_W)
-            localStorage.setItem(WIDTH_KEY, String(DEFAULT_W))
-          }}
-          className="absolute left-0 top-0 z-10 h-full w-1 -translate-x-1/2 cursor-col-resize"
-        >
-          <span
-            className={`absolute inset-y-0 left-1/2 w-px -translate-x-1/2 ${
-              dragging ? 'bg-accent' : 'bg-transparent hover:bg-accent'
-            }`}
-          />
-        </div>
+        {/* Left-edge resize grip — drag to size, double-click to reset.
+            Hidden while maximized, where the width is fixed near full-screen. */}
+        {!maximized && (
+          <div
+            title="Drag to resize"
+            onMouseDown={startResize}
+            onDoubleClick={() => {
+              setWidth(DEFAULT_W)
+              localStorage.setItem(WIDTH_KEY, String(DEFAULT_W))
+            }}
+            className="absolute left-0 top-0 z-10 h-full w-1 -translate-x-1/2 cursor-col-resize"
+          >
+            <span
+              className={`absolute inset-y-0 left-1/2 w-px -translate-x-1/2 ${
+                dragging ? 'bg-accent' : 'bg-transparent hover:bg-accent'
+              }`}
+            />
+          </div>
+        )}
         <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3 text-[13px]">
           <span className="text-faint">
             {store.teams.find((t) => t.id === issue.teamId)?.name}
@@ -163,6 +176,13 @@ export function IssuePeek() {
             className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
           >
             <Trash2 size={15} />
+          </button>
+          <button
+            title={maximized ? 'Restore panel width' : 'Expand panel'}
+            onClick={() => setMaximized((m) => !m)}
+            className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover"
+          >
+            {maximized ? <Shrink size={15} /> : <Expand size={15} />}
           </button>
           <button
             title="Open full page"

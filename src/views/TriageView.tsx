@@ -74,11 +74,56 @@ export function TriageView() {
   const [cursor, setCursor] = useState(0)
   const cardRefs = useRef<(HTMLDivElement | null)[]>([])
 
+  // ── Bulk multi-select (Linear lets you triage several issues at once) ──
+  // A set of selected issue ids; `x` toggles the active row, and a floating
+  // action bar appears while anything is selected to Accept / Decline the whole
+  // batch in one shot. Ids that leave the queue are pruned automatically.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set())
+
   // Keep the cursor in range as the queue shrinks (accept/decline/filter) or
   // empties out — clamp to the last row so it never points past the end.
   useEffect(() => {
     setCursor((c) => (queue.length === 0 ? 0 : Math.min(c, queue.length - 1)))
   }, [queue.length])
+
+  // Drop any selected ids that are no longer in the queue (accepted, declined,
+  // filtered out) so the action-bar count never overstates the selection.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev
+      const live = new Set(queue.map((i) => i.id))
+      let changed = false
+      const next = new Set<string>()
+      prev.forEach((id) => {
+        if (live.has(id)) next.add(id)
+        else changed = true
+      })
+      return changed ? next : prev
+    })
+  }, [queue])
+
+  // The selected issues, in queue order, plus a tiny toggle helper.
+  const selectedIssues = useMemo(
+    () => queue.filter((i) => selected.has(i.id)),
+    [queue, selected],
+  )
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  // Accept / decline the whole current selection, then clear it.
+  const acceptSelected = () => {
+    selectedIssues.forEach((i) => store.acceptTriage(i.id))
+    setSelected(new Set())
+  }
+  const declineSelected = () => {
+    selectedIssues.forEach((i) => store.declineTriage(i.id))
+    setSelected(new Set())
+  }
 
   // Scroll the active card into view whenever the cursor moves.
   useEffect(() => {
@@ -110,6 +155,19 @@ export function TriageView() {
       setCursor((c) => Math.max(c - 1, 0))
       return
     }
+    // Toggle the active row's selection (X), Linear's multi-select key.
+    if (e.code === 'KeyX') {
+      if (!cur) return
+      own()
+      toggleSelected(cur.id)
+      return
+    }
+    // Clear the whole selection (Escape).
+    if (e.key === 'Escape' && selected.size) {
+      own()
+      setSelected(new Set())
+      return
+    }
     // Open the active issue (Enter / O).
     if (e.key === 'Enter' || e.code === 'KeyO') {
       if (!cur) return
@@ -117,18 +175,19 @@ export function TriageView() {
       store.setPeek(cur.id)
       return
     }
-    // Accept (A) — leaves the queue; cursor holds its slot for the next card.
+    // Accept — A acts on the whole selection when one exists, otherwise on the
+    // active card (which leaves the queue, so the cursor lands on the next one).
     if (e.code === 'KeyA') {
-      if (!cur) return
       own()
-      store.acceptTriage(cur.id)
+      if (selected.size) acceptSelected()
+      else if (cur) store.acceptTriage(cur.id)
       return
     }
-    // Decline (D / ⌫).
+    // Decline (D / ⌫) — same selection-aware behaviour as Accept.
     if (e.code === 'KeyD' || e.key === 'Backspace' || e.key === 'Delete') {
-      if (!cur) return
       own()
-      store.declineTriage(cur.id)
+      if (selected.size) declineSelected()
+      else if (cur) store.declineTriage(cur.id)
       return
     }
   }
@@ -170,7 +229,7 @@ export function TriageView() {
       : PRIORITY_LABELS[Number(priorityFilter) as Priority]
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <ViewHeader title="Triage" teamName={team.name} teamIcon={team.icon}>
         <span className="text-[12px] tabular-nums text-faint">
           {allQueue.length}
@@ -231,6 +290,7 @@ export function TriageView() {
                 .map((id) => store.labels.find((l) => l.id === id))
                 .filter(Boolean)
               const active = i === cursor
+              const isSelected = selected.has(issue.id)
               return (
                 <div
                   key={issue.id}
@@ -238,13 +298,32 @@ export function TriageView() {
                     cardRefs.current[i] = el
                   }}
                   onMouseDown={() => setCursor(i)}
-                  className={`rounded-xl border bg-bg-secondary p-4 transition-colors ${
-                    active
-                      ? 'border-accent ring-1 ring-accent'
-                      : 'border-border'
+                  className={`group rounded-xl border bg-bg-secondary p-4 transition-colors ${
+                    isSelected
+                      ? 'border-accent ring-1 ring-accent bg-accent/5'
+                      : active
+                        ? 'border-accent ring-1 ring-accent'
+                        : 'border-border'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
+                    {/* Selection checkbox — appears on hover, or whenever this
+                        card (or any card) is selected, mirroring Linear. */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleSelected(issue.id)
+                      }}
+                      aria-label={isSelected ? 'Deselect issue' : 'Select issue'}
+                      className={`mt-0.5 flex size-[16px] shrink-0 items-center justify-center rounded border transition-colors ${
+                        isSelected
+                          ? 'border-accent bg-accent text-white'
+                          : 'border-border text-transparent hover:border-faint group-hover:opacity-100 ' +
+                            (selected.size ? 'opacity-100' : 'opacity-0')
+                      }`}
+                    >
+                      <Check size={11} strokeWidth={3} />
+                    </button>
                     <button
                       onClick={() => store.setPeek(issue.id)}
                       className="flex-1 text-left"
@@ -340,12 +419,46 @@ export function TriageView() {
                 <Kbd>D</Kbd> decline
               </span>
               <span>
+                <Kbd>X</Kbd> select
+              </span>
+              <span>
                 <Kbd>↵</Kbd> open
               </span>
             </div>
           </div>
         )}
       </div>
+
+      {/* Floating bulk-action bar — shown only while a selection is active.
+          Accept / Decline apply to the whole batch; the count mirrors Linear. */}
+      {selectedIssues.length > 0 && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-border bg-bg-secondary px-2 py-1.5 shadow-lg">
+            <span className="px-1.5 text-[12px] tabular-nums text-muted">
+              {selectedIssues.length} selected
+            </span>
+            <span className="h-4 w-px bg-border" />
+            <button
+              onClick={acceptSelected}
+              className="flex items-center gap-1 rounded-md bg-[var(--status-review)] px-2.5 py-1 text-[12px] font-medium text-white hover:opacity-90"
+            >
+              <Check size={13} /> Accept
+            </button>
+            <button
+              onClick={declineSelected}
+              className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
+            >
+              <X size={13} /> Decline
+            </button>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="rounded-md px-2 py-1 text-[12px] text-faint hover:bg-bg-hover hover:text-fg"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

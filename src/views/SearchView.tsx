@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search as SearchIcon, Clock, X, MessageSquare } from 'lucide-react'
 import { useStore } from '@/lib/store'
@@ -89,6 +89,55 @@ export function SearchView() {
   const showProjects = tab === 'all' || tab === 'projects'
   const showDocuments = tab === 'all' || tab === 'documents'
 
+  // Flat list of every visible result in render order, each carrying the route
+  // it opens. Mirrors the JSX grouping below so keyboard navigation lands on the
+  // exact rows the user sees (Projects → Documents → Issues → comment matches).
+  const flatResults = useMemo(() => {
+    const out: { key: string; href: string }[] = []
+    if (showProjects)
+      for (const p of projectResults) out.push({ key: p.id, href: `/project/${p.id}` })
+    if (showDocuments)
+      for (const d of documentResults) out.push({ key: d.id, href: `/document/${d.id}` })
+    if (showIssues) {
+      for (const i of issueResults)
+        out.push({ key: i.id, href: `/issue/${i.identifier}` })
+      for (const { issue } of commentResults)
+        out.push({ key: issue.id, href: `/issue/${issue.identifier}` })
+    }
+    return out
+  }, [
+    showProjects,
+    showDocuments,
+    showIssues,
+    projectResults,
+    documentResults,
+    issueResults,
+    commentResults,
+  ])
+
+  // Highlighted result for keyboard navigation (j/k/↑/↓ to move, ↵ to open).
+  const [activeIndex, setActiveIndex] = useState(0)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  // Reset the cursor whenever the result set changes so it never points past
+  // the end of the (possibly shorter) new list.
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [flatResults])
+
+  // Keep the highlighted row scrolled into view as the cursor moves.
+  useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>('[data-result-active="true"]')
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex])
+
+  // Per-group offsets into `flatResults` so each rendered row knows its global
+  // index for highlighting (groups render in the same order they were flattened).
+  const projOffset = 0
+  const docOffset = projOffset + (showProjects ? projectResults.length : 0)
+  const issueOffset = docOffset + (showDocuments ? documentResults.length : 0)
+  const commentOffset = issueOffset + issueResults.length
+
   const tabs: { id: SearchTab; label: string; count: number }[] = [
     {
       id: 'all',
@@ -117,7 +166,27 @@ export function SearchView() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && query.trim()) addRecentSearch(query)
+            // Arrow keys move the result cursor; ↵ opens the highlighted result
+            // (and records the search term). This keeps focus in the input so the
+            // user can keep refining the query while navigating — like Linear.
+            if (e.key === 'ArrowDown' || (e.key === 'n' && e.ctrlKey)) {
+              if (flatResults.length) {
+                e.preventDefault()
+                setActiveIndex((i) => Math.min(i + 1, flatResults.length - 1))
+              }
+            } else if (e.key === 'ArrowUp' || (e.key === 'p' && e.ctrlKey)) {
+              if (flatResults.length) {
+                e.preventDefault()
+                setActiveIndex((i) => Math.max(i - 1, 0))
+              }
+            } else if (e.key === 'Enter') {
+              if (query.trim()) addRecentSearch(query)
+              const hit = flatResults[activeIndex]
+              if (hit) {
+                e.preventDefault()
+                navigate(hit.href)
+              }
+            }
           }}
           placeholder="Search issues, projects and documents…"
           className="flex-1 bg-transparent text-[15px] text-fg outline-none"
@@ -131,7 +200,7 @@ export function SearchView() {
 
       <FilterBar filters={filters} onChange={setFilters} />
 
-      <div className="flex-1 overflow-y-auto">
+      <div ref={listRef} className="flex-1 overflow-y-auto">
         {!active ? (
           <div className="p-4">
             {data.recentSearches.length === 0 ? (
@@ -201,13 +270,19 @@ export function SearchView() {
                     <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
                       Projects · {projectResults.length}
                     </div>
-                    {projectResults.map((p) => {
+                    {projectResults.map((p, idx) => {
                       const prog = projectProgress(p.id, data.issues, data)
+                      const isActive = projOffset + idx === activeIndex
                       return (
                         <button
                           key={p.id}
+                          data-result-active={isActive}
+                          onMouseMove={() => setActiveIndex(projOffset + idx)}
                           onClick={() => navigate(`/project/${p.id}`)}
-                          className="flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover"
+                          className={cn(
+                            'flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover',
+                            isActive && 'bg-bg-hover',
+                          )}
                         >
                           <span>{p.icon}</span>
                           <span className="text-[13px] text-fg">{p.name}</span>
@@ -224,11 +299,18 @@ export function SearchView() {
                     <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
                       Documents · {documentResults.length}
                     </div>
-                    {documentResults.map((d) => (
+                    {documentResults.map((d, idx) => {
+                      const isActive = docOffset + idx === activeIndex
+                      return (
                       <button
                         key={d.id}
+                        data-result-active={isActive}
+                        onMouseMove={() => setActiveIndex(docOffset + idx)}
                         onClick={() => navigate(`/document/${d.id}`)}
-                        className="flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover"
+                        className={cn(
+                          'flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover',
+                          isActive && 'bg-bg-hover',
+                        )}
                       >
                         <span className="text-[15px] leading-none">{d.icon}</span>
                         <span className="text-[13px] text-fg">
@@ -238,7 +320,8 @@ export function SearchView() {
                           Updated {timeAgo(d.updatedAt)}
                         </span>
                       </button>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
                 {showIssues &&
@@ -247,16 +330,33 @@ export function SearchView() {
                       <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
                         Issues · {issueResults.length + commentResults.length}
                       </div>
-                      {issueResults.map((i) => (
-                        <IssueRow key={i.id} issue={i} />
-                      ))}
+                      {issueResults.map((i, idx) => {
+                        const isActive = issueOffset + idx === activeIndex
+                        return (
+                          <div
+                            key={i.id}
+                            data-result-active={isActive}
+                            onMouseMove={() => setActiveIndex(issueOffset + idx)}
+                            className={cn(isActive && 'bg-bg-hover')}
+                          >
+                            <IssueRow issue={i} />
+                          </div>
+                        )
+                      })}
                       {/* Issues matched only by a comment — show the parent issue
                           with a snippet of the matching discussion. */}
-                      {commentResults.map(({ issue, snippet }) => (
+                      {commentResults.map(({ issue, snippet }, idx) => {
+                        const isActive = commentOffset + idx === activeIndex
+                        return (
                         <button
                           key={issue.id}
+                          data-result-active={isActive}
+                          onMouseMove={() => setActiveIndex(commentOffset + idx)}
                           onClick={() => navigate(`/issue/${issue.identifier}`)}
-                          className="flex w-full items-start gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover"
+                          className={cn(
+                            'flex w-full items-start gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover',
+                            isActive && 'bg-bg-hover',
+                          )}
                         >
                           <MessageSquare
                             size={14}
@@ -276,7 +376,8 @@ export function SearchView() {
                             </span>
                           </span>
                         </button>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
               </>

@@ -42,6 +42,7 @@ import {
   isOverdue,
   timeAgo,
 } from '@/lib/utils'
+import { copyToClipboard } from '@/lib/toast'
 import {
   GitBranch,
   CornerLeftUp,
@@ -52,6 +53,7 @@ import {
   BellOff,
   Plus,
   X,
+  Copy,
 } from 'lucide-react'
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -179,6 +181,24 @@ export function IssueDetailBody({
               </button>
             </div>
           )}
+          {/* Identifier + quick actions — Linear's "Copy as Markdown" lives here,
+              writing the issue's title and description as a Markdown snippet. */}
+          <div className="group/head -mt-1 mb-1 flex items-center gap-2">
+            <span className="font-mono text-[12px] text-faint">{issue.identifier}</span>
+            <button
+              onClick={() =>
+                copyToClipboard(
+                  `# [${issue.identifier}] ${issue.title}\n\n${issue.description ?? ''}`.trimEnd(),
+                  'Copied issue as Markdown',
+                )
+              }
+              title="Copy as Markdown"
+              className="flex items-center gap-1 rounded px-1 py-0.5 text-[11px] text-faint opacity-0 transition-opacity hover:bg-bg-hover hover:text-fg group-hover/head:opacity-100"
+            >
+              <Copy size={11} />
+              Copy as Markdown
+            </button>
+          </div>
           <input
             value={issue.title}
             onChange={(e) => store.setIssueTitle(issue.id, e.target.value)}

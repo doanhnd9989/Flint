@@ -166,6 +166,32 @@ export function RoadmapView() {
   const dayOffset = (d: Date) => differenceInCalendarDays(d, rangeStart) * pxPerDay
   const todayLeft = dayOffset(new Date())
 
+  // Quarter segments spanning the time axis — Linear labels each fiscal quarter
+  // (Q1 2026 …) above the months and draws a divider at every quarter boundary.
+  // We derive them from `months`: a new quarter starts whenever the month index
+  // is a multiple of 3 (Jan/Apr/Jul/Oct), and `left`/`width` come from the first
+  // day of the quarter's first month through the start of the next quarter.
+  const quarters = useMemo(() => {
+    const out: { key: string; label: string; left: number; width: number }[] = []
+    for (let i = 0; i < months.length; i++) {
+      const m = months[i]
+      if (m.getMonth() % 3 !== 0 && i !== 0) continue
+      // Find the month that begins the next quarter (or the range end).
+      let j = i + 1
+      while (j < months.length && months[j].getMonth() % 3 !== 0) j++
+      const left = dayOffset(startOfMonth(m))
+      const endDate = j < months.length ? startOfMonth(months[j]) : endOfMonth(months[months.length - 1])
+      const width = dayOffset(endDate) - left
+      out.push({
+        key: m.toISOString(),
+        label: `Q${Math.floor(m.getMonth() / 3) + 1} ${format(m, 'yyyy')}`,
+        left,
+        width,
+      })
+    }
+    return out
+  }, [months, pxPerDay])
+
   // Bucket the (already sorted) projects into ordered swimlanes for the chosen
   // facet. `none` returns a single unlabeled group so rendering stays uniform.
   type Group = { key: string; label: string; icon?: ReactNode; projects: Project[] }
@@ -295,29 +321,61 @@ export function RoadmapView() {
           />
         ) : (
         <div style={{ width: NAME_W + totalWidth }}>
-          {/* Month header */}
-          <div className="sticky top-0 z-10 flex border-b border-border bg-bg-secondary/95 backdrop-blur">
-            <div
-              className="shrink-0 border-r border-border px-3 py-2 text-[12px] font-medium text-faint"
-              style={{ width: NAME_W }}
-            >
-              Project
+          {/* Header — a quarter band above a month band, both sticky to the top. */}
+          <div className="sticky top-0 z-10 border-b border-border bg-bg-secondary/95 backdrop-blur">
+            {/* Quarter band: Q1 2026 … labels spanning each quarter's months. */}
+            <div className="flex border-b border-border/60">
+              <div
+                className="shrink-0 border-r border-border"
+                style={{ width: NAME_W }}
+              />
+              <div className="relative h-6" style={{ width: totalWidth }}>
+                {quarters.map((q) => (
+                  <div
+                    key={q.key}
+                    className="absolute top-0 bottom-0 flex items-center border-l border-border px-2 text-[11px] font-medium text-muted first:border-l-0"
+                    style={{ left: q.left, width: q.width }}
+                  >
+                    <span className="truncate">{q.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="relative flex">
-              {months.map((m) => (
-                <div
-                  key={m.toISOString()}
-                  className="shrink-0 border-r border-border/60 px-2 py-2 text-[11px] text-faint"
-                  style={{ width: MONTH_W }}
-                >
-                  {format(m, 'MMM yyyy')}
-                </div>
-              ))}
+            {/* Month band. */}
+            <div className="flex">
+              <div
+                className="shrink-0 border-r border-border px-3 py-2 text-[12px] font-medium text-faint"
+                style={{ width: NAME_W }}
+              >
+                Project
+              </div>
+              <div className="relative flex">
+                {months.map((m) => (
+                  <div
+                    key={m.toISOString()}
+                    className="shrink-0 border-r border-border/60 px-2 py-2 text-[11px] text-faint"
+                    style={{ width: MONTH_W }}
+                  >
+                    {format(m, 'MMM yyyy')}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Rows — flat when ungrouped, otherwise collapsible swimlanes. */}
           <div className="relative">
+            {/* Quarter divider lines — vertical rules at each quarter boundary,
+                behind the bars so they read as background gridlines. */}
+            {quarters.map((q) =>
+              q.left <= 0 ? null : (
+                <div
+                  key={q.key}
+                  className="pointer-events-none absolute top-0 bottom-0 z-0 w-px bg-border"
+                  style={{ left: NAME_W + q.left }}
+                />
+              ),
+            )}
             {/* Today line */}
             {todayLeft >= 0 && todayLeft <= totalWidth && (
               <div

@@ -15,9 +15,11 @@ import {
   UserRound,
   LayoutList,
   Columns3,
+  CalendarClock,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
+import { formatDate, isDueSoon, isOverdue } from '@/lib/utils'
 import type {
   Activity,
   ActivityKind,
@@ -301,9 +303,32 @@ function IssueTab({
     showEmptyGroups,
   ])
 
+  // Issues with an upcoming or past-due date that the current user is on the
+  // hook for (overdue first, then soonest). Linear surfaces these in a "Due
+  // soon" callout above the list so deadlines don't slip past the fold.
+  const dueSoon = useMemo<Issue[]>(() => {
+    const me = data.currentUserId
+    return data.issues
+      .filter((i) => {
+        if (i.triage || i.archivedAt) return false
+        if (i.stateId && data.states.find((s) => s.id === i.stateId)?.type === 'completed')
+          return false
+        if (tab === 'assigned' && i.assigneeId !== me) return false
+        if (tab === 'created' && i.creatorId !== me) return false
+        if (tab === 'subscribed' && !i.subscriberIds.includes(me)) return false
+        return isOverdue(i.dueDate) || isDueSoon(i.dueDate)
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.dueDate as string).getTime() -
+          new Date(b.dueDate as string).getTime(),
+      )
+  }, [data, tab])
+
   return (
     <>
       <FilterBar filters={filters} onChange={onFilters} />
+      {layout === 'list' && dueSoon.length > 0 && <DueSoon issues={dueSoon} />}
       {layout === 'board' ? (
         <IssueBoard
           groups={groups}
@@ -325,6 +350,66 @@ function IssueTab({
         />
       )}
     </>
+  )
+}
+
+// ── Due soon callout ───────────────────────────────────────────
+
+/**
+ * Collapsible "Due soon" section pinned above the issue list. Each row links
+ * straight into the issue peek and flags overdue items in red, matching
+ * Linear's deadline callout.
+ */
+function DueSoon({ issues }: { issues: Issue[] }) {
+  const data = useStore()
+  const setPeek = useStore((s) => s.setPeek)
+  const [open, setOpen] = useState(true)
+
+  return (
+    <div className="shrink-0 border-b border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium text-fg hover:bg-bg-hover"
+      >
+        <ChevronRight
+          size={14}
+          className={cn('text-faint transition-transform', open && 'rotate-90')}
+        />
+        <CalendarClock size={14} className="text-orange-500" />
+        <span>Due soon</span>
+        <span className="text-faint tabular-nums">{issues.length}</span>
+      </button>
+      {open &&
+        issues.map((issue) => {
+          const state = data.states.find((s) => s.id === issue.stateId)
+          const overdue = isOverdue(issue.dueDate)
+          return (
+            <button
+              key={issue.id}
+              type="button"
+              onClick={() => setPeek(issue.id)}
+              className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-[13px] hover:bg-bg-hover"
+            >
+              <PriorityIcon priority={issue.priority} />
+              {state && <StatusIcon type={state.type} color={state.color} size={14} />}
+              <span className="shrink-0 font-mono text-[12px] text-muted">
+                {issue.identifier}
+              </span>
+              <span className="truncate text-fg">{issue.title}</span>
+              <span
+                className={cn(
+                  'ml-auto flex shrink-0 items-center gap-1.5',
+                  overdue ? 'text-red-500' : 'text-orange-500',
+                )}
+              >
+                <CalendarClock size={13} />
+                <span>{overdue ? 'Overdue · ' : ''}{formatDate(issue.dueDate)}</span>
+              </span>
+            </button>
+          )
+        })}
+    </div>
   )
 }
 

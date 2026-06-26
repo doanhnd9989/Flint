@@ -284,3 +284,14 @@ surface, plus one new data feature (project dependencies), then 4 bug fixes.
 - [x] 🟡 **Releases search** — case-insensitive search across version + name with clear button + search-aware empty state (also hardened a status-key crash).
 - [x] 🟡 **Pulse CSV export** — Export button downloads the currently-filtered activity feed as RFC-4180 CSV (Date/Type/Actor/Target/Summary) via a client Blob.
 - [x] 🟡 **Archive sort** — header sort picker: Recently archived / Oldest / Identifier over the archived pool.
+
+## Loop #91 — wave 2 (issue / board / workspace)
+
+- [x] 🟡 **Board column estimate sum** — each board column header shows summed estimate points beside the issue count (standard + swimlane modes); hidden when zero.
+- [x] 🟡 **Copy issue as Markdown** — hover action above the issue title copies identifier + title + description as Markdown to the clipboard and fires a toast.
+- [x] 🟡 **Peek expand/restore** — header toggle widens the issue peek panel to near full-width (96vw, cap 1600px) and back; distinct from "Open full page".
+- [x] 🟡 **My Issues "Due soon" section** — collapsible callout above the list surfacing the current user's overdue + within-3-days open issues, overdue-first, overdue flagged red.
+- [x] 🟡 **Triage bulk select** — per-card hover checkbox + `x` toggle, floating bar to batch Accept/Decline, Esc clears, auto-pruned as issues leave the queue.
+- [x] 🟡 **Search keyboard nav** — ↑/↓ (and Ctrl-P/N) move a highlighted result cursor over the flattened result order, Enter opens; auto-scroll + hover sync.
+- [x] 🟡 **Roadmap quarter dividers** — fiscal-quarter band (Q1 2026 …) above the month header + vertical quarter-boundary divider lines across the timeline.
+- [x] 🟡 **Project Overview insights strip** — Scope / Started / Completed counts + completion donut at the top of the project Overview tab, derived from the project's issues.

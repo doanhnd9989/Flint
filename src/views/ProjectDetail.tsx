@@ -163,6 +163,63 @@ function ScopeBar({ issues, states }: { issues: Issue[]; states: WorkflowState[]
   )
 }
 
+/** A single number in the Overview Insights strip (Linear's project header stats). */
+function StatCell({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[18px] font-semibold leading-none text-fg tabular-nums">
+        {value}
+      </span>
+      <span className="text-[11px] text-faint">{label}</span>
+    </div>
+  )
+}
+
+/**
+ * Insights strip — a compact row of headline stats at the top of the Overview
+ * tab, mirroring Linear's project summary. Buckets the project's issues by
+ * workflow-state type into scope (everything but canceled), started (started +
+ * completed) and completed, alongside the rolled-up completion percentage.
+ */
+function InsightsStrip({
+  issues,
+  states,
+  percent,
+}: {
+  issues: Issue[]
+  states: WorkflowState[]
+  percent: number
+}) {
+  const stats = useMemo(() => {
+    const typeById = new Map(states.map((s) => [s.id, s.type]))
+    let scope = 0
+    let started = 0
+    let completed = 0
+    for (const i of issues) {
+      const type = typeById.get(i.stateId)
+      if (!type || type === 'canceled') continue
+      scope++
+      if (type === 'started' || type === 'completed') started++
+      if (type === 'completed') completed++
+    }
+    return { scope, started, completed }
+  }, [issues, states])
+
+  if (stats.scope === 0) return null
+
+  return (
+    <div className="mt-6 flex items-center gap-8 rounded-lg border border-border bg-bg-secondary px-4 py-3">
+      <StatCell label="Scope" value={stats.scope} />
+      <StatCell label="Started" value={stats.started} />
+      <StatCell label="Completed" value={stats.completed} />
+      <div className="ml-auto flex items-center gap-2">
+        <ProgressDonut percent={percent} size={20} />
+        <StatCell label="Completed" value={`${percent}%`} />
+      </div>
+    </div>
+  )
+}
+
 /** Multi-select members field (Properties panel). */
 function MembersField({ project }: { project: Project }) {
   const users = useStore((s) => s.users)
@@ -448,6 +505,9 @@ export function ProjectDetail() {
                   <span className="text-muted">Write first project update</span>
                 )}
               </button>
+
+              {/* Insights — headline scope/started/completed stats */}
+              <InsightsStrip issues={scoped} states={data.states} percent={prog.percent} />
 
               {/* Scope — stacked progress bar by workflow state */}
               <ScopeBar issues={scoped} states={data.states} />
