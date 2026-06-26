@@ -9,6 +9,9 @@ import {
   MoreHorizontal,
   Check,
   Copy,
+  CheckCircle2,
+  Clock,
+  XCircle,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import type { Issue, PullRequest, PullRequestStatus } from '@/lib/types'
@@ -51,6 +54,40 @@ function reviewMeta(
       return { label: 'Approved', color: 'var(--accent)' }
     case 'closed':
       return null
+  }
+}
+
+/** The fixed CI suite we mock per PR — mirrors a typical GitHub Actions setup. */
+const CHECK_NAMES = ['build', 'test', 'lint'] as const
+
+/**
+ * CI/checks summary for a PR row. We have no CI backend, so the result is
+ * derived deterministically from the PR's lifecycle: merged → everything
+ * passed, closed → the run failed, draft → still pending. An open PR's run is
+ * pseudo-random but stable — the id's char-code sum decides pass vs. pending —
+ * so a given PR always renders the same state. Returns the {@link CHECK_NAMES}
+ * pass count, total, and a presentation token. `passed`/`failed`/`pending`.
+ */
+function checksMeta(pr: PullRequest): {
+  state: 'passed' | 'failed' | 'pending'
+  passed: number
+  total: number
+} {
+  const total = CHECK_NAMES.length
+  switch (pr.status) {
+    case 'merged':
+      return { state: 'passed', passed: total, total }
+    case 'closed':
+      return { state: 'failed', passed: 0, total }
+    case 'draft':
+      return { state: 'pending', passed: 0, total }
+    case 'open': {
+      // Stable per-PR coin flip from the id's char-code sum.
+      const sum = [...pr.id].reduce((n, c) => n + c.charCodeAt(0), 0)
+      return sum % 2 === 0
+        ? { state: 'passed', passed: total, total }
+        : { state: 'pending', passed: 0, total }
+    }
   }
 }
 
@@ -123,6 +160,7 @@ export function IssueDevelopment({ issue }: { issue: Issue }) {
           {prs.map((pr) => {
             const meta = statusMeta(pr.status)
             const review = reviewMeta(pr.status)
+            const checks = checksMeta(pr)
             const author = users.find((u) => u.id === pr.authorId)
             return (
               <div
@@ -166,6 +204,37 @@ export function IssueDevelopment({ issue }: { issue: Issue }) {
                         style={{ background: review.color }}
                       />
                       {review.label}
+                    </span>
+                  )}
+                  {checks.state === 'passed' && (
+                    <span
+                      title={`${checks.passed}/${checks.total} checks passed`}
+                      className="hidden shrink-0 items-center gap-1 text-[11px] text-accent sm:flex"
+                    >
+                      <CheckCircle2 size={12} />
+                      Checks passed
+                    </span>
+                  )}
+                  {checks.state === 'pending' && (
+                    <span
+                      title="Checks running"
+                      className="hidden shrink-0 items-center gap-1 text-[11px] text-muted sm:flex"
+                    >
+                      <Clock size={12} />
+                      Checks running
+                    </span>
+                  )}
+                  {checks.state === 'failed' && (
+                    <span
+                      title={`${checks.passed}/${checks.total} checks passed`}
+                      className="hidden shrink-0 items-center gap-1 text-[11px] sm:flex"
+                      style={{ color: 'var(--priority-urgent)' }}
+                    >
+                      <XCircle size={12} />
+                      Checks failed
+                      <span className="font-mono text-faint">
+                        {checks.passed}/{checks.total}
+                      </span>
                     </span>
                   )}
                   {pr.branch && (

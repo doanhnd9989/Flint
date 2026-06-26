@@ -183,6 +183,8 @@ export interface Store extends WorkspaceData, UIState {
   unarchiveIssue: (id: string) => void
   /** Set / clear a personal reminder (ISO time) on an issue. */
   setIssueReminder: (id: string, remindAt?: string) => void
+  /** Set / clear the note shown on a reminder row. */
+  setReminderNote: (id: string, note?: string) => void
   /** Record an issue as recently viewed (newest first, deduped, capped). */
   pushRecentIssue: (id: string) => void
 
@@ -208,6 +210,8 @@ export interface Store extends WorkspaceData, UIState {
   createLabelGroup: (name: string) => Label
   updateLabel: (id: string, patch: Partial<Pick<Label, 'name' | 'color' | 'groupId'>>) => void
   deleteLabel: (id: string) => void
+  /** Merge `sourceId` into `targetId`: reassign every issue's label, then delete the source. */
+  mergeLabel: (sourceId: string, targetId: string) => void
   createInitiative: (i: Omit<Initiative, 'id' | 'createdAt' | 'sortOrder'>) => Initiative
   updateInitiative: (id: string, patch: Partial<Initiative>) => void
   deleteInitiative: (id: string) => void
@@ -236,6 +240,8 @@ export interface Store extends WorkspaceData, UIState {
   setTeamEstimation: (teamId: string, patch: Partial<Pick<Team, 'estimationType' | 'estimationAllowZero'>>) => void
   /** Enable / disable cycles for a team (team Cycles settings page). */
   setTeamCyclesEnabled: (teamId: string, enabled: boolean) => void
+  /** Update a team's general settings (name / color / timezone / privacy). */
+  updateTeam: (teamId: string, patch: Partial<Pick<Team, 'name' | 'color' | 'icon' | 'timezone' | 'private'>>) => void
 
   // ── customers (Linear's CRM-lite) ────────────────────────────
   createCustomer: (input: Omit<Customer, 'id' | 'createdAt'>) => Customer
@@ -265,12 +271,16 @@ export interface Store extends WorkspaceData, UIState {
   createDocument: (input?: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId'>>) => Document
   updateDocument: (id: string, patch: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId'>>) => void
   deleteDocument: (id: string) => void
+  /** Clone a document ("<title> (Copy)") and return the copy. */
+  duplicateDocument: (id: string) => Document | undefined
 
   setUserRole: (id: string, role: UserRole) => void
   inviteMember: (email: string, role: UserRole) => void
   removeUser: (id: string) => void
-  /** Edit a user's profile (name / email). Used by the Profile settings page. */
-  updateUser: (id: string, patch: Partial<Pick<User, 'name' | 'email'>>) => void
+  /** Suspend / reactivate a member (keeps history, distinct from remove). */
+  setUserSuspended: (id: string, suspended: boolean) => void
+  /** Edit a user's profile. Used by the Profile settings page. */
+  updateUser: (id: string, patch: Partial<Pick<User, 'name' | 'email' | 'username' | 'timezone' | 'bio'>>) => void
   /** Rename the workspace (Administration → Workspace settings). */
   setWorkspaceName: (name: string) => void
   createState: (s: Omit<WorkflowState, 'id'>) => WorkflowState
@@ -785,11 +795,27 @@ export const useStore = create<Store>()(
         }),
 
       setIssueDescription: (id, description) =>
-        set((s) => ({
-          issues: s.issues.map((i) =>
-            i.id === id ? { ...i, description, updatedAt: nowIso() } : i,
-          ),
-        })),
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue || issue.description === description) {
+            return {
+              issues: s.issues.map((i) =>
+                i.id === id ? { ...i, description, updatedAt: nowIso() } : i,
+              ),
+            }
+          }
+          const had = issue.description.trim().length > 0
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id ? { ...i, description, updatedAt: nowIso() } : i,
+            ),
+            // Log "added" (from empty) vs "updated" the description.
+            activities: [
+              ...s.activities,
+              logActivity(s, id, 'description', had ? 'edit' : undefined, 'set'),
+            ],
+          }
+        }),
 
       moveIssue: (id, stateId, sortOrder) =>
         set((s) => {
@@ -884,6 +910,15 @@ export const useStore = create<Store>()(
         set((s) => ({
           issues: s.issues.map((i) =>
             i.id === id ? { ...i, remindAt, updatedAt: nowIso() } : i,
+          ),
+        })),
+
+      setReminderNote: (id, note) =>
+        set((s) => ({
+          issues: s.issues.map((i) =>
+            i.id === id
+              ? { ...i, remindNote: note?.trim() || undefined }
+              : i,
           ),
         })),
 
@@ -1044,6 +1079,28 @@ export const useStore = create<Store>()(
               : i,
           ),
         })),
+
+      // Merge `sourceId` into `targetId`: every issue carrying the source label
+      // gets the target instead (deduped), then the source label is removed.
+      mergeLabel: (sourceId, targetId) =>
+        set((s) => {
+          if (sourceId === targetId) return s
+          return {
+            labels: s.labels.filter((l) => l.id !== sourceId),
+            issues: s.issues.map((i) =>
+              i.labelIds.includes(sourceId)
+                ? {
+                    ...i,
+                    labelIds: Array.from(
+                      new Set(
+                        i.labelIds.map((l) => (l === sourceId ? targetId : l)),
+                      ),
+                    ),
+                  }
+                : i,
+            ),
+          }
+        }),
 
       createInitiative: (i) => {
         const initiative: Initiative = {
@@ -1285,6 +1342,11 @@ export const useStore = create<Store>()(
           ),
         })),
 
+      updateTeam: (teamId, patch) =>
+        set((s) => ({
+          teams: s.teams.map((t) => (t.id === teamId ? { ...t, ...patch } : t)),
+        })),
+
       createDocument: (input) => {
         const s = get()
         const ts = nowIso()
@@ -1313,6 +1375,25 @@ export const useStore = create<Store>()(
 
       deleteDocument: (id) =>
         set((s) => ({ documents: s.documents.filter((d) => d.id !== id) })),
+
+      duplicateDocument: (id) => {
+        const s = get()
+        const src = s.documents.find((d) => d.id === id)
+        if (!src) return undefined
+        const ts = nowIso()
+        const maxSort = s.documents.reduce((m, d) => Math.max(m, d.sortOrder), 0)
+        const copy: Document = {
+          ...src,
+          id: `doc_${nanoid(8)}`,
+          title: `${src.title || 'Untitled'} (Copy)`,
+          creatorId: s.currentUserId,
+          createdAt: ts,
+          updatedAt: ts,
+          sortOrder: maxSort + 100,
+        }
+        set({ documents: [...s.documents, copy] })
+        return copy
+      },
 
       // ── customers ─────────────────────────────────────────────
       createCustomer: (input) => {
@@ -1458,6 +1539,15 @@ export const useStore = create<Store>()(
         set((s) => ({
           users: s.users.map((u) => (u.id === id ? { ...u, ...patch } : u)),
         })),
+
+      setUserSuspended: (id, suspended) =>
+        set((s) => {
+          const me = s.users.find((u) => u.isMe)
+          if (me?.id === id) return s // never suspend yourself
+          return {
+            users: s.users.map((u) => (u.id === id ? { ...u, suspended } : u)),
+          }
+        }),
 
       setWorkspaceName: (name) => set({ workspaceName: name.trim() || 'Workspace' }),
 

@@ -4,7 +4,7 @@ import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import { LABEL_COLORS, PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
-import { displayName } from '@/lib/utils'
+import { displayName, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { Issue, WorkflowState } from '@/lib/types'
 
@@ -263,6 +263,157 @@ function Legend({ series }: { series: Series[] }) {
   )
 }
 
+/**
+ * One bucket of the Created-vs-Completed time series: its bucket-start timestamp
+ * (for the x-axis date labels) plus the count of issues created / completed that
+ * landed in this bucket.
+ */
+interface TimePoint {
+  t: number
+  created: number
+  completed: number
+}
+
+/**
+ * Inline SVG line/area chart for the Created-vs-Completed series — Linear's
+ * Insights "Created vs Completed" trend. Two overlaid lines (Created in muted
+ * grey, Completed in accent) with a faint area fill under each, light
+ * horizontal gridlines, Y ticks, start/mid/end date labels and a small legend.
+ * No chart library — pure SVG on a fixed viewBox, scaled responsively. Handles
+ * empty and single-point ranges (a lone point renders as a dot).
+ */
+function TimeSeriesChart({ points }: { points: TimePoint[] }) {
+  if (points.length === 0) {
+    return <div className="px-1 py-6 text-center text-[12px] text-faint">No data</div>
+  }
+
+  // Fixed drawing surface — the SVG scales to the card width via the viewBox.
+  const W = 720
+  const H = 200
+  const padL = 28
+  const padR = 12
+  const padT = 12
+  const padB = 22
+  const plotW = W - padL - padR
+  const plotH = H - padT - padB
+
+  // Y scale: round the max up to a "nice" tick step so the gridlines land on
+  // whole numbers; never below 1 so a flat-zero series still draws a baseline.
+  const peak = points.reduce((m, p) => Math.max(m, p.created, p.completed), 0)
+  const niceMax = Math.max(1, peak)
+  const tickCount = 4
+  const yTicks = Array.from({ length: tickCount + 1 }, (_, i) => Math.round((niceMax * i) / tickCount))
+
+  // X positions — a single point sits centered so it reads as a lone marker.
+  const xAt = (idx: number) =>
+    padL + (points.length === 1 ? plotW / 2 : (idx / (points.length - 1)) * plotW)
+  const yAt = (v: number) => padT + plotH - (v / niceMax) * plotH
+
+  // Build a polyline path + a closed area path (down to the baseline) for one series.
+  const linePath = (sel: (p: TimePoint) => number) =>
+    points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i).toFixed(1)} ${yAt(sel(p)).toFixed(1)}`).join(' ')
+  const areaPath = (sel: (p: TimePoint) => number) => {
+    const base = padT + plotH
+    const top = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i).toFixed(1)} ${yAt(sel(p)).toFixed(1)}`).join(' ')
+    return `${top} L ${xAt(points.length - 1).toFixed(1)} ${base.toFixed(1)} L ${xAt(0).toFixed(1)} ${base.toFixed(1)} Z`
+  }
+
+  // Start / mid / end x-axis date labels (mid is dropped when too few points).
+  const midIdx = Math.floor((points.length - 1) / 2)
+  const xLabels =
+    points.length === 1
+      ? [{ idx: 0, anchor: 'middle' as const }]
+      : [
+          { idx: 0, anchor: 'start' as const },
+          ...(points.length > 2 ? [{ idx: midIdx, anchor: 'middle' as const }] : []),
+          { idx: points.length - 1, anchor: 'end' as const },
+        ]
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Created versus completed over time">
+        {/* Horizontal gridlines + Y tick labels. */}
+        {yTicks.map((v) => {
+          const y = yAt(v)
+          return (
+            <g key={v}>
+              <line
+                x1={padL}
+                x2={W - padR}
+                y1={y}
+                y2={y}
+                stroke="currentColor"
+                strokeWidth={1}
+                className="text-border"
+              />
+              <text x={padL - 6} y={y + 3} textAnchor="end" className="fill-faint text-[9px] tabular-nums">
+                {v}
+              </text>
+            </g>
+          )
+        })}
+
+        {/* Created series — muted grey area + line. */}
+        <path d={areaPath((p) => p.created)} className="fill-muted opacity-[0.08]" />
+        <path
+          d={linePath((p) => p.created)}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          className="text-muted"
+        />
+
+        {/* Completed series — accent area + line, drawn on top. */}
+        <path d={areaPath((p) => p.completed)} className="fill-accent opacity-[0.12]" />
+        <path
+          d={linePath((p) => p.completed)}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          className="text-accent"
+        />
+
+        {/* Single-point ranges have no line to draw — show each value as a dot. */}
+        {points.length === 1 && (
+          <>
+            <circle cx={xAt(0)} cy={yAt(points[0].created)} r={3} className="fill-muted" />
+            <circle cx={xAt(0)} cy={yAt(points[0].completed)} r={3} className="fill-accent" />
+          </>
+        )}
+
+        {/* x-axis date labels. */}
+        {xLabels.map(({ idx, anchor }) => (
+          <text
+            key={idx}
+            x={xAt(idx)}
+            y={H - 6}
+            textAnchor={anchor}
+            className="fill-faint text-[9px]"
+          >
+            {formatDate(new Date(points[idx].t).toISOString())}
+          </text>
+        ))}
+      </svg>
+
+      {/* Legend. */}
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5">
+        <span className="inline-flex items-center gap-1.5 text-[11px] text-muted">
+          <span className="h-0.5 w-3 shrink-0 rounded-full bg-muted" />
+          Created
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-[11px] text-muted">
+          <span className="h-0.5 w-3 shrink-0 rounded-full bg-accent" />
+          Completed
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-border bg-bg p-5">
@@ -377,6 +528,50 @@ export function InsightsView() {
 
     return { total, completed, started, backlog, unstarted, rate, points, avgCycle }
   }, [issues, stateById, measure])
+
+  // ── Created vs Completed time series ───────────────────────────────────────
+  // Bucket the range/team-filtered cohort by createdAt and completedAt across
+  // the active window. Window start is the range cutoff (or the earliest
+  // createdAt for "all time"); window end is now. Day buckets for ≤31-day spans,
+  // weekly buckets beyond that, so the line stays readable at every zoom.
+  const timeSeries = useMemo<TimePoint[]>(() => {
+    const now = Date.now()
+    let start = cutoff
+    if (start === null) {
+      // "All time" — span from the earliest createdAt in the cohort.
+      let earliest = now
+      for (const i of issues) earliest = Math.min(earliest, new Date(i.createdAt).getTime())
+      start = earliest
+    }
+    if (!Number.isFinite(start) || start > now) start = now
+
+    const DAY = 86_400_000
+    const spanDays = Math.max(1, Math.ceil((now - start) / DAY))
+    const weekly = spanDays > 31
+    const bucketMs = weekly ? 7 * DAY : DAY
+    // Align the window start to bucket boundaries so labels read as whole days.
+    const start0 = Math.floor(start / DAY) * DAY
+    const bucketCount = Math.max(1, Math.ceil((now - start0) / bucketMs) + 1)
+
+    const pts: TimePoint[] = Array.from({ length: bucketCount }, (_, k) => ({
+      t: start0 + k * bucketMs,
+      created: 0,
+      completed: 0,
+    }))
+    const bucketOf = (ts: number) => {
+      const idx = Math.floor((ts - start0) / bucketMs)
+      return idx >= 0 && idx < bucketCount ? idx : -1
+    }
+    for (const i of issues) {
+      const ci = bucketOf(new Date(i.createdAt).getTime())
+      if (ci >= 0) pts[ci].created++
+      if (i.completedAt) {
+        const di = bucketOf(new Date(i.completedAt).getTime())
+        if (di >= 0) pts[di].completed++
+      }
+    }
+    return pts
+  }, [issues, cutoff])
 
   // ── breakdown by workflow status ───────────────────────────────────────────
   const byStatus = useMemo<Bar[]>(() => {
@@ -727,9 +922,17 @@ export function InsightsView() {
             />
           </div>
 
+          {/* Created vs Completed trend — two overlaid lines over the active
+              range/team cohort, bucketed by day (≤31d) or week. */}
+          <div className="mt-6">
+            <Card title="Created vs Completed" subtitle="Issues opened and closed over the selected range">
+              <TimeSeriesChart points={timeSeries} />
+            </Card>
+          </div>
+
           {/* Featured breakdown — driven by the "Group by" selector + sort, and
               optionally segmented into a stacked bar by the "Split by" dimension. */}
-          <div className="mt-6">
+          <div className="mt-4">
             {splitBy !== 'none' && splitBy !== groupBy ? (
               <Card
                 title={`By ${grouped.label.toLowerCase()}`}

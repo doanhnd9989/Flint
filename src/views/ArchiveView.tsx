@@ -10,27 +10,33 @@ import { EmptyState, IssuesIllustration } from '@/components/EmptyState'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { timeAgo } from '@/lib/utils'
-import type { Issue, Team, User, WorkflowState } from '@/lib/types'
+import type { Issue, Project, Team, User, WorkflowState } from '@/lib/types'
 
 /**
  * Archive — workspace view listing every archived issue (those with a truthy
- * `archivedAt`). Rows are grouped by team and ordered newest-archived first.
- * Hovering a row reveals Restore (unarchive) and Delete (permanent) actions;
- * clicking the row body opens the issue.
+ * `archivedAt`). Rows are grouped by team (or, optionally, by project) and
+ * ordered newest-archived first. Hovering a row reveals Restore (unarchive) and
+ * Delete (permanent) actions; clicking the row body opens the issue.
  */
 export function ArchiveView() {
   const navigate = useNavigate()
   const issues = useStore((s) => s.issues)
   const teams = useStore((s) => s.teams)
+  const projects = useStore((s) => s.projects)
   const users = useStore((s) => s.users)
   const states = useStore((s) => s.states)
   const unarchiveIssue = useStore((s) => s.unarchiveIssue)
   const deleteIssue = useStore((s) => s.deleteIssue)
 
-  // Local-only header filters: a free-text query (identifier/title substring)
-  // and a team picker. They compose with AND.
+  // Local-only header filters: a free-text query (identifier/title substring),
+  // a team picker and a project picker. They compose with AND.
   const [query, setQuery] = useState('')
   const [teamFilter, setTeamFilter] = useState<string>('all')
+  const [projectFilter, setProjectFilter] = useState<string>('all')
+
+  // Group results by team (default, matching Linear) or by project.
+  type GroupBy = 'team' | 'project'
+  const [groupBy, setGroupBy] = useState<GroupBy>('team')
 
   // Sort order for the archived pool. "recent" (newest-archived first) is the
   // default, matching Linear; "oldest" reverses it, "identifier" sorts by the
@@ -72,11 +78,16 @@ export function ArchiveView() {
     )
   }, [issues, sort])
 
-  // Apply the header filters (query substring + team) with AND semantics.
+  // Apply the header filters (query substring + team + project) with AND
+  // semantics. The "none" project sentinel matches issues with no project.
   const archived = useMemo(() => {
     const q = query.trim().toLowerCase()
     return allArchived.filter((i) => {
       if (teamFilter !== 'all' && i.teamId !== teamFilter) return false
+      if (projectFilter !== 'all') {
+        if (projectFilter === 'none' ? !!i.projectId : i.projectId !== projectFilter)
+          return false
+      }
       if (
         q &&
         !i.identifier.toLowerCase().includes(q) &&
@@ -85,7 +96,7 @@ export function ArchiveView() {
         return false
       return true
     })
-  }, [allArchived, query, teamFilter])
+  }, [allArchived, query, teamFilter, projectFilter])
 
   // Team filter options: "All teams" + every team in the workspace.
   const teamOptions = useMemo<SelectOption[]>(
@@ -107,6 +118,47 @@ export function ArchiveView() {
       ? 'All teams'
       : (teams.find((t) => t.id === teamFilter)?.name ?? 'All teams')
 
+  // Project filter options: "All projects" + every project that actually has an
+  // archived issue (so the picker never lists empty buckets), plus a "No
+  // project" entry when some archived issue lacks a project.
+  const archivedProjectIds = useMemo(() => {
+    const ids = new Set<string>()
+    let hasNone = false
+    for (const i of allArchived) {
+      if (i.projectId) ids.add(i.projectId)
+      else hasNone = true
+    }
+    return { ids, hasNone }
+  }, [allArchived])
+
+  const projectOptions = useMemo<SelectOption[]>(() => {
+    const opts: SelectOption[] = [
+      { id: 'all', label: 'All projects', selected: projectFilter === 'all' },
+      ...projects
+        .filter((p) => archivedProjectIds.ids.has(p.id))
+        .map((p) => ({
+          id: p.id,
+          label: p.name,
+          selected: projectFilter === p.id,
+        })),
+    ]
+    if (archivedProjectIds.hasNone)
+      opts.push({
+        id: 'none',
+        label: 'No project',
+        selected: projectFilter === 'none',
+      })
+    return opts
+  }, [projects, archivedProjectIds, projectFilter])
+
+  // Label for the project-filter trigger chip.
+  const projectFilterLabel =
+    projectFilter === 'all'
+      ? 'All projects'
+      : projectFilter === 'none'
+        ? 'No project'
+        : (projects.find((p) => p.id === projectFilter)?.name ?? 'All projects')
+
   // Sort picker options + the human label for its trigger chip.
   const sortLabels: Record<SortKey, string> = {
     recent: 'Recently archived',
@@ -125,21 +177,55 @@ export function ArchiveView() {
     [sort],
   )
 
-  // Group the (already sorted) archived issues by team, preserving order.
+  // Group the (already sorted) archived issues, preserving order. A group's key
+  // is its team id or project id depending on `groupBy`; each carries a display
+  // `label`, an optional `icon` (team emoji), and a stable `key` for React.
   const groups = useMemo(() => {
+    type Group = { key: string; label: string; icon?: string; items: Issue[] }
+    if (groupBy === 'project') {
+      const projectById = new Map<string, Project>()
+      for (const p of projects) projectById.set(p.id, p)
+      const byProject = new Map<string, Group>()
+      let none: Group | undefined
+      for (const i of archived) {
+        if (!i.projectId) {
+          if (!none) none = { key: 'none', label: 'No project', items: [] }
+          none.items.push(i)
+          continue
+        }
+        let g = byProject.get(i.projectId)
+        if (!g) {
+          g = {
+            key: i.projectId,
+            label: projectById.get(i.projectId)?.name ?? 'Unknown project',
+            items: [],
+          }
+          byProject.set(i.projectId, g)
+        }
+        g.items.push(i)
+      }
+      // "No project" bucket always sorts last.
+      return none ? [...byProject.values(), none] : [...byProject.values()]
+    }
     const teamById = new Map<string, Team>()
     for (const t of teams) teamById.set(t.id, t)
-    const byTeam = new Map<string, { team: Team | undefined; items: Issue[] }>()
+    const byTeam = new Map<string, Group>()
     for (const i of archived) {
       let g = byTeam.get(i.teamId)
       if (!g) {
-        g = { team: teamById.get(i.teamId), items: [] }
+        const team = teamById.get(i.teamId)
+        g = {
+          key: i.teamId,
+          label: team?.name ?? 'Unknown team',
+          icon: team?.icon,
+          items: [],
+        }
         byTeam.set(i.teamId, g)
       }
       g.items.push(i)
     }
     return [...byTeam.values()]
-  }, [archived, teams])
+  }, [archived, teams, projects, groupBy])
 
   // Ids currently visible under the active filters — the universe the header
   // checkbox toggles and the bound for "all selected".
@@ -346,6 +432,39 @@ export function ArchiveView() {
                 </span>
               }
             />
+            <SelectMenu
+              width={200}
+              align="end"
+              options={projectOptions}
+              onSelect={setProjectFilter}
+              placeholder="Filter by project…"
+              trigger={
+                <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
+                  <span className="max-w-[120px] truncate">{projectFilterLabel}</span>
+                  <ChevronDown size={13} className="shrink-0 text-faint" />
+                </span>
+              }
+            />
+            {/* Group-by segment — swaps the section headers between team and
+                project, mirroring Linear's grouping control. */}
+            <div className="flex items-center rounded-md border border-border bg-bg-tertiary p-0.5 text-[12px]">
+              {(['team', 'project'] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setGroupBy(g)}
+                  aria-pressed={groupBy === g}
+                  className={cn(
+                    'rounded px-2 py-0.5 capitalize transition-colors',
+                    groupBy === g
+                      ? 'bg-bg-selected text-fg'
+                      : 'text-muted hover:text-fg',
+                  )}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </ViewHeader>
@@ -361,16 +480,16 @@ export function ArchiveView() {
           <EmptyState
             illustration={<IssuesIllustration />}
             title="No matching issues"
-            description="No archived issues match your search or team filter."
+            description="No archived issues match your search, team or project filter."
           />
         ) : (
           <div className="mx-auto max-w-3xl px-6 py-6">
             {groups.map((g) => (
-              <div key={g.team?.id ?? 'unknown'} className="mb-6 last:mb-0">
-                {/* Team section header */}
+              <div key={g.key} className="mb-6 last:mb-0">
+                {/* Group section header (team or project) */}
                 <div className="mb-1 flex items-center gap-1.5 px-1 text-[12px] font-medium text-muted">
-                  {g.team?.icon && <span>{g.team.icon}</span>}
-                  <span>{g.team?.name ?? 'Unknown team'}</span>
+                  {g.icon && <span>{g.icon}</span>}
+                  <span>{g.label}</span>
                   <span className="tabular-nums text-faint">{g.items.length}</span>
                 </div>
 

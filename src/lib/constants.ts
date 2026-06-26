@@ -284,3 +284,24 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 }
 
 export const STORAGE_KEY = 'linear-clone-store-v1'
+
+/** A small curated IANA timezone list for profile / team timezone pickers. */
+export const TIMEZONES: { value: string; label: string }[] = [
+  { value: 'Pacific/Honolulu', label: '(GMT−10) Honolulu' },
+  { value: 'America/Anchorage', label: '(GMT−9) Anchorage' },
+  { value: 'America/Los_Angeles', label: '(GMT−8) Pacific Time' },
+  { value: 'America/Denver', label: '(GMT−7) Mountain Time' },
+  { value: 'America/Chicago', label: '(GMT−6) Central Time' },
+  { value: 'America/New_York', label: '(GMT−5) Eastern Time' },
+  { value: 'America/Sao_Paulo', label: '(GMT−3) São Paulo' },
+  { value: 'Europe/London', label: '(GMT+0) London' },
+  { value: 'Europe/Paris', label: '(GMT+1) Paris / Berlin' },
+  { value: 'Europe/Athens', label: '(GMT+2) Athens / Helsinki' },
+  { value: 'Europe/Moscow', label: '(GMT+3) Moscow' },
+  { value: 'Asia/Dubai', label: '(GMT+4) Dubai' },
+  { value: 'Asia/Kolkata', label: '(GMT+5:30) India' },
+  { value: 'Asia/Singapore', label: '(GMT+8) Singapore' },
+  { value: 'Asia/Tokyo', label: '(GMT+9) Tokyo' },
+  { value: 'Australia/Sydney', label: '(GMT+11) Sydney' },
+  { value: 'Pacific/Auckland', label: '(GMT+13) Auckland' },
+]

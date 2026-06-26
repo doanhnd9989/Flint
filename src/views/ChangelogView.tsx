@@ -221,6 +221,13 @@ export function ChangelogView() {
     data.issues.some((i) => isCompleted(i) && !i.archivedAt)
   const empty = entries.length === 0 && recent.length === 0
 
+  // Smooth-scroll the matching release article into view. Reuses the per-entry
+  // anchor id (`#${release.id}`) the copy-link affordance already links to.
+  const scrollToEntry = (releaseId: string) => {
+    const el = document.getElementById(releaseId)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <div className="flex h-full flex-col">
       <ViewHeader title="Changelog">
@@ -290,7 +297,8 @@ export function ChangelogView() {
         />
       ) : (
         <div className="flex-1 overflow-y-auto bg-bg-secondary">
-          <div className="mx-auto max-w-3xl px-8 py-8">
+          <div className="mx-auto flex max-w-5xl gap-10 px-8 py-8">
+            <div className="min-w-0 max-w-3xl flex-1">
             <div className="mb-6">
               <h1 className="text-[18px] font-semibold tracking-tight text-fg">
                 What's shipped
@@ -315,7 +323,11 @@ export function ChangelogView() {
                   {group.entries.map((entry) => {
                     const meta = RELEASE_STATUS[entry.release.status]
                     return (
-                      <article key={entry.release.id} className="group/release relative">
+                      <article
+                        key={entry.release.id}
+                        id={entry.release.id}
+                        className="group/release relative scroll-mt-8"
+                      >
                         {/* dot on the rail */}
                         <span className="absolute -left-[33px] top-1 h-2.5 w-2.5 rounded-full bg-accent ring-4 ring-bg-secondary" />
                         <div className="flex items-center gap-2">
@@ -405,6 +417,46 @@ export function ChangelogView() {
                 </article>
               )}
             </div>
+            </div>
+
+            {/* Sticky version index — one row per release (version + date),
+                grouped under its month, smooth-scrolling to that article on
+                click. Reuses the same `#${release.id}` anchors as copy-link.
+                Hidden on narrow viewports where the column won't fit. */}
+            {monthGroups.length > 0 && (
+              <aside className="hidden w-52 shrink-0 lg:block">
+                <nav className="sticky top-8 space-y-4">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-wide text-faint">
+                    Versions
+                  </h2>
+                  {monthGroups.map((group) => (
+                    <div key={group.key} className="space-y-1">
+                      <h3 className="text-[12px] font-medium tracking-tight text-muted">
+                        {group.label}
+                      </h3>
+                      <ul className="space-y-0.5">
+                        {group.entries.map((entry) => (
+                          <li key={entry.release.id}>
+                            <button
+                              type="button"
+                              onClick={() => scrollToEntry(entry.release.id)}
+                              className="flex w-full items-baseline gap-2 rounded px-2 py-1 text-left transition-colors hover:bg-bg-hover"
+                            >
+                              <span className="shrink-0 text-[12px] font-medium tabular-nums text-fg">
+                                {entry.release.version}
+                              </span>
+                              <span className="min-w-0 flex-1 truncate text-[12px] text-faint">
+                                {formatFullDate(entry.release.releasedAt)}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </nav>
+              </aside>
+            )}
           </div>
         </div>
       )}

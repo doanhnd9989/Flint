@@ -24,6 +24,7 @@ const KIND_LABELS: Record<ActivityKind, string> = {
   dueDate: 'Changed due date',
   link: 'Added link',
   parent: 'Changed parent',
+  description: 'Updated description',
 }
 
 const kindLabel = (kind: ActivityKind): string => KIND_LABELS[kind] ?? 'Updated issue'

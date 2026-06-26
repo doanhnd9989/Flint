@@ -140,6 +140,7 @@ const VERB: Record<ActivityKind | 'comment', string> = {
   dueDate: 'changed the due date of',
   link: 'added a link to',
   parent: 'changed the parent of',
+  description: 'updated the description of',
 }
 
 function KindIcon({ kind }: { kind: ActivityKind | 'comment' }) {

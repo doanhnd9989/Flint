@@ -28,6 +28,14 @@ export interface User {
   role: UserRole
   isMe?: boolean
   pending?: boolean
+  /** Suspended members keep their history but lose access (Linear admin). */
+  suspended?: boolean
+  /** Unique handle (Linear profile). Optional. */
+  username?: string
+  /** IANA timezone string, e.g. "America/New_York". Optional. */
+  timezone?: string
+  /** Short profile bio. Optional. */
+  bio?: string
 }
 
 export interface Label {
@@ -57,6 +65,8 @@ export interface Team {
   icon: string
   color: string
   private?: boolean
+  /** IANA timezone driving cycle/SLA timing. Optional (defaults to local). */
+  timezone?: string
   memberIds: string[]
   /** Estimation scale for this team. Optional (defaults to fibonacci). */
   estimationType?: EstimationType
@@ -100,6 +110,8 @@ export interface Customer {
   arr?: number
   /** Customer-success owner. */
   ownerId?: string
+  /** Free-text account notes / about (key contacts, renewal notes). Optional. */
+  notes?: string
   createdAt: string
 }
 
@@ -250,6 +262,7 @@ export type ActivityKind =
   | 'dueDate'
   | 'link'
   | 'parent'
+  | 'description'
 
 export interface Activity {
   id: string
@@ -297,6 +310,8 @@ export interface Issue {
   archivedAt?: string
   /** Personal reminder time (ISO). Surfaces the issue back in Reminders. Optional. */
   remindAt?: string
+  /** Short note attached to the reminder ("follow up on…"). Optional. */
+  remindNote?: string
 }
 
 /**
@@ -555,7 +570,13 @@ export interface NotificationSettings {
   dpa: boolean
 }
 
-export type FavoriteType = 'issue' | 'project' | 'view'
+export type FavoriteType =
+  | 'issue'
+  | 'project'
+  | 'view'
+  | 'document'
+  | 'customer'
+  | 'release'
 
 export interface Favorite {
   type: FavoriteType
@@ -590,4 +611,12 @@ export interface Preferences {
   autoAssignSelf: boolean
   /** When moving an unassigned issue to a started state, assign it to you. */
   assignSelfOnStart: boolean
+  /** Underline links in rich text. Optional (defaults off). */
+  underlineLinks?: boolean
+  /** Reduce non-essential motion/animations. Optional (defaults off). */
+  reduceMotion?: boolean
+  /** Enable browser spell check in editors. Optional (defaults on). */
+  spellCheck?: boolean
+  /** Show issue counts next to sidebar items. Optional (defaults on). */
+  showSidebarCounts?: boolean
 }

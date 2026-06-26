@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useStore } from '@/lib/store'
 import type { Issue, RelationType } from '@/lib/types'
+import { issueUrl } from '@/lib/utils'
+import { copyToClipboard } from '@/lib/toast'
 import { StatusIcon } from './StatusIcon'
 import { SelectMenu, type SelectOption } from './ui/SelectMenu'
-import { X, Plus, ChevronDown, ChevronRight } from 'lucide-react'
+import { X, Plus, ChevronDown, ChevronRight, Link2 } from 'lucide-react'
 
 interface RelRow {
   relationId: string
@@ -56,6 +58,18 @@ function Group({
                 <StatusIcon type={st.type} color={st.color} />
                 <span className="font-mono text-[11px] text-faint">{other.identifier}</span>
                 <span className="truncate text-[13px] text-fg">{other.title}</span>
+              </button>
+              <button
+                onClick={() =>
+                  copyToClipboard(
+                    `[${other.identifier} ${other.title}](${issueUrl(other.identifier)})`,
+                    'Markdown link copied to clipboard',
+                  )
+                }
+                className="text-faint opacity-0 hover:text-fg group-hover:opacity-100"
+                title="Copy as Markdown link"
+              >
+                <Link2 size={13} />
               </button>
               <button
                 onClick={() => onRemove(relationId)}

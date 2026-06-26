@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ChevronRight,
   ChevronDown,
@@ -7,9 +8,12 @@ import {
   FolderClosed,
   Download,
   Copy,
+  ArrowUpRight,
 } from 'lucide-react'
 import { copyToClipboard } from '@/lib/toast'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
+import { Markdown } from '@/lib/markdown'
+import { HealthBadge } from '@/components/ProjectUpdates'
 import type {
   Activity,
   ActivityKind,
@@ -188,6 +192,16 @@ export function PulseView() {
   const [actorFilter, setActorFilter] = useState<string>('all')
   const [scope, setScope] = useState<Scope>('all')
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  // Which project/initiative-update rows are expanded to reveal their full
+  // markdown body + health badge inline (Linear lets you peek an update in
+  // place). Keyed by event id.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggleExpand = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   // Windowed pagination — how many events of the filtered stream are revealed.
   // Starts at one page; "Load more" grows it. Reset to the first page whenever
   // the filters change so a fresh selection always opens at the top.
@@ -516,9 +530,13 @@ export function PulseView() {
                       issues={issues}
                       projects={projects}
                       initiatives={initiatives}
+                      projectUpdates={projectUpdates}
+                      initiativeUpdates={initiativeUpdates}
                       users={users}
                       fmt={fmt}
                       onPeek={setPeek}
+                      expanded={expanded.has(e.id)}
+                      onToggleExpand={() => toggleExpand(e.id)}
                     />
                   ))}
               </div>
@@ -554,9 +572,15 @@ interface RowProps {
   issues: ReturnType<typeof useStore.getState>['issues']
   projects: ReturnType<typeof useStore.getState>['projects']
   initiatives: ReturnType<typeof useStore.getState>['initiatives']
+  projectUpdates: ReturnType<typeof useStore.getState>['projectUpdates']
+  initiativeUpdates: ReturnType<typeof useStore.getState>['initiativeUpdates']
   users: ReturnType<typeof useStore.getState>['users']
   fmt: (name: string | undefined) => string
   onPeek: (issueId: string) => void
+  /** Whether this row's update body is expanded inline. */
+  expanded?: boolean
+  /** Toggle inline expansion (project/initiative-update rows only). */
+  onToggleExpand?: () => void
 }
 
 function GlyphFor({ kind }: { kind: ActivityKind | 'comment' | 'project' }) {
@@ -571,10 +595,15 @@ function PulseRow({
   issues,
   projects,
   initiatives,
+  projectUpdates,
+  initiativeUpdates,
   users,
   fmt,
   onPeek,
+  expanded,
+  onToggleExpand,
 }: RowProps) {
+  const navigate = useNavigate()
   // Issue activities reuse ActivityItem verbatim (it already renders the
   // Linear-style sentence), wrapped so the whole row peeks the issue.
   // One-line plain-text summary for the hover copy action.
@@ -635,22 +664,68 @@ function PulseRow({
     )
   }
 
-  // project / initiative update
-  const target =
-    e.type === 'project'
-      ? projects.find((p) => p.id === e.projectId)
-      : initiatives.find((i) => i.id === e.initiativeId)
+  // project / initiative update — clicking the row toggles an inline expansion
+  // that reveals the update's full markdown body + health badge, plus a link
+  // through to the project/initiative detail.
+  const isProject = e.type === 'project'
+  const target = isProject
+    ? projects.find((p) => p.id === e.projectId)
+    : initiatives.find((i) => i.id === e.initiativeId)
+  // Resolve the update record so we can render its body when expanded.
+  const update = isProject
+    ? projectUpdates.find((u) => u.id === e.id)
+    : initiativeUpdates.find((u) => u.id === e.id)
+  const targetId = isProject ? e.projectId : e.initiativeId
+  const detailPath = isProject ? `/project/${targetId}` : `/initiative/${targetId}`
+
   return (
-    <div className="group relative flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-[12px] text-muted transition-colors hover:bg-bg-hover">
-      <GlyphFor kind="project" />
-      <Avatar user={actor} size={18} />
-      <span className="text-fg">{name}</span>
-      <span>posted a</span>
-      <span className="font-medium text-fg">{HEALTH_LABEL[e.health]}</span>
-      <span>update on</span>
-      <span className="font-medium text-fg">{target?.name ?? 'project'}</span>
-      <span className="ml-auto shrink-0 text-faint">· {timeAgo(e.createdAt)}</span>
+    <div className="group relative">
+      <button
+        type="button"
+        onClick={onToggleExpand}
+        className="flex w-full items-center gap-2 px-4 py-1.5 pl-9 text-left text-[12px] text-muted transition-colors hover:bg-bg-hover"
+      >
+        <ChevronRight
+          size={13}
+          className={cn(
+            'shrink-0 text-faint transition-transform',
+            expanded && 'rotate-90',
+          )}
+        />
+        <Avatar user={actor} size={18} />
+        <span className="text-fg">{name}</span>
+        <span>posted a</span>
+        <span className="font-medium text-fg">{HEALTH_LABEL[e.health]}</span>
+        <span>update on</span>
+        <span className="font-medium text-fg">{target?.name ?? 'project'}</span>
+        <span className="ml-auto shrink-0 text-faint">· {timeAgo(e.createdAt)}</span>
+      </button>
       <CopyButton summary={summary} />
+
+      {/* Inline expansion — full update body, health badge & a link through to
+          the project/initiative detail. */}
+      {expanded && (
+        <div className="border-b border-border bg-bg-secondary px-4 py-3 pl-[3.25rem] text-[13px]">
+          <div className="mb-2 flex items-center gap-2">
+            <HealthBadge health={e.health} />
+            <button
+              type="button"
+              onClick={() => navigate(detailPath)}
+              className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[12px] text-muted transition-colors hover:bg-bg-hover hover:text-fg"
+            >
+              View {isProject ? 'project' : 'initiative'}
+              <ArrowUpRight size={13} className="text-faint" />
+            </button>
+          </div>
+          {update?.body ? (
+            <div className="text-muted">
+              <Markdown source={update.body} />
+            </div>
+          ) : (
+            <p className="text-faint">No update details.</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

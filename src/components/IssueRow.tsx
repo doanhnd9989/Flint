@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { CalendarClock, ChevronRight, Clock, Diamond, IterationCw, Link2, MessageSquare, Gauge } from 'lucide-react'
-import { useStoreShallow } from '@/lib/store'
+import { CalendarClock, ChevronRight, CircleSlash, Clock, Diamond, IterationCw, Link2, MessageSquare, Gauge } from 'lucide-react'
+import { useStore, useStoreShallow } from '@/lib/store'
 import type { Issue } from '@/lib/types'
 import { estimateLabel, teamEstimationType } from '@/lib/constants'
 import { StatusIcon } from './StatusIcon'
@@ -14,6 +14,35 @@ import { cn, formatDate, isDueSoon, isOverdue, timeAgo } from '@/lib/utils'
 // The last row whose checkbox was toggled (an issue identifier) — anchors
 // shift-click range selection, exactly like Linear's list.
 let lastSelectedIdentifier: string | null = null
+
+/**
+ * Tiny block indicator for a list row — mirrors the board card, marking issues
+ * that participate in a 'blocks' relation. A red-tinted slash means the issue
+ * is blocked by others (it's the target of a blocks relation); a muted slash
+ * means it blocks others. Renders nothing when there are no such relations.
+ */
+function BlockIndicator({ issue }: { issue: Issue }) {
+  const relations = useStore((s) => s.relations)
+  // 'blocks': fromIssue blocks toIssue → this issue is blocked when it's the
+  // toIssue, and blocks others when it's the fromIssue.
+  const blockedBy = relations.filter(
+    (r) => r.type === 'blocks' && r.toIssueId === issue.id,
+  ).length
+  const blocking = relations.filter(
+    (r) => r.type === 'blocks' && r.fromIssueId === issue.id,
+  ).length
+  if (blockedBy === 0 && blocking === 0) return null
+  // Blocked-by takes visual priority (red); otherwise it's a muted "blocking".
+  const title =
+    blockedBy > 0
+      ? `Blocked by ${blockedBy} issue${blockedBy > 1 ? 's' : ''}`
+      : `Blocking ${blocking} issue${blocking > 1 ? 's' : ''}`
+  return (
+    <span title={title} className="flex items-center text-faint">
+      <CircleSlash size={13} color={blockedBy > 0 ? '#eb5757' : undefined} />
+    </span>
+  )
+}
 
 export function IssueRow({
   issue,
@@ -216,6 +245,7 @@ export function IssueRow({
       <span className="flex-1 truncate text-[13px] text-fg">{issue.title}</span>
 
       <div className="flex items-center gap-1.5 shrink-0">
+        <BlockIndicator issue={issue} />
         {children.length > 0 && (
           <span
             className="flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted"

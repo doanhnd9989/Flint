@@ -119,9 +119,22 @@ function DraggableCard({ issue }: { issue: Issue }) {
   )
 }
 
+/**
+ * Cap a board column at this many cards before showing a "Show N more" toggle —
+ * mirrors Linear, which keeps very tall columns scannable by collapsing the
+ * long tail behind a button. The full `issues` array is kept intact for drag
+ * targeting; only the rendered slice is trimmed.
+ */
+const COLUMN_CAP = 25
+
 /** A droppable card stack. `dropId` lets swimlane cells be uniquely droppable. */
 function CardStack({ issues, dropId }: { issues: Issue[]; dropId: string }) {
   const { setNodeRef, isOver } = useDroppable({ id: dropId })
+  // Component-local expand state, keyed by this column/cell's drop id. Only the
+  // rendered list is sliced — `issues` stays whole so drops still land here.
+  const [expanded, setExpanded] = useState(false)
+  const capped = issues.length > COLUMN_CAP
+  const visible = capped && !expanded ? issues.slice(0, COLUMN_CAP) : issues
   return (
     <div
       ref={setNodeRef}
@@ -130,9 +143,18 @@ function CardStack({ issues, dropId }: { issues: Issue[]; dropId: string }) {
         isOver && 'bg-accent-subtle',
       )}
     >
-      {issues.map((issue) => (
+      {visible.map((issue) => (
         <DraggableCard key={issue.id} issue={issue} />
       ))}
+      {capped && (
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="w-full rounded px-2 py-1 text-left text-[12px] text-muted transition-colors hover:bg-bg-hover hover:text-fg"
+        >
+          {expanded ? 'Show less' : `Show ${issues.length - COLUMN_CAP} more`}
+        </button>
+      )}
     </div>
   )
 }

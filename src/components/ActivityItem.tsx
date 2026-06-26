@@ -6,7 +6,7 @@ import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { PRIORITY_LABELS } from '@/lib/constants'
 import { formatFullDate, timeAgo } from '@/lib/utils'
-import { Flag, IterationCw } from 'lucide-react'
+import { Flag, IterationCw, AlignLeft } from 'lucide-react'
 import { LinkFavicon } from './LinkFavicon'
 
 /** A small inline value chip used inside an activity line. */
@@ -248,6 +248,15 @@ export function ActivityItem({ activity }: { activity: Activity }) {
           ) : (
             <span className="font-medium text-fg">{a.to}</span>
           )}
+        </>
+      )
+      break
+    case 'description':
+      // `from === 'edit'` marks an edit; otherwise it's the first-time add.
+      body = (
+        <>
+          <AlignLeft size={13} className="text-faint" />
+          <span>{a.from === 'edit' ? 'updated the description' : 'added a description'}</span>
         </>
       )
       break
