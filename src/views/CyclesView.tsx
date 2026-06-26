@@ -61,6 +61,11 @@ export function CyclesView() {
   const [selectedId, setSelectedId] = useState<string | undefined>(activeId)
   const current = cycles.find((c) => c.id === (selectedId ?? activeId))
 
+  // Whether the cycle stats / progress bar are measured in issue counts or
+  // summed estimate points — Linear's Issues / Points unit toggle. Component-
+  // local; defaults to Issues (count-based).
+  const [unit, setUnit] = useState<'issues' | 'points'>('issues')
+
   // How the cycle issue list is grouped — Status / Assignee / Priority /
   // Project / No grouping. Defaults to Status, matching Linear.
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
@@ -169,6 +174,36 @@ export function CyclesView() {
       .sort((a, b) => b.total - a.total || b.done - a.done)
   }, [data, current])
 
+  // Point-based progress: sum each issue's estimate (missing → 0) into
+  // completed / started / total buckets so the stats and bar can reflect
+  // points instead of issue counts when the unit toggle is on Points.
+  const pointProg = useMemo(() => {
+    const completed = new Set(
+      data.states.filter((s) => s.type === 'completed').map((s) => s.id),
+    )
+    const started = new Set(
+      data.states.filter((s) => s.type === 'started').map((s) => s.id),
+    )
+    let total = 0
+    let done = 0
+    let st = 0
+    if (current) {
+      for (const i of data.issues) {
+        if (i.cycleId !== current.id || i.archivedAt) continue
+        const pts = i.estimate ?? 0
+        total += pts
+        if (completed.has(i.stateId)) done += pts
+        else if (started.has(i.stateId)) st += pts
+      }
+    }
+    return {
+      total,
+      done,
+      started: st,
+      percent: total ? Math.round((done / total) * 100) : 0,
+    }
+  }, [data, current])
+
   if (cycles.length === 0 || !current) {
     return (
       <div className="flex h-full flex-col">
@@ -185,8 +220,12 @@ export function CyclesView() {
   const idx = cycles.findIndex((c) => c.id === current.id)
   const prog = cycleProgress(current.id, data.issues, data)
   const cs = cycleState(current.startsAt, current.endsAt, nowMs)
-  const remaining = Math.max(0, prog.total - prog.done - prog.started)
   const burndown = cycleBurndown(current, data.issues, nowMs)
+
+  // The stats / progress-bar source for the current unit. Points uses summed
+  // estimates (missing → 0); Issues keeps the count-based cycleProgress.
+  const display = unit === 'points' ? pointProg : prog
+  const remaining = Math.max(0, display.total - display.done - display.started)
 
   return (
     <div className="flex h-full flex-col">
@@ -319,11 +358,30 @@ export function CyclesView() {
             <ChevronRight size={16} />
           </button>
 
-          <div className="ml-auto flex items-center gap-5 text-[12px]">
-            <Stat label="Scope" value={prog.total} />
-            <Stat label="Started" value={prog.started} />
-            <Stat label="Completed" value={prog.done} />
-            <Stat label="Progress" value={`${prog.percent}%`} />
+          <div className="ml-auto flex items-center gap-4 text-[12px]">
+            {/* Issues / Points unit toggle — a small segmented control. */}
+            <div className="flex items-center rounded-md border border-border bg-bg-secondary p-0.5">
+              {(['issues', 'points'] as const).map((u) => (
+                <button
+                  key={u}
+                  onClick={() => setUnit(u)}
+                  className={cn(
+                    'rounded px-2 py-0.5 text-[11px] font-medium capitalize',
+                    unit === u
+                      ? 'bg-bg text-fg shadow-sm'
+                      : 'text-muted hover:text-fg',
+                  )}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-5">
+              <Stat label="Scope" value={display.total} />
+              <Stat label="Started" value={display.started} />
+              <Stat label="Completed" value={display.done} />
+              <Stat label="Progress" value={`${display.percent}%`} />
+            </div>
           </div>
         </div>
 
@@ -331,17 +389,17 @@ export function CyclesView() {
         <div className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-bg-tertiary">
           <div
             className="h-full bg-accent"
-            style={{ width: `${prog.total ? (prog.done / prog.total) * 100 : 0}%` }}
-            title={`${prog.done} completed`}
+            style={{ width: `${display.total ? (display.done / display.total) * 100 : 0}%` }}
+            title={`${display.done} completed`}
           />
           <div
             className="h-full bg-[var(--status-started)]"
-            style={{ width: `${prog.total ? (prog.started / prog.total) * 100 : 0}%` }}
-            title={`${prog.started} started`}
+            style={{ width: `${display.total ? (display.started / display.total) * 100 : 0}%` }}
+            title={`${display.started} started`}
           />
           <div
             className="h-full"
-            style={{ width: `${prog.total ? (remaining / prog.total) * 100 : 0}%` }}
+            style={{ width: `${display.total ? (remaining / display.total) * 100 : 0}%` }}
           />
         </div>
 

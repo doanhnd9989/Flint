@@ -13,9 +13,13 @@ import {
   Calendar,
   Zap,
   Kanban,
+  ChevronRight,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+
+/** A single per-integration config toggle, persisted under `integrations.<id>.<key>`. */
+type IntegrationOption = { key: string; label: string }
 
 type Integration = {
   id: string
@@ -23,6 +27,8 @@ type Integration = {
   desc: string
   icon: LucideIcon
   color: string
+  /** Config toggles revealed when a connected row is expanded. */
+  options?: IntegrationOption[]
 }
 
 const INTEGRATIONS: Integration[] = [
@@ -32,6 +38,11 @@ const INTEGRATIONS: Integration[] = [
     desc: 'Link pull requests, commits and branches to issues automatically.',
     icon: Code2,
     color: '#F0F6FC',
+    options: [
+      { key: 'prs', label: 'Link pull requests' },
+      { key: 'autoclose', label: 'Auto-close issues on merge' },
+      { key: 'activity', label: 'Post issue activity' },
+    ],
   },
   {
     id: 'gitlab',
@@ -39,6 +50,10 @@ const INTEGRATIONS: Integration[] = [
     desc: 'Connect merge requests and commits to keep issues in sync.',
     icon: GitBranch,
     color: '#FC6D26',
+    options: [
+      { key: 'mrs', label: 'Link merge requests' },
+      { key: 'autoclose', label: 'Auto-close issues on merge' },
+    ],
   },
   {
     id: 'slack',
@@ -46,6 +61,10 @@ const INTEGRATIONS: Integration[] = [
     desc: 'Create issues from messages and get notified in your channels.',
     icon: MessageSquare,
     color: '#4A154B',
+    options: [
+      { key: 'new', label: 'Notify on new issue' },
+      { key: 'status', label: 'Notify on status change' },
+    ],
   },
   {
     id: 'figma',
@@ -60,6 +79,10 @@ const INTEGRATIONS: Integration[] = [
     desc: 'Turn application errors into actionable, trackable issues.',
     icon: Bug,
     color: '#362D59',
+    options: [
+      { key: 'create', label: 'Create issues from errors' },
+      { key: 'resolve', label: 'Resolve issues when error clears' },
+    ],
   },
   {
     id: 'zendesk',
@@ -67,6 +90,10 @@ const INTEGRATIONS: Integration[] = [
     desc: 'Convert customer support tickets into prioritized issues.',
     icon: LifeBuoy,
     color: '#03363D',
+    options: [
+      { key: 'tickets', label: 'Create issues from tickets' },
+      { key: 'sync', label: 'Sync status back to tickets' },
+    ],
   },
   {
     id: 'discord',
@@ -109,6 +136,7 @@ export function IntegrationsSettings() {
   const featureSettings = useStore((s) => s.featureSettings)
   const setFeatureSetting = useStore((s) => s.setFeatureSetting)
   const [query, setQuery] = useState('')
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   const q = query.trim().toLowerCase()
   const visible = q
@@ -140,6 +168,8 @@ export function IntegrationsSettings() {
             const key = `integrations.${integration.id}`
             const connected = featureSettings[key] ?? false
             const Icon = integration.icon
+            const hasOptions = (integration.options?.length ?? 0) > 0
+            const isExpanded = expanded === integration.id
             return (
               <div
                 key={integration.id}
@@ -167,10 +197,30 @@ export function IntegrationsSettings() {
 
                 {connected && (
                   <div className="mt-3 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-[12px] text-muted">
-                      <span className="text-emerald-500">●</span>
-                      Connected
-                    </span>
+                    {hasOptions ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpanded(isExpanded ? null : integration.id)
+                        }
+                        className="flex items-center gap-1 text-[12px] text-muted hover:text-fg"
+                      >
+                        <span className="text-emerald-500">●</span>
+                        Connected
+                        <ChevronRight
+                          size={12}
+                          className={cn(
+                            'text-faint transition-transform',
+                            isExpanded && 'rotate-90',
+                          )}
+                        />
+                      </button>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-[12px] text-muted">
+                        <span className="text-emerald-500">●</span>
+                        Connected
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={() => setFeatureSetting(key, false)}
@@ -180,6 +230,42 @@ export function IntegrationsSettings() {
                     >
                       Disconnect
                     </button>
+                  </div>
+                )}
+
+                {connected && isExpanded && hasOptions && (
+                  <div className="mt-3 space-y-2 border-t border-border pt-3">
+                    {integration.options!.map((opt) => {
+                      const optKey = `${key}.${opt.key}`
+                      const on = featureSettings[optKey] ?? false
+                      return (
+                        <label
+                          key={opt.key}
+                          className="flex cursor-pointer items-center justify-between"
+                        >
+                          <span className="text-[12px] text-muted">
+                            {opt.label}
+                          </span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={on}
+                            onClick={() => setFeatureSetting(optKey, !on)}
+                            className={cn(
+                              'relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors',
+                              on ? 'bg-accent' : 'bg-bg-secondary',
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                'absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white transition-transform',
+                                on ? 'translate-x-[14px]' : 'translate-x-[2px]',
+                              )}
+                            />
+                          </button>
+                        </label>
+                      )
+                    })}
                   </div>
                 )}
               </div>

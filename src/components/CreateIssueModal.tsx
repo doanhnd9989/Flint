@@ -15,8 +15,13 @@ import {
   ProjectPicker,
 } from './pickers'
 import { SelectMenu } from './ui/SelectMenu'
-import { FileText, IterationCw, X } from 'lucide-react'
-import { PRIORITY_LABELS } from '@/lib/constants'
+import { FileText, IterationCw, GitBranch, Flag, X } from 'lucide-react'
+import {
+  PRIORITY_LABELS,
+  estimatePoints,
+  estimateLabel,
+  teamEstimationType,
+} from '@/lib/constants'
 import { cycleState } from '@/lib/selectors'
 import { formatDate } from '@/lib/utils'
 
@@ -42,6 +47,8 @@ export function CreateIssueModal() {
   const [labelIds, setLabelIds] = useState<string[]>([])
   const [projectId, setProjectId] = useState<string | undefined>()
   const [cycleId, setCycleId] = useState<string | undefined>()
+  const [estimate, setEstimate] = useState<number | undefined>()
+  const [milestoneId, setMilestoneId] = useState<string | undefined>()
 
   useEffect(() => {
     if (open) {
@@ -53,6 +60,8 @@ export function CreateIssueModal() {
       setLabelIds(p?.labelIds ?? [])
       setProjectId(p?.projectId)
       setCycleId(undefined)
+      setEstimate(undefined)
+      setMilestoneId(undefined)
       if (p?.teamId) setTeamId(p.teamId)
       if (p?.stateId) setStateId(p.stateId)
     }
@@ -78,6 +87,12 @@ export function CreateIssueModal() {
     .filter((c) => c.teamId === teamId)
     .sort((a, b) => a.number - b.number)
   const cycle = store.cycles.find((c) => c.id === cycleId)
+  const projectMilestones = projectId
+    ? store.milestones
+        .filter((m) => m.projectId === projectId)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+    : []
+  const milestone = store.milestones.find((m) => m.id === milestoneId)
 
   function applyTemplate(id: string) {
     const t = store.templates.find((x) => x.id === id)
@@ -103,7 +118,10 @@ export function CreateIssueModal() {
       labelIds,
       projectId,
       cycleId,
+      estimate,
     })
+    // createIssue's input has no milestoneId field; persist it via the action.
+    if (milestoneId) store.setIssueMilestone(issue.id, milestoneId)
     if (store.createMore) {
       // Linear's "Create more": keep the modal open and reset the form for rapid
       // entry, preserving the group context the modal was opened with.
@@ -115,6 +133,8 @@ export function CreateIssueModal() {
       setLabelIds(p?.labelIds ?? [])
       setProjectId(p?.projectId)
       setCycleId(undefined)
+      setEstimate(undefined)
+      setMilestoneId(undefined)
       return
     }
     store.setCreateOpen(false)
@@ -241,7 +261,11 @@ export function CreateIssueModal() {
             />
             <ProjectPicker
               projectId={projectId}
-              onChange={setProjectId}
+              onChange={(id) => {
+                setProjectId(id)
+                // Milestones belong to a project; drop the selection on change.
+                setMilestoneId(undefined)
+              }}
               trigger={
                 <span className={chip}>
                   {project ? (
@@ -280,6 +304,50 @@ export function CreateIssueModal() {
                   <span className={chip}>
                     <IterationCw size={13} />
                     {cycle ? cycle.name ?? `Cycle ${cycle.number}` : 'Cycle'}
+                  </span>
+                }
+              />
+            )}
+            {teamEstimationType(team) !== 'notUsed' && (
+              <SelectMenu
+                width={200}
+                options={[
+                  { id: '0', label: 'No estimate', selected: !estimate },
+                  ...estimatePoints(team)
+                    .filter((n) => n !== 0)
+                    .map((n) => ({
+                      id: String(n),
+                      label: estimateLabel(n, team),
+                      selected: estimate === n,
+                    })),
+                ]}
+                onSelect={(id) => setEstimate(Number(id) || undefined)}
+                trigger={
+                  <span className={chip}>
+                    <GitBranch size={13} />
+                    {estimate ? estimateLabel(estimate, team) : 'Estimate'}
+                  </span>
+                }
+              />
+            )}
+            {projectMilestones.length > 0 && (
+              <SelectMenu
+                width={220}
+                options={[
+                  { id: '__none', label: 'No milestone', selected: !milestoneId },
+                  ...projectMilestones.map((m) => ({
+                    id: m.id,
+                    label: m.name,
+                    selected: milestoneId === m.id,
+                  })),
+                ]}
+                onSelect={(id) =>
+                  setMilestoneId(id === '__none' ? undefined : id)
+                }
+                trigger={
+                  <span className={chip}>
+                    <Flag size={13} />
+                    {milestone?.name ?? 'Milestone'}
                   </span>
                 }
               />

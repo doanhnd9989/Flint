@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import {
+  addDays,
   addMonths,
   differenceInCalendarDays,
   eachMonthOfInterval,
@@ -49,6 +50,22 @@ export function RoadmapView() {
   // Both narrow which project bars render and compose with AND.
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [initiativeFilter, setInitiativeFilter] = useState<string>('all')
+
+  // Live preview of an in-progress edge drag — the project whose start/target is
+  // being dragged and the day-offsets to render it at, so the bar tracks the
+  // pointer before we commit to the store on pointer-up. Null when idle.
+  const [drag, setDrag] = useState<{ id: string; start: Date; target: Date } | null>(null)
+  // Mutable ref carrying the in-flight gesture (origin pointer X, the anchored
+  // dates, which edge, and whether the pointer has moved past the click slop).
+  // A ref so pointermove handlers read fresh values without re-subscribing.
+  const dragRef = useRef<{
+    id: string
+    edge: 'start' | 'end'
+    originX: number
+    start: Date
+    target: Date
+    moved: boolean
+  } | null>(null)
 
   // Group-by swimlanes + which group keys are collapsed (local-only, like Linear).
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
@@ -175,6 +192,65 @@ export function RoadmapView() {
   const pxPerDay = totalWidth / totalDays
   const dayOffset = (d: Date) => differenceInCalendarDays(d, rangeStart) * pxPerDay
   const todayLeft = dayOffset(new Date())
+
+  // Begin dragging one end of a project bar. We capture the pointer, snapshot the
+  // bar's current start/target, then translate each pointermove's pixel delta back
+  // into whole days (the same `pxPerDay` scale used to position the bar) and clamp
+  // so the dragged edge can never cross the opposite one. Commit on pointer-up via
+  // the existing updateProject action; a small slop threshold distinguishes a
+  // genuine drag from a click so the bar's click-to-open still fires.
+  const startEdgeDrag = (e: ReactPointerEvent, p: Project, edge: 'start' | 'end') => {
+    e.preventDefault()
+    e.stopPropagation()
+    const start = new Date(p.startDate ?? p.createdAt)
+    const target = new Date(p.targetDate ?? addMonths(start, 1))
+    dragRef.current = { id: p.id, edge, originX: e.clientX, start, target, moved: false }
+    setDrag({ id: p.id, start, target })
+    const el = e.currentTarget
+    el.setPointerCapture(e.pointerId)
+
+    const onMove = (ev: globalThis.PointerEvent) => {
+      const g = dragRef.current
+      if (!g) return
+      const dxDays = Math.round((ev.clientX - g.originX) / pxPerDay)
+      if (Math.abs(ev.clientX - g.originX) > 3) g.moved = true
+      if (g.edge === 'start') {
+        // Never let the start pass the day before the target.
+        const maxDays = differenceInCalendarDays(g.target, g.start) - 1
+        const next = addDays(g.start, Math.min(dxDays, maxDays))
+        setDrag({ id: g.id, start: next, target: g.target })
+      } else {
+        // Never let the target pass the day after the start.
+        const minDays = differenceInCalendarDays(g.start, g.target) + 1
+        const next = addDays(g.target, Math.max(dxDays, minDays))
+        setDrag({ id: g.id, start: g.start, target: next })
+      }
+    }
+    const onUp = () => {
+      const g = dragRef.current
+      try {
+        el.releasePointerCapture(e.pointerId)
+      } catch {
+        // pointer may already be released — safe to ignore
+      }
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      dragRef.current = null
+      // Read the final preview off state via the functional setter, then commit.
+      setDrag((d) => {
+        if (g?.moved && d && d.id === g.id) {
+          if (g.edge === 'start') {
+            data.updateProject(g.id, { startDate: d.start.toISOString() })
+          } else {
+            data.updateProject(g.id, { targetDate: d.target.toISOString() })
+          }
+        }
+        return null
+      })
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   // Quarter segments spanning the time axis — Linear labels each fiscal quarter
   // (Q1 2026 …) above the months and draws a divider at every quarter boundary.
@@ -433,8 +509,13 @@ export function RoadmapView() {
                   )}
                   {!isCollapsed &&
                     group.projects.map((p) => {
-                      const start = new Date(p.startDate ?? p.createdAt)
-                      const target = new Date(p.targetDate ?? addMonths(start, 1))
+                      // While this bar's edge is being dragged, render from the
+                      // live preview dates so it tracks the pointer; otherwise use
+                      // the project's persisted dates.
+                      const preview = drag?.id === p.id ? drag : null
+                      const start = preview?.start ?? new Date(p.startDate ?? p.createdAt)
+                      const target =
+                        preview?.target ?? new Date(p.targetDate ?? addMonths(start, 1))
                       const left = Math.max(0, dayOffset(start))
                       const width = Math.max(56, dayOffset(target) - dayOffset(start))
                       const prog = projectProgress(p.id, data.issues, data)
@@ -492,6 +573,33 @@ export function RoadmapView() {
                                 {p.name} · {prog.percent}%
                               </span>
                             </button>
+                            {/* Edge drag handles — thin grips at the bar's start and
+                                target ends. Dragging the left reschedules startDate,
+                                the right retargets targetDate, snapped to the day axis.
+                                They sit above the bar so click-to-open still works on
+                                the bar body. */}
+                            <span
+                              onPointerDown={(e) => startEdgeDrag(e, p, 'start')}
+                              className="group/handle absolute top-1/2 z-[2] flex h-6 w-2.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize items-center justify-center touch-none"
+                              style={{ left }}
+                              title="Drag to change start date"
+                            >
+                              <span
+                                className="h-4 w-1 rounded-full opacity-0 transition-opacity group-hover/handle:opacity-100"
+                                style={{ background: p.color }}
+                              />
+                            </span>
+                            <span
+                              onPointerDown={(e) => startEdgeDrag(e, p, 'end')}
+                              className="group/handle absolute top-1/2 z-[2] flex h-6 w-2.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize items-center justify-center touch-none"
+                              style={{ left: left + width }}
+                              title="Drag to change target date"
+                            >
+                              <span
+                                className="h-4 w-1 rounded-full opacity-0 transition-opacity group-hover/handle:opacity-100"
+                                style={{ background: p.color }}
+                              />
+                            </span>
                             {/* Start / target date captions flanking the bar —
                                 placed just outside each end so they never overlap
                                 the in-bar name label. Hidden when they'd fall off

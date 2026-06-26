@@ -1,9 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search as SearchIcon, Clock, X, MessageSquare } from 'lucide-react'
+import {
+  Search as SearchIcon,
+  Clock,
+  X,
+  MessageSquare,
+  IterationCcw,
+  Target,
+  Building2,
+  Bookmark,
+  Users,
+} from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
+import { LabelDot } from '@/components/LabelChip'
 import { Avatar } from '@/components/Avatar'
 import { FilterBar, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
 import { projectProgress } from '@/lib/selectors'
@@ -94,6 +105,56 @@ export function SearchView() {
     )
   }, [data, q])
 
+  // Cycles matched by their name or their "Cycle N" label — Linear's search
+  // reaches every entity type, jumping to the team's cycles screen on select.
+  const cycleResults = useMemo(() => {
+    if (!q) return []
+    return data.cycles.filter(
+      (c) =>
+        (c.name ?? '').toLowerCase().includes(q) ||
+        `cycle ${c.number}`.includes(q),
+    )
+  }, [data, q])
+
+  // Initiatives matched by name — a roadmap-level grouping of projects.
+  const initiativeResults = useMemo(() => {
+    if (!q) return []
+    return data.initiatives.filter((i) => i.name.toLowerCase().includes(q))
+  }, [data, q])
+
+  // Customers matched by name or domain — Linear's CRM-lite records.
+  const customerResults = useMemo(() => {
+    if (!q) return []
+    return data.customers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.domain ?? '').toLowerCase().includes(q),
+    )
+  }, [data, q])
+
+  // Saved views matched by name — the user's pinned issue queries.
+  const viewResults = useMemo(() => {
+    if (!q) return []
+    return data.savedViews.filter((v) => v.name.toLowerCase().includes(q))
+  }, [data, q])
+
+  // Labels matched by name (skipping group containers, which aren't routable).
+  const labelResults = useMemo(() => {
+    if (!q) return []
+    return data.labels.filter(
+      (l) => !l.isGroup && l.name.toLowerCase().includes(q),
+    )
+  }, [data, q])
+
+  // Teams matched by name or key (e.g. "ENG").
+  const teamResults = useMemo(() => {
+    if (!q) return []
+    return data.teams.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) || t.key.toLowerCase().includes(q),
+    )
+  }, [data, q])
+
   const active = q.length > 0 || hasActiveFilters(filters)
 
   // Total matches across every entity type — shown as a muted count beside the
@@ -103,13 +164,34 @@ export function SearchView() {
     commentResults.length +
     projectResults.length +
     documentResults.length +
-    peopleResults.length
+    peopleResults.length +
+    cycleResults.length +
+    initiativeResults.length +
+    customerResults.length +
+    viewResults.length +
+    labelResults.length +
+    teamResults.length
 
-  // Which groups render given the selected tab.
+  // Which groups render given the selected tab. The extra entity types only
+  // surface in the "All" tab (Linear keeps the segmented tabs to the headline
+  // types and folds the long tail into the unified results).
   const showIssues = tab === 'all' || tab === 'issues'
   const showProjects = tab === 'all' || tab === 'projects'
   const showDocuments = tab === 'all' || tab === 'documents'
   const showPeople = tab === 'all' || tab === 'people'
+  const showExtras = tab === 'all'
+
+  // Cycle → owning team key, for routing to the team's cycles screen (there is
+  // no per-cycle route — Linear opens the team cycles list).
+  const teamKeyById = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const t of data.teams) m[t.id] = t.key
+    return m
+  }, [data.teams])
+  const cycleHref = (teamId: string) => {
+    const key = teamKeyById[teamId]
+    return key ? `/team/${key}/cycles` : '/cycles'
+  }
 
   // Flat list of every visible result in render order, each carrying the route
   // it opens. Mirrors the JSX grouping below so keyboard navigation lands on the
@@ -129,17 +211,39 @@ export function SearchView() {
     }
     if (showPeople)
       for (const u of peopleResults) out.push({ key: u.id, href: '/members' })
+    if (showExtras) {
+      for (const c of cycleResults)
+        out.push({ key: c.id, href: cycleHref(c.teamId) })
+      for (const i of initiativeResults)
+        out.push({ key: i.id, href: `/initiative/${i.id}` })
+      for (const c of customerResults)
+        out.push({ key: c.id, href: `/customer/${c.id}` })
+      for (const v of viewResults)
+        out.push({ key: v.id, href: `/view/${v.id}` })
+      for (const l of labelResults)
+        out.push({ key: l.id, href: `/label/${l.id}` })
+      for (const t of teamResults)
+        out.push({ key: t.id, href: `/team/${t.key}/overview` })
+    }
     return out
   }, [
     showProjects,
     showDocuments,
     showIssues,
     showPeople,
+    showExtras,
     projectResults,
     documentResults,
     issueResults,
     commentResults,
     peopleResults,
+    cycleResults,
+    initiativeResults,
+    customerResults,
+    viewResults,
+    labelResults,
+    teamResults,
+    teamKeyById,
   ])
 
   // Highlighted result for keyboard navigation (j/k/↑/↓ to move, ↵ to open).
@@ -166,6 +270,15 @@ export function SearchView() {
   const commentOffset = issueOffset + (showIssues ? issueResults.length : 0)
   const peopleOffset =
     commentOffset + (showIssues ? commentResults.length : 0)
+  const cycleOffset = peopleOffset + (showPeople ? peopleResults.length : 0)
+  const initiativeOffset =
+    cycleOffset + (showExtras ? cycleResults.length : 0)
+  const customerOffset =
+    initiativeOffset + (showExtras ? initiativeResults.length : 0)
+  const viewOffset =
+    customerOffset + (showExtras ? customerResults.length : 0)
+  const labelOffset = viewOffset + (showExtras ? viewResults.length : 0)
+  const teamOffset = labelOffset + (showExtras ? labelResults.length : 0)
 
   const tabs: { id: SearchTab; label: string; count: number }[] = [
     {
@@ -349,7 +462,13 @@ export function SearchView() {
             commentResults.length === 0 &&
             projectResults.length === 0 &&
             documentResults.length === 0 &&
-            peopleResults.length === 0 ? (
+            peopleResults.length === 0 &&
+            cycleResults.length === 0 &&
+            initiativeResults.length === 0 &&
+            customerResults.length === 0 &&
+            viewResults.length === 0 &&
+            labelResults.length === 0 &&
+            teamResults.length === 0 ? (
               <EmptyState
                 className="mt-10"
                 illustration={<SearchIllustration />}
@@ -494,6 +613,193 @@ export function SearchView() {
                           <Avatar user={u} size={18} />
                           <span className="text-[13px] text-fg">{u.name}</span>
                           <span className="text-[11px] text-faint">{u.email}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {showExtras && cycleResults.length > 0 && (
+                  <div>
+                    <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
+                      Cycles · {cycleResults.length}
+                    </div>
+                    {cycleResults.map((c, idx) => {
+                      const isActive = cycleOffset + idx === activeIndex
+                      return (
+                        <button
+                          key={c.id}
+                          data-result-active={isActive}
+                          onMouseMove={() => setActiveIndex(cycleOffset + idx)}
+                          onClick={() => navigate(cycleHref(c.teamId))}
+                          className={cn(
+                            'flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover',
+                            isActive && 'bg-bg-hover',
+                          )}
+                        >
+                          <IterationCcw size={14} className="text-faint" />
+                          <span className="text-[13px] text-fg">
+                            Cycle {c.number}
+                          </span>
+                          {c.name && (
+                            <span className="text-[11px] text-faint">
+                              {c.name}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {showExtras && initiativeResults.length > 0 && (
+                  <div>
+                    <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
+                      Initiatives · {initiativeResults.length}
+                    </div>
+                    {initiativeResults.map((i, idx) => {
+                      const isActive = initiativeOffset + idx === activeIndex
+                      return (
+                        <button
+                          key={i.id}
+                          data-result-active={isActive}
+                          onMouseMove={() =>
+                            setActiveIndex(initiativeOffset + idx)
+                          }
+                          onClick={() => navigate(`/initiative/${i.id}`)}
+                          className={cn(
+                            'flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover',
+                            isActive && 'bg-bg-hover',
+                          )}
+                        >
+                          {i.icon ? (
+                            <span className="text-[15px] leading-none">
+                              {i.icon}
+                            </span>
+                          ) : (
+                            <Target size={14} className="text-faint" />
+                          )}
+                          <span className="text-[13px] text-fg">{i.name}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {showExtras && customerResults.length > 0 && (
+                  <div>
+                    <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
+                      Customers · {customerResults.length}
+                    </div>
+                    {customerResults.map((c, idx) => {
+                      const isActive = customerOffset + idx === activeIndex
+                      return (
+                        <button
+                          key={c.id}
+                          data-result-active={isActive}
+                          onMouseMove={() =>
+                            setActiveIndex(customerOffset + idx)
+                          }
+                          onClick={() => navigate(`/customer/${c.id}`)}
+                          className={cn(
+                            'flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover',
+                            isActive && 'bg-bg-hover',
+                          )}
+                        >
+                          <Building2 size={14} className="text-faint" />
+                          <span className="text-[13px] text-fg">{c.name}</span>
+                          {c.domain && (
+                            <span className="text-[11px] text-faint">
+                              {c.domain}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {showExtras && viewResults.length > 0 && (
+                  <div>
+                    <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
+                      Views · {viewResults.length}
+                    </div>
+                    {viewResults.map((v, idx) => {
+                      const isActive = viewOffset + idx === activeIndex
+                      return (
+                        <button
+                          key={v.id}
+                          data-result-active={isActive}
+                          onMouseMove={() => setActiveIndex(viewOffset + idx)}
+                          onClick={() => navigate(`/view/${v.id}`)}
+                          className={cn(
+                            'flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover',
+                            isActive && 'bg-bg-hover',
+                          )}
+                        >
+                          {v.icon ? (
+                            <span className="text-[15px] leading-none">
+                              {v.icon}
+                            </span>
+                          ) : (
+                            <Bookmark size={14} className="text-faint" />
+                          )}
+                          <span className="text-[13px] text-fg">{v.name}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {showExtras && labelResults.length > 0 && (
+                  <div>
+                    <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
+                      Labels · {labelResults.length}
+                    </div>
+                    {labelResults.map((l, idx) => {
+                      const isActive = labelOffset + idx === activeIndex
+                      return (
+                        <button
+                          key={l.id}
+                          data-result-active={isActive}
+                          onMouseMove={() => setActiveIndex(labelOffset + idx)}
+                          onClick={() => navigate(`/label/${l.id}`)}
+                          className={cn(
+                            'flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover',
+                            isActive && 'bg-bg-hover',
+                          )}
+                        >
+                          <LabelDot color={l.color} size={10} />
+                          <span className="text-[13px] text-fg">{l.name}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {showExtras && teamResults.length > 0 && (
+                  <div>
+                    <div className="bg-bg-secondary/95 px-4 py-1.5 text-[12px] font-medium text-faint border-b border-border">
+                      Teams · {teamResults.length}
+                    </div>
+                    {teamResults.map((t, idx) => {
+                      const isActive = teamOffset + idx === activeIndex
+                      return (
+                        <button
+                          key={t.id}
+                          data-result-active={isActive}
+                          onMouseMove={() => setActiveIndex(teamOffset + idx)}
+                          onClick={() => navigate(`/team/${t.key}/overview`)}
+                          className={cn(
+                            'flex w-full items-center gap-2 border-b border-border/40 px-4 py-1.5 text-left hover:bg-bg-hover',
+                            isActive && 'bg-bg-hover',
+                          )}
+                        >
+                          {t.icon ? (
+                            <span className="text-[15px] leading-none">
+                              {t.icon}
+                            </span>
+                          ) : (
+                            <Users size={14} className="text-faint" />
+                          )}
+                          <span className="text-[13px] text-fg">{t.name}</span>
+                          <span className="font-mono text-[11px] text-faint">
+                            {t.key}
+                          </span>
                         </button>
                       )
                     })}

@@ -3,7 +3,7 @@ import { Popover } from './ui/Popover'
 import { cn } from '@/lib/utils'
 
 export type ProjectLayout = 'list' | 'board' | 'timeline'
-export type ProjectGroupBy = 'none' | 'status' | 'health' | 'lead'
+export type ProjectGroupBy = 'none' | 'status' | 'health' | 'lead' | 'initiative'
 export type ProjectOrderBy = 'manual' | 'name' | 'targetDate' | 'created'
 export type ProjectProperty =
   | 'status'
@@ -36,6 +36,7 @@ const GROUPS: { id: ProjectGroupBy; label: string }[] = [
   { id: 'status', label: 'Status' },
   { id: 'health', label: 'Health' },
   { id: 'lead', label: 'Lead' },
+  { id: 'initiative', label: 'Initiative' },
 ]
 
 const ORDERS: { id: ProjectOrderBy; label: string }[] = [

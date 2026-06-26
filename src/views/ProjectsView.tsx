@@ -137,6 +137,29 @@ export function ProjectsView() {
         .filter((g) => g.items.length > 0)
     }
 
+    if (groupBy === 'initiative') {
+      const byInit = new Map<string, Project[]>()
+      for (const p of sorted) {
+        const k = p.initiativeId ?? '__none'
+        if (!byInit.has(k)) byInit.set(k, [])
+        byInit.get(k)!.push(p)
+      }
+      return [...byInit.entries()].map(([k, items]) => ({
+        key: k,
+        label:
+          k === '__none'
+            ? 'No initiative'
+            : initiatives.find((i) => i.id === k)?.name ?? 'Initiative',
+        icon:
+          k === '__none' ? null : (
+            <span className="text-[13px] leading-none">
+              {initiatives.find((i) => i.id === k)?.icon ?? '◆'}
+            </span>
+          ),
+        items,
+      }))
+    }
+
     // group by lead
     const leads = new Map<string, Project[]>()
     for (const p of sorted) {
@@ -153,7 +176,7 @@ export function ProjectsView() {
         ),
       items,
     }))
-  }, [groupBy, sorted, healthById, users, fmt])
+  }, [groupBy, sorted, healthById, users, fmt, initiatives])
 
   function toggleProperty(p: ProjectProperty) {
     setProps((prev) => ({ ...prev, [p]: !prev[p] }))

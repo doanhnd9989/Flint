@@ -16,6 +16,7 @@ import {
   LayoutList,
   Columns3,
   CalendarClock,
+  ChevronDown,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
@@ -37,6 +38,7 @@ import { ViewHeader } from '@/components/ViewHeader'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
 import { EmptyState, CheckIllustration } from '@/components/EmptyState'
+import { SelectMenu } from '@/components/ui/SelectMenu'
 import { cn } from '@/lib/utils'
 
 const TABS = ['assigned', 'created', 'subscribed', 'activity'] as const
@@ -100,6 +102,9 @@ export function MyIssues() {
   const [nestedSubIssues, setNestedSubIssues] = useState(false)
   const [showEmptyGroups, setShowEmptyGroups] = useState(false)
   const [filters, setFilters] = useState(emptyFilters())
+  // Team scope for the issue lists ('' = all teams). Component-local, like Linear.
+  const [teamScope, setTeamScope] = useState('')
+  const scopedTeam = teamScope ? data.teams.find((t) => t.id === teamScope) : undefined
 
   return (
     <div className="flex h-full flex-col">
@@ -123,6 +128,30 @@ export function MyIssues() {
         ))}
         {tab !== 'activity' && (
           <div className="ml-auto flex items-center gap-2">
+            {/* Team scope — narrows the issue lists to one team, or "All teams"
+                (Linear lets you scope My Issues per team). */}
+            <SelectMenu
+              align="end"
+              width={220}
+              placeholder="Filter by team…"
+              options={[
+                { id: '', label: 'All teams', selected: !teamScope },
+                ...data.teams.map((t) => ({
+                  id: t.id,
+                  label: t.name,
+                  hint: t.key,
+                  keywords: t.key,
+                  selected: t.id === teamScope,
+                })),
+              ]}
+              onSelect={setTeamScope}
+              trigger={
+                <span className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[13px] text-muted hover:text-fg">
+                  <span className="truncate">{scopedTeam ? scopedTeam.name : 'All teams'}</span>
+                  <ChevronDown size={13} className="text-faint" />
+                </span>
+              }
+            />
             {/* Quick List/Board segmented toggle (Linear shows this in the
                 view header alongside the Display menu). */}
             <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
@@ -180,6 +209,7 @@ export function MyIssues() {
       ) : (
         <IssueTab
           tab={tab}
+          teamScope={teamScope}
           layout={layout}
           groupBy={groupBy}
           subGroupBy={subGroupBy}
@@ -202,6 +232,8 @@ export function MyIssues() {
 
 interface IssueTabProps {
   tab: Exclude<Tab, 'activity'>
+  /** Team id to scope the list to, or '' for all teams. */
+  teamScope: string
   layout: ViewLayout
   groupBy: GroupBy
   subGroupBy: GroupBy
@@ -218,6 +250,7 @@ interface IssueTabProps {
 
 function IssueTab({
   tab,
+  teamScope,
   layout,
   groupBy,
   subGroupBy,
@@ -240,6 +273,7 @@ function IssueTab({
     const me = data.currentUserId
     let scoped = data.issues.filter((i) => {
       if (i.triage) return false
+      if (teamScope && i.teamId !== teamScope) return false
       if (tab === 'assigned') return i.assigneeId === me
       if (tab === 'created') return i.creatorId === me
       return i.subscriberIds.includes(me) // subscribed
@@ -291,6 +325,7 @@ function IssueTab({
   }, [
     data,
     tab,
+    teamScope,
     groupBy,
     subGroupBy,
     orderBy,

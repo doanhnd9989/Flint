@@ -31,11 +31,12 @@ export function InitiativeDetail() {
   // edit an initiative's summary in place. `descDraft` holds the in-flight text.
   const [editingDesc, setEditingDesc] = useState(false)
   const [descDraft, setDescDraft] = useState('')
-  const { initiatives, projects, issues, users, initiativeUpdates } = useStoreShallow((s) => ({
+  const { initiatives, projects, issues, users, teams, initiativeUpdates } = useStoreShallow((s) => ({
     initiatives: s.initiatives,
     projects: s.projects,
     issues: s.issues,
     users: s.users,
+    teams: s.teams,
     initiativeUpdates: s.initiativeUpdates,
   }))
   const data = useStore()
@@ -81,6 +82,23 @@ export function InitiativeDetail() {
     const completedProjects = inProjects.filter((p) => p.status === 'completed').length
     return { totalProjects, completedProjects }
   }, [inProjects])
+
+  // People & teams involved in the initiative, derived (read-only, like Linear)
+  // from the union of every linked project's lead + members and teams. Resolved
+  // to full User/Team objects and kept stable via the project list.
+  const { members, involvedTeams } = useMemo(() => {
+    const userIds = new Set<string>()
+    const teamIds = new Set<string>()
+    for (const p of inProjects) {
+      if (p.leadId) userIds.add(p.leadId)
+      for (const uid of p.memberIds) userIds.add(uid)
+      for (const tid of p.teamIds) teamIds.add(tid)
+    }
+    return {
+      members: users.filter((u) => userIds.has(u.id)),
+      involvedTeams: teams.filter((t) => teamIds.has(t.id)),
+    }
+  }, [inProjects, users, teams])
 
   // Group projects into status sections, preserving Linear's status order and
   // dropping empty groups. Used when "Group by status" is on.
@@ -434,6 +452,55 @@ export function InitiativeDetail() {
         ) : (
           <div className="overflow-hidden rounded-lg border border-border">
             {inProjects.map(renderProjectRow)}
+          </div>
+        )}
+
+        {/* Members & teams — derived (read-only) from the linked projects, the
+            way Linear surfaces who and which teams are involved in an
+            initiative. Each section is hidden when nothing rolls up. */}
+        {members.length > 0 && (
+          <div className="mt-8">
+            <h2 className="mb-3 text-[13px] font-semibold text-fg">
+              Members
+              <span className="ml-1.5 text-faint">{members.length}</span>
+            </h2>
+            <div className="overflow-hidden rounded-lg border border-border">
+              {members.map((u) => (
+                <div
+                  key={u.id}
+                  className="flex items-center gap-2.5 border-b border-border bg-bg-secondary px-4 py-2.5 last:border-b-0"
+                >
+                  <Avatar user={u} size={20} />
+                  <span className="truncate text-[13px] text-fg">{fmt(u.name)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {involvedTeams.length > 0 && (
+          <div className="mt-8">
+            <h2 className="mb-3 text-[13px] font-semibold text-fg">
+              Teams
+              <span className="ml-1.5 text-faint">{involvedTeams.length}</span>
+            </h2>
+            <div className="overflow-hidden rounded-lg border border-border">
+              {involvedTeams.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center gap-2.5 border-b border-border bg-bg-secondary px-4 py-2.5 last:border-b-0"
+                >
+                  <span
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px]"
+                    style={{ background: `${t.color}20` }}
+                  >
+                    {t.icon}
+                  </span>
+                  <span className="truncate text-[13px] text-fg">{t.name}</span>
+                  <span className="text-[11px] text-faint">{t.key}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
