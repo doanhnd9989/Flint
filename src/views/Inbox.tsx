@@ -50,6 +50,18 @@ const TYPE_LABEL: Record<NotificationType, string> = {
   subscribed: 'Subscribed updates',
 }
 
+// ── reason badge ─────────────────────────────────────────────────────────────
+// Linear tags each inbox row with a compact "reason" pill explaining why you
+// received it (Assigned / Mentioned / Commented / Status / Subscribed). Derived
+// purely from the notification's type — no store state.
+const REASON_LABEL: Record<NotificationType, string> = {
+  assigned: 'Assigned',
+  mention: 'Mentioned',
+  comment: 'Commented',
+  status: 'Status',
+  subscribed: 'Subscribed',
+}
+
 const STATUS_TYPE_LABEL: Record<StatusType, string> = {
   backlog: 'Backlog',
   unstarted: 'Todo',
@@ -1346,8 +1358,14 @@ function NotificationRow({
             {timeAgo(n.createdAt)}
           </span>
         </div>
-        <div className="truncate text-[12px] text-faint">
-          <span className="text-muted">{fmt(actor?.name)}</span> {n.body}
+        <div className="flex items-center gap-1.5 text-[12px] text-faint">
+          {/* reason pill — why this notification landed in the inbox */}
+          <span className="shrink-0 rounded bg-bg-tertiary px-1 py-px text-[10px] font-medium uppercase tracking-wide text-faint">
+            {REASON_LABEL[n.type]}
+          </span>
+          <span className="truncate">
+            <span className="text-muted">{fmt(actor?.name)}</span> {n.body}
+          </span>
         </div>
         {snoozed && (
           <div className="mt-0.5 flex items-center gap-1 text-[11px] text-faint">

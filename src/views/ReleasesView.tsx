@@ -5,6 +5,7 @@ import {
   CalendarRange,
   ChevronDown,
   ChevronRight,
+  Copy,
   MoreHorizontal,
   Plus,
   Rocket,
@@ -12,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
+import { copyToClipboard } from '@/lib/toast'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { ProgressDonut } from '@/components/ProgressDonut'
@@ -20,7 +22,13 @@ import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { RELEASE_STATUS, RELEASE_STATUS_ORDER } from '@/lib/constants'
 import { formatDate, formatFullDate, timeAgo, cn } from '@/lib/utils'
-import type { Issue, Project, ReleaseStatus, WorkflowState } from '@/lib/types'
+import type {
+  Issue,
+  Project,
+  Release,
+  ReleaseStatus,
+  WorkflowState,
+} from '@/lib/types'
 
 /** Status filter values for the segmented pill row ('all' = no filter). */
 type StatusFilter = 'all' | ReleaseStatus
@@ -58,6 +66,35 @@ function compareVersionDesc(a: string, b: string): number {
     if (da !== db) return db - da
   }
   return 0
+}
+
+/**
+ * Render a release as a self-contained Markdown document — heading, version +
+ * status, date, description, and a bulleted list of the linked project's issues
+ * (`identifier — title`). Mirrors the notes Linear lets you copy per release.
+ */
+function releaseToMarkdown(
+  r: Release,
+  project: Project | undefined,
+  linkedIssues: Issue[],
+): string {
+  const lines: string[] = [`# ${r.name} (${r.version})`, '']
+  const meta: string[] = [`**Status:** ${RELEASE_STATUS[r.status].label}`]
+  if (r.status === 'released' && r.releasedAt)
+    meta.push(`**Released:** ${formatFullDate(r.releasedAt)}`)
+  else if (r.targetDate) meta.push(`**Target:** ${formatFullDate(r.targetDate)}`)
+  if (project) meta.push(`**Project:** ${project.name}`)
+  lines.push(meta.join('  •  '), '')
+
+  if (r.description) lines.push(r.description, '')
+
+  if (linkedIssues.length > 0) {
+    lines.push('## Issues', '')
+    for (const i of linkedIssues) lines.push(`- ${i.identifier} ${i.title}`)
+    lines.push('')
+  }
+
+  return lines.join('\n').trimEnd() + '\n'
 }
 
 /** Small status color dot used in headers, rows and pickers. */
@@ -114,6 +151,16 @@ export function ReleasesView() {
     }
     return m
   }, [issues, doneStateIds])
+
+  /** projectId → that project's issues (used for "Copy as Markdown" notes). */
+  const issuesByProject = useMemo(() => {
+    const m: Record<string, Issue[]> = {}
+    for (const i of issues as Issue[]) {
+      if (!i.projectId) continue
+      ;(m[i.projectId] ??= []).push(i)
+    }
+    return m
+  }, [issues])
 
   /**
    * Releases grouped by status, in RELEASE_STATUS_ORDER (empty groups dropped).
@@ -367,22 +414,50 @@ export function ReleasesView() {
                                 : '—'}
                           </span>
 
-                          {/* delete (hover) */}
-                          <button
-                            type="button"
-                            title="Delete release"
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Delete release "${r.name}"? This cannot be undone.`,
+                          {/* overflow menu (hover) — copy notes, delete */}
+                          <SelectMenu
+                            align="end"
+                            width={200}
+                            options={[
+                              {
+                                id: 'copy-md',
+                                label: 'Copy as Markdown',
+                                icon: <Copy size={14} className="text-faint" />,
+                              },
+                              {
+                                id: 'delete',
+                                label: 'Delete release',
+                                icon: <X size={14} className="text-faint" />,
+                              },
+                            ]}
+                            onSelect={(id) => {
+                              if (id === 'copy-md') {
+                                const linkedIssues = r.projectId
+                                  ? (issuesByProject[r.projectId] ?? [])
+                                  : []
+                                copyToClipboard(
+                                  releaseToMarkdown(r, project, linkedIssues),
+                                  `"${r.name}" copied as Markdown`,
                                 )
-                              )
-                                deleteRelease(r.id)
+                              } else if (id === 'delete') {
+                                if (
+                                  window.confirm(
+                                    `Delete release "${r.name}"? This cannot be undone.`,
+                                  )
+                                )
+                                  deleteRelease(r.id)
+                              }
                             }}
-                            className="flex h-6 w-6 items-center justify-center rounded-md text-faint opacity-0 transition-opacity hover:bg-bg-tertiary hover:text-fg group-hover:opacity-100"
-                          >
-                            <X size={14} />
-                          </button>
+                            placeholder="Release actions…"
+                            trigger={
+                              <span
+                                title="Release actions"
+                                className="flex h-6 w-6 items-center justify-center rounded-md text-faint opacity-0 transition-opacity hover:bg-bg-tertiary hover:text-fg group-hover:opacity-100"
+                              >
+                                <MoreHorizontal size={14} />
+                              </span>
+                            }
+                          />
                         </div>
                       </div>
                     )

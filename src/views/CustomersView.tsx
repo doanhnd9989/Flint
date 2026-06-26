@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, Minus, Plus, Search, Trash2, X } from 'lucide-react'
+import { Check, Download, Minus, Plus, Search, Trash2, X } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
@@ -58,6 +58,26 @@ const TIER_FILTERS: { key: TierFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   ...CUSTOMER_TIER_ORDER.map((t) => ({ key: t, label: CUSTOMER_TIERS[t].label })),
 ]
+
+/** RFC 4180 — quote a field and escape embedded quotes. */
+function csvField(v: string | number): string {
+  const s = String(v)
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+/** Build a CSV Blob from the given rows and trigger a browser download. */
+function downloadCsv(filename: string, rows: (string | number)[][]) {
+  const csv = rows.map((r) => r.map(csvField).join(',')).join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
 
 /** Compact "$120K" / "$1.2M" formatter for ARR figures. */
 function formatArr(value: number): string {
@@ -181,6 +201,40 @@ export function CustomersView() {
     setSelected(new Set())
   }
 
+  /**
+   * Export the *filtered* customer set as a CSV download — one row per visible
+   * customer, with the Customer model's fields plus the derived rollups (owner
+   * name, linked-request count, account health) already shown in the list.
+   */
+  function exportCsv() {
+    const header = [
+      'Name',
+      'Domain',
+      'Tier',
+      'ARR',
+      'Owner',
+      'Requests',
+      'Health',
+      'Notes',
+      'Created',
+    ]
+    const rows: (string | number)[][] = sorted.map((c) => {
+      const owner = users.find((u) => u.id === c.ownerId)
+      return [
+        c.name,
+        c.domain ?? '',
+        CUSTOMER_TIERS[c.tier].label,
+        c.arr ?? '',
+        owner ? fmt(owner.name) : '',
+        requestCounts[c.id] ?? 0,
+        HEALTH_META[health[c.id]].label,
+        c.notes ?? '',
+        c.createdAt,
+      ]
+    })
+    downloadCsv('customers.csv', [header, ...rows])
+  }
+
   /** Drop ids that have filtered out of view so the toolbar stays accurate. */
   useEffect(() => {
     setSelected((prev) => {
@@ -229,14 +283,28 @@ export function CustomersView() {
       <ViewHeader
         title="Customers"
         right={
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[13px] font-medium text-white hover:bg-accent-hover"
-          >
-            <Plus size={14} />
-            New customer
-          </button>
+          <div className="flex items-center gap-2">
+            {customers.length > 0 && (
+              <button
+                type="button"
+                onClick={exportCsv}
+                disabled={sorted.length === 0}
+                title="Export filtered customers as CSV"
+                className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[13px] font-medium text-muted hover:bg-bg-hover hover:text-fg disabled:opacity-50"
+              >
+                <Download size={14} />
+                Export
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[13px] font-medium text-white hover:bg-accent-hover"
+            >
+              <Plus size={14} />
+              New customer
+            </button>
+          </div>
         }
       />
 

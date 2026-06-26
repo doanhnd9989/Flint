@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { Clock, Search, X } from 'lucide-react'
+import { CalendarDays, Clock, Search, X } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { StatusIcon } from '@/components/StatusIcon'
 import { Popover } from '@/components/ui/Popover'
+import { DatePicker } from '@/components/DatePicker'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
-import { formatDate, isOverdue } from '@/lib/utils'
+import { cn, formatDate, isOverdue } from '@/lib/utils'
 import type { Issue } from '@/lib/types'
 
 /** Local time formatter ("9:00 AM") for reminder preset times. */
@@ -120,6 +122,32 @@ export function RemindersView() {
   const [query, setQuery] = useState('')
   // Which reminder row is currently editing its note (issue id, or null).
   const [editingNote, setEditingNote] = useState<string | null>(null)
+  // Multi-select: set of selected reminder (issue) ids for bulk reschedule.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  // Toggle one reminder's checkbox without mutating the existing Set in place.
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const clearSelection = () => setSelected(new Set())
+
+  // Esc clears the selection (unless typing in an input), like the issue list.
+  useEffect(() => {
+    if (selected.size === 0) return
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return
+      if (e.key === 'Escape') clearSelection()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [selected.size])
 
   // Issues with a live reminder, soonest first, split into overdue + upcoming
   // time buckets (Today / Tomorrow / This week / Later), Linear-style. A
@@ -154,6 +182,20 @@ export function RemindersView() {
     }
   }, [issues, query])
 
+  // Reschedule every selected reminder to the picked calendar day. The DatePicker
+  // yields a date-only ISO (midnight UTC); we re-anchor to 09:00 *local* so the
+  // reminder keeps a sensible morning time, matching the "Tomorrow" preset.
+  function bulkReschedule(iso?: string) {
+    if (!iso) return
+    const picked = new Date(iso)
+    const at = new Date()
+    at.setFullYear(picked.getFullYear(), picked.getMonth(), picked.getDate())
+    at.setHours(9, 0, 0, 0)
+    const remindAt = at.toISOString()
+    selected.forEach((id) => setIssueReminder(id, remindAt))
+    clearSelection()
+  }
+
   function renderRow(issue: Issue & { remindAt: string }) {
     const state = states.find((s) => s.id === issue.stateId)
     const assignee = users.find((u) => u.id === issue.assigneeId)
@@ -162,11 +204,28 @@ export function RemindersView() {
     // from the issue's Markdown description when no note has been written yet.
     const snippet = issue.description ? descriptionSnippet(issue.description) : ''
     const editing = editingNote === issue.id
+    const isSelected = selected.has(issue.id)
     return (
       <div
         key={issue.id}
-        className="group flex w-full items-center gap-2.5 border-b border-border/40 px-4 py-1.5"
+        className={cn(
+          'group flex w-full items-center gap-2.5 border-b border-border/40 px-4 py-1.5',
+          isSelected && 'bg-bg-selected',
+        )}
       >
+        {/* Selection checkbox — hidden until row hover (or already checked), like
+            the issue list. Clicking toggles this reminder into the bulk set. */}
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={() => toggleSelect(issue.id)}
+          onClick={(e) => e.stopPropagation()}
+          title="Select reminder"
+          className={cn(
+            'h-3.5 w-3.5 shrink-0 cursor-pointer accent-accent transition-opacity',
+            isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+          )}
+        />
         <button
           type="button"
           onClick={() => navigate(`/issue/${issue.identifier}`)}
@@ -441,6 +500,37 @@ export function RemindersView() {
           )}
         </>
       )}
+
+      {/* Floating bulk-action bar — shown while ≥1 reminder is selected. Mirrors
+          the issue list's BulkActionBar; "Reschedule…" reuses the DatePicker and
+          updates each selected reminder via setIssueReminder. */}
+      {selected.size > 0 &&
+        createPortal(
+          <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 animate-pop">
+            <div className="flex items-center gap-1 rounded-xl border border-border bg-bg-elevated px-2 py-1.5 shadow-lg">
+              <span className="flex items-center gap-2 rounded-md bg-accent px-2.5 py-1.5 text-[12px] font-medium text-white">
+                {selected.size} selected
+                <button
+                  onClick={clearSelection}
+                  className="hover:opacity-80"
+                  title="Clear selection (Esc)"
+                >
+                  <X size={13} />
+                </button>
+              </span>
+              <DatePicker
+                onChange={bulkReschedule}
+                align="end"
+                trigger={
+                  <span className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg">
+                    <CalendarDays size={14} /> Reschedule…
+                  </span>
+                }
+              />
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

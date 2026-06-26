@@ -3,17 +3,23 @@ import { ChevronDown, Download } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { SelectMenu } from '@/components/ui/SelectMenu'
+import { DatePicker } from '@/components/DatePicker'
 import { LABEL_COLORS, PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
 import { displayName, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { Issue, WorkflowState } from '@/lib/types'
 
-/** Time ranges for the Insights header — filter source issues by createdAt. */
+/**
+ * Time ranges for the Insights header — filter source issues by createdAt. The
+ * trailing 'custom' entry switches the header to an explicit start/end date pair
+ * (matching Linear's "Custom range…" option) instead of a rolling day window.
+ */
 const RANGES = [
   { id: 'all', label: 'All time', days: 0 },
   { id: '7', label: 'Last 7 days', days: 7 },
   { id: '30', label: 'Last 30 days', days: 30 },
   { id: '90', label: 'Last 90 days', days: 90 },
+  { id: 'custom', label: 'Custom range…', days: -1 },
 ] as const
 type RangeId = (typeof RANGES)[number]['id']
 
@@ -455,6 +461,10 @@ export function InsightsView() {
   const data = useStore()
   const [teamFilter, setTeamFilter] = useState<string>('all')
   const [range, setRange] = useState<RangeId>('all')
+  // Explicit start/end (ISO) for the 'custom' range — local only, drives the same
+  // createdAt filtering the presets do via the shared [from, to] window below.
+  const [customFrom, setCustomFrom] = useState<string | undefined>()
+  const [customTo, setCustomTo] = useState<string | undefined>()
   const [measure, setMeasure] = useState<MeasureId>('count')
   // Featured "Group by" dimension — drives the headline breakdown chart and the
   // CSV export. `sort` flips that headline chart largest- vs. smallest-first.
@@ -467,21 +477,46 @@ export function InsightsView() {
 
   const rangeMeta = RANGES.find((r) => r.id === range) ?? RANGES[0]
 
-  // Cutoff timestamp for the active range; null means "all time".
-  const cutoff = useMemo(
-    () => (rangeMeta.days > 0 ? Date.now() - rangeMeta.days * 86_400_000 : null),
-    [rangeMeta.days],
-  )
+  // Unified createdAt window for the active range as a `[from, to]` pair of
+  // timestamps (null = open-ended on that side). Presets are rolling windows
+  // ending now (`from = now − days`, `to = null`); 'custom' uses the explicit
+  // start/end dates, inclusive of the whole end day. Both feed the same filtering.
+  const { from, to } = useMemo<{ from: number | null; to: number | null }>(() => {
+    if (range === 'custom') {
+      return {
+        from: customFrom ? new Date(customFrom).getTime() : null,
+        // Inclusive end — extend to the final millisecond of the chosen day.
+        to: customTo ? new Date(customTo).getTime() + 86_400_000 - 1 : null,
+      }
+    }
+    return {
+      from: rangeMeta.days > 0 ? Date.now() - rangeMeta.days * 86_400_000 : null,
+      to: null,
+    }
+  }, [range, rangeMeta.days, customFrom, customTo])
+
+  // Cutoff timestamp = the window's lower bound; null means open-ended (drives
+  // the time-series window start the same way it did for the preset ranges).
+  const cutoff = from
+
+  // Human label for the active range — presets use their static label; a custom
+  // range reads as its explicit date span (open-ended sides shown as "any").
+  const rangeLabel =
+    range === 'custom'
+      ? `${customFrom ? formatDate(customFrom) : 'any'} – ${customTo ? formatDate(customTo) : 'any'}`
+      : rangeMeta.label
 
   const issues = useMemo<Issue[]>(
     () =>
-      data.issues.filter(
-        (i) =>
-          !i.archivedAt &&
-          (teamFilter === 'all' || i.teamId === teamFilter) &&
-          (cutoff === null || new Date(i.createdAt).getTime() >= cutoff),
-      ),
-    [data.issues, teamFilter, cutoff],
+      data.issues.filter((i) => {
+        if (i.archivedAt) return false
+        if (teamFilter !== 'all' && i.teamId !== teamFilter) return false
+        const t = new Date(i.createdAt).getTime()
+        if (from !== null && t < from) return false
+        if (to !== null && t > to) return false
+        return true
+      }),
+    [data.issues, teamFilter, from, to],
   )
 
   const stateById = useMemo(() => {
@@ -537,10 +572,11 @@ export function InsightsView() {
   // ── Created vs Completed time series ───────────────────────────────────────
   // Bucket the range/team-filtered cohort by createdAt and completedAt across
   // the active window. Window start is the range cutoff (or the earliest
-  // createdAt for "all time"); window end is now. Day buckets for ≤31-day spans,
-  // weekly buckets beyond that, so the line stays readable at every zoom.
+  // createdAt for "all time"); window end is the custom range's end date when
+  // set, else now. Day buckets for ≤31-day spans, weekly buckets beyond that, so
+  // the line stays readable at every zoom.
   const timeSeries = useMemo<TimePoint[]>(() => {
-    const now = Date.now()
+    const now = to ?? Date.now()
     let start = cutoff
     if (start === null) {
       // "All time" — span from the earliest createdAt in the cohort.
@@ -576,7 +612,7 @@ export function InsightsView() {
       }
     }
     return pts
-  }, [issues, cutoff])
+  }, [issues, cutoff, to])
 
   // ── breakdown by workflow status ───────────────────────────────────────────
   const byStatus = useMemo<Bar[]>(() => {
@@ -777,6 +813,36 @@ export function InsightsView() {
               }
             />
 
+            {/* Custom range — explicit start/end DatePickers shown only when the
+                'custom' range is active; both filter the cohort by createdAt. */}
+            {range === 'custom' && (
+              <div className="flex items-center gap-1">
+                <DatePicker
+                  value={customFrom}
+                  onChange={setCustomFrom}
+                  align="end"
+                  trigger={
+                    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-bg px-2 py-1 text-[12px] text-fg hover:bg-bg-hover">
+                      {customFrom ? formatDate(customFrom) : 'Start date'}
+                      <ChevronDown size={13} className="text-muted" />
+                    </span>
+                  }
+                />
+                <span className="text-[12px] text-faint">–</span>
+                <DatePicker
+                  value={customTo}
+                  onChange={setCustomTo}
+                  align="end"
+                  trigger={
+                    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-bg px-2 py-1 text-[12px] text-fg hover:bg-bg-hover">
+                      {customTo ? formatDate(customTo) : 'End date'}
+                      <ChevronDown size={13} className="text-muted" />
+                    </span>
+                  }
+                />
+              </div>
+            )}
+
             {/* Group-by dimension — re-pivots the featured breakdown chart (and
                 the CSV export) across any issue attribute. */}
             <SelectMenu
@@ -903,7 +969,7 @@ export function InsightsView() {
               </>
             )}
             {' · '}
-            <span className="font-medium text-fg">{rangeMeta.label.toLowerCase()}</span>
+            <span className="font-medium text-fg">{range === 'custom' ? rangeLabel : rangeMeta.label.toLowerCase()}</span>
             {teamFilter !== 'all' && (
               <>
                 {' · '}
