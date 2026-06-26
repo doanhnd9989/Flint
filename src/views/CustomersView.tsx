@@ -12,11 +12,46 @@ import type { CustomerTier } from '@/lib/types'
 type SortKey = 'arr' | 'name' | 'requests'
 type TierFilter = CustomerTier | 'all'
 
+/** Account-health buckets, derived from linked-request activity recency. */
+type Health = 'healthy' | 'at-risk' | 'churned'
+type HealthFilter = Health | 'all'
+
 const SORTS: { key: SortKey; label: string }[] = [
   { key: 'arr', label: 'ARR' },
   { key: 'name', label: 'Name' },
   { key: 'requests', label: 'Requests' },
 ]
+
+/** Health badge meta — label + token-driven colours, ordered worst-last. */
+const HEALTH_META: Record<Health, { label: string; color: string }> = {
+  healthy: { label: 'Healthy', color: 'var(--c-green)' },
+  'at-risk': { label: 'At risk', color: 'var(--c-yellow)' },
+  churned: { label: 'Churned', color: 'var(--c-red)' },
+}
+
+/** Health filter pills, "All" first then healthy → at-risk → churned. */
+const HEALTH_FILTERS: { key: HealthFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'healthy', label: 'Healthy' },
+  { key: 'at-risk', label: 'At risk' },
+  { key: 'churned', label: 'Churned' },
+]
+
+const DAY = 86_400_000
+
+/**
+ * Derive an account-health bucket from the customer's most recent linked-issue
+ * activity. Fresh activity (≤30d) reads as Healthy, stale (≤90d) as At risk,
+ * and anything older — or a customer with no linked requests at all — as
+ * Churned. Mirrors how Linear surfaces account engagement at a glance.
+ */
+function deriveHealth(lastActivity: number | undefined, now: number): Health {
+  if (lastActivity === undefined) return 'churned'
+  const age = now - lastActivity
+  if (age <= 30 * DAY) return 'healthy'
+  if (age <= 90 * DAY) return 'at-risk'
+  return 'churned'
+}
 
 /** Tier filter pills, "All" first then the standard tier order. */
 const TIER_FILTERS: { key: TierFilter; label: string }[] = [
@@ -46,25 +81,43 @@ export function CustomersView() {
 
   const [sort, setSort] = useState<SortKey>('arr')
   const [tierFilter, setTierFilter] = useState<TierFilter>('all')
+  const [healthFilter, setHealthFilter] = useState<HealthFilter>('all')
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  /** Linked-issue ("request") count per customer id. */
-  const requestCounts = useMemo(() => {
-    const map: Record<string, number> = {}
+  /**
+   * Per-customer rollups from linked requests: count + most-recent activity
+   * timestamp (the latest `updatedAt` across that customer's open issues).
+   */
+  const { requestCounts, lastActivity } = useMemo(() => {
+    const counts: Record<string, number> = {}
+    const activity: Record<string, number> = {}
     for (const i of issues) {
       if (!i.customerIds || i.archivedAt) continue
-      for (const cid of i.customerIds) map[cid] = (map[cid] ?? 0) + 1
+      const ts = Date.parse(i.updatedAt ?? i.createdAt)
+      for (const cid of i.customerIds) {
+        counts[cid] = (counts[cid] ?? 0) + 1
+        if (!Number.isNaN(ts) && ts > (activity[cid] ?? 0)) activity[cid] = ts
+      }
     }
-    return map
+    return { requestCounts: counts, lastActivity: activity }
   }, [issues])
+
+  /** Health bucket per customer id, computed once relative to "now". */
+  const health = useMemo(() => {
+    const now = Date.now()
+    const map: Record<string, Health> = {}
+    for (const c of customers) map[c.id] = deriveHealth(lastActivity[c.id], now)
+    return map
+  }, [customers, lastActivity])
 
   const sorted = useMemo(() => {
     const q = query.trim().toLowerCase()
     const arr = customers.filter(
       (c) =>
         (tierFilter === 'all' || c.tier === tierFilter) &&
+        (healthFilter === 'all' || health[c.id] === healthFilter) &&
         (!q ||
           c.name.toLowerCase().includes(q) ||
           (c.domain?.toLowerCase().includes(q) ?? false)),
@@ -80,7 +133,7 @@ export function CustomersView() {
       }
     })
     return arr
-  }, [customers, tierFilter, sort, query, requestCounts])
+  }, [customers, tierFilter, healthFilter, health, sort, query, requestCounts])
 
   /** Summary reflects the *filtered* set (count + total ARR + requests). */
   const totals = useMemo(() => {
@@ -197,6 +250,32 @@ export function CustomersView() {
               </button>
             ))}
 
+            {/* Divider between tier and health pill groups */}
+            <span className="mx-1 h-4 w-px shrink-0 bg-border" />
+
+            {/* Health filter pills (Healthy / At risk / Churned) */}
+            {HEALTH_FILTERS.map((h) => (
+              <button
+                key={h.key}
+                type="button"
+                onClick={() => setHealthFilter(h.key)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-medium transition-colors',
+                  healthFilter === h.key
+                    ? 'border-transparent bg-bg-selected text-fg'
+                    : 'border-border text-muted hover:text-fg',
+                )}
+              >
+                {h.key !== 'all' && (
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ background: HEALTH_META[h.key].color }}
+                  />
+                )}
+                {h.label}
+              </button>
+            ))}
+
             {/* Filter-by-name search ("/" to focus, Esc to clear) */}
             <div className="ml-auto flex items-center gap-1.5 rounded-md border border-border px-2 py-1 focus-within:border-accent">
               <Search size={13} className="shrink-0 text-faint" />
@@ -248,6 +327,7 @@ export function CustomersView() {
               const owner = users.find((u) => u.id === c.ownerId)
               const tier = CUSTOMER_TIERS[c.tier]
               const reqs = requestCounts[c.id] ?? 0
+              const hm = HEALTH_META[health[c.id]]
               return (
                 <button
                   key={c.id}
@@ -280,6 +360,21 @@ export function CustomersView() {
                       style={{ background: tier.color }}
                     />
                     {tier.label}
+                  </span>
+
+                  {/* Health badge — coloured dot + tinted label */}
+                  <span
+                    className="flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-medium"
+                    style={{
+                      color: hm.color,
+                      background: `color-mix(in srgb, ${hm.color} 14%, transparent)`,
+                    }}
+                  >
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: hm.color }}
+                    />
+                    {hm.label}
                   </span>
 
                   <div className="ml-auto flex items-center gap-4 text-[12px] text-muted">

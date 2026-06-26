@@ -273,3 +273,14 @@ surface, plus one new data feature (project dependencies), then 4 bug fixes.
 - [x] 🟢 **Views search + sort** — name search + Name A→Z / Recently created.
 - [x] 🟡 **Triage priority filter + sort** — priority dropdown + Newest/Oldest/Priority.
 - [x] 🔴 **Project dependencies** — `Project.dependsOn` + cycle-guarded add/remove actions; a Dependencies section on the project Overview (Blocked by / Blocking lists, project picker, inline remove); seeded Mobile App ← MVP Launch.
+
+## Loop #91 — wave 1 (analytics/directory views)
+
+- [x] 🟡 **Insights "Split by" stacked bar** — secondary-dimension selector (None/Status/Priority/Assignee) that segments the Group-by bars into a horizontal stacked bar with a swatch legend; split auto-excludes the active group-by.
+- [x] 🟡 **Customer health filter + badge** — Healthy/At risk/Churned buckets derived from latest linked-request recency (≤30d/≤90d/else), shown as a coloured row badge + filter pills.
+- [x] 🟡 **Documents list/grid toggle** — segmented list↔grid layout; grid renders document cards (icon, title, snippet, updated time + project chip).
+- [x] 🟡 **Reminders search** — case-insensitive search by issue title/identifier with clear button + no-match empty state (header keeps unfiltered total).
+- [x] 🟡 **Recently-viewed keyboard nav** — j/k/↑/↓ walk a highlighted row, Enter/o opens it; capture-phase handler, hover-to-focus, auto-scroll.
+- [x] 🟡 **Releases search** — case-insensitive search across version + name with clear button + search-aware empty state (also hardened a status-key crash).
+- [x] 🟡 **Pulse CSV export** — Export button downloads the currently-filtered activity feed as RFC-4180 CSV (Date/Type/Actor/Target/Summary) via a client Blob.
+- [x] 🟡 **Archive sort** — header sort picker: Recently archived / Oldest / Identifier over the archived pool.

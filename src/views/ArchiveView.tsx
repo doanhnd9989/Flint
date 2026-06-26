@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, RotateCcw, Search, Trash2 } from 'lucide-react'
+import { ArrowUpDown, ChevronDown, RotateCcw, Search, Trash2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
@@ -31,6 +31,12 @@ export function ArchiveView() {
   const [query, setQuery] = useState('')
   const [teamFilter, setTeamFilter] = useState<string>('all')
 
+  // Sort order for the archived pool. "recent" (newest-archived first) is the
+  // default, matching Linear; "oldest" reverses it, "identifier" sorts by the
+  // human key (e.g. ENG-1, ENG-2) in natural ascending order.
+  type SortKey = 'recent' | 'oldest' | 'identifier'
+  const [sort, setSort] = useState<SortKey>('recent')
+
   // userId → user, for assignee avatars.
   const userById = useMemo(() => {
     const m = new Map<string, User>()
@@ -45,15 +51,20 @@ export function ArchiveView() {
     return m
   }, [states])
 
-  // Every archived issue, newest-archived first (the unfiltered pool — also the
-  // count shown in the header).
-  const allArchived = useMemo(
-    () =>
-      issues
-        .filter((i) => !!i.archivedAt)
-        .sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? '')),
-    [issues],
-  )
+  // Every archived issue in the chosen order (the unfiltered pool — also the
+  // count shown in the header). Default is newest-archived first.
+  const allArchived = useMemo(() => {
+    const pool = issues.filter((i) => !!i.archivedAt)
+    if (sort === 'identifier') {
+      return pool.sort((a, b) =>
+        a.identifier.localeCompare(b.identifier, undefined, { numeric: true }),
+      )
+    }
+    const dir = sort === 'oldest' ? -1 : 1
+    return pool.sort(
+      (a, b) => dir * (b.archivedAt ?? '').localeCompare(a.archivedAt ?? ''),
+    )
+  }, [issues, sort])
 
   // Apply the header filters (query substring + team) with AND semantics.
   const archived = useMemo(() => {
@@ -90,6 +101,24 @@ export function ArchiveView() {
       ? 'All teams'
       : (teams.find((t) => t.id === teamFilter)?.name ?? 'All teams')
 
+  // Sort picker options + the human label for its trigger chip.
+  const sortLabels: Record<SortKey, string> = {
+    recent: 'Recently archived',
+    oldest: 'Oldest archived',
+    identifier: 'Identifier',
+  }
+  const sortOptions = useMemo<SelectOption[]>(
+    () =>
+      (Object.keys(sortLabels) as SortKey[]).map((k) => ({
+        id: k,
+        label: sortLabels[k],
+        selected: sort === k,
+      })),
+    // sortLabels is a stable literal; only `sort` actually varies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sort],
+  )
+
   // Group the (already sorted) archived issues by team, preserving order.
   const groups = useMemo(() => {
     const teamById = new Map<string, Team>()
@@ -125,6 +154,20 @@ export function ArchiveView() {
                 className="w-40 bg-transparent text-[12px] text-fg outline-none placeholder:text-faint"
               />
             </div>
+            <SelectMenu
+              width={180}
+              align="end"
+              options={sortOptions}
+              onSelect={(id) => setSort(id as SortKey)}
+              placeholder="Sort by…"
+              trigger={
+                <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
+                  <ArrowUpDown size={13} className="shrink-0 text-faint" />
+                  <span className="max-w-[120px] truncate">{sortLabels[sort]}</span>
+                  <ChevronDown size={13} className="shrink-0 text-faint" />
+                </span>
+              }
+            />
             <SelectMenu
               width={200}
               align="end"

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowDownUp, ChevronDown, FileText, FolderOpen, Plus, Search } from 'lucide-react'
+import { ArrowDownUp, ChevronDown, FileText, FolderOpen, LayoutGrid, List, Plus, Search } from 'lucide-react'
 import { useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState } from '@/components/EmptyState'
@@ -15,6 +15,15 @@ const SORT_LABELS: Record<SortMode, string> = {
   updated: 'Last updated',
   created: 'Created',
   title: 'Title A→Z',
+}
+
+/** Local-only layout modes — Linear's Documents view offers list + grid. */
+type Layout = 'list' | 'grid'
+
+/** First chunk of body text for a card preview, stripped of blank lines. */
+function snippet(content: string): string {
+  const text = content.replace(/\s+/g, ' ').trim()
+  return text.length > 160 ? `${text.slice(0, 160)}…` : text
 }
 
 /**
@@ -40,6 +49,7 @@ export function DocumentsView() {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortMode>('updated')
   const [projectFilter, setProjectFilter] = useState<string>('all')
+  const [layout, setLayout] = useState<Layout>('list')
 
   // Apply the search query + project filter, then order by the sort mode.
   const sorted = useMemo(() => {
@@ -153,6 +163,31 @@ export function DocumentsView() {
                 </span>
               }
             />
+            {/* Layout toggle — list (default) vs grid of cards, like Linear. */}
+            <div className="flex items-center rounded-md border border-border bg-bg-tertiary p-0.5">
+              <button
+                type="button"
+                onClick={() => setLayout('list')}
+                title="List"
+                aria-pressed={layout === 'list'}
+                className={`flex items-center rounded p-1 ${
+                  layout === 'list' ? 'bg-bg text-fg' : 'text-faint hover:text-fg'
+                }`}
+              >
+                <List size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayout('grid')}
+                title="Grid"
+                aria-pressed={layout === 'grid'}
+                className={`flex items-center rounded p-1 ${
+                  layout === 'grid' ? 'bg-bg text-fg' : 'text-faint hover:text-fg'
+                }`}
+              >
+                <LayoutGrid size={14} />
+              </button>
+            </div>
             <button
               type="button"
               onClick={create}
@@ -178,38 +213,80 @@ export function DocumentsView() {
         />
       ) : (
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-3xl px-6 py-6">
-            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-              {sorted.map((doc) => {
-                const author = users.find((u) => u.id === doc.creatorId)
-                const project = projects.find((p) => p.id === doc.projectId)
-                return (
-                  <button
-                    key={doc.id}
-                    type="button"
-                    onClick={() => navigate(`/document/${doc.id}`)}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg-hover"
-                  >
-                    <span className="text-[18px] leading-none">{doc.icon}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium text-fg">
-                        {doc.title || 'Untitled'}
+          <div className={`mx-auto px-6 py-6 ${layout === 'grid' ? 'max-w-5xl' : 'max-w-3xl'}`}>
+            {layout === 'list' ? (
+              <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+                {sorted.map((doc) => {
+                  const author = users.find((u) => u.id === doc.creatorId)
+                  const project = projects.find((p) => p.id === doc.projectId)
+                  return (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      onClick={() => navigate(`/document/${doc.id}`)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg-hover"
+                    >
+                      <span className="text-[18px] leading-none">{doc.icon}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium text-fg">
+                          {doc.title || 'Untitled'}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[12px] text-faint">
+                          Updated {timeAgo(doc.updatedAt)}
+                          {author ? ` by ${fmt(author.name)}` : ''}
+                        </span>
                       </span>
-                      <span className="mt-0.5 block truncate text-[12px] text-faint">
-                        Updated {timeAgo(doc.updatedAt)}
-                        {author ? ` by ${fmt(author.name)}` : ''}
-                      </span>
-                    </span>
-                    {project && (
-                      <span className="flex shrink-0 items-center gap-1 rounded-md bg-bg-tertiary px-1.5 py-0.5 text-[12px] text-muted">
-                        <span>{project.icon}</span>
-                        <span className="max-w-[140px] truncate">{project.name}</span>
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
+                      {project && (
+                        <span className="flex shrink-0 items-center gap-1 rounded-md bg-bg-tertiary px-1.5 py-0.5 text-[12px] text-muted">
+                          <span>{project.icon}</span>
+                          <span className="max-w-[140px] truncate">{project.name}</span>
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              /* Grid layout — a card per document: icon + title, a body snippet,
+                 and a footer with the updated time + an optional project chip. */
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {sorted.map((doc) => {
+                  const author = users.find((u) => u.id === doc.creatorId)
+                  const project = projects.find((p) => p.id === doc.projectId)
+                  const preview = snippet(doc.content)
+                  return (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      onClick={() => navigate(`/document/${doc.id}`)}
+                      className="flex h-40 flex-col rounded-lg border border-border bg-bg p-4 text-left hover:bg-bg-hover"
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="text-[18px] leading-none">{doc.icon}</span>
+                        <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-medium text-fg">
+                          {doc.title || 'Untitled'}
+                        </span>
+                      </div>
+                      <p className="mt-2 line-clamp-3 flex-1 text-[12px] leading-relaxed text-muted">
+                        {preview || 'Empty document'}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2 text-[12px] text-faint">
+                        <span className="truncate">
+                          Updated {timeAgo(doc.updatedAt)}
+                          {author ? ` by ${fmt(author.name)}` : ''}
+                        </span>
+                        {project && (
+                          <span className="ml-auto flex shrink-0 items-center gap-1 rounded bg-bg-tertiary px-1.5 py-0.5 text-muted">
+                            <span>{project.icon}</span>
+                            <span className="max-w-[80px] truncate">{project.name}</span>
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

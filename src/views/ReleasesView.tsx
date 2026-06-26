@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   Plus,
   Rocket,
+  Search,
   X,
 } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
@@ -86,6 +87,7 @@ export function ReleasesView() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [sort, setSort] = useState<SortMode>('manual')
+  const [query, setQuery] = useState('')
 
   const projectById = useMemo(() => {
     const m: Record<string, Project> = {}
@@ -119,8 +121,16 @@ export function ReleasesView() {
    * the persisted sortOrder.
    */
   const groups = useMemo(() => {
+    // free-text search across version + name (case-insensitive substring)
+    const q = query.trim().toLowerCase()
     const sorted = [...releases]
       .filter((r) => statusFilter === 'all' || r.status === statusFilter)
+      .filter(
+        (r) =>
+          !q ||
+          r.name.toLowerCase().includes(q) ||
+          r.version.toLowerCase().includes(q),
+      )
       .sort((a, b) => {
         switch (sort) {
           case 'version':
@@ -140,7 +150,7 @@ export function ReleasesView() {
       status,
       items: sorted.filter((r) => r.status === status),
     })).filter((g) => g.items.length > 0)
-  }, [releases, statusFilter, sort])
+  }, [releases, statusFilter, sort, query])
 
   /** Sort dropdown options for the header control. */
   const sortOptions: SelectOption[] = (
@@ -208,6 +218,27 @@ export function ReleasesView() {
               {f.label}
             </button>
           ))}
+
+          {/* search — filters rows by version + name */}
+          <div className="ml-auto flex items-center gap-1.5 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] focus-within:border-accent">
+            <Search size={13} className="shrink-0 text-faint" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search releases…"
+              className="w-40 bg-transparent text-fg outline-none placeholder:text-faint"
+            />
+            {query && (
+              <button
+                type="button"
+                title="Clear search"
+                onClick={() => setQuery('')}
+                className="flex h-4 w-4 items-center justify-center rounded text-faint hover:text-fg"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -221,8 +252,11 @@ export function ReleasesView() {
           />
         ) : groups.length === 0 ? (
           <div className="px-4 py-10 text-center text-[13px] text-faint">
-            No {RELEASE_STATUS[statusFilter as ReleaseStatus].label.toLowerCase()}{' '}
-            releases.
+            {query.trim()
+              ? `No releases match "${query.trim()}".`
+              : `No ${RELEASE_STATUS[
+                  statusFilter as ReleaseStatus
+                ].label.toLowerCase()} releases.`}
           </div>
         ) : (
           groups.map((g) => {

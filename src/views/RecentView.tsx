@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, Search } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
@@ -74,6 +74,68 @@ export function RecentView() {
       ? 'All teams'
       : (teams.find((t) => t.id === teamFilter)?.name ?? 'All teams')
 
+  // Keyboard navigation — Linear lets you walk any list with j/k (or arrows) and
+  // open the focused row with Enter/o. `focusId` tracks the highlighted issue;
+  // it's clamped to the visible (filtered) set so a filter change never strands
+  // the cursor on a now-hidden row.
+  const [focusId, setFocusId] = useState<string | null>(null)
+  const rowRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+
+  // Keep the focus valid as the filtered list shifts: default to the first row,
+  // and drop a focus that no longer exists in the visible set.
+  useEffect(() => {
+    if (!filtered.length) {
+      if (focusId !== null) setFocusId(null)
+      return
+    }
+    if (!focusId || !filtered.some((i) => i.id === focusId)) {
+      setFocusId(filtered[0].id)
+    }
+  }, [filtered, focusId])
+
+  // Capture-phase key handler so it pre-empts the global shortcut handler (which
+  // also binds j/k/arrows). Ignores typing in the search box / any open overlay.
+  const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  onKeyRef.current = (e: KeyboardEvent) => {
+    const t = e.target as HTMLElement
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+      return
+    if (document.querySelector('[data-overlay]')) return
+    if (!filtered.length) return
+    const idx = filtered.findIndex((i) => i.id === focusId)
+    const own = () => {
+      e.preventDefault()
+      e.stopImmediatePropagation()
+    }
+
+    if (e.key === 'ArrowDown' || e.key === 'j') {
+      own()
+      setFocusId((filtered[Math.min(idx + 1, filtered.length - 1)] ?? filtered[0]).id)
+      return
+    }
+    if (e.key === 'ArrowUp' || e.key === 'k') {
+      own()
+      setFocusId((idx <= 0 ? filtered[0] : filtered[idx - 1]).id)
+      return
+    }
+    if (e.key === 'Enter' || e.key === 'o') {
+      const cur = filtered[idx]
+      if (!cur) return
+      own()
+      navigate(`/issue/${cur.identifier}`)
+    }
+  }
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => onKeyRef.current(e)
+    window.addEventListener('keydown', handler, true)
+    return () => window.removeEventListener('keydown', handler, true)
+  }, [])
+
+  // Scroll the focused row into view as the cursor walks past the viewport edge.
+  useEffect(() => {
+    if (focusId) rowRefs.current[focusId]?.scrollIntoView({ block: 'nearest' })
+  }, [focusId])
+
   return (
     <div className="flex h-full flex-col">
       <ViewHeader title="Recently viewed">
@@ -130,9 +192,15 @@ export function RecentView() {
             return (
               <button
                 key={issue.id}
+                ref={(el) => {
+                  rowRefs.current[issue.id] = el
+                }}
                 type="button"
                 onClick={() => navigate(`/issue/${issue.identifier}`)}
-                className="flex w-full items-center gap-2.5 border-b border-border/40 px-4 py-1.5 text-left transition-colors hover:bg-bg-hover"
+                onMouseEnter={() => setFocusId(issue.id)}
+                className={`flex w-full items-center gap-2.5 border-b border-border/40 px-4 py-1.5 text-left transition-colors hover:bg-bg-hover ${
+                  focusId === issue.id ? 'bg-bg-hover' : ''
+                }`}
               >
                 {state && (
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center">

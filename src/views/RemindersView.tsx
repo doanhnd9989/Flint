@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clock, X } from 'lucide-react'
+import { Clock, Search, X } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
@@ -95,14 +95,25 @@ export function RemindersView() {
   const users = useStore((s) => s.users)
   const setIssueReminder = useStore((s) => s.setIssueReminder)
 
+  // Free-text filter over reminders by issue title / identifier (Linear-style).
+  const [query, setQuery] = useState('')
+
   // Issues with a live reminder, soonest first, split into overdue + upcoming
-  // time buckets (Today / Tomorrow / This week / Later), Linear-style.
-  const { overdue, upcomingBuckets, total } = useMemo(() => {
-    const withReminder = issues
+  // time buckets (Today / Tomorrow / This week / Later), Linear-style. A
+  // case-insensitive `query` narrows the set by title or identifier.
+  const { overdue, upcomingBuckets, total, matches } = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const all = issues
       .filter((i): i is Issue & { remindAt: string } =>
         Boolean(i.remindAt) && !i.archivedAt,
       )
       .sort((a, b) => a.remindAt.localeCompare(b.remindAt))
+    const withReminder = all.filter(
+      (i) =>
+        !q ||
+        i.title.toLowerCase().includes(q) ||
+        i.identifier.toLowerCase().includes(q),
+    )
     const upcoming = withReminder.filter((i) => !isOverdue(i.remindAt))
     // Group upcoming into ordered buckets, dropping empty ones.
     const order: Bucket[] = ['today', 'tomorrow', 'week', 'later']
@@ -115,9 +126,10 @@ export function RemindersView() {
     return {
       overdue: withReminder.filter((i) => isOverdue(i.remindAt)),
       upcomingBuckets,
-      total: withReminder.length,
+      total: all.length,
+      matches: withReminder.length,
     }
-  }, [issues])
+  }, [issues, query])
 
   function renderRow(issue: Issue & { remindAt: string }) {
     const state = states.find((s) => s.id === issue.stateId)
@@ -246,26 +258,58 @@ export function RemindersView() {
           description="Set a reminder on an issue to have it resurface here."
         />
       ) : (
-        <div className="flex-1 overflow-y-auto">
-          {overdue.length > 0 && (
-            <>
-              <div className="flex items-center justify-between bg-bg-secondary px-4 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
-                <span style={{ color: 'var(--priority-urgent)' }}>Overdue</span>
-                <span className="tabular-nums text-faint">{overdue.length}</span>
-              </div>
-              {overdue.map(renderRow)}
-            </>
-          )}
-          {upcomingBuckets.map(({ bucket, items }) => (
-            <div key={bucket}>
-              <div className="flex items-center justify-between bg-bg-secondary px-4 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
-                <span>{BUCKET_LABELS[bucket]}</span>
-                <span className="tabular-nums text-faint">{items.length}</span>
-              </div>
-              {items.map(renderRow)}
+        <>
+          {/* Search bar — filter reminders by issue title or identifier. */}
+          <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5">
+            <Search size={14} className="shrink-0 text-faint" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter reminders…"
+              className="flex-1 bg-transparent text-[13px] text-fg placeholder:text-faint focus:outline-none"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                title="Clear filter"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-faint transition-colors hover:bg-bg-selected hover:text-fg"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          {matches === 0 ? (
+            <EmptyState
+              illustration={<CycleIllustration />}
+              title="No matching reminders"
+              description="No reminders match your filter."
+            />
+          ) : (
+            <div className="flex-1 overflow-y-auto">
+              {overdue.length > 0 && (
+                <>
+                  <div className="flex items-center justify-between bg-bg-secondary px-4 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
+                    <span style={{ color: 'var(--priority-urgent)' }}>Overdue</span>
+                    <span className="tabular-nums text-faint">{overdue.length}</span>
+                  </div>
+                  {overdue.map(renderRow)}
+                </>
+              )}
+              {upcomingBuckets.map(({ bucket, items }) => (
+                <div key={bucket}>
+                  <div className="flex items-center justify-between bg-bg-secondary px-4 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
+                    <span>{BUCKET_LABELS[bucket]}</span>
+                    <span className="tabular-nums text-faint">{items.length}</span>
+                  </div>
+                  {items.map(renderRow)}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   )

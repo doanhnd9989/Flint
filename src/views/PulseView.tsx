@@ -5,6 +5,7 @@ import {
   MessageSquare,
   Activity as ActivityGlyph,
   FolderClosed,
+  Download,
 } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import type {
@@ -102,6 +103,24 @@ function dayLabel(iso: string): string {
     day: 'numeric',
     ...(d.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
   })
+}
+
+/** Quote a value for CSV (RFC 4180): wrap in quotes, double any inner quote. */
+function csvCell(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`
+}
+
+/** Trigger a client-side download of `text` as a UTF-8 file via a Blob URL. */
+function downloadText(filename: string, text: string) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
 
 export function PulseView() {
@@ -240,6 +259,50 @@ export function PulseView() {
 
   const setPeek = (id: string) => useStore.getState().setPeek(id)
 
+  // CSV export of the currently-filtered feed (Linear lets you export any view).
+  // Columns mirror the visible row: timestamp, kind, actor, target & a short
+  // human summary. Downloads via a Blob — no network round-trip.
+  const exportCsv = () => {
+    const header = ['Date', 'Type', 'Actor', 'Target', 'Summary']
+    const rows = filtered.map((e) => {
+      const actor = fmt(users.find((u) => u.id === e.userId)?.name)
+      let kind = 'Activity'
+      let target = ''
+      let summary = ''
+      if (e.type === 'activity') {
+        const issue = issues.find((i) => i.id === e.activity.issueId)
+        kind = 'Issue'
+        target = issue ? `${issue.identifier} ${issue.title}` : ''
+        summary = e.activity.kind
+      } else if (e.type === 'comment') {
+        const issue = issues.find((i) => i.id === e.issueId)
+        kind = 'Comment'
+        target = issue ? `${issue.identifier} ${issue.title}` : ''
+        summary = `commented on ${issue?.identifier ?? '—'}`
+      } else if (e.type === 'project') {
+        const project = projects.find((p) => p.id === e.projectId)
+        kind = 'Project update'
+        target = project?.name ?? ''
+        summary = `${HEALTH_LABEL[e.health]} update`
+      } else {
+        const initiative = initiatives.find((i) => i.id === e.initiativeId)
+        kind = 'Initiative update'
+        target = initiative?.name ?? ''
+        summary = `${HEALTH_LABEL[e.health]} update`
+      }
+      return [
+        new Date(e.createdAt).toISOString(),
+        kind,
+        actor,
+        target,
+        summary,
+      ].map(csvCell)
+    })
+    const csv = [header.map(csvCell), ...rows].map((r) => r.join(',')).join('\r\n')
+    const stamp = new Date().toISOString().slice(0, 10)
+    downloadText(`pulse-${stamp}.csv`, csv)
+  }
+
   // Team filter dropdown options — "All teams" plus one per team.
   const teamOptions = useMemo<SelectOption[]>(
     () => [
@@ -349,6 +412,18 @@ export function PulseView() {
               </button>
             ))}
           </div>
+
+          {/* Export the filtered feed to CSV */}
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={filtered.length === 0}
+            title="Export to CSV"
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-[13px] text-muted hover:bg-bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Download size={13} className="text-faint" />
+            Export
+          </button>
         </div>
       </div>
 

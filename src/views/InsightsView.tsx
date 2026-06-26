@@ -32,6 +32,21 @@ const DIMENSIONS = [
 type DimensionId = (typeof DIMENSIONS)[number]['id']
 
 /**
+ * Insights "Split by" secondary dimension — Linear lets the headline breakdown
+ * be sub-divided so each primary bar becomes a STACKED bar segmented by a second
+ * attribute (e.g. count by project, split by status). "None" keeps the plain
+ * single-color bars. The split dimension is restricted to the low-cardinality
+ * attributes (status / priority / assignee) that read well as stacked segments.
+ */
+const SPLITS = [
+  { id: 'none', label: 'None' },
+  { id: 'status', label: 'Status' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'assignee', label: 'Assignee' },
+] as const
+type SplitId = (typeof SPLITS)[number]['id']
+
+/**
  * Sort order for the featured breakdown — Linear lets you flip a breakdown
  * between largest- and smallest-first to surface either the heavy hitters or
  * the long tail.
@@ -132,6 +147,72 @@ function BarChart({ bars, max }: { bars: Bar[]; max: number }) {
   )
 }
 
+/** A single series in a stacked breakdown — one colored segment per primary bar. */
+interface Series {
+  key: string
+  label: string
+  color: string
+}
+
+/** A primary bar carrying its per-series segment values for stacked rendering. */
+interface StackedBar {
+  key: string
+  label: string
+  total: number
+  /** Segment value keyed by series.key. */
+  segments: Record<string, number>
+}
+
+/** A horizontal STACKED bar list — Linear's "Split by" breakdown card. */
+function StackedBarChart({ bars, series, max }: { bars: StackedBar[]; series: Series[]; max: number }) {
+  if (bars.length === 0) {
+    return <div className="px-1 py-6 text-center text-[12px] text-faint">No data</div>
+  }
+  return (
+    <div className="space-y-2.5">
+      {bars.map((b) => (
+        <div key={b.key} className="group flex items-center gap-3">
+          <div className="flex w-28 shrink-0 items-center gap-1.5" title={b.label}>
+            <span className="truncate text-[12px] text-muted group-hover:text-fg">{b.label}</span>
+          </div>
+          <div className="relative flex h-2 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+            {/* Width is scaled to the largest total so bars stay comparable; each
+                segment then takes its share of that bar's own width. */}
+            <div className="flex h-full" style={{ width: `${max > 0 ? (b.total / max) * 100 : 0}%` }}>
+              {series.map((s) => {
+                const v = b.segments[s.key] ?? 0
+                if (v <= 0) return null
+                return (
+                  <div
+                    key={s.key}
+                    title={`${s.label}: ${v}`}
+                    style={{ width: `${b.total > 0 ? (v / b.total) * 100 : 0}%`, backgroundColor: s.color }}
+                  />
+                )
+              })}
+            </div>
+          </div>
+          <div className="w-7 shrink-0 text-right text-[12px] tabular-nums text-fg">{b.total}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Compact swatch legend for the stacked breakdown's series. */
+function Legend({ series }: { series: Series[] }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5">
+      {series.map((s) => (
+        <span key={s.key} className="inline-flex items-center gap-1.5 text-[11px] text-muted">
+          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+          {s.label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-border bg-bg p-5">
@@ -173,6 +254,9 @@ export function InsightsView() {
   // CSV export. `sort` flips that headline chart largest- vs. smallest-first.
   const [groupBy, setGroupBy] = useState<DimensionId>('status')
   const [sort, setSort] = useState<SortId>('desc')
+  // Optional secondary "Split by" dimension — turns the featured bars into
+  // stacked bars segmented by this attribute. 'none' keeps plain single bars.
+  const [splitBy, setSplitBy] = useState<SplitId>('none')
   const displayPref = data.preferences.displayNames
 
   const rangeMeta = RANGES.find((r) => r.id === range) ?? RANGES[0]
@@ -315,6 +399,89 @@ export function InsightsView() {
     return bars
   }, [grouped.bars, sort])
 
+  // ── stacked "Split by" breakdown ───────────────────────────────────────────
+  // Resolve the primary group key(s) an issue belongs to under the active
+  // `groupBy`. Labels are multi-valued, so this returns a list; every other
+  // dimension yields exactly one key (matching the headline chart's buckets).
+  const primaryKeys = (i: Issue): string[] => {
+    switch (groupBy) {
+      case 'status': return [i.stateId]
+      case 'priority': return [String(i.priority)]
+      case 'assignee': return [i.assigneeId ?? '__none']
+      case 'project': return [i.projectId ?? '__none']
+      case 'label': return i.labelIds.length ? i.labelIds : ['__nolabel']
+    }
+  }
+
+  // Resolve the split-series key + display label + color for an issue under the
+  // active `splitBy`. Mirrors the colors used by the standalone breakdowns.
+  const splitMeta = (i: Issue): Series => {
+    switch (splitBy) {
+      case 'status': {
+        const s = stateById.get(i.stateId)
+        return { key: i.stateId, label: s?.name ?? 'Unknown', color: s?.color ?? 'var(--accent)' }
+      }
+      case 'priority':
+        return { key: String(i.priority), label: PRIORITY_LABELS[i.priority], color: PRIORITY_COLOR[i.priority] }
+      case 'assignee': {
+        const id = i.assigneeId ?? '__none'
+        const label = id === '__none' ? 'Unassigned' : displayName(data.users.find((u) => u.id === id)?.name ?? 'Unknown', displayPref)
+        return { key: id, label, color: 'var(--accent)' }
+      }
+      default:
+        return { key: '__none', label: '', color: 'var(--accent)' }
+    }
+  }
+
+  // Series present in the data, in a stable order (status by position, priority
+  // by scale, assignee by descending weight) so the legend reads predictably.
+  const splitSeries = useMemo<Series[]>(() => {
+    if (splitBy === 'none') return []
+    const seen = new Map<string, Series>()
+    const weights = new Map<string, number>()
+    for (const i of issues) {
+      const m = splitMeta(i)
+      if (!seen.has(m.key)) seen.set(m.key, m)
+      weights.set(m.key, (weights.get(m.key) ?? 0) + weight(i, measure))
+    }
+    const list = [...seen.values()]
+    if (splitBy === 'status') {
+      const pos = new Map(data.states.map((s) => [s.id, s.position]))
+      list.sort((a, b) => (pos.get(a.key) ?? 0) - (pos.get(b.key) ?? 0))
+    } else if (splitBy === 'priority') {
+      list.sort((a, b) => Number(a.key) - Number(b.key))
+    } else {
+      list.sort((a, b) => (weights.get(b.key) ?? 0) - (weights.get(a.key) ?? 0))
+    }
+    return list
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issues, splitBy, measure, data.states, data.users, displayPref])
+
+  // Stacked bars for the featured breakdown: each primary bucket from
+  // `groupedBars` carries its per-series segment totals. Kept in the same order
+  // (and "Other"-rollup membership) as the headline chart so the two views agree.
+  const stackedBars = useMemo<StackedBar[]>(() => {
+    if (splitBy === 'none') return []
+    const validKeys = new Set(groupedBars.map((b) => b.key))
+    const byKey = new Map<string, StackedBar>()
+    for (const b of groupedBars) byKey.set(b.key, { key: b.key, label: b.label, total: 0, segments: {} })
+    const other = byKey.get('__other')
+    for (const i of issues) {
+      const sk = splitMeta(i).key
+      const w = weight(i, measure)
+      if (w <= 0) continue
+      for (const pk of primaryKeys(i)) {
+        // Rows that fell into the topN "Other" rollup accumulate there instead.
+        const bar = validKeys.has(pk) ? byKey.get(pk) : other
+        if (!bar) continue
+        bar.total += w
+        bar.segments[sk] = (bar.segments[sk] ?? 0) + w
+      }
+    }
+    return groupedBars.map((b) => byKey.get(b.key)!).filter(Boolean)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issues, groupedBars, splitBy, measure])
+
   function exportCsv() {
     const teamPart = teamFilter === 'all' ? 'all-teams' : (data.teams.find((t) => t.id === teamFilter)?.key ?? 'team')
     const filename = `insights-${groupBy}-${measure}-${teamPart}-${range}.csv`
@@ -351,6 +518,25 @@ export function InsightsView() {
               trigger={
                 <span className="inline-flex items-center gap-1 rounded-md border border-border bg-bg px-2 py-1 text-[12px] text-fg hover:bg-bg-hover">
                   Group by: <span className="text-muted">{grouped.label}</span>
+                  <ChevronDown size={13} className="text-muted" />
+                </span>
+              }
+            />
+
+            {/* Split-by dimension — segments the featured bars into a stacked
+                bar broken down by a secondary attribute. */}
+            <SelectMenu
+              align="end"
+              width={180}
+              options={SPLITS.filter((s) => s.id !== groupBy).map((s) => ({
+                id: s.id,
+                label: s.label,
+                selected: s.id === splitBy,
+              }))}
+              onSelect={(id) => setSplitBy(id as SplitId)}
+              trigger={
+                <span className="inline-flex items-center gap-1 rounded-md border border-border bg-bg px-2 py-1 text-[12px] text-fg hover:bg-bg-hover">
+                  Split by: <span className="text-muted">{SPLITS.find((s) => s.id === splitBy)?.label}</span>
                   <ChevronDown size={13} className="text-muted" />
                 </span>
               }
@@ -461,14 +647,25 @@ export function InsightsView() {
             <Stat label="Scope points" value={totals.points} hint="Excludes canceled" />
           </div>
 
-          {/* Featured breakdown — driven by the "Group by" selector + sort. */}
+          {/* Featured breakdown — driven by the "Group by" selector + sort, and
+              optionally segmented into a stacked bar by the "Split by" dimension. */}
           <div className="mt-6">
-            <Card
-              title={`By ${grouped.label.toLowerCase()}`}
-              subtitle={`${measure === 'points' ? 'Points' : 'Issues'} grouped by ${grouped.label.toLowerCase()} · ${sort === 'asc' ? 'smallest' : 'largest'} first`}
-            >
-              <BarChart bars={groupedBars} max={maxOf(groupedBars)} />
-            </Card>
+            {splitBy !== 'none' && splitBy !== groupBy ? (
+              <Card
+                title={`By ${grouped.label.toLowerCase()}`}
+                subtitle={`${measure === 'points' ? 'Points' : 'Issues'} grouped by ${grouped.label.toLowerCase()}, split by ${SPLITS.find((s) => s.id === splitBy)?.label.toLowerCase()} · ${sort === 'asc' ? 'smallest' : 'largest'} first`}
+              >
+                <StackedBarChart bars={stackedBars} series={splitSeries} max={maxOf(groupedBars)} />
+                <Legend series={splitSeries} />
+              </Card>
+            ) : (
+              <Card
+                title={`By ${grouped.label.toLowerCase()}`}
+                subtitle={`${measure === 'points' ? 'Points' : 'Issues'} grouped by ${grouped.label.toLowerCase()} · ${sort === 'asc' ? 'smallest' : 'largest'} first`}
+              >
+                <BarChart bars={groupedBars} max={maxOf(groupedBars)} />
+              </Card>
+            )}
           </div>
 
           {/* Breakdown charts. The card matching the active "Group by" dimension
