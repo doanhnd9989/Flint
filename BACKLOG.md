@@ -193,3 +193,10 @@ New nav/lifecycle surfaces, issue-detail & board enhancements, settings pages, r
 - [x] 🟡 **Issue reminders** — a "Reminder" property row (Bell): quick presets (In 1 hour / This evening / Tomorrow / Next week) + Remove; `Issue.remindAt`, `setIssueReminder`.
 - [x] 🟡 **Reminders view** (`/reminders`) — issues with a reminder, split Overdue / Upcoming, dismiss inline.
 - [x] 🟢 **Labels directory** (`/labels`) — all labels (groups + children + ungrouped) with per-label issue counts, click → `/label/:id`.
+
+**Wave 3 — settings pages (model: featureValues KV slice):**
+- [x] 🟡 **Estimates settings** — per-team estimation scale (type from ESTIMATION_TYPES + allow-zero), wired to `setTeamEstimation`.
+- [x] 🟡 **Cycles settings** — per-team enable + cadence (length / cooldown / start day / upcoming count / auto-add / auto-roll) via `setTeamCyclesEnabled` + featureValues/featureSettings.
+- [x] 🟡 **Triage settings** — per-team enable triage + responsibility + auto-assign + notify.
+- [x] 🟡 **Import settings** — import-sources page (Jira/Asana/GitHub/Shortcut/Trello/Linear/CSV/Height) with mock toast + persisted "imported" state.
+- [x] 🔴 **Audit log** — workspace audit log driven by real `activities` (actor + sentence + issue link + time), actor/type filters, CSV export.

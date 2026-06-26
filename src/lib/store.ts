@@ -132,6 +132,12 @@ interface UIState {
    * {@link Store.setFeatureSetting}.
    */
   featureSettings: Record<string, boolean>
+  /**
+   * String-valued counterpart to {@link featureSettings} for enum/number-as-string
+   * settings (e.g. `cycles.t_eng.length`, `import.source`). Persisted; pages read
+   * a key with a default and set it via {@link Store.setFeatureValue}.
+   */
+  featureValues: Record<string, string>
 }
 
 interface NewIssueInput {
@@ -318,6 +324,7 @@ export interface Store extends WorkspaceData, UIState {
   dismissOnboardingStep: (key: string) => void
   toggleDisplayProperty: (prop: DisplayProperty) => void
   setFeatureSetting: (key: string, on: boolean) => void
+  setFeatureValue: (key: string, value: string) => void
 
   // ── bulk selection ───────────────────────────────────────────
   toggleSelectIssue: (id: string) => void
@@ -425,6 +432,7 @@ export const useStore = create<Store>()(
       },
       onboardingDismissed: [],
       featureSettings: {},
+      featureValues: {},
       recentIssueIds: [],
       displayProperties: { ...DEFAULT_DISPLAY_PROPERTIES },
       notificationSettings: structuredClone(DEFAULT_NOTIFICATION_SETTINGS),
@@ -1619,6 +1627,9 @@ export const useStore = create<Store>()(
       setFeatureSetting: (key, on) =>
         set((s) => ({ featureSettings: { ...s.featureSettings, [key]: on } })),
 
+      setFeatureValue: (key, value) =>
+        set((s) => ({ featureValues: { ...s.featureValues, [key]: value } })),
+
       toggleSelectIssue: (id) =>
         set((s) => ({
           selectedIssueIds: s.selectedIssueIds.includes(id)
@@ -1899,6 +1910,8 @@ export const useStore = create<Store>()(
         // Backfill customers / releases / attachments (added later).
         if (!Array.isArray(merged.publicIssueIds)) merged.publicIssueIds = []
         if (!Array.isArray(merged.recentIssueIds)) merged.recentIssueIds = []
+        if (!merged.featureValues || typeof merged.featureValues !== 'object')
+          merged.featureValues = {}
         if (!Array.isArray(merged.customers)) merged.customers = seed.customers
         if (!Array.isArray(merged.releases)) merged.releases = seed.releases
         if (!Array.isArray(merged.attachments)) merged.attachments = seed.attachments

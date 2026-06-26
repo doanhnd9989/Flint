@@ -32,6 +32,11 @@ import { ProjectUpdatesSettings } from '@/components/ProjectUpdatesSettings'
 import { ProjectLabelsSettings } from '@/components/ProjectLabelsSettings'
 import { InitiativesSettings } from '@/components/InitiativesSettings'
 import { DocumentsSettings } from '@/components/DocumentsSettings'
+import { EstimatesSettings } from '@/components/EstimatesSettings'
+import { CyclesSettings } from '@/components/CyclesSettings'
+import { TriageSettings } from '@/components/TriageSettings'
+import { ImportSettings } from '@/components/ImportSettings'
+import { AuditLogSettings } from '@/components/AuditLogSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
 import { ESTIMATION_TYPES } from '@/lib/constants'
@@ -61,6 +66,9 @@ const NAV: NavGroup[] = [
     items: [
       { id: 'issue-labels', label: 'Labels' },
       { id: 'issue-templates', label: 'Templates' },
+      { id: 'estimates', label: 'Estimates' },
+      { id: 'cycles', label: 'Cycles' },
+      { id: 'triage', label: 'Triage' },
       { id: 'slas', label: 'SLAs' },
     ],
   },
@@ -93,6 +101,8 @@ const NAV: NavGroup[] = [
       { id: 'workspace', label: 'Workspace' },
       { id: 'teams', label: 'Teams' },
       { id: 'members', label: 'Members' },
+      { id: 'import', label: 'Import' },
+      { id: 'audit-log', label: 'Audit log' },
       { id: 'security', label: 'Security' },
       { id: 'api', label: 'API' },
       { id: 'applications', label: 'Applications' },
@@ -733,6 +743,16 @@ function SettingsContent({ page }: { page: string }) {
       return <InitiativesSettings />
     case 'documents':
       return <DocumentsSettings />
+    case 'estimates':
+      return <EstimatesSettings />
+    case 'cycles':
+      return <CyclesSettings />
+    case 'triage':
+      return <TriageSettings />
+    case 'import':
+      return <ImportSettings />
+    case 'audit-log':
+      return <AuditLogSettings />
     default: {
       const label = NAV.flatMap((g) => g.items).find((i) => i.id === page)?.label ?? 'Settings'
       return <ComingSoon title={label} />
