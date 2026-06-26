@@ -426,6 +426,7 @@ export type DisplayProperty =
   | 'priority'
   | 'project'
   | 'cycle'
+  | 'estimate'
   | 'dueDate'
   | 'milestone'
   | 'labels'

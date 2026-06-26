@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { CalendarClock, ChevronRight, Diamond, IterationCw, Link2, MessageSquare } from 'lucide-react'
+import { CalendarClock, ChevronRight, Diamond, IterationCw, Link2, MessageSquare, Gauge } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import type { Issue } from '@/lib/types'
+import { estimateLabel, teamEstimationType } from '@/lib/constants'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
@@ -24,7 +25,7 @@ export function IssueRow({
   expand?: { hasChildren: boolean; expanded: boolean; onToggle: () => void }
 }) {
   const {
-    states, users, labels, issues, projects, milestones, cycles, issueLinks, comments, displayProperties, selectedIssueIds, focusedIssueId,
+    states, users, labels, issues, projects, milestones, cycles, teams, issueLinks, comments, displayProperties, selectedIssueIds, focusedIssueId,
     setIssueStatus, setIssuePriority, setIssueAssignee, setPeek, toggleSelectIssue, setFocusedIssue, openContextMenu,
   } = useStoreShallow((s) => ({
     states: s.states,
@@ -34,6 +35,7 @@ export function IssueRow({
     projects: s.projects,
     milestones: s.milestones,
     cycles: s.cycles,
+    teams: s.teams,
     issueLinks: s.issueLinks,
     comments: s.comments,
     displayProperties: s.displayProperties,
@@ -69,6 +71,14 @@ export function IssueRow({
     .filter(Boolean)
   const linkCount = issueLinks.filter((l) => l.issueId === issue.id).length
   const commentCount = comments.filter((c) => c.issueId === issue.id).length
+  const team = teams.find((t) => t.id === issue.teamId)
+  const estimationUsed = teamEstimationType(team) !== 'notUsed'
+  const estimateText =
+    issue.estimate != null
+      ? teamEstimationType(team) === 'tshirt'
+        ? estimateLabel(issue.estimate, team)
+        : String(issue.estimate)
+      : null
   const children = issues.filter((i) => i.parentId === issue.id)
   const childDone = children.filter((i) => {
     const st = states.find((s) => s.id === i.stateId)
@@ -208,6 +218,15 @@ export function IssueRow({
           <span className="flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted">
             <IterationCw size={10} />
             {cycle.name ?? `Cycle ${cycle.number}`}
+          </span>
+        )}
+        {dp.estimate && estimationUsed && estimateText && (
+          <span
+            className="flex items-center gap-0.5 rounded-full border border-border px-1.5 py-px text-[11px] text-muted"
+            title={estimateLabel(issue.estimate, team)}
+          >
+            <Gauge size={11} />
+            {estimateText}
           </span>
         )}
         {dp.milestone && milestone && (
