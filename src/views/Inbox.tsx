@@ -724,7 +724,16 @@ export function Inbox() {
             // the previous (already-sorted) row, so render order stays identical
             // to `list` and j/k navigation keeps working on the flat sequence.
             const group = dateGroup(n.createdAt, now)
-            const showHeader = i === 0 || dateGroup(list[i - 1].createdAt, now) !== group
+            // With "Show unread first" on, `list` is partitioned [unread…][read…]
+            // and each block restarts at the newest date, so it isn't globally
+            // date-monotonic. Force a fresh header at the unread→read boundary and
+            // compare dates only within a block — otherwise a group label can
+            // repeat or appear out of order across the partition.
+            const prev = list[i - 1]
+            const showHeader =
+              i === 0 ||
+              (display.showUnreadFirst && prev.read !== n.read) ||
+              dateGroup(prev.createdAt, now) !== group
             return (
               <div key={n.id}>
                 {showHeader && (

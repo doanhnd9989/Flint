@@ -28,11 +28,18 @@ function extractHeadings(content: string): Heading[] {
   const out: Heading[] = []
   let inFence = false
   for (const raw of content.replace(/\r\n/g, '\n').split('\n')) {
-    if (/^\s*```/.test(raw)) {
-      inFence = !inFence
+    // Mirror the renderer's fence rules EXACTLY (markdown.tsx open
+    // /^```(\w*)\s*$/, close /^```\s*$/) so the outline's heading set stays
+    // index-aligned with the rendered <h1>/<h2>/<h3> nodes — a looser /^\s*```/
+    // here would diverge on indented or trailing-text fences.
+    if (!inFence && /^```(\w*)\s*$/.test(raw)) {
+      inFence = true
       continue
     }
-    if (inFence) continue
+    if (inFence) {
+      if (/^```\s*$/.test(raw)) inFence = false
+      continue
+    }
     const m = /^(#{1,3})\s+(.+?)\s*#*\s*$/.exec(raw)
     if (m) {
       out.push({
