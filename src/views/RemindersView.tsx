@@ -114,9 +114,12 @@ export function RemindersView() {
   const states = useStore((s) => s.states)
   const users = useStore((s) => s.users)
   const setIssueReminder = useStore((s) => s.setIssueReminder)
+  const setReminderNote = useStore((s) => s.setReminderNote)
 
   // Free-text filter over reminders by issue title / identifier (Linear-style).
   const [query, setQuery] = useState('')
+  // Which reminder row is currently editing its note (issue id, or null).
+  const [editingNote, setEditingNote] = useState<string | null>(null)
 
   // Issues with a live reminder, soonest first, split into overdue + upcoming
   // time buckets (Today / Tomorrow / This week / Later), Linear-style. A
@@ -155,8 +158,10 @@ export function RemindersView() {
     const state = states.find((s) => s.id === issue.stateId)
     const assignee = users.find((u) => u.id === issue.assigneeId)
     const past = isOverdue(issue.remindAt)
-    // Muted one-line context snippet from the issue's Markdown description.
+    // Per-reminder note (Linear-style) — falls back to a muted one-line snippet
+    // from the issue's Markdown description when no note has been written yet.
     const snippet = issue.description ? descriptionSnippet(issue.description) : ''
+    const editing = editingNote === issue.id
     return (
       <div
         key={issue.id}
@@ -165,7 +170,7 @@ export function RemindersView() {
         <button
           type="button"
           onClick={() => navigate(`/issue/${issue.identifier}`)}
-          className="flex flex-1 items-center gap-2.5 overflow-hidden text-left"
+          className="flex shrink-0 items-center gap-2.5 overflow-hidden text-left"
         >
           {state && (
             <span className="flex h-5 w-5 shrink-0 items-center justify-center">
@@ -175,15 +180,67 @@ export function RemindersView() {
           <span className="w-14 shrink-0 font-mono text-[12px] text-faint">
             {issue.identifier}
           </span>
-          {/* Title + a one-line description snippet underneath (Linear-style
-              denser rows). The snippet only renders when a description exists. */}
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-[13px] text-fg">{issue.title}</span>
-            {snippet && (
-              <span className="truncate text-[12px] text-muted">{snippet}</span>
-            )}
-          </span>
         </button>
+        {/* Title + the reminder note underneath (Linear-style denser rows). The
+            note is inline-editable: click to edit, Enter saves, Esc cancels,
+            empty clears. With no note we fall back to the description snippet
+            and offer a muted "Add a note" affordance. */}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <button
+            type="button"
+            onClick={() => navigate(`/issue/${issue.identifier}`)}
+            className="truncate text-left text-[13px] text-fg"
+          >
+            {issue.title}
+          </button>
+          {editing ? (
+            <input
+              type="text"
+              autoFocus
+              defaultValue={issue.remindNote ?? ''}
+              placeholder="Add a note…"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setReminderNote(issue.id, e.currentTarget.value)
+                  setEditingNote(null)
+                } else if (e.key === 'Escape') {
+                  setEditingNote(null)
+                }
+              }}
+              onBlur={(e) => {
+                setReminderNote(issue.id, e.currentTarget.value)
+                setEditingNote(null)
+              }}
+              className="w-full bg-transparent text-[12px] text-fg placeholder:text-faint focus:outline-none"
+            />
+          ) : issue.remindNote ? (
+            <button
+              type="button"
+              onClick={() => setEditingNote(issue.id)}
+              title="Edit note"
+              className="truncate text-left text-[12px] text-muted hover:text-fg"
+            >
+              {issue.remindNote}
+            </button>
+          ) : snippet ? (
+            <button
+              type="button"
+              onClick={() => setEditingNote(issue.id)}
+              title="Add a note"
+              className="truncate text-left text-[12px] text-muted"
+            >
+              {snippet}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditingNote(issue.id)}
+              className="truncate text-left text-[12px] text-faint opacity-0 transition-opacity group-hover:opacity-100"
+            >
+              Add a note
+            </button>
+          )}
+        </span>
 
         <span
           className="shrink-0 text-[12px] tabular-nums"

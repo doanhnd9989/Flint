@@ -14,6 +14,7 @@ import {
   SubscriberPicker,
 } from './pickers'
 import { SelectMenu } from './ui/SelectMenu'
+import { Popover } from './ui/Popover'
 import { IssueRelations } from './IssueRelations'
 import { IssueLinks } from './IssueLinks'
 import { IssueDevelopment } from './IssueDevelopment'
@@ -55,6 +56,10 @@ import {
   X,
   Copy,
   Archive,
+  MoreHorizontal,
+  ArrowUpRight,
+  ArrowUpFromLine,
+  Trash2,
 } from 'lucide-react'
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -274,19 +279,95 @@ export function IssueDetailBody({
               <div className="divide-y divide-border rounded-md border border-border">
                 {subIssues.map((sub) => {
                   const sst = store.states.find((s) => s.id === sub.stateId)!
+                  const subAssignee = store.users.find((u) => u.id === sub.assigneeId)
                   return (
                     <div
                       key={sub.id}
                       className="group/sub flex items-center gap-2 px-3 py-1.5 hover:bg-bg-hover"
                     >
+                      {/* Inline status — click the icon to change the sub-issue's state. */}
+                      <StatusPicker
+                        stateId={sub.stateId}
+                        onChange={(id) => store.setIssueStatus(sub.id, id)}
+                        trigger={
+                          <span className="flex h-5 w-5 items-center justify-center rounded hover:bg-bg-tertiary">
+                            <StatusIcon type={sst.type} color={sst.color} />
+                          </span>
+                        }
+                      />
                       <button
                         onClick={() => onOpenIssue(sub.identifier)}
-                        className="flex flex-1 items-center gap-2 text-left"
+                        className="flex flex-1 items-center gap-2 truncate text-left"
                       >
-                        <StatusIcon type={sst.type} color={sst.color} />
                         <span className="font-mono text-[11px] text-faint">{sub.identifier}</span>
-                        <span className="text-[13px] text-fg">{sub.title}</span>
+                        <span className="truncate text-[13px] text-fg">{sub.title}</span>
                       </button>
+                      {/* Inline priority. */}
+                      <PriorityPicker
+                        priority={sub.priority}
+                        onChange={(p) => store.setIssuePriority(sub.id, p)}
+                        trigger={
+                          <span className="flex h-5 w-5 items-center justify-center rounded hover:bg-bg-tertiary">
+                            <PriorityIcon priority={sub.priority} />
+                          </span>
+                        }
+                      />
+                      {/* Inline assignee avatar. */}
+                      <AssigneePicker
+                        assigneeId={sub.assigneeId}
+                        onChange={(id) => store.setIssueAssignee(sub.id, id)}
+                        trigger={
+                          <span className="flex h-5 w-5 items-center justify-center rounded hover:bg-bg-tertiary">
+                            <Avatar user={subAssignee} size={18} />
+                          </span>
+                        }
+                      />
+                      {/* Per-row overflow menu. */}
+                      <Popover
+                        align="end"
+                        width={216}
+                        trigger={
+                          <span className="flex h-5 w-5 items-center justify-center rounded text-faint opacity-0 hover:bg-bg-tertiary hover:text-fg group-hover/sub:opacity-100">
+                            <MoreHorizontal size={14} />
+                          </span>
+                        }
+                      >
+                        {(close) => (
+                          <>
+                            <button
+                              onClick={() => {
+                                close()
+                                onOpenIssue(sub.identifier)
+                              }}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                            >
+                              <ArrowUpRight size={14} className="text-faint" />
+                              Open
+                            </button>
+                            <button
+                              onClick={() => {
+                                close()
+                                store.setIssueParent(sub.id, undefined)
+                              }}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                            >
+                              <ArrowUpFromLine size={14} className="text-faint" />
+                              Promote to top-level issue
+                            </button>
+                            <div className="my-1 h-px bg-border" />
+                            <button
+                              onClick={() => {
+                                close()
+                                store.deleteIssue(sub.id)
+                              }}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
+                            >
+                              <Trash2 size={14} className="text-faint" />
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </Popover>
                       <button
                         onClick={() => store.setIssueParent(sub.id, undefined)}
                         className="text-faint opacity-0 hover:text-[var(--priority-urgent)] group-hover/sub:opacity-100"

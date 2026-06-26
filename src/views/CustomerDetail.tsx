@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   XCircle,
   Sparkles,
+  Star,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { Avatar } from '@/components/Avatar'
@@ -54,6 +55,11 @@ export function CustomerDetail() {
   const data = useStore()
   const fmt = useDisplayName()
   const [confirming, setConfirming] = useState(false)
+
+  // Click-to-edit the customer's account notes inline, the way Linear lets you
+  // edit a description without a separate form. Autosaves on blur.
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [notesDraft, setNotesDraft] = useState('')
 
   // Status filter for the Requests list — Linear defaults to hiding resolved
   // requests so the open work stays front-and-centre.
@@ -165,6 +171,7 @@ export function CustomerDetail() {
 
   const owner = data.users.find((u) => u.id === customer.ownerId)
   const tierMeta = CUSTOMER_TIERS[customer.tier]
+  const isFavorite = data.favorites.some((f) => f.type === 'customer' && f.id === customer.id)
 
   const tierOptions: SelectOption[] = CUSTOMER_TIER_ORDER.map((t) => ({
     id: t,
@@ -208,6 +215,16 @@ export function CustomerDetail() {
         <span className="text-faint">›</span>
         <CustomerTile name={customer.name} color={customer.color} size={16} />
         <span className="truncate font-medium text-fg">{customer.name}</span>
+        <button
+          type="button"
+          onClick={() => data.toggleFavorite('customer', customer.id)}
+          title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          className={`ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md hover:bg-bg-hover ${
+            isFavorite ? 'text-[var(--c-yellow)]' : 'text-faint hover:text-fg'
+          }`}
+        >
+          <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+        </button>
       </header>
 
       {/* Body — two columns */}
@@ -238,6 +255,45 @@ export function CustomerDetail() {
                   <span className="text-[13px] text-faint">No domain</span>
                 )}
               </div>
+            </div>
+
+            {/* Notes / About — free-text account notes. Click to edit,
+                autosaves on blur. */}
+            <div className="mt-8">
+              <div className="mb-1.5 text-[13px] font-medium text-fg">Notes</div>
+              {editingNotes ? (
+                <textarea
+                  autoFocus
+                  value={notesDraft}
+                  onChange={(e) => setNotesDraft(e.target.value)}
+                  onBlur={() => {
+                    data.updateCustomer(customer.id, { notes: notesDraft.trim() })
+                    setEditingNotes(false)
+                  }}
+                  onKeyDown={(e) => {
+                    // ⌘↵ / Ctrl+↵ commits and closes the editor.
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault()
+                      e.currentTarget.blur()
+                    }
+                  }}
+                  placeholder="Add notes about this customer…"
+                  className="min-h-[72px] w-full resize-none rounded-md bg-transparent text-[13px] text-muted outline-none placeholder:text-faint"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotesDraft(customer.notes ?? '')
+                    setEditingNotes(true)
+                  }}
+                  className="block w-full whitespace-pre-wrap text-left text-[13px] text-muted"
+                >
+                  {customer.notes || (
+                    <span className="text-faint">Add notes about this customer…</span>
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Requests */}

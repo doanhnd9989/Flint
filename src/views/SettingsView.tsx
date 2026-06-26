@@ -39,7 +39,7 @@ import { ImportSettings } from '@/components/ImportSettings'
 import { AuditLogSettings } from '@/components/AuditLogSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
-import { ESTIMATION_TYPES } from '@/lib/constants'
+import { ESTIMATION_TYPES, TIMEZONES } from '@/lib/constants'
 import type { EstimationType, Preferences, ThemeMode } from '@/lib/types'
 
 // ── Settings navigation — mirrors Linear's Settings sidebar 1:1 ──────────────
@@ -386,6 +386,37 @@ function PreferencesPage() {
               <Toggle on={p.pointerCursors} onChange={set('pointerCursors')} />
             }
           />
+          <PrefRow
+            title="Underline links"
+            description="Show an underline beneath links in issue and document content"
+            control={
+              <Toggle on={!!p.underlineLinks} onChange={set('underlineLinks')} />
+            }
+          />
+          <PrefRow
+            title="Reduce motion"
+            description="Minimize non-essential animations and transitions across the app"
+            control={
+              <Toggle on={!!p.reduceMotion} onChange={set('reduceMotion')} />
+            }
+          />
+          <PrefRow
+            title="Enable spell check"
+            description="Check spelling as you type in editors and inputs"
+            control={
+              <Toggle on={!!p.spellCheck} onChange={set('spellCheck')} />
+            }
+          />
+          <PrefRow
+            title="Show counts in sidebar"
+            description="Display issue counts next to items in the sidebar"
+            control={
+              <Toggle
+                on={!!p.showSidebarCounts}
+                onChange={set('showSidebarCounts')}
+              />
+            }
+          />
         </PrefCard>
 
         <div className="mt-3" />
@@ -476,6 +507,8 @@ function ProfilePage() {
   }))
   const me = users.find((u) => u.id === currentUserId)
   const [name, setName] = useState(me?.name ?? '')
+  const [username, setUsername] = useState(me?.username ?? '')
+  const [bio, setBio] = useState(me?.bio ?? '')
   if (!me) return null
   return (
     <Page title="Profile" description="Manage your personal information.">
@@ -492,6 +525,32 @@ function ProfilePage() {
           onChange={(e) => setName(e.target.value)}
           onBlur={() => updateUser(me.id, { name: name.trim() || me.name })}
           className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] text-fg outline-none focus:border-accent"
+        />
+      </Section>
+      <Section title="Username">
+        <input
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          onBlur={() => updateUser(me.id, { username: username.trim() })}
+          placeholder="username"
+          className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] text-fg outline-none focus:border-accent"
+        />
+      </Section>
+      <Section title="Timezone">
+        <PrefDropdown
+          value={me.timezone ?? ''}
+          onSelect={(v) => updateUser(me.id, { timezone: v })}
+          options={TIMEZONES.map((tz) => ({ value: tz.value, label: tz.label }))}
+        />
+      </Section>
+      <Section title="Bio">
+        <textarea
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          onBlur={() => updateUser(me.id, { bio: bio.trim() })}
+          rows={3}
+          placeholder="A short description about yourself"
+          className="w-full resize-none rounded-md border border-border bg-bg px-3 py-2 text-[13px] text-fg outline-none focus:border-accent placeholder:text-faint"
         />
       </Section>
       <Section title="Email">
@@ -557,12 +616,13 @@ function WorkspacePage() {
  * Estimates (scale + allow-zero) + Cycles (enable) + Workflow statuses.
  */
 function TeamPage({ teamId }: { teamId: string }) {
-  const { teams, issues, setTeamEstimation, setTeamCyclesEnabled } =
+  const { teams, issues, setTeamEstimation, setTeamCyclesEnabled, updateTeam } =
     useStoreShallow((s) => ({
       teams: s.teams,
       issues: s.issues,
       setTeamEstimation: s.setTeamEstimation,
       setTeamCyclesEnabled: s.setTeamCyclesEnabled,
+      updateTeam: s.updateTeam,
     }))
   const team = teams.find((t) => t.id === teamId)
   if (!team) return <ComingSoon title="Team" />
@@ -589,6 +649,30 @@ function TeamPage({ teamId }: { teamId: string }) {
               <span className="rounded-md bg-bg-tertiary px-2 py-0.5 text-[13px] font-medium text-fg">
                 {team.key}
               </span>
+            }
+          />
+          <PrefRow
+            title="Timezone"
+            description="Timezone driving this team's cycle and SLA timing"
+            control={
+              <PrefDropdown
+                value={team.timezone ?? ''}
+                onSelect={(v) => updateTeam(team.id, { timezone: v })}
+                options={TIMEZONES.map((tz) => ({
+                  value: tz.value,
+                  label: tz.label,
+                }))}
+              />
+            }
+          />
+          <PrefRow
+            title="Private team"
+            description="Only invited members can see and join this team"
+            control={
+              <Toggle
+                on={!!team.private}
+                onChange={(v) => updateTeam(team.id, { private: v })}
+              />
             }
           />
         </PrefCard>

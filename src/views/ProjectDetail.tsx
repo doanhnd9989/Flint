@@ -11,9 +11,15 @@ import {
   MoreHorizontal,
   Link2,
   Copy,
+  SlidersHorizontal,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
-import { sortIssues, projectProgress, milestoneProgress } from '@/lib/selectors'
+import {
+  sortIssues,
+  groupIssues,
+  projectProgress,
+  milestoneProgress,
+} from '@/lib/selectors'
 import { ProjectProgressGraph } from '@/components/ProjectProgressGraph'
 import { ProjectResources } from '@/components/ProjectResources'
 import { ProjectDependencies } from '@/components/ProjectDependencies'
@@ -37,10 +43,12 @@ import {
   PRIORITY_LABELS,
 } from '@/lib/constants'
 import { copyToClipboard } from '@/lib/toast'
-import { formatFullDate, cn } from '@/lib/utils'
+import { formatFullDate, timeAgo, cn } from '@/lib/utils'
 import type {
+  GroupBy,
   Issue,
   Milestone,
+  OrderBy,
   Priority,
   Project,
   ProjectStatus,
@@ -60,24 +68,31 @@ function PropRow({ label, children }: { label: string; children: React.ReactNode
   )
 }
 
-/** Milestone-grouped issue list (Issues tab). */
+/** Grouped issue list section (Issues tab). */
 function Section({
   title,
   issues,
   progress,
+  leading,
+  count,
   onDelete,
 }: {
   title: React.ReactNode
   issues: Issue[]
   progress?: { done: number; total: number; percent: number }
+  /** Leading marker — defaults to the milestone Flag; group views pass a dot. */
+  leading?: React.ReactNode
+  /** When set, shows a plain count badge (group views without progress bars). */
+  count?: number
   onDelete?: () => void
 }) {
   if (issues.length === 0 && !onDelete) return null
   return (
     <div>
       <div className="group sticky top-0 z-10 flex items-center gap-2 bg-bg-secondary/95 px-4 py-1.5 backdrop-blur border-b border-border">
-        <Flag size={13} className="text-faint" />
+        {leading ?? <Flag size={13} className="text-faint" />}
         <span className="text-[13px] font-medium text-fg">{title}</span>
+        {count != null && <span className="text-[12px] text-faint">{count}</span>}
         {progress && (
           <>
             <span className="text-[12px] text-faint">
@@ -392,6 +407,97 @@ function MilestoneItem({
   )
 }
 
+// Group/Order options offered in the Issues-tab Display popover. Mirrors the
+// project-relevant subset of Linear's display dimensions.
+const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
+  { id: 'milestone', label: 'Milestone' },
+  { id: 'status', label: 'Status' },
+  { id: 'assignee', label: 'Assignee' },
+  { id: 'priority', label: 'Priority' },
+]
+const ORDER_OPTIONS: { id: OrderBy; label: string }[] = [
+  { id: 'priority', label: 'Priority' },
+  { id: 'created', label: 'Created' },
+  { id: 'updated', label: 'Updated' },
+]
+
+/** A labelled segmented control row inside the Group/Order popover. */
+function SegRow({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: { id: string; label: string }[]
+  onChange: (id: string) => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-1 py-1">
+      <span className="text-[12px] text-muted">{label}</span>
+      <div className="flex items-center gap-0.5 rounded-md bg-bg-tertiary p-0.5">
+        {options.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => onChange(o.id)}
+            className={cn(
+              'rounded px-1.5 py-0.5 text-[12px] text-muted hover:text-fg',
+              value === o.id && 'bg-bg text-fg shadow-sm',
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Display-style popover controlling the Issues tab's grouping and ordering. */
+function GroupOrderMenu({
+  groupBy,
+  orderBy,
+  onGroupBy,
+  onOrderBy,
+}: {
+  groupBy: GroupBy
+  orderBy: OrderBy
+  onGroupBy: (g: GroupBy) => void
+  onOrderBy: (o: OrderBy) => void
+}) {
+  return (
+    <Popover
+      align="end"
+      width={240}
+      trigger={
+        <span className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] text-muted hover:bg-bg-hover hover:text-fg">
+          <SlidersHorizontal size={14} />
+          Display
+        </span>
+      }
+    >
+      {() => (
+        <div className="flex flex-col gap-0.5 p-1">
+          <SegRow
+            label="Grouping"
+            value={groupBy}
+            options={GROUP_OPTIONS}
+            onChange={(g) => onGroupBy(g as GroupBy)}
+          />
+          <SegRow
+            label="Ordering"
+            value={orderBy}
+            options={ORDER_OPTIONS}
+            onChange={(o) => onOrderBy(o as OrderBy)}
+          />
+        </div>
+      )}
+    </Popover>
+  )
+}
+
 export function ProjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -402,6 +508,9 @@ export function ProjectDetail() {
   const [editingDesc, setEditingDesc] = useState(false)
   const [descDraft, setDescDraft] = useState('')
   const [focusMilestoneId, setFocusMilestoneId] = useState<string | null>(null)
+  // Issues-tab Display options (local). Default to Linear's milestone grouping.
+  const [issuesGroupBy, setIssuesGroupBy] = useState<GroupBy>('milestone')
+  const [issuesOrderBy, setIssuesOrderBy] = useState<OrderBy>('priority')
 
   const latestUpdate = useMemo(
     () =>
@@ -410,6 +519,15 @@ export function ProjectDetail() {
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0],
     [data.projectUpdates, id],
   )
+
+  // Days since the latest project update — Linear nudges when updates go stale
+  // (>14 days) or are missing entirely.
+  const updateAgeDays = latestUpdate
+    ? Math.floor(
+        (Date.now() - new Date(latestUpdate.createdAt).getTime()) / 86_400_000,
+      )
+    : null
+  const updateStale = updateAgeDays == null || updateAgeDays > 14
 
   const milestones = useMemo(
     () =>
@@ -423,10 +541,10 @@ export function ProjectDetail() {
     if (!project) return []
     return sortIssues(
       data.issues.filter((i) => i.projectId === project.id && !i.archivedAt),
-      'priority',
+      issuesOrderBy,
       data,
     )
-  }, [data, project])
+  }, [data, project, issuesOrderBy])
 
   if (!project) {
     return (
@@ -570,12 +688,27 @@ export function ProjectDetail() {
                 {latestUpdate ? (
                   <>
                     <HealthBadge health={latestUpdate.health} />
-                    <span className="truncate text-muted">{latestUpdate.body}</span>
+                    <span className="min-w-0 flex-1 truncate text-muted">
+                      {latestUpdate.body}
+                    </span>
+                    <span className="shrink-0 text-[12px] text-faint">
+                      {timeAgo(latestUpdate.createdAt)}
+                    </span>
                   </>
                 ) : (
                   <span className="text-muted">Write first project update</span>
                 )}
               </button>
+
+              {/* Staleness nudge — Linear prompts for overdue project updates. */}
+              {updateStale && (
+                <div className="mt-1.5 flex items-center gap-1.5 px-0.5 text-[12px] text-faint">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-faint" />
+                  {updateAgeDays == null
+                    ? 'No updates yet — update due'
+                    : `No updates in ${updateAgeDays} days — update due`}
+                </div>
+              )}
 
               {/* Insights — headline scope/started/completed stats */}
               <InsightsStrip issues={scoped} states={data.states} percent={prog.percent} />
@@ -820,19 +953,60 @@ export function ProjectDetail() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto">
-          {milestones.map((m) => (
-            <Section
-              key={m.id}
-              title={m.name}
-              issues={scoped.filter((i) => i.milestoneId === m.id)}
-              progress={milestoneProgress(m.id, data.issues, data)}
-              onDelete={() => {
-                if (confirm(`Delete milestone "${m.name}"?`)) data.deleteMilestone(m.id)
-              }}
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* Issues-tab toolbar — grouping/ordering controls. */}
+          <div className="flex shrink-0 items-center justify-end border-b border-border px-2 py-1">
+            <GroupOrderMenu
+              groupBy={issuesGroupBy}
+              orderBy={issuesOrderBy}
+              onGroupBy={setIssuesGroupBy}
+              onOrderBy={setIssuesOrderBy}
             />
-          ))}
-          <Section title="No milestone" issues={noMilestone} />
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {issuesGroupBy === 'milestone' ? (
+              <>
+                {milestones.map((m) => (
+                  <Section
+                    key={m.id}
+                    title={m.name}
+                    issues={scoped.filter((i) => i.milestoneId === m.id)}
+                    progress={milestoneProgress(m.id, data.issues, data)}
+                    onDelete={() => {
+                      if (confirm(`Delete milestone "${m.name}"?`))
+                        data.deleteMilestone(m.id)
+                    }}
+                  />
+                ))}
+                <Section title="No milestone" issues={noMilestone} />
+              </>
+            ) : (
+              groupIssues(
+                scoped,
+                issuesGroupBy,
+                data,
+                false,
+                data.preferences.displayNames,
+              ).map((g) => (
+                <Section
+                  key={g.key}
+                  title={g.label}
+                  issues={g.issues}
+                  count={g.count}
+                  leading={
+                    g.color ? (
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: g.color }}
+                      />
+                    ) : (
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-faint" />
+                    )
+                  }
+                />
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -115,12 +115,15 @@ type LayoutMode = 'grouped' | 'list'
  */
 export function FavoritesView() {
   const navigate = useNavigate()
-  const { favorites, issues, projects, savedViews } = useStoreShallow((s) => ({
-    favorites: s.favorites,
-    issues: s.issues,
-    projects: s.projects,
-    savedViews: s.savedViews,
-  }))
+  const { favorites, issues, projects, savedViews, documents, customers } =
+    useStoreShallow((s) => ({
+      favorites: s.favorites,
+      issues: s.issues,
+      projects: s.projects,
+      savedViews: s.savedViews,
+      documents: s.documents,
+      customers: s.customers,
+    }))
 
   // Local-only header controls: the active type segment and a free-text query
   // (title/name substring). They compose with AND.
@@ -132,10 +135,13 @@ export function FavoritesView() {
   // Resolve every favorite to a display Row, grouped by type. Dangling
   // references (entity deleted) are skipped. This is the unfiltered pool, used
   // both for the segment counts and as the basis for the filtered render.
-  const { issueRows, projectRows, viewRows } = useMemo(() => {
+  const { issueRows, projectRows, viewRows, documentRows, customerRows } =
+    useMemo(() => {
     const issueRows: Row[] = []
     const projectRows: Row[] = []
     const viewRows: Row[] = []
+    const documentRows: Row[] = []
+    const customerRows: Row[] = []
 
     for (const f of favorites) {
       if (f.type === 'issue') {
@@ -161,7 +167,7 @@ export function FavoritesView() {
           icon: <span className="text-[13px]">{p.icon}</span>,
           label: p.name,
         })
-      } else {
+      } else if (f.type === 'view') {
         const v = savedViews.find((x) => x.id === f.id)
         if (!v) continue
         viewRows.push({
@@ -172,17 +178,52 @@ export function FavoritesView() {
           icon: <LayersIcon size={15} />,
           label: v.name,
         })
+      } else if (f.type === 'document') {
+        const d = documents.find((x) => x.id === f.id)
+        if (!d) continue
+        documentRows.push({
+          key: `document-${d.id}`,
+          type: 'document',
+          id: d.id,
+          to: `/document/${d.id}`,
+          icon: <span className="text-[13px]">{d.icon}</span>,
+          label: d.title,
+        })
+      } else if (f.type === 'customer') {
+        const c = customers.find((x) => x.id === f.id)
+        if (!c) continue
+        customerRows.push({
+          key: `customer-${c.id}`,
+          type: 'customer',
+          id: c.id,
+          to: `/customer/${c.id}`,
+          icon: (
+            <span
+              className="flex h-4 w-4 items-center justify-center rounded-[3px] text-[9px] font-semibold text-white"
+              style={{ background: c.color }}
+            >
+              {c.name.charAt(0).toUpperCase()}
+            </span>
+          ),
+          label: c.name,
+        })
       }
     }
 
-    return { issueRows, projectRows, viewRows }
-  }, [favorites, issues, projects, savedViews])
+    return { issueRows, projectRows, viewRows, documentRows, customerRows }
+  }, [favorites, issues, projects, savedViews, documents, customers])
 
-  const total = issueRows.length + projectRows.length + viewRows.length
+  const total =
+    issueRows.length +
+    projectRows.length +
+    viewRows.length +
+    documentRows.length +
+    customerRows.length
 
   // Apply the header filters (type segment + query substring) with AND. A
   // section is shown only when the active segment includes its type.
-  const { shownIssues, shownProjects, shownViews } = useMemo(() => {
+  const { shownIssues, shownProjects, shownViews, shownDocuments, shownCustomers } =
+    useMemo(() => {
     const q = query.trim().toLowerCase()
     const match = (rows: Row[], type: FavoriteType) => {
       if (typeFilter !== 'all' && typeFilter !== type) return []
@@ -193,19 +234,31 @@ export function FavoritesView() {
       shownIssues: match(issueRows, 'issue'),
       shownProjects: match(projectRows, 'project'),
       shownViews: match(viewRows, 'view'),
+      shownDocuments: match(documentRows, 'document'),
+      shownCustomers: match(customerRows, 'customer'),
     }
-  }, [issueRows, projectRows, viewRows, typeFilter, query])
+  }, [issueRows, projectRows, viewRows, documentRows, customerRows, typeFilter, query])
 
   const shownTotal =
-    shownIssues.length + shownProjects.length + shownViews.length
+    shownIssues.length +
+    shownProjects.length +
+    shownViews.length +
+    shownDocuments.length +
+    shownCustomers.length
 
   // Flat-list layout: merge the shown rows into one list, sorted A→Z by label
   // (case-insensitive) so the single column reads like Linear's list display.
   const flatRows = useMemo(() => {
-    return [...shownIssues, ...shownProjects, ...shownViews].sort((a, b) =>
+    return [
+      ...shownIssues,
+      ...shownProjects,
+      ...shownViews,
+      ...shownDocuments,
+      ...shownCustomers,
+    ].sort((a, b) =>
       a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
     )
-  }, [shownIssues, shownProjects, shownViews])
+  }, [shownIssues, shownProjects, shownViews, shownDocuments, shownCustomers])
 
   // Keyboard navigation — Linear lets you walk any list with j/k (or arrows) and
   // open the focused row with Enter/o. `navRows` is the flat visible order that
@@ -216,8 +269,22 @@ export function FavoritesView() {
     () =>
       layout === 'list'
         ? flatRows
-        : [...shownIssues, ...shownProjects, ...shownViews],
-    [layout, flatRows, shownIssues, shownProjects, shownViews],
+        : [
+            ...shownIssues,
+            ...shownProjects,
+            ...shownViews,
+            ...shownDocuments,
+            ...shownCustomers,
+          ],
+    [
+      layout,
+      flatRows,
+      shownIssues,
+      shownProjects,
+      shownViews,
+      shownDocuments,
+      shownCustomers,
+    ],
   )
 
   // `focusKey` tracks the highlighted row (by `row.key`); it's clamped to the
@@ -287,6 +354,8 @@ export function FavoritesView() {
     { id: 'issue', label: 'Issues', count: issueRows.length },
     { id: 'project', label: 'Projects', count: projectRows.length },
     { id: 'view', label: 'Views', count: viewRows.length },
+    { id: 'document', label: 'Documents', count: documentRows.length },
+    { id: 'customer', label: 'Customers', count: customerRows.length },
   ]
 
   return (
@@ -423,6 +492,36 @@ export function FavoritesView() {
                 {shownViews.length > 0 && (
                   <Section title="Views">
                     {shownViews.map((r) => (
+                      <FavoriteRow
+                        key={r.key}
+                        row={r}
+                        focused={focusKey === r.key}
+                        onFocus={() => setFocusKey(r.key)}
+                        rowRef={(el) => {
+                          rowRefs.current[r.key] = el
+                        }}
+                      />
+                    ))}
+                  </Section>
+                )}
+                {shownDocuments.length > 0 && (
+                  <Section title="Documents">
+                    {shownDocuments.map((r) => (
+                      <FavoriteRow
+                        key={r.key}
+                        row={r}
+                        focused={focusKey === r.key}
+                        onFocus={() => setFocusKey(r.key)}
+                        rowRef={(el) => {
+                          rowRefs.current[r.key] = el
+                        }}
+                      />
+                    ))}
+                  </Section>
+                )}
+                {shownCustomers.length > 0 && (
+                  <Section title="Customers">
+                    {shownCustomers.map((r) => (
                       <FavoriteRow
                         key={r.key}
                         row={r}

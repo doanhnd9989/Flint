@@ -18,9 +18,12 @@ import {
   Circle,
   Check,
   ChevronLeft,
+  ChevronRight,
+  ChevronDown,
   Inbox as InboxIcon,
   Maximize2,
   Minus,
+  RotateCcw,
 } from 'lucide-react'
 import { EmptyState, InboxIllustration } from '@/components/EmptyState'
 import { useStore, useDisplayName } from '@/lib/store'
@@ -130,6 +133,42 @@ function anyFilter(f: InboxFilters) {
     f.priorities.length > 0 ||
     f.statusTypes.length > 0
   )
+}
+
+// ── Inbox / Read segmented tabs ──────────────────────────────────────────────
+// Linear splits the inbox into an active queue and a "Read" archive. The Inbox
+// tab shows the live queue; the Read tab shows notifications you've already read
+// (and/or snoozed away) with a "mark unread" affordance to pull them back.
+type Tab = 'inbox' | 'read'
+
+// ── issue threads ────────────────────────────────────────────────────────────
+// Notifications that target the same issue collapse into one thread row: the
+// latest event is the representative, older events hide behind a "+N more"
+// count until the thread is expanded. Group actions iterate every member id
+// through the existing single-notification store actions.
+interface Thread {
+  key: string // issueId, or the lone notification id when there's no issue
+  rep: Notification // representative (first in the sorted member list)
+  members: Notification[] // newest-first, includes rep
+}
+function buildThreads(list: Notification[]): Thread[] {
+  const order: string[] = []
+  const byKey = new Map<string, Notification[]>()
+  for (const n of list) {
+    // Only fold rows that share a real issue; orphan notifications stay solo.
+    const key = n.issueId ? `issue:${n.issueId}` : `n:${n.id}`
+    if (!byKey.has(key)) {
+      byKey.set(key, [])
+      order.push(key)
+    }
+    byKey.get(key)!.push(n)
+  }
+  // `list` is already sorted, so members preserve that order and members[0] is
+  // the representative for the current ordering.
+  return order.map((key) => {
+    const members = byKey.get(key)!
+    return { key, rep: members[0], members }
+  })
 }
 
 // ── ⋯ options menu ───────────────────────────────────────────────────────────
@@ -548,12 +587,15 @@ function ConfirmDeleteAll({
 export function Inbox() {
   const navigate = useNavigate()
   const store = useStore()
+  const [tab, setTab] = useState<Tab>('inbox')
   const [display, setDisplay] = useState<InboxDisplay>(DEFAULT_DISPLAY)
   const [filters, setFilters] = useState<InboxFilters>(EMPTY_FILTERS)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // Bulk-select set (the checkboxes), independent from the reading-pane focus.
   const [checked, setChecked] = useState<Set<string>>(() => new Set())
+  // Threads collapsed by default; expanded keys reveal their member rows.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const now = Date.now()
 
   const statusTypeOf = (issueId: string): StatusType | undefined => {
@@ -565,8 +607,14 @@ export function Inbox() {
   const list = store.notifications
     .filter((n) => {
       const snoozed = isSnoozed(n.snoozedUntil, now)
-      if (snoozed && !display.showSnoozed) return false
-      if (!display.showRead && n.read) return false
+      if (tab === 'read') {
+        // Read tab is the archive: only already-read or snoozed-away rows.
+        if (!n.read && !snoozed) return false
+      } else {
+        // Inbox tab honours the display toggles for read/snoozed visibility.
+        if (snoozed && !display.showSnoozed) return false
+        if (!display.showRead && n.read) return false
+      }
       const issue = store.issues.find((i) => i.id === n.issueId)
       if (filters.types.length && !filters.types.includes(n.type)) return false
       if (filters.from.length && !filters.from.includes(n.actorId)) return false
@@ -596,8 +644,22 @@ export function Inbox() {
   const snooze = (id: string, ms: number) =>
     store.snoozeNotification(id, new Date(now + ms).toISOString())
 
+  // ── threads ──────────────────────────────────────────────────────────────
+  // Fold same-issue notifications into collapsible threads, then flatten back to
+  // the sequence of *visible* rows (a collapsed thread contributes only its
+  // representative; an expanded thread contributes rep + members) so keyboard
+  // nav, selection and date-group headers all run over one flat list.
+  const threads = buildThreads(list)
+  const navList: Notification[] = []
+  for (const th of threads) {
+    navList.push(th.rep)
+    if (th.members.length > 1 && expanded.has(th.key)) {
+      for (const m of th.members.slice(1)) navList.push(m)
+    }
+  }
+
   // ── selection ────────────────────────────────────────────────────────────
-  const selected = list.find((n) => n.id === selectedId) ?? null
+  const selected = navList.find((n) => n.id === selectedId) ?? null
   const select = (id: string) => {
     store.markNotificationRead(id)
     setSelectedId(id)
@@ -605,15 +667,31 @@ export function Inbox() {
   // Mark-done / snooze removes the row from the inbox — keep a notification
   // selected by jumping to its neighbour, exactly like Linear's reading pane.
   const actThenAdvance = (id: string, act: (id: string) => void) => {
-    const idx = list.findIndex((n) => n.id === id)
-    const next = list[idx + 1] ?? list[idx - 1] ?? null
+    const idx = navList.findIndex((n) => n.id === id)
+    const next = navList[idx + 1] ?? navList[idx - 1] ?? null
     act(id)
     setSelectedId(next ? next.id : null)
+  }
+  // Run a store action across every notification in a thread (rep + members).
+  const threadAct = (th: Thread, act: (id: string) => void) => {
+    const ids = th.members.map((m) => m.id)
+    const idx = navList.findIndex((n) => n.id === th.rep.id)
+    // Pick the first neighbour that isn't part of this thread (skips members
+    // whether the thread is collapsed — only the rep is in navList — or expanded).
+    const next =
+      navList.slice(idx + 1).find((n) => !ids.includes(n.id)) ??
+      navList.slice(0, idx).reverse().find((n) => !ids.includes(n.id)) ??
+      null
+    ids.forEach((id) => act(id))
+    if (selectedId && ids.includes(selectedId))
+      setSelectedId(next ? next.id : null)
   }
 
   // ── bulk selection (checkboxes) ──────────────────────────────────────────
   // Keep the checked set pruned to the currently-visible rows so toggle-all and
   // the action-bar count never reference notifications hidden by the filters.
+  // Select-all spans every notification in the filtered list (including the
+  // collapsed members of threads), not just the rows currently rendered.
   const visibleIds = list.map((n) => n.id)
   const checkedVisible = visibleIds.filter((id) => checked.has(id))
   const allChecked = list.length > 0 && checkedVisible.length === list.length
@@ -645,7 +723,7 @@ export function Inbox() {
     if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
       return
     if (document.querySelector('[data-overlay]')) return
-    const items = list
+    const items = navList
     const idx = items.findIndex((n) => n.id === selectedId)
     const cur = items[idx]
     // Inbox owns this key — stop the global shortcut handler (which also binds
@@ -737,6 +815,31 @@ export function Inbox() {
           <InboxOptionsMenu onDeleteAll={() => setConfirmDelete(true)} />
         </ViewHeader>
 
+        {/* ── Inbox / Read segmented tabs ── */}
+        <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1.5">
+          {(['inbox', 'read'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => {
+                if (t === tab) return
+                setTab(t)
+                // Selection/checkboxes reference rows that may not exist in the
+                // other tab — reset them on switch.
+                setSelectedId(null)
+                clearChecked()
+              }}
+              className={cn(
+                'rounded-md px-2.5 py-1 text-[12px] font-medium capitalize transition-colors',
+                tab === t
+                  ? 'bg-bg-tertiary text-fg'
+                  : 'text-faint hover:bg-bg-hover hover:text-fg',
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
         <FilterChips filters={filters} setFilters={setFilters} />
 
         {/* select-all bar — Linear reveals a master checkbox above the list */}
@@ -773,26 +876,31 @@ export function Inbox() {
             <div className="px-4 py-10 text-center text-[13px] text-faint">
               {anyFilter(filters)
                 ? 'No notifications match your filters.'
-                : "You're all caught up."}
+                : tab === 'read'
+                  ? 'Nothing read yet.'
+                  : "You're all caught up."}
             </div>
           )}
-          {list.map((n, i) => {
-            // Emit a sticky date-section header whenever the group changes from
-            // the previous (already-sorted) row, so render order stays identical
-            // to `list` and j/k navigation keeps working on the flat sequence.
+          {threads.map((th, i) => {
+            const n = th.rep
+            // Sticky date-section header keyed off the thread representative.
+            // Group order matches `navList`, so j/k nav stays in sync with the
+            // rendered sequence even with threads collapsed/expanded.
             const group = dateGroup(n.createdAt, now)
-            // With "Show unread first" on, `list` is partitioned [unread…][read…]
-            // and each block restarts at the newest date, so it isn't globally
-            // date-monotonic. Force a fresh header at the unread→read boundary and
-            // compare dates only within a block — otherwise a group label can
-            // repeat or appear out of order across the partition.
-            const prev = list[i - 1]
+            // With "Show unread first" on, the list is partitioned [unread…]
+            // [read…]; force a fresh header at that boundary and compare dates
+            // only within a block so a label can't repeat across the partition.
+            const prev = threads[i - 1]?.rep
             const showHeader =
               i === 0 ||
-              (display.showUnreadFirst && prev.read !== n.read) ||
-              dateGroup(prev.createdAt, now) !== group
+              (display.showUnreadFirst && prev!.read !== n.read) ||
+              dateGroup(prev!.createdAt, now) !== group
+            const isThread = th.members.length > 1
+            const isExpanded = isThread && expanded.has(th.key)
+            // A thread counts as checked only when every member is checked.
+            const threadChecked = th.members.every((m) => checked.has(m.id))
             return (
-              <div key={n.id}>
+              <div key={th.key}>
                 {showHeader && (
                   <div className="sticky top-0 z-10 bg-bg/90 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-faint backdrop-blur-sm">
                     {group}
@@ -801,15 +909,78 @@ export function Inbox() {
                 <NotificationRow
                   n={n}
                   now={now}
+                  tab={tab}
                   selected={n.id === selectedId}
-                  checked={checked.has(n.id)}
+                  checked={threadChecked}
                   anyChecked={someChecked}
-                  onToggleCheck={() => toggleChecked(n.id)}
+                  threadCount={isThread ? th.members.length : 0}
+                  expanded={isExpanded}
+                  onToggleExpand={
+                    isThread
+                      ? () =>
+                          setExpanded((cur) => {
+                            const next = new Set(cur)
+                            next.has(th.key)
+                              ? next.delete(th.key)
+                              : next.add(th.key)
+                            return next
+                          })
+                      : undefined
+                  }
+                  onToggleCheck={() =>
+                    // Toggle the whole thread together.
+                    setChecked((cur) => {
+                      const next = new Set(cur)
+                      const turnOff = th.members.every((m) => next.has(m.id))
+                      th.members.forEach((m) =>
+                        turnOff ? next.delete(m.id) : next.add(m.id),
+                      )
+                      return next
+                    })
+                  }
                   onOpen={() => select(n.id)}
-                  onSnooze={(id, ms) => actThenAdvance(id, (x) => snooze(x, ms))}
-                  onUnsnooze={store.unsnoozeNotification}
-                  onDelete={(id) => actThenAdvance(id, store.deleteNotification)}
+                  onSnooze={(_, ms) =>
+                    threadAct(th, (x) =>
+                      store.snoozeNotification(
+                        x,
+                        new Date(now + ms).toISOString(),
+                      ),
+                    )
+                  }
+                  onUnsnooze={() => threadAct(th, store.unsnoozeNotification)}
+                  onDelete={() => threadAct(th, store.deleteNotification)}
+                  onMarkUnread={() =>
+                    threadAct(th, (x) => store.setNotificationRead(x, false))
+                  }
                 />
+                {/* expanded thread members (rep already shown above) */}
+                {isExpanded &&
+                  th.members.slice(1).map((m) => (
+                    <NotificationRow
+                      key={m.id}
+                      n={m}
+                      now={now}
+                      tab={tab}
+                      member
+                      selected={m.id === selectedId}
+                      checked={checked.has(m.id)}
+                      anyChecked={someChecked}
+                      threadCount={0}
+                      expanded={false}
+                      onToggleCheck={() => toggleChecked(m.id)}
+                      onOpen={() => select(m.id)}
+                      onSnooze={(id, ms) =>
+                        actThenAdvance(id, (x) => snooze(x, ms))
+                      }
+                      onUnsnooze={store.unsnoozeNotification}
+                      onDelete={(id) =>
+                        actThenAdvance(id, store.deleteNotification)
+                      }
+                      onMarkUnread={(id) =>
+                        store.setNotificationRead(id, false)
+                      }
+                    />
+                  ))}
               </div>
             )
           })}
@@ -1059,6 +1230,11 @@ function ReadingPane({
 function NotificationRow({
   n,
   now,
+  tab,
+  member = false,
+  threadCount,
+  expanded,
+  onToggleExpand,
   selected,
   checked,
   anyChecked,
@@ -1067,9 +1243,15 @@ function NotificationRow({
   onSnooze,
   onUnsnooze,
   onDelete,
+  onMarkUnread,
 }: {
   n: Notification
   now: number
+  tab: Tab
+  member?: boolean
+  threadCount: number // >1 ⇒ this row is a thread head with N members
+  expanded: boolean
+  onToggleExpand?: () => void
   selected: boolean
   checked: boolean
   anyChecked: boolean
@@ -1078,12 +1260,14 @@ function NotificationRow({
   onSnooze: (id: string, ms: number) => void
   onUnsnooze: (id: string) => void
   onDelete: (id: string) => void
+  onMarkUnread: (id: string) => void
 }) {
   const store = useStore()
   const fmt = useDisplayName()
   const actor = store.users.find((u) => u.id === n.actorId)
   const issue = store.issues.find((i) => i.id === n.issueId)
   const snoozed = isSnoozed(n.snoozedUntil, now)
+  const isThread = threadCount > 1
 
   return (
     <div
@@ -1091,7 +1275,9 @@ function NotificationRow({
       tabIndex={-1}
       onClick={onOpen}
       className={cn(
-        'group flex w-full cursor-pointer items-start gap-2.5 border-b border-border px-3 py-3 text-left outline-none',
+        'group flex w-full cursor-pointer items-start gap-2.5 border-b border-border py-3 text-left outline-none',
+        // Indent expanded member rows so the thread reads as a tree.
+        member ? 'pl-9 pr-3' : 'px-3',
         selected ? 'bg-bg-selected' : 'hover:bg-bg-hover',
       )}
     >
@@ -1136,6 +1322,24 @@ function NotificationRow({
           >
             {issue?.title ?? fmt(actor?.name)}
           </div>
+          {/* +N more — expand/collapse the thread of same-issue events */}
+          {isThread && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleExpand?.()
+              }}
+              title={expanded ? 'Collapse thread' : 'Expand thread'}
+              className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[11px] text-faint hover:bg-bg-hover hover:text-fg"
+            >
+              {expanded ? (
+                <ChevronDown size={11} />
+              ) : (
+                <ChevronRight size={11} />
+              )}
+              +{threadCount - 1} more
+            </button>
+          )}
           <span className="shrink-0 text-[11px] text-faint">
             {timeAgo(n.createdAt)}
           </span>
@@ -1156,6 +1360,20 @@ function NotificationRow({
       </div>
 
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+        {/* Read tab: pull a notification back into the inbox as unread */}
+        {tab === 'read' && n.read && (
+          <span
+            role="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onMarkUnread(n.id)
+            }}
+            title="Mark as unread"
+            className="flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
+          >
+            <RotateCcw size={14} />
+          </span>
+        )}
         {snoozed ? (
           <span
             role="button"

@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { ArrowDownUp, Check, ChevronDown, IterationCw, X } from 'lucide-react'
+import {
+  ArrowDownUp,
+  Check,
+  ChevronDown,
+  Copy,
+  IterationCw,
+  MoreHorizontal,
+  MoveRight,
+  X,
+} from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { cycleState } from '@/lib/selectors'
 import { ViewHeader } from '@/components/ViewHeader'
@@ -11,6 +20,7 @@ import { Avatar } from '@/components/Avatar'
 import { LabelDot } from '@/components/LabelChip'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
+import { Popover } from '@/components/ui/Popover'
 import {
   StatusPicker,
   PriorityPicker,
@@ -236,6 +246,23 @@ export function TriageView() {
     [sort],
   )
 
+  // "Move to team" targets — every other team, in name order. Picking one calls
+  // the store's moveIssueToTeam (which re-keys the identifier) and re-homes the
+  // issue out of this team's triage queue, mirroring Linear's row action.
+  const moveTeamOptions = useMemo<SelectOption[]>(
+    () =>
+      store.teams
+        .filter((t) => t.id !== team.id)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((t) => ({
+          id: t.id,
+          label: t.name,
+          icon: <span className="text-[13px] leading-none">{t.icon}</span>,
+          keywords: t.key,
+        })),
+    [store.teams, team.id],
+  )
+
   // Label for the priority-filter trigger chip.
   const priorityFilterLabel =
     priorityFilter === 'all'
@@ -366,6 +393,56 @@ export function TriageView() {
                       >
                         <X size={13} /> Decline
                       </button>
+                      {/* Overflow "…" — extra Linear triage actions that don't
+                          warrant their own button: move the issue to another
+                          team, or mark it as a duplicate of an existing one. */}
+                      <Popover
+                        align="end"
+                        width={180}
+                        trigger={
+                          <span
+                            className="flex size-[28px] items-center justify-center rounded-md border border-border text-muted hover:bg-bg-hover hover:text-fg"
+                            aria-label="More triage actions"
+                          >
+                            <MoreHorizontal size={14} />
+                          </span>
+                        }
+                      >
+                        {(close) => (
+                          <div className="text-[13px] text-fg">
+                            {/* Move to team — only when there's another team to
+                                move into; declining is implicit (the issue
+                                leaves this team's triage queue). */}
+                            {moveTeamOptions.length > 0 && (
+                              <SelectMenu
+                                width={200}
+                                options={moveTeamOptions}
+                                placeholder="Move to team…"
+                                onSelect={(teamId) => {
+                                  store.moveIssueToTeam(issue.id, teamId)
+                                  close()
+                                }}
+                                trigger={
+                                  <span className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-bg-hover">
+                                    <MoveRight size={14} className="text-faint" />
+                                    Move to team…
+                                  </span>
+                                }
+                              />
+                            )}
+                            <button
+                              onClick={() => {
+                                store.openRelationPicker(issue.id, 'duplicateOf')
+                                close()
+                              }}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-bg-hover"
+                            >
+                              <Copy size={14} className="text-faint" />
+                              Mark as duplicate…
+                            </button>
+                          </div>
+                        )}
+                      </Popover>
                     </div>
                   </div>
 

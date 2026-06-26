@@ -50,6 +50,9 @@ import {
   Check,
   X,
   PanelLeft,
+  CopyPlus,
+  Trash2,
+  BellOff,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { Calendar } from './DatePicker'
@@ -355,6 +358,10 @@ export function CommandMenu() {
       ? (() => {
           const issue = currentIssue
           const st = store.states.find((s) => s.id === issue.stateId)!
+          const starred = store.favorites.some(
+            (f) => f.type === 'issue' && f.id === issue.id,
+          )
+          const subscribed = issue.subscriberIds.includes(store.currentUserId)
           return [
             {
               id: 'ctx-assign',
@@ -437,6 +444,44 @@ export function CommandMenu() {
                   branchName(issue.identifier, issue.title, me),
                   copyToast.branch(),
                 ),
+            },
+            {
+              id: 'ctx-favorite',
+              label: starred ? 'Remove from favorites' : 'Add to favorites',
+              icon: (
+                <Star
+                  size={15}
+                  fill={starred ? 'currentColor' : 'none'}
+                  className={starred ? 'text-[var(--status-started)]' : ''}
+                />
+              ),
+              keywords: 'favorite unfavorite star bookmark pin',
+              run: () => store.toggleFavorite('issue', issue.id),
+            },
+            {
+              id: 'ctx-subscribe',
+              label: subscribed ? 'Unsubscribe' : 'Subscribe',
+              icon: subscribed ? <BellOff size={15} /> : <Bell size={15} />,
+              keywords: 'subscribe unsubscribe notifications follow watch',
+              run: () =>
+                store.toggleIssueSubscriber(issue.id, store.currentUserId),
+            },
+            {
+              id: 'ctx-duplicate',
+              label: 'Duplicate issue',
+              icon: <CopyPlus size={15} />,
+              keywords: 'duplicate copy clone',
+              run: () => {
+                const dupe = store.duplicateIssue(issue.id)
+                if (dupe) navigate(`/issue/${dupe.identifier}`)
+              },
+            },
+            {
+              id: 'ctx-delete',
+              label: 'Delete issue…',
+              icon: <Trash2 size={15} />,
+              keywords: 'delete remove trash',
+              run: () => store.deleteIssue(issue.id),
             },
           ]
         })()

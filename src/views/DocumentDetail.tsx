@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, FolderKanban, Link2, Trash2 } from 'lucide-react'
+import { ChevronLeft, Copy, FolderKanban, Link2, Star, Trash2 } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { MarkdownEditor } from '@/components/MarkdownEditor'
@@ -66,11 +66,24 @@ export function DocumentDetail() {
   const navigate = useNavigate()
   const fmt = useDisplayName()
   const doc = useStore((s) => s.documents.find((d) => d.id === id))
-  const { users, projects, updateDocument, deleteDocument } = useStoreShallow((s) => ({
+  // Is this document favorited? Read the generic favorites list (type 'document').
+  const isFavorite = useStore((s) =>
+    s.favorites.some((f) => f.type === 'document' && f.id === id),
+  )
+  const {
+    users,
+    projects,
+    updateDocument,
+    deleteDocument,
+    duplicateDocument,
+    toggleFavorite,
+  } = useStoreShallow((s) => ({
     users: s.users,
     projects: s.projects,
     updateDocument: s.updateDocument,
     deleteDocument: s.deleteDocument,
+    duplicateDocument: s.duplicateDocument,
+    toggleFavorite: s.toggleFavorite,
   }))
 
   // The scrollable body, so the outline can scroll a heading into view.
@@ -131,6 +144,27 @@ export function DocumentDetail() {
         title={doc.title || 'Untitled'}
         right={
           <div className="flex items-center gap-1">
+            <button
+              type="button"
+              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              onClick={() => toggleFavorite('document', doc.id)}
+              className={`flex h-7 w-7 items-center justify-center rounded-md hover:bg-bg-hover ${
+                isFavorite ? 'text-[var(--c-yellow)]' : 'text-faint hover:text-fg'
+              }`}
+            >
+              <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+            </button>
+            <button
+              type="button"
+              title="Duplicate document"
+              onClick={() => {
+                const copy = duplicateDocument(doc.id)
+                if (copy) navigate(`/document/${copy.id}`)
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg"
+            >
+              <Copy size={15} />
+            </button>
             <button
               type="button"
               title="Copy link"

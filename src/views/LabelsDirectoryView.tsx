@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Tag, Search, ArrowUpDown, ChevronRight, X } from 'lucide-react'
+import { Tag, Search, ArrowUpDown, ChevronRight, X, Merge } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { LabelChip, LabelDot } from '@/components/LabelChip'
 import { EmptyState } from '@/components/EmptyState'
 import { SelectMenu, type SelectOption } from '@/components/ui/SelectMenu'
+import { toast } from '@/lib/toast'
 import type { Label } from '@/lib/types'
 
 // Sort modes for the directory. Default mirrors Linear's alphabetical listing;
@@ -95,15 +96,34 @@ function LabelDetailPanel({
   label,
   total,
   related,
+  mergeTargets,
   onClose,
   onOpen,
+  onMerge,
 }: {
   label: Label
   total: number
   related: { label: Label; count: number }[]
+  mergeTargets: Label[]
   onClose: () => void
   onOpen: (id: string) => void
+  onMerge: (targetId: string) => void
 }) {
+  // Two-step merge: picking a target stages it for confirmation (Linear warns
+  // before the destructive reassign) — confirming runs the store mergeLabel.
+  const [pending, setPending] = useState<Label | null>(null)
+
+  // Every other non-group label, alphabetical, as SelectMenu options.
+  const mergeOptions: SelectOption[] = mergeTargets
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((l) => ({
+      id: l.id,
+      label: l.name,
+      keywords: l.name,
+      icon: <LabelDot color={l.color} size={10} />,
+    }))
+
   return (
     <aside className="w-64 shrink-0 self-start rounded-lg border border-border bg-bg">
       {/* Panel header — the selected label + its overall usage */}
@@ -162,6 +182,64 @@ function LabelDetailPanel({
         )}
       </div>
 
+      {/* Merge into… — reassign every issue's label to a target, then drop this
+          one (store mergeLabel). Disabled when there are no other labels. */}
+      <div className="border-t border-border px-3 py-2.5">
+        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint">
+          Merge
+        </div>
+        {pending ? (
+          // Confirmation step — Linear warns before the destructive reassign.
+          <div className="space-y-2">
+            <p className="text-[12px] text-muted">
+              Move{' '}
+              <span className="text-fg">
+                {total} {total === 1 ? 'issue' : 'issues'}
+              </span>{' '}
+              from “{label.name}” into{' '}
+              <span className="text-fg">“{pending.name}”</span> and delete this
+              label?
+            </p>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  onMerge(pending.id)
+                  setPending(null)
+                }}
+                className="rounded border border-border bg-bg-secondary px-2 py-1 text-[12px] text-fg hover:bg-bg-hover"
+              >
+                Merge labels
+              </button>
+              <button
+                type="button"
+                onClick={() => setPending(null)}
+                className="rounded px-2 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-fg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : mergeOptions.length === 0 ? (
+          <p className="text-[12px] text-faint">No other labels to merge into.</p>
+        ) : (
+          <SelectMenu
+            options={mergeOptions}
+            onSelect={(id) =>
+              setPending(mergeTargets.find((l) => l.id === id) ?? null)
+            }
+            width={220}
+            placeholder="Merge into…"
+            trigger={
+              <span className="flex w-full items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg">
+                <Merge size={13} />
+                Merge into…
+              </span>
+            }
+          />
+        )}
+      </div>
+
     </aside>
   )
 }
@@ -177,6 +255,7 @@ export function LabelsDirectoryView() {
   const navigate = useNavigate()
   const labels = useStore((s) => s.labels)
   const issues = useStore((s) => s.issues)
+  const mergeLabel = useStore((s) => s.mergeLabel)
 
   // Local-only directory controls (search query + sort mode).
   const [query, setQuery] = useState('')
@@ -239,8 +318,13 @@ export function LabelsDirectoryView() {
       .filter((r): r is { label: Label; count: number } => !!r.label && !r.label.isGroup)
       .sort((a, b) => b.count - a.count || a.label.name.localeCompare(b.label.name))
       .slice(0, 6)
-    return { label, total, related }
-  }, [selectedLabelId, labelById, issues])
+    // Valid merge targets: every OTHER non-group label (groups aren't applied
+    // to issues, so they can't receive a merge).
+    const mergeTargets = labels.filter(
+      (l) => !l.isGroup && l.id !== selectedLabelId,
+    )
+    return { label, total, related, mergeTargets }
+  }, [selectedLabelId, labelById, issues, labels])
 
   // Header count = every non-group label (groups are containers, not labels).
   const labelCount = useMemo(
@@ -439,11 +523,22 @@ export function LabelsDirectoryView() {
             {/* Right-side co-occurrence panel for the selected label */}
             {detail && (
               <LabelDetailPanel
+                key={detail.label.id}
                 label={detail.label}
                 total={detail.total}
                 related={detail.related}
+                mergeTargets={detail.mergeTargets}
                 onClose={() => setSelectedLabelId(null)}
                 onOpen={(id) => navigate(`/label/${id}`)}
+                onMerge={(targetId) => {
+                  const target = labelById.get(targetId)
+                  mergeLabel(detail.label.id, targetId)
+                  toast(
+                    `Merged “${detail.label.name}” into “${target?.name ?? 'label'}”`,
+                  )
+                  // Source is gone — select the target so the panel stays useful.
+                  setSelectedLabelId(targetId)
+                }}
               />
             )}
             </div>

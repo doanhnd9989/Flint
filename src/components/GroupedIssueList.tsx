@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, Plus, IterationCw, Diamond } from 'lucide-react'
+import {
+  ChevronDown,
+  Plus,
+  IterationCw,
+  Diamond,
+  MoreHorizontal,
+  CheckCircle2,
+  Circle,
+  ChevronsDownUp,
+} from 'lucide-react'
 import {
   DndContext,
   PointerSensor,
@@ -26,6 +35,8 @@ import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { cn } from '@/lib/utils'
 import { EmptyState, IssuesIllustration } from './EmptyState'
+import { Popover } from './ui/Popover'
+import { toast } from '@/lib/toast'
 
 /** Seed values for the create modal from a group's property — Linear's
  *  group-header `+` pre-fills the new issue with that group's value. */
@@ -75,6 +86,26 @@ function GroupGlyph({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy })
   return null
 }
 
+/** Sum of estimate points across a group's issues (0/undefined estimates skip). */
+function estimateSum(issues: Issue[]) {
+  return issues.reduce((n, i) => n + (i.estimate ?? 0), 0)
+}
+
+/** Summed-estimate badge beside a group header's count — mirrors the board's
+ *  column badge so a list group surfaces its total scope. Hidden when zero. */
+function EstimateBadge({ issues }: { issues: Issue[] }) {
+  const sum = estimateSum(issues)
+  if (sum <= 0) return null
+  return (
+    <span
+      title={`${sum} estimate points`}
+      className="rounded bg-secondary px-1 font-mono text-[11px] text-faint"
+    >
+      {sum}
+    </span>
+  )
+}
+
 function SortableIssueRow({ issue, showStatus }: { issue: Issue; showStatus: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: issue.id })
@@ -118,6 +149,8 @@ export function GroupedIssueList({
   const openCreateWith = useStore((s) => s.openCreateWith)
   const selectedIssueIds = useStore((s) => s.selectedIssueIds)
   const setSelectedIssues = useStore((s) => s.setSelectedIssues)
+  const setIssueStatus = useStore((s) => s.setIssueStatus)
+  const states = useStore((s) => s.states)
   const setNavIssueIds = useStore((s) => s.setNavIssueIds)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
@@ -285,6 +318,19 @@ export function GroupedIssueList({
           else groupIds.forEach((id) => set.add(id))
           setSelectedIssues([...set])
         }
+        // Overflow actions select every id in the group, fold it, or bulk-set
+        // a status by iterating ids through the per-issue store action.
+        const selectAll = () => {
+          const set = new Set(selectedIssueIds)
+          groupIds.forEach((id) => set.add(id))
+          setSelectedIssues([...set])
+        }
+        const setGroupStatus = (stateId: string, label: string) => {
+          groupIds.forEach((id) => setIssueStatus(id, stateId))
+          toast(`Moved ${group.count} ${group.count === 1 ? 'issue' : 'issues'} to ${label}`)
+        }
+        const doneState = states.find((s) => s.type === 'completed')
+        const startedState = states.find((s) => s.type === 'started')
         return (
           <div key={group.key}>
             <div className="group sticky top-0 z-10 flex items-center gap-2 bg-bg-secondary/95 px-4 py-1.5 backdrop-blur border-b border-border">
@@ -325,8 +371,77 @@ export function GroupedIssueList({
                   {group.label}
                 </span>
                 <span className="text-[12px] text-faint">{group.count}</span>
+                <EstimateBadge issues={group.issues} />
               </button>
               <div className="flex-1" />
+              <Popover
+                align="end"
+                width={208}
+                trigger={
+                  <span
+                    title="Group options"
+                    className="flex h-5 w-5 items-center justify-center rounded text-faint opacity-0 hover:bg-bg-hover hover:text-fg group-hover:opacity-100"
+                  >
+                    <MoreHorizontal size={14} />
+                  </span>
+                }
+              >
+                {(close) => (
+                  <div className="text-[13px] text-fg">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        selectAll()
+                        close()
+                      }}
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-bg-hover"
+                    >
+                      <Circle size={14} className="text-faint" />
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCollapsed((c) => ({ ...c, [group.key]: true }))
+                        close()
+                      }}
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-bg-hover"
+                    >
+                      <ChevronsDownUp size={14} className="text-faint" />
+                      Collapse group
+                    </button>
+                    {(doneState || startedState) && (
+                      <div className="my-1 border-t border-border" />
+                    )}
+                    {startedState && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGroupStatus(startedState.id, startedState.name)
+                          close()
+                        }}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-bg-hover"
+                      >
+                        <StatusIcon type={startedState.type} color={startedState.color} />
+                        Mark as {startedState.name}
+                      </button>
+                    )}
+                    {doneState && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGroupStatus(doneState.id, doneState.name)
+                          close()
+                        }}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-bg-hover"
+                      >
+                        <CheckCircle2 size={14} className="text-accent" />
+                        Mark as Done
+                      </button>
+                    )}
+                  </div>
+                )}
+              </Popover>
               <button
                 type="button"
                 title="Add issue"
