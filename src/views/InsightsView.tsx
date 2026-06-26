@@ -3,7 +3,7 @@ import { ChevronDown, Download } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { SelectMenu } from '@/components/ui/SelectMenu'
-import { PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
+import { LABEL_COLORS, PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
 import { displayName } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { Issue, WorkflowState } from '@/lib/types'
@@ -45,6 +45,20 @@ const SPLITS = [
   { id: 'assignee', label: 'Assignee' },
 ] as const
 type SplitId = (typeof SPLITS)[number]['id']
+
+/**
+ * Deterministic per-assignee colour for the stacked "Split by: Assignee" bar —
+ * assignees have no intrinsic colour, so we hash the id onto the shared label
+ * palette so each person reads as a distinct, stable segment. Unassigned uses a
+ * neutral grey (palette slot 0).
+ */
+function assigneeColor(id: string): string {
+  if (id === '__none') return LABEL_COLORS[0]
+  let h = 0
+  for (let n = 0; n < id.length; n++) h = (h * 31 + id.charCodeAt(n)) >>> 0
+  // Skip slot 0 (reserved for Unassigned/grey) so people get a saturated hue.
+  return LABEL_COLORS[1 + (h % (LABEL_COLORS.length - 1))]
+}
 
 /**
  * Sort order for the featured breakdown — Linear lets you flip a breakdown
@@ -426,7 +440,7 @@ export function InsightsView() {
       case 'assignee': {
         const id = i.assigneeId ?? '__none'
         const label = id === '__none' ? 'Unassigned' : displayName(data.users.find((u) => u.id === id)?.name ?? 'Unknown', displayPref)
-        return { key: id, label, color: 'var(--accent)' }
+        return { key: id, label, color: assigneeColor(id) }
       }
       default:
         return { key: '__none', label: '', color: 'var(--accent)' }
@@ -514,7 +528,12 @@ export function InsightsView() {
               align="end"
               width={180}
               options={DIMENSIONS.map((d) => ({ id: d.id, label: d.label, selected: d.id === groupBy }))}
-              onSelect={(id) => setGroupBy(id as DimensionId)}
+              onSelect={(id) => {
+                setGroupBy(id as DimensionId)
+                // A split can't break a dimension down by itself — clear a now-
+                // conflicting split so the trigger label matches the rendered chart.
+                if (id === splitBy) setSplitBy('none')
+              }}
               trigger={
                 <span className="inline-flex items-center gap-1 rounded-md border border-border bg-bg px-2 py-1 text-[12px] text-fg hover:bg-bg-hover">
                   Group by: <span className="text-muted">{grouped.label}</span>
