@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Plus, Trash2, X } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
@@ -62,6 +62,16 @@ export function InitiativeDetail() {
   const inProjects = projects
     .filter((p) => p.initiativeId === initiative.id)
     .sort((a, b) => a.sortOrder - b.sortOrder)
+
+  // Roll up a small set of headline stats for the overview strip, the way
+  // Linear shows project/scope counts above an initiative's project list.
+  // `prog` already gives the aggregate issue scope; here we add the project
+  // breakdown (total vs. completed projects).
+  const stats = useMemo(() => {
+    const totalProjects = inProjects.length
+    const completedProjects = inProjects.filter((p) => p.status === 'completed').length
+    return { totalProjects, completedProjects }
+  }, [inProjects])
 
   // Group projects into status sections, preserving Linear's status order and
   // dropping empty groups. Used when "Group by status" is on.
@@ -256,6 +266,59 @@ export function InitiativeDetail() {
         </div>
       ) : (
       <div className="flex-1 overflow-y-auto p-6">
+        {inProjects.length > 0 && (
+          <div className="mb-6 flex items-center gap-6 rounded-lg border border-border bg-bg-secondary px-5 py-4">
+            {/* Completion donut — share of the initiative's issues that are done. */}
+            <div className="relative h-16 w-16 shrink-0">
+              <svg viewBox="0 0 36 36" className="h-16 w-16 -rotate-90">
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="15.5"
+                  fill="none"
+                  className="text-bg-tertiary"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="15.5"
+                  fill="none"
+                  className="text-accent"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(prog.percent / 100) * 2 * Math.PI * 15.5} ${
+                    2 * Math.PI * 15.5
+                  }`}
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-[12px] font-semibold text-fg">
+                {prog.percent}%
+              </span>
+            </div>
+            {/* Headline stat tiles, mirroring Linear's initiative overview. */}
+            <div className="grid flex-1 grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+              <div>
+                <div className="text-[18px] font-semibold text-fg">{stats.totalProjects}</div>
+                <div className="text-[11px] text-muted">Projects</div>
+              </div>
+              <div>
+                <div className="text-[18px] font-semibold text-fg">{stats.completedProjects}</div>
+                <div className="text-[11px] text-muted">Completed</div>
+              </div>
+              <div>
+                <div className="text-[18px] font-semibold text-fg">{prog.total}</div>
+                <div className="text-[11px] text-muted">Scope</div>
+              </div>
+              <div>
+                <div className="text-[18px] font-semibold text-fg">{prog.done}</div>
+                <div className="text-[11px] text-muted">Done</div>
+              </div>
+            </div>
+          </div>
+        )}
         {inProjects.length > 0 && (
           <div className="mb-6">
             <InitiativeProgressGraph initiativeId={initiative.id} />

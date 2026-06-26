@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, Plus } from 'lucide-react'
+import { ChevronDown, LayoutGrid, List, Plus } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
@@ -18,6 +18,8 @@ const TABS: { id: Tab; label: string; match: InitiativeStatus[] }[] = [
   { id: 'planned', label: 'Planned', match: ['planned', 'backlog'] },
   { id: 'completed', label: 'Completed', match: ['completed'] },
 ]
+
+type Layout = 'list' | 'board'
 
 type Sort = 'name' | 'progress' | 'target' | 'projects'
 
@@ -41,6 +43,7 @@ function StatusRing({ status }: { status: InitiativeStatus }) {
 export function InitiativesView() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('active')
+  const [layout, setLayout] = useState<Layout>('list')
   const [sort, setSort] = useState<Sort>('name')
   const [ownerId, setOwnerId] = useState<string>('all')
   const { initiatives, projects, issues, users } = useStoreShallow((s) => ({
@@ -125,8 +128,37 @@ export function InitiativesView() {
         ))}
       </div>
 
-      {/* Sort + owner filter toolbar */}
+      {/* Layout toggle + sort + owner filter toolbar */}
       <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-1.5">
+        {/* List / board layout switch */}
+        <div className="mr-auto flex items-center gap-0.5 rounded-md bg-bg-tertiary p-0.5">
+          <button
+            type="button"
+            title="List"
+            onClick={() => setLayout('list')}
+            className={cn(
+              'flex h-6 w-6 items-center justify-center rounded',
+              layout === 'list'
+                ? 'bg-bg text-fg shadow-sm'
+                : 'text-muted hover:text-fg',
+            )}
+          >
+            <List size={14} />
+          </button>
+          <button
+            type="button"
+            title="Board"
+            onClick={() => setLayout('board')}
+            className={cn(
+              'flex h-6 w-6 items-center justify-center rounded',
+              layout === 'board'
+                ? 'bg-bg text-fg shadow-sm'
+                : 'text-muted hover:text-fg',
+            )}
+          >
+            <LayoutGrid size={14} />
+          </button>
+        </div>
         <SelectMenu
           align="end"
           width={200}
@@ -193,6 +225,71 @@ export function InitiativesView() {
               description="No initiatives match the selected tab or owner filter."
             />
           )
+        ) : layout === 'board' ? (
+          /* Board: responsive grid of initiative cards */
+          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            {shown.map(({ initiative: i, prog }) => {
+              const owner = users.find((u) => u.id === i.ownerId)
+              return (
+                <button
+                  key={i.id}
+                  onClick={() => navigate(`/initiative/${i.id}`)}
+                  className="flex flex-col gap-3 rounded-lg border border-border bg-bg-secondary p-4 text-left transition-colors hover:bg-bg-hover"
+                >
+                  {/* icon + name + status */}
+                  <div className="flex items-start gap-2.5">
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[16px]"
+                      style={{ background: `${i.color}20` }}
+                    >
+                      {i.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[14px] font-medium text-fg">
+                        {i.name}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1.5">
+                        <StatusRing status={i.status} />
+                        <span className="text-[12px] text-faint">
+                          {INITIATIVE_STATUS[i.status].label}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {i.description && (
+                    <p className="line-clamp-2 text-[12px] text-muted">
+                      {i.description}
+                    </p>
+                  )}
+                  {/* progress bar + percent */}
+                  <div className="mt-auto flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+                      <div
+                        className="h-full rounded-full bg-accent"
+                        style={{ width: `${prog.percent}%` }}
+                      />
+                    </div>
+                    <span className="w-8 text-right text-[11px] text-faint">
+                      {prog.percent}%
+                    </span>
+                  </div>
+                  {/* footer: project count + target date + owner */}
+                  <div className="flex items-center gap-2 text-[12px] text-muted">
+                    <span>
+                      {prog.projectCount} project
+                      {prog.projectCount === 1 ? '' : 's'}
+                    </span>
+                    {i.targetDate && (
+                      <span className="text-faint">· {formatDate(i.targetDate)}</span>
+                    )}
+                    <span className="ml-auto">
+                      <Avatar user={owner} size={20} />
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
         ) : (
           <div>
             {shown.map(({ initiative: i, prog }) => {

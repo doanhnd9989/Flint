@@ -295,3 +295,14 @@ surface, plus one new data feature (project dependencies), then 4 bug fixes.
 - [x] 🟡 **Search keyboard nav** — ↑/↓ (and Ctrl-P/N) move a highlighted result cursor over the flattened result order, Enter opens; auto-scroll + hover sync.
 - [x] 🟡 **Roadmap quarter dividers** — fiscal-quarter band (Q1 2026 …) above the month header + vertical quarter-boundary divider lines across the timeline.
 - [x] 🟡 **Project Overview insights strip** — Scope / Started / Completed counts + completion donut at the top of the project Overview tab, derived from the project's issues.
+
+## Loop #91 — wave 3 (workspace-detail views)
+
+- [x] 🟡 **Team Members roster card** — team overview lists the roster (avatar, role chip, live active-issue count), admins-first, linking to the members directory.
+- [x] 🟡 **Profile contribution heatmap** — GitHub-style 7×~13-week day-square grid shaded by per-day activity (activities + comments), month/weekday scale, total + legend.
+- [x] 🟡 **Initiative overview stats strip** — completion donut + tiles (total/completed projects, aggregate scope/done) on the initiative Overview tab.
+- [x] 🟡 **Customer activity timeline** — reverse-chronological feed reconstructed from linked-issue lifecycle timestamps + customer creation, with relative times and issue links.
+- [x] 🟡 **Initiatives board layout** — List/Board toggle; board renders initiative cards (icon, name, status ring, description, progress bar, project count, target date, owner).
+- [x] 🟡 **Saved view inline rename** — double-click name or pencil action edits in place via updateView (Enter/blur saves, Esc cancels).
+- [x] 🟡 **Document word count / reading time** — header indicator from the body Markdown (strips fences/code/links), ~200 wpm reading-time estimate.
+- [x] 🟡 **Label stats header** — Total / Open / Completed counts + a label-coloured completion bar on the single-label page.

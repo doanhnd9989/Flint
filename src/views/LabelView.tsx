@@ -42,11 +42,34 @@ export function LabelView() {
     return ids
   }, [label, data.labels])
 
+  // All non-triage, non-archived issues carrying this label (or, for a group,
+  // any of its children). Shared by the grouping below and the stats header.
+  const scoped = useMemo(
+    () =>
+      label
+        ? data.issues.filter(
+            (i) => !i.triage && !i.archivedAt && i.labelIds.some((l) => labelIds.has(l)),
+          )
+        : [],
+    [label, data.issues, labelIds],
+  )
+
+  // Stats header — Linear shows completion progress for a label's work. We split
+  // the scoped issues into completed (done/canceled) vs. open and derive a
+  // percentage for the little progress bar.
+  const stats = useMemo(() => {
+    const byState = new Map(data.states.map((s) => [s.id, s.type]))
+    let completed = 0
+    for (const i of scoped) {
+      const type = byState.get(i.stateId)
+      if (type === 'completed' || type === 'canceled') completed += 1
+    }
+    const total = scoped.length
+    return { total, completed, open: total - completed, pct: total ? completed / total : 0 }
+  }, [scoped, data.states])
+
   const groups = useMemo(() => {
     if (!label) return []
-    const scoped = data.issues.filter(
-      (i) => !i.triage && !i.archivedAt && i.labelIds.some((l) => labelIds.has(l)),
-    )
     const sorted = sortIssues(scoped, orderBy, data, false, orderDir)
     // The board groups by columns; label/cycle/milestone fall back to status.
     const effectiveGroupBy = layout === 'board' ? boardColumnGroupBy(groupBy) : groupBy
@@ -57,7 +80,7 @@ export function LabelView() {
       showEmptyGroups,
       data.preferences.displayNames,
     )
-  }, [label, labelIds, data, groupBy, orderBy, orderDir, layout, showEmptyGroups])
+  }, [label, scoped, data, groupBy, orderBy, orderDir, layout, showEmptyGroups])
 
   if (!label) {
     return (
@@ -108,6 +131,27 @@ export function LabelView() {
         </span>
       </ViewHeader>
 
+      {/* Label stats banner — total / open / completed plus a completion bar,
+          mirroring the progress summary Linear shows for a label's work. */}
+      {stats.total > 0 && (
+        <div className="flex items-center gap-5 border-b border-border bg-bg px-6 py-2.5">
+          <Stat label="Total" value={stats.total} />
+          <Stat label="Open" value={stats.open} />
+          <Stat label="Completed" value={stats.completed} />
+          <div className="flex flex-1 items-center gap-2.5">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+              <div
+                className="h-full rounded-full transition-[width]"
+                style={{ width: `${stats.pct * 100}%`, background: label.color }}
+              />
+            </div>
+            <span className="w-9 text-right text-[12px] tabular-nums text-muted">
+              {Math.round(stats.pct * 100)}%
+            </span>
+          </div>
+        </div>
+      )}
+
       {layout === 'board' ? (
         <IssueBoard groups={groups} groupBy={boardGroupBy} />
       ) : (
@@ -126,5 +170,15 @@ export function LabelView() {
         />
       )}
     </div>
+  )
+}
+
+/** A single labelled count in the stats banner. */
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="flex items-baseline gap-1.5 text-[12px]">
+      <span className="font-medium tabular-nums text-fg">{value}</span>
+      <span className="text-faint">{label}</span>
+    </span>
   )
 }

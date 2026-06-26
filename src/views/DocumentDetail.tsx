@@ -69,6 +69,20 @@ export function DocumentDetail() {
   // Document outline (Linear's table-of-contents rail), derived from the body.
   const headings = useMemo(() => extractHeadings(doc?.content ?? ''), [doc?.content])
 
+  // Word count + reading time (Linear shows these in the document header). Strip
+  // the common Markdown syntax so fences, links and emphasis don't inflate the
+  // count, then split on whitespace. Reading time uses ~200 wpm, rounded up so a
+  // non-empty doc always reads as at least "1 min".
+  const stats = useMemo(() => {
+    const plain = (doc?.content ?? '')
+      .replace(/```[\s\S]*?```/g, ' ') // fenced code blocks
+      .replace(/`[^`]*`/g, ' ') // inline code
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1') // links / images → label
+      .replace(/[#>*_~`-]/g, ' ') // residual markdown punctuation
+    const words = plain.split(/\s+/).filter(Boolean).length
+    return { words, minutes: Math.max(1, Math.ceil(words / 200)) }
+  }, [doc?.content])
+
   // Scroll to the Nth rendered heading element by DOM order — keeps us decoupled
   // from the Markdown renderer (no slug/anchor coupling needed).
   const scrollToHeading = (index: number) => {
@@ -200,6 +214,15 @@ export function DocumentDetail() {
                     </span>
                   }
                 />
+                {/* Word count + reading time — Linear surfaces these in the doc
+                    header once there's any body text to measure. */}
+                {stats.words > 0 && (
+                  <span className="flex items-center gap-1 whitespace-nowrap">
+                    {stats.words.toLocaleString()} {stats.words === 1 ? 'word' : 'words'}
+                    <span className="text-faint">·</span>
+                    {stats.minutes} min read
+                  </span>
+                )}
               </div>
             </div>
           </div>

@@ -178,6 +178,124 @@ interface RecentEvent {
   createdAt: string
 }
 
+// ── Contribution heatmap (GitHub-style activity grid) ────────────────────────
+
+/** A single day cell in the heatmap. */
+interface HeatDay {
+  /** Local YYYY-MM-DD key. */
+  key: string
+  date: Date
+  count: number
+}
+
+const WEEKDAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', '']
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Local-date key (YYYY-MM-DD) — avoids UTC drift across day boundaries. */
+function dayKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** Map an activity count onto Linear/GitHub's 5-step intensity ramp (0–4). */
+function heatLevel(count: number): 0 | 1 | 2 | 3 | 4 {
+  if (count <= 0) return 0
+  if (count === 1) return 1
+  if (count <= 3) return 2
+  if (count <= 6) return 3
+  return 4
+}
+
+/** Token-driven fill for each intensity step (empty cells use the surface). */
+const HEAT_FILL = [
+  'bg-bg-tertiary',
+  'bg-accent/25',
+  'bg-accent/45',
+  'bg-accent/70',
+  'bg-accent',
+]
+
+/**
+ * GitHub-style contribution grid: 7 rows (Sun→Sat) × N week-columns covering
+ * roughly the last 3 months, each square shaded by that day's activity count.
+ * Columns are padded so the first column starts on a Sunday, matching Linear.
+ */
+function ContributionHeatmap({ weeks, total }: { weeks: HeatDay[][]; total: number }) {
+  // Month labels sit above the first column whose week introduces a new month.
+  const monthCols = useMemo(() => {
+    const out: { col: number; label: string }[] = []
+    let lastMonth = -1
+    weeks.forEach((week, col) => {
+      const first = week.find((d) => d.count >= 0) ?? week[0]
+      if (!first) return
+      const m = first.date.getMonth()
+      if (m !== lastMonth) {
+        out.push({ col, label: MONTH_NAMES[m] })
+        lastMonth = m
+      }
+    })
+    return out
+  }, [weeks])
+
+  return (
+    <div>
+      <div className="flex gap-2">
+        {/* Weekday scale */}
+        <div className="flex flex-col gap-[3px] pt-[18px]">
+          {WEEKDAY_LABELS.map((w, i) => (
+            <div key={i} className="h-[11px] text-[9px] leading-[11px] text-faint">
+              {w}
+            </div>
+          ))}
+        </div>
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          {/* Month scale */}
+          <div className="relative mb-1 h-[14px]" style={{ width: weeks.length * 14 }}>
+            {monthCols.map((m) => (
+              <span
+                key={`${m.col}-${m.label}`}
+                className="absolute top-0 text-[9px] text-faint"
+                style={{ left: m.col * 14 }}
+              >
+                {m.label}
+              </span>
+            ))}
+          </div>
+          {/* Week columns */}
+          <div className="flex gap-[3px]">
+            {weeks.map((week, col) => (
+              <div key={col} className="flex flex-col gap-[3px]">
+                {week.map((d) => (
+                  <div
+                    key={d.key}
+                    title={`${d.count} ${d.count === 1 ? 'contribution' : 'contributions'} on ${d.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`}
+                    className={`h-[11px] w-[11px] rounded-[2px] ${HEAT_FILL[heatLevel(d.count)]}`}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* Footer: total + legend */}
+      <div className="mt-3 flex items-center justify-between text-[11px] text-faint">
+        <span>
+          {total} {total === 1 ? 'contribution' : 'contributions'} in the last 3 months
+        </span>
+        <div className="flex items-center gap-1">
+          <span>Less</span>
+          {HEAT_FILL.map((fill, i) => (
+            <span key={i} className={`h-[11px] w-[11px] rounded-[2px] ${fill}`} />
+          ))}
+          <span>More</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Time-period scope ────────────────────────────────────────────────────────
 
 type Period = 'all' | 'week' | 'month'
@@ -337,6 +455,50 @@ export function ProfileView() {
       .slice(0, 8)
   }, [data.activities, data.comments, me, start])
 
+  // ── contribution heatmap (per-day activity over the last ~3 months) ──────────
+  // Counts my activities + comments per local day, then lays them out into
+  // Sunday-aligned week columns. Period-agnostic by design — the heatmap always
+  // shows the trailing 3 months so the toggle above scopes only the stat cards.
+  const heatmap = useMemo(() => {
+    const meId = me?.id
+    // Tally contributions by local day-key.
+    const counts = new Map<string, number>()
+    const bump = (iso: string | undefined) => {
+      if (!iso) return
+      const k = dayKey(new Date(iso))
+      counts.set(k, (counts.get(k) ?? 0) + 1)
+    }
+    data.activities.forEach((a) => a.userId === meId && bump(a.createdAt))
+    data.comments.forEach((c) => c.userId === meId && bump(c.createdAt))
+
+    // Window: today back ~13 weeks, padded forward to the end of this week and
+    // back to the Sunday that starts the first week (so columns are clean).
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const end = new Date(today)
+    end.setDate(end.getDate() + (6 - end.getDay())) // forward to Saturday
+    const startDay = new Date(end)
+    startDay.setDate(startDay.getDate() - (13 * 7 - 1)) // 13 weeks back, inclusive
+
+    const weeks: HeatDay[][] = []
+    let total = 0
+    const cursor = new Date(startDay)
+    while (cursor <= end) {
+      const week: HeatDay[] = []
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(cursor)
+        const key = dayKey(date)
+        // Future days within the trailing week render as empty (count 0).
+        const count = date > today ? 0 : counts.get(key) ?? 0
+        if (date <= today) total += count
+        week.push({ key, date, count })
+        cursor.setDate(cursor.getDate() + 1)
+      }
+      weeks.push(week)
+    }
+    return { weeks, total }
+  }, [data.activities, data.comments, me])
+
   return (
     <div className="flex h-full flex-col">
       <ViewHeader title="Profile">
@@ -378,6 +540,13 @@ export function ProfileView() {
             <Stat label="Created" value={stats.created} hint={periodHint} />
             <Stat label="Completed" value={stats.completed} hint={periodHint} />
             <Stat label="Completion rate" value={`${stats.rate}%`} hint="of your assigned work" />
+          </div>
+
+          {/* Contribution heatmap — trailing 3 months, GitHub-style. */}
+          <div className="mt-6">
+            <Card title="Contribution activity" subtitle="Your issue activity over the last 3 months">
+              <ContributionHeatmap weeks={heatmap.weeks} total={heatmap.total} />
+            </Card>
           </div>
 
           {/* Breakdowns + activity */}

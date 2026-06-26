@@ -7,7 +7,16 @@ import { Avatar } from '@/components/Avatar'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
 import { cycleProgress, cycleState, projectProgress } from '@/lib/selectors'
-import type { Issue, WorkflowState } from '@/lib/types'
+import type { Issue, UserRole, WorkflowState } from '@/lib/types'
+
+/** Capitalised role chip (Admin / Member / Guest) — mirrors MembersDirectory. */
+function RoleChip({ role }: { role: UserRole }) {
+  return (
+    <span className="rounded border border-border px-1.5 py-px text-[10px] font-medium capitalize text-faint">
+      {role}
+    </span>
+  )
+}
 
 /** A dashboard card shell — mirrors InsightsView's Card. */
 function Card({
@@ -141,8 +150,20 @@ export function TeamOverviewView() {
       .sort((a, b) => b.count - a.count || a.user.name.localeCompare(b.user.name))
     const max = rows.reduce((m, r) => Math.max(m, r.count), unassigned)
     const totalActive = rows.reduce((s, r) => s + r.count, 0) + unassigned
-    return { rows, unassigned, max, totalActive }
+    return { rows, unassigned, max, totalActive, counts }
   }, [issues, members, stateById])
+
+  // Member roster — alphabetical, admins first (matches MembersDirectory order),
+  // each with their live active-issue count for an at-a-glance load read.
+  const roster = useMemo(() => {
+    const rank: Record<UserRole, number> = { admin: 0, member: 1, guest: 2 }
+    return [...members]
+      .map((u) => ({ user: u, active: workload.counts.get(u.id) ?? 0 }))
+      .sort(
+        (a, b) =>
+          rank[a.user.role] - rank[b.user.role] || a.user.name.localeCompare(b.user.name),
+      )
+  }, [members, workload.counts])
 
   // Projects that include this team.
   const projects = useMemo(
@@ -333,6 +354,35 @@ export function TeamOverviewView() {
                       </button>
                     )
                   })}
+                </div>
+              )}
+            </Card>
+
+            {/* Members — team roster with role + active load */}
+            <Card
+              title="Members"
+              subtitle={`${members.length}`}
+              onClick={() => navigate('/members')}
+            >
+              {members.length === 0 ? (
+                <div className="py-2 text-[12px] text-muted">No members</div>
+              ) : (
+                <div className="-mx-2 space-y-0.5">
+                  {roster.map(({ user, active }) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
+                    >
+                      <Avatar user={user} size={20} />
+                      <span className="flex-1 truncate text-[13px] text-fg">
+                        {display(user.name)}
+                      </span>
+                      <RoleChip role={user.role} />
+                      <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-faint">
+                        {active} active
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
             </Card>

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, Copy, Layers, Search, Trash2 } from 'lucide-react'
+import { ChevronDown, Copy, Layers, Pencil, Search, Trash2 } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import { filterIssues } from '@/lib/selectors'
 import { ViewHeader } from '@/components/ViewHeader'
@@ -21,17 +21,51 @@ const SORT_LABELS: Record<SortKey, string> = {
 
 export function ViewsView() {
   const navigate = useNavigate()
-  const { savedViews, issues, deleteView, createView } = useStoreShallow((s) => ({
-    savedViews: s.savedViews,
-    issues: s.issues,
-    deleteView: s.deleteView,
-    createView: s.createView,
-  }))
+  const { savedViews, issues, deleteView, createView, updateView } =
+    useStoreShallow((s) => ({
+      savedViews: s.savedViews,
+      issues: s.issues,
+      deleteView: s.deleteView,
+      createView: s.createView,
+      updateView: s.updateView,
+    }))
 
   // Local-only header controls: a free-text query (name substring) and a sort
   // order. The query filters; the sort reorders the (filtered) result.
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortKey>('name')
+
+  // Inline rename state — the id of the view currently being renamed (or null)
+  // plus the draft text. Mirrors Linear, where a view's name is editable in
+  // place from the directory without opening it. The committed name is written
+  // back through updateView; an empty draft is discarded.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Focus + select the rename input whenever a fresh edit begins, so the user
+  // can immediately overtype the existing name.
+  useEffect(() => {
+    if (editingId) inputRef.current?.select()
+  }, [editingId])
+
+  // Begin renaming a view: seed the draft with its current name and flip into
+  // edit mode for that row.
+  function startRename(id: string, name: string) {
+    setEditingId(id)
+    setDraft(name)
+  }
+
+  // Commit the draft name (trimmed) back to the store, ignoring no-op or empty
+  // edits, then exit edit mode.
+  function commitRename() {
+    if (editingId) {
+      const name = draft.trim()
+      const current = savedViews.find((v) => v.id === editingId)
+      if (name && current && name !== current.name) updateView(editingId, { name })
+    }
+    setEditingId(null)
+  }
 
   // Per-view issue count — how many (active) issues currently satisfy each
   // saved view's stored filter set. Mirrors Linear, which shows the live match
@@ -139,21 +173,52 @@ export function ViewsView() {
                   key={v.id}
                   className="group flex items-center gap-3 rounded-lg border border-border bg-bg-secondary px-3 py-2.5 hover:border-border-strong"
                 >
-                  <button
-                    onClick={() => navigate(`/view/${v.id}`)}
-                    className="flex flex-1 items-center gap-3 text-left"
-                  >
-                    <Layers size={16} className="text-faint" />
-                    <div className="flex-1">
-                      <div className="text-[13px] font-medium text-fg">
-                        {v.name}
-                      </div>
-                      <div className="text-[11px] text-faint capitalize">
-                        {v.layout} · grouped by {v.groupBy} · sorted by{' '}
-                        {v.orderBy}
+                  {editingId === v.id ? (
+                    // Inline rename — replaces the name button with a text input
+                    // while editing. Enter commits, Escape cancels, blur commits.
+                    <div className="flex flex-1 items-center gap-3">
+                      <Layers size={16} className="text-faint" />
+                      <div className="flex-1">
+                        <input
+                          ref={inputRef}
+                          value={draft}
+                          onChange={(e) => setDraft(e.target.value)}
+                          onBlur={commitRename}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              commitRename()
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault()
+                              setEditingId(null)
+                            }
+                          }}
+                          className="w-full rounded border border-accent bg-bg px-1.5 py-0.5 text-[13px] font-medium text-fg outline-none"
+                        />
+                        <div className="mt-0.5 text-[11px] text-faint capitalize">
+                          {v.layout} · grouped by {v.groupBy} · sorted by{' '}
+                          {v.orderBy}
+                        </div>
                       </div>
                     </div>
-                  </button>
+                  ) : (
+                    <button
+                      onClick={() => navigate(`/view/${v.id}`)}
+                      onDoubleClick={() => startRename(v.id, v.name)}
+                      className="flex flex-1 items-center gap-3 text-left"
+                    >
+                      <Layers size={16} className="text-faint" />
+                      <div className="flex-1">
+                        <div className="text-[13px] font-medium text-fg">
+                          {v.name}
+                        </div>
+                        <div className="text-[11px] text-faint capitalize">
+                          {v.layout} · grouped by {v.groupBy} · sorted by{' '}
+                          {v.orderBy}
+                        </div>
+                      </div>
+                    </button>
+                  )}
                   {/* Live match count — how many issues currently satisfy this
                       view's filters. Always-visible resting affordance, so the
                       list reads like Linear's where every view shows its scope. */}
@@ -163,6 +228,18 @@ export function ViewsView() {
                   >
                     {count}
                   </span>
+                  {/* Rename — enters inline edit mode for this row's name,
+                      matching Linear's per-view rename. Hidden while this row is
+                      already being edited. */}
+                  {editingId !== v.id && (
+                    <button
+                      onClick={() => startRename(v.id, v.name)}
+                      title="Rename view"
+                      className="flex h-7 w-7 items-center justify-center rounded text-faint opacity-0 hover:text-fg group-hover:opacity-100"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
                   {/* Duplicate — clones the view's name + layout + grouping +
                       filters into a fresh "(copy)" view, matching Linear's
                       per-view duplicate action. createView makes the copy

@@ -1,6 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, X, Building2, Users as UsersIcon } from 'lucide-react'
+import {
+  Plus,
+  Trash2,
+  X,
+  Building2,
+  Users as UsersIcon,
+  Link2,
+  CheckCircle2,
+  XCircle,
+  Sparkles,
+} from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { Avatar } from '@/components/Avatar'
 import { StatusIcon } from '@/components/StatusIcon'
@@ -9,7 +19,7 @@ import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { CUSTOMER_TIERS, CUSTOMER_TIER_ORDER } from '@/lib/constants'
-import { formatFullDate } from '@/lib/utils'
+import { formatFullDate, timeAgo } from '@/lib/utils'
 import type { CustomerTier } from '@/lib/types'
 
 const triggerCls =
@@ -80,6 +90,27 @@ export function CustomerDetail() {
     if (reqFilter === 'open') return allRequests.filter((i) => !isResolved(i.stateId))
     return allRequests.filter((i) => isResolved(i.stateId))
   }, [allRequests, reqFilter, isResolved])
+
+  // Request activity timeline — a chronological feed reconstructed from the
+  // linked issues' lifecycle timestamps plus the customer's own creation.
+  // Linear surfaces this so the team can see at a glance how a customer's
+  // requests have moved over time. Newest events first.
+  const activity = useMemo(() => {
+    type Kind = 'created' | 'requested' | 'completed' | 'canceled'
+    const events: { id: string; kind: Kind; at: string; issueId?: string }[] = [
+      { id: `cust-${customer?.id ?? ''}`, kind: 'created', at: customer?.createdAt ?? '' },
+    ]
+    for (const issue of allRequests) {
+      events.push({ id: `req-${issue.id}`, kind: 'requested', at: issue.createdAt, issueId: issue.id })
+      if (issue.completedAt)
+        events.push({ id: `done-${issue.id}`, kind: 'completed', at: issue.completedAt, issueId: issue.id })
+      if (issue.canceledAt)
+        events.push({ id: `cancel-${issue.id}`, kind: 'canceled', at: issue.canceledAt, issueId: issue.id })
+    }
+    return events
+      .filter((e) => e.at)
+      .sort((a, b) => b.at.localeCompare(a.at))
+  }, [allRequests, customer?.id, customer?.createdAt])
 
   // Candidate issues for "Add request": non-triage and not already linked.
   const addOptions: SelectOption[] = useMemo(() => {
@@ -299,6 +330,71 @@ export function CustomerDetail() {
                   })}
                 </div>
               )}
+            </div>
+
+            {/* Activity — a reverse-chronological feed of request lifecycle
+                events for this customer. */}
+            <div className="mt-10">
+              <div className="mb-3 text-[13px] font-medium text-fg">Activity</div>
+              <div className="relative">
+                {/* Vertical rail joining the event dots. */}
+                {activity.length > 1 && (
+                  <span className="absolute left-[9px] top-1 bottom-1 w-px bg-border" aria-hidden />
+                )}
+                <ul className="space-y-3">
+                  {activity.map((ev) => {
+                    const issue = ev.issueId
+                      ? allRequests.find((i) => i.id === ev.issueId)
+                      : undefined
+                    const meta =
+                      ev.kind === 'created'
+                        ? { icon: <Sparkles size={11} />, tint: 'text-accent', verb: 'Customer added' }
+                        : ev.kind === 'requested'
+                          ? { icon: <Link2 size={11} />, tint: 'text-muted', verb: 'Requested' }
+                          : ev.kind === 'completed'
+                            ? {
+                                icon: <CheckCircle2 size={11} />,
+                                tint: 'text-[var(--c-green)]',
+                                verb: 'Completed',
+                              }
+                            : {
+                                icon: <XCircle size={11} />,
+                                tint: 'text-faint',
+                                verb: 'Canceled',
+                              }
+                    return (
+                      <li key={ev.id} className="relative flex items-start gap-2.5">
+                        <span
+                          className={`relative z-10 mt-px flex h-[19px] w-[19px] shrink-0 items-center justify-center rounded-full border border-border bg-bg ${meta.tint}`}
+                        >
+                          {meta.icon}
+                        </span>
+                        <div className="min-w-0 flex-1 pt-0.5 text-[13px]">
+                          <span className="text-muted">{meta.verb}</span>
+                          {issue ? (
+                            <>
+                              {' '}
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/issue/${issue.identifier}`)}
+                                className="font-medium text-fg hover:text-accent hover:underline"
+                              >
+                                {issue.title}
+                              </button>{' '}
+                              <span className="font-mono text-[12px] text-faint">
+                                {issue.identifier}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-fg"> {customer.name}</span>
+                          )}
+                          <span className="ml-1.5 text-faint">· {timeAgo(ev.at)}</span>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
             </div>
           </div>
         </div>
