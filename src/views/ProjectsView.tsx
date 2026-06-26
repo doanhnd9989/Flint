@@ -1,6 +1,19 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, ListFilter, Check, X, Columns2, ChevronDown } from 'lucide-react'
+import {
+  ChevronRight,
+  ListFilter,
+  Check,
+  X,
+  Columns2,
+  ChevronDown,
+  MoreHorizontal,
+  Link2,
+  Hash,
+  Star,
+  Trash2,
+} from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { projectProgress } from '@/lib/selectors'
@@ -23,7 +36,14 @@ import {
 import { ProjectsBoard } from '@/components/ProjectsBoard'
 import { ProjectsTimeline } from '@/components/ProjectsTimeline'
 import { formatDate, cn } from '@/lib/utils'
+import { copyToClipboard } from '@/lib/toast'
 import type { Project, ProjectHealth } from '@/lib/types'
+
+/** Full URL to a project, mirroring issueUrl() for issues. */
+function projectUrl(id: string): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  return `${origin}/project/${id}`
+}
 
 const HEALTH_LABEL: Record<ProjectHealth, string> = {
   'on-track': 'On track',
@@ -52,6 +72,11 @@ export function ProjectsView() {
     DEFAULT_PROJECT_PROPERTIES,
   )
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+
+  // Per-row context menu — Linear's project-row actions. Holds the target
+  // project id plus the screen coords to anchor the popover (cursor for
+  // right-click, the ⋯ button's rect for the hover trigger).
+  const [rowMenu, setRowMenu] = useState<{ id: string; x: number; y: number } | null>(null)
 
   // Compare mode — Linear's side-by-side project comparison. Holds the two
   // project ids shown in the left/right columns; defaults to the first two.
@@ -483,10 +508,22 @@ export function ProjectsView() {
                     .filter(Boolean)
                   const health = healthById[p.id]
                   return (
-                    <button
+                    <div
                       key={p.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => navigate(`/project/${p.id}`)}
-                      className="flex w-full items-center gap-2 border-b border-border px-4 py-2 text-left hover:bg-bg-hover"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          navigate(`/project/${p.id}`)
+                        }
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        setRowMenu({ id: p.id, x: e.clientX, y: e.clientY })
+                      }}
+                      className="group flex w-full cursor-default items-center gap-2 border-b border-border px-4 py-2 text-left hover:bg-bg-hover"
                     >
                       {props.status && <ProjectStatusIcon status={p.status} />}
                       <span className="text-[14px]">{p.icon}</span>
@@ -520,15 +557,175 @@ export function ProjectsView() {
                         {props.lead && (
                           <Avatar user={lead} size={18} />
                         )}
+                        {/* Hover-revealed ⋯ trigger — opens the same row menu. */}
+                        <button
+                          type="button"
+                          aria-label="Project actions"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const r = e.currentTarget.getBoundingClientRect()
+                            setRowMenu({ id: p.id, x: r.right, y: r.bottom })
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setRowMenu({ id: p.id, x: e.clientX, y: e.clientY })
+                          }}
+                          className={cn(
+                            'flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-bg-tertiary hover:text-fg',
+                            rowMenu?.id === p.id
+                              ? 'opacity-100'
+                              : 'opacity-0 group-hover:opacity-100',
+                          )}
+                        >
+                          <MoreHorizontal size={15} />
+                        </button>
                       </div>
-                    </button>
+                    </div>
                   )
                 })}
             </div>
           ))
         )}
       </div>
+      {rowMenu && (
+        <ProjectRowMenu
+          projectId={rowMenu.id}
+          x={rowMenu.x}
+          y={rowMenu.y}
+          onClose={() => setRowMenu(null)}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * Per-row context menu for the Projects list — Linear's project-row actions.
+ * Opened by right-click (anchored at the cursor) or the hover ⋯ button
+ * (anchored under the trigger). Portal-rendered with a full-screen backdrop
+ * that closes on outside click / Escape, mirroring IssueContextMenu.
+ */
+function ProjectRowMenu({
+  projectId,
+  x,
+  y,
+  onClose,
+}: {
+  projectId: string
+  x: number
+  y: number
+  onClose: () => void
+}) {
+  const store = useStore()
+  const project = store.projects.find((p) => p.id === projectId)
+  const starred = store.favorites.some(
+    (f) => f.type === 'project' && f.id === projectId,
+  )
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  if (!project) return null
+
+  const MENU_W = 220
+  const left = Math.min(x, window.innerWidth - MENU_W - 8)
+  const top = Math.min(y, window.innerHeight - 180)
+
+  const rowCls =
+    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover'
+
+  function Row({
+    icon,
+    label,
+    onClick,
+    danger,
+  }: {
+    icon: ReactNode
+    label: string
+    onClick: () => void
+    danger?: boolean
+  }) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(rowCls, danger && 'hover:text-[var(--priority-urgent)]')}
+      >
+        <span className="flex h-4 w-4 items-center justify-center text-faint">
+          {icon}
+        </span>
+        <span className="flex-1 truncate">{label}</span>
+      </button>
+    )
+  }
+
+  return createPortal(
+    <div
+      data-overlay
+      className="fixed inset-0 z-50"
+      onMouseDown={onClose}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onClose()
+      }}
+    >
+      <div
+        className="absolute rounded-lg border border-border bg-bg-elevated p-1 shadow-lg animate-pop"
+        style={{ top, left, width: MENU_W }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <Row
+          icon={<Link2 size={14} />}
+          label="Copy project link"
+          onClick={() => {
+            copyToClipboard(projectUrl(project.id), 'Project URL copied to clipboard')
+            onClose()
+          }}
+        />
+        <Row
+          icon={<Hash size={14} />}
+          label="Copy project ID"
+          onClick={() => {
+            copyToClipboard(project.id, `"${project.id}" copied to clipboard`)
+            onClose()
+          }}
+        />
+        <div className="my-1 h-px bg-border" />
+        <Row
+          icon={
+            <Star
+              size={14}
+              fill={starred ? 'currentColor' : 'none'}
+              className={starred ? 'text-[var(--status-started)]' : ''}
+            />
+          }
+          label={starred ? 'Unfavorite' : 'Favorite'}
+          onClick={() => {
+            store.toggleFavorite('project', project.id)
+            onClose()
+          }}
+        />
+        <div className="my-1 h-px bg-border" />
+        <Row
+          icon={<Trash2 size={14} />}
+          label="Delete project"
+          danger
+          onClick={() => {
+            if (confirm(`Delete project "${project.name}"? This cannot be undone.`)) {
+              store.deleteProject(project.id)
+            }
+            onClose()
+          }}
+        />
+      </div>
+    </div>,
+    document.body,
   )
 }
 

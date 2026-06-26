@@ -274,6 +274,7 @@ export interface Store extends WorkspaceData, UIState {
   // ── documents (Linear's Documents feature) ───────────────────
   createDocument: (input?: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId'>>) => Document
   updateDocument: (id: string, patch: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId'>>) => void
+  restoreDocumentVersion: (id: string, versionId: string) => void
   deleteDocument: (id: string) => void
   /** Clone a document ("<title> (Copy)") and return the copy. */
   duplicateDocument: (id: string) => Document | undefined
@@ -341,6 +342,7 @@ export interface Store extends WorkspaceData, UIState {
   addRecentSearch: (q: string) => void
   clearRecentSearches: () => void
   toggleFavorite: (type: FavoriteType, id: string) => void
+  reorderFavorite: (from: number, to: number) => void
   dismissOnboardingStep: (key: string) => void
   toggleDisplayProperty: (prop: DisplayProperty) => void
   setFeatureSetting: (key: string, on: boolean) => void
@@ -1387,11 +1389,63 @@ export const useStore = create<Store>()(
       },
 
       updateDocument: (id, patch) =>
-        set((s) => ({
-          documents: s.documents.map((d) =>
-            d.id === id ? { ...d, ...patch, updatedAt: nowIso() } : d,
-          ),
-        })),
+        set((s) => {
+          const ts = nowIso()
+          return {
+            documents: s.documents.map((d) => {
+              if (d.id !== id) return d
+              const changed =
+                (patch.title !== undefined && patch.title !== d.title) ||
+                (patch.content !== undefined && patch.content !== d.content)
+              // Coalesce checkpoints: snapshot the prior state only if the newest
+              // checkpoint is older than 2 minutes (so rapid typing collapses
+              // into one restore point), keeping the last 25.
+              let versions = d.versions ?? []
+              if (changed) {
+                const newest = versions[0]
+                const stale =
+                  !newest || Date.parse(ts) - Date.parse(newest.at) > 120_000
+                if (stale) {
+                  versions = [
+                    {
+                      id: `dv_${nanoid(8)}`,
+                      at: d.updatedAt,
+                      authorId: s.currentUserId,
+                      title: d.title,
+                      content: d.content,
+                    },
+                    ...versions,
+                  ].slice(0, 25)
+                }
+              }
+              return { ...d, ...patch, versions, updatedAt: ts }
+            }),
+          }
+        }),
+
+      restoreDocumentVersion: (id, versionId) =>
+        set((s) => {
+          const ts = nowIso()
+          return {
+            documents: s.documents.map((d) => {
+              if (d.id !== id) return d
+              const v = (d.versions ?? []).find((x) => x.id === versionId)
+              if (!v) return d
+              // Snapshot the current state first so a restore is itself undoable.
+              const versions = [
+                {
+                  id: `dv_${nanoid(8)}`,
+                  at: d.updatedAt,
+                  authorId: s.currentUserId,
+                  title: d.title,
+                  content: d.content,
+                },
+                ...(d.versions ?? []),
+              ].slice(0, 25)
+              return { ...d, title: v.title, content: v.content, versions, updatedAt: ts }
+            }),
+          }
+        }),
 
       deleteDocument: (id) =>
         set((s) => ({ documents: s.documents.filter((d) => d.id !== id) })),
@@ -1807,6 +1861,22 @@ export const useStore = create<Store>()(
               ? s.favorites.filter((f) => !(f.type === type && f.id === id))
               : [...s.favorites, { type, id }],
           }
+        }),
+
+      reorderFavorite: (from, to) =>
+        set((s) => {
+          if (
+            from === to ||
+            from < 0 ||
+            to < 0 ||
+            from >= s.favorites.length ||
+            to >= s.favorites.length
+          )
+            return s
+          const next = [...s.favorites]
+          const [moved] = next.splice(from, 1)
+          next.splice(to, 0, moved)
+          return { favorites: next }
         }),
 
       dismissOnboardingStep: (key) =>

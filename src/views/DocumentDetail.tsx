@@ -1,13 +1,16 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Copy, FolderKanban, Link2, Star, Trash2 } from 'lucide-react'
+import { ChevronLeft, Copy, FolderKanban, History, Link2, Star, Trash2, X } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { MarkdownEditor } from '@/components/MarkdownEditor'
+import { Avatar } from '@/components/Avatar'
 import { ProjectPicker } from '@/components/pickers'
 import { Popover } from '@/components/ui/Popover'
-import { copyToClipboard } from '@/lib/toast'
+import { Markdown } from '@/lib/markdown'
+import { copyToClipboard, toast } from '@/lib/toast'
 import { timeAgo } from '@/lib/utils'
+import type { DocumentVersion, User } from '@/lib/types'
 
 // A small set of emoji to pick a document icon from (Linear opens a full emoji
 // picker; we ship a representative grid).
@@ -77,6 +80,7 @@ export function DocumentDetail() {
     deleteDocument,
     duplicateDocument,
     toggleFavorite,
+    restoreDocumentVersion,
   } = useStoreShallow((s) => ({
     users: s.users,
     projects: s.projects,
@@ -84,7 +88,13 @@ export function DocumentDetail() {
     deleteDocument: s.deleteDocument,
     duplicateDocument: s.duplicateDocument,
     toggleFavorite: s.toggleFavorite,
+    restoreDocumentVersion: s.restoreDocumentVersion,
   }))
+
+  // Version-history drawer (Linear's doc history). `historyOpen` toggles the
+  // slide-over; `selectedVersionId` drives the read-only preview pane.
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
 
   // The scrollable body, so the outline can scroll a heading into view.
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -144,6 +154,18 @@ export function DocumentDetail() {
         title={doc.title || 'Untitled'}
         right={
           <div className="flex items-center gap-1">
+            <button
+              type="button"
+              title="Version history"
+              onClick={() => {
+                // Open the drawer with the newest version pre-selected (if any).
+                setSelectedVersionId(doc.versions?.[0]?.id ?? null)
+                setHistoryOpen(true)
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg"
+            >
+              <History size={15} />
+            </button>
             <button
               type="button"
               title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
@@ -318,6 +340,148 @@ export function DocumentDetail() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Version-history drawer — Linear's doc history. A right-hand slide-over
+          with a master/detail layout: versions newest-first on the left, a
+          read-only preview of the selected version on the right. */}
+      {historyOpen && (
+        <VersionHistoryDrawer
+          versions={doc.versions ?? []}
+          users={users}
+          fmt={fmt}
+          selectedId={selectedVersionId}
+          onSelect={setSelectedVersionId}
+          onClose={() => setHistoryOpen(false)}
+          onRestore={(versionId) => {
+            restoreDocumentVersion(doc.id, versionId)
+            setHistoryOpen(false)
+            toast('Document version restored')
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/** Props for the version-history slide-over. */
+interface VersionHistoryDrawerProps {
+  versions: DocumentVersion[]
+  users: User[]
+  fmt: (name: string) => string
+  selectedId: string | null
+  onSelect: (id: string) => void
+  onClose: () => void
+  onRestore: (versionId: string) => void
+}
+
+/**
+ * Right-hand drawer listing a document's saved checkpoints (newest first). Each
+ * row shows the author avatar/name and a relative timestamp; selecting a row
+ * renders a read-only preview of that snapshot's title + body via the shared
+ * Markdown renderer, with a "Restore this version" action.
+ */
+function VersionHistoryDrawer({
+  versions,
+  users,
+  fmt,
+  selectedId,
+  onSelect,
+  onClose,
+  onRestore,
+}: VersionHistoryDrawerProps) {
+  const selected = versions.find((v) => v.id === selectedId) ?? null
+
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end">
+      {/* Scrim — click to dismiss. */}
+      <div
+        className="absolute inset-0 bg-black/30"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div className="relative flex h-full w-full max-w-2xl flex-col border-l border-border bg-bg shadow-xl">
+        {/* Header */}
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
+          <div className="flex items-center gap-2 text-[13px] font-medium text-fg">
+            <History size={15} className="text-faint" />
+            Version history
+          </div>
+          <button
+            type="button"
+            title="Close"
+            onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {versions.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center text-[13px] text-faint">
+            No version history yet
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1">
+            {/* Version list (newest first). */}
+            <nav className="w-56 shrink-0 overflow-y-auto border-r border-border py-1">
+              {versions.map((v) => {
+                const author = users.find((u) => u.id === v.authorId)
+                const active = v.id === selectedId
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => onSelect(v.id)}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left ${
+                      active ? 'bg-bg-hover' : 'hover:bg-bg-hover'
+                    }`}
+                  >
+                    <Avatar user={author} size={20} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[12px] font-medium text-fg">
+                        {author ? fmt(author.name) : 'Someone'}
+                      </div>
+                      <div className="text-[11px] text-faint">{timeAgo(v.at)}</div>
+                    </div>
+                  </button>
+                )
+              })}
+            </nav>
+
+            {/* Read-only preview of the selected version. */}
+            <div className="flex min-w-0 flex-1 flex-col">
+              {selected ? (
+                <>
+                  <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-5 py-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-[15px] font-semibold text-fg">
+                        {selected.title || 'Untitled'}
+                      </div>
+                      <div className="text-[11px] text-faint">
+                        Saved {timeAgo(selected.at)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onRestore(selected.id)}
+                      className="shrink-0 whitespace-nowrap rounded-md bg-accent px-2.5 py-1 text-[12px] font-medium text-white hover:bg-accent-hover"
+                    >
+                      Restore this version
+                    </button>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-[14px] text-fg">
+                    <Markdown source={selected.content} />
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-1 items-center justify-center text-[13px] text-faint">
+                  Select a version to preview
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -92,6 +92,17 @@ export interface Document {
   createdAt: string
   updatedAt: string
   sortOrder: number
+  /** Saved checkpoints of prior content for version history (newest first). */
+  versions?: DocumentVersion[]
+}
+
+/** A point-in-time snapshot of a document's title + body. */
+export interface DocumentVersion {
+  id: string
+  at: string
+  authorId: string
+  title: string
+  content: string
 }
 
 /**

@@ -10,6 +10,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core'
+import { ChevronLeft, MoreHorizontal } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { projectProgress } from '@/lib/selectors'
 import { PROJECT_STATUS, PROJECT_STATUS_ORDER } from '@/lib/constants'
@@ -17,6 +18,7 @@ import { Avatar } from '@/components/Avatar'
 import { ProjectStatusIcon } from '@/components/ProjectStatusIcon'
 import { ProgressDonut } from '@/components/ProgressDonut'
 import { HealthBadge } from '@/components/ProjectUpdates'
+import { Popover } from '@/components/ui/Popover'
 import { formatDate, cn } from '@/lib/utils'
 import type { Project, ProjectHealth, ProjectStatus, User } from '@/lib/types'
 
@@ -156,6 +158,18 @@ export function ProjectsBoard({ projects, onOpen }: Props) {
   const updateProject = useStore((s) => s.updateProject)
   // The project currently being dragged — mirrored into the DragOverlay.
   const [active, setActive] = useState<Project | null>(null)
+  // Per-column collapse state — collapsed status columns shrink to a thin
+  // vertical strip (header + count), matching Linear's board column actions.
+  const [collapsed, setCollapsed] = useState<Set<ProjectStatus>>(new Set())
+
+  function toggleCollapse(status: ProjectStatus) {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(status)) next.delete(status)
+      else next.add(status)
+      return next
+    })
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -217,53 +231,108 @@ export function ProjectsBoard({ projects, onOpen }: Props) {
   return (
     <DndContext sensors={sensors} onDragStart={onStart} onDragEnd={onEnd}>
       <div className="flex h-full gap-3 overflow-x-auto p-3">
-        {columns.map(({ status, items, total, percent }) => (
-          <div
-            key={status}
-            className="flex h-full w-[280px] shrink-0 flex-col rounded-md bg-bg-secondary"
-          >
-            <div className="flex items-center gap-1.5 px-3 pt-2.5 text-[12px] font-medium text-fg">
-              <ProjectStatusIcon status={status} />
-              <span>{PROJECT_STATUS[status].label}</span>
-              <span className="text-faint">{items.length}</span>
-            </div>
-            {/* Rolled-up column subtotal — donut + completion % across the
-                column's projects, plus the total scoped issue count. */}
-            {items.length > 0 && (
-              <div className="flex items-center gap-1.5 px-3 pb-2 pt-1 text-[11px] text-muted">
-                {total > 0 ? (
-                  <>
-                    <ProgressDonut percent={percent} />
-                    <span className="tabular-nums">{percent}%</span>
-                    <span className="text-faint">·</span>
-                    <span className="tabular-nums">
-                      {total} {total === 1 ? 'issue' : 'issues'}
-                    </span>
-                  </>
-                ) : (
-                  <span>No issues</span>
-                )}
+        {columns.map(({ status, items, total, percent }) => {
+          const isCollapsed = collapsed.has(status)
+          // Collapsed: a thin vertical strip showing the status icon, a rotated
+          // label, and the count — click anywhere to expand back, just like
+          // Linear's collapsed board columns.
+          if (isCollapsed) {
+            return (
+              <button
+                key={status}
+                type="button"
+                onClick={() => toggleCollapse(status)}
+                title={`Expand ${PROJECT_STATUS[status].label}`}
+                className="flex h-full w-10 shrink-0 flex-col items-center gap-2 rounded-md bg-bg-secondary pt-2.5 hover:bg-bg-hover"
+              >
+                <ProjectStatusIcon status={status} />
+                <span className="text-faint text-[11px] tabular-nums">
+                  {items.length}
+                </span>
+                {/* Vertical label — reads bottom-to-top like Linear's strip. */}
+                <span
+                  className="mt-1 text-[12px] font-medium text-muted whitespace-nowrap"
+                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                >
+                  {PROJECT_STATUS[status].label}
+                </span>
+              </button>
+            )
+          }
+          return (
+            <div
+              key={status}
+              className="flex h-full w-[280px] shrink-0 flex-col rounded-md bg-bg-secondary"
+            >
+              <div className="flex items-center gap-1.5 px-3 pt-2.5 text-[12px] font-medium text-fg">
+                <ProjectStatusIcon status={status} />
+                <span>{PROJECT_STATUS[status].label}</span>
+                <span className="text-faint">{items.length}</span>
+                {/* Column overflow menu — Linear's per-column actions. */}
+                <span className="ml-auto">
+                  <Popover
+                    align="end"
+                    width={196}
+                    trigger={
+                      <span className="flex h-5 w-5 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg">
+                        <MoreHorizontal size={14} />
+                      </span>
+                    }
+                  >
+                    {(close) => (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleCollapse(status)
+                          close()
+                        }}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                      >
+                        <ChevronLeft size={14} className="text-muted" />
+                        Collapse column
+                      </button>
+                    )}
+                  </Popover>
+                </span>
               </div>
-            )}
-            <DroppableColumn status={status}>
-              {items.map((p) => {
-                const prog = projectProgress(p.id, issues, data)
-                const lead = users.find((u) => u.id === p.leadId)
-                const health = healthById[p.id]
-                return (
-                  <DraggableProjectCard
-                    key={p.id}
-                    project={p}
-                    prog={prog}
-                    lead={lead}
-                    health={health}
-                    onOpen={onOpen}
-                  />
-                )
-              })}
-            </DroppableColumn>
-          </div>
-        ))}
+              {/* Rolled-up column subtotal — donut + completion % across the
+                  column's projects, plus the total scoped issue count. */}
+              {items.length > 0 && (
+                <div className="flex items-center gap-1.5 px-3 pb-2 pt-1 text-[11px] text-muted">
+                  {total > 0 ? (
+                    <>
+                      <ProgressDonut percent={percent} />
+                      <span className="tabular-nums">{percent}%</span>
+                      <span className="text-faint">·</span>
+                      <span className="tabular-nums">
+                        {total} {total === 1 ? 'issue' : 'issues'}
+                      </span>
+                    </>
+                  ) : (
+                    <span>No issues</span>
+                  )}
+                </div>
+              )}
+              <DroppableColumn status={status}>
+                {items.map((p) => {
+                  const prog = projectProgress(p.id, issues, data)
+                  const lead = users.find((u) => u.id === p.leadId)
+                  const health = healthById[p.id]
+                  return (
+                    <DraggableProjectCard
+                      key={p.id}
+                      project={p}
+                      prog={prog}
+                      lead={lead}
+                      health={health}
+                      onOpen={onOpen}
+                    />
+                  )
+                })}
+              </DroppableColumn>
+            </div>
+          )
+        })}
       </div>
       <DragOverlay>
         {active && (

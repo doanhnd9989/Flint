@@ -1,7 +1,29 @@
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CircleDot, LayersIcon, List, Rows3, Search, Star } from 'lucide-react'
+import {
+  CircleDot,
+  GripVertical,
+  LayersIcon,
+  List,
+  Rows3,
+  Search,
+  Star,
+} from 'lucide-react'
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { cn } from '@/lib/utils'
@@ -43,10 +65,19 @@ function FavoriteRow({
 }) {
   const navigate = useNavigate()
   const toggleFavorite = useStore((s) => s.toggleFavorite)
+  // Sortable wiring — the row is draggable by its handle (the listeners are
+  // bound to the GripVertical button, not the whole row, so click-to-open and
+  // the un-star button keep working).
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: row.key })
 
   return (
     <div
-      ref={rowRef}
+      ref={(el) => {
+        setNodeRef(el)
+        rowRef(el)
+      }}
+      {...attributes}
       role="button"
       tabIndex={0}
       onClick={() => navigate(row.to)}
@@ -57,11 +88,26 @@ function FavoriteRow({
           navigate(row.to)
         }
       }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
       className={cn(
         'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors hover:bg-bg-hover',
         focused && 'bg-bg-hover',
       )}
     >
+      {/* Drag handle — revealed on hover, mirroring the issue-list affordance. */}
+      <button
+        type="button"
+        title="Drag to reorder"
+        onClick={(e) => e.stopPropagation()}
+        className="-ml-1 flex h-4 w-3.5 shrink-0 cursor-grab touch-none items-center justify-center text-faint opacity-0 hover:text-fg group-hover:opacity-100 active:cursor-grabbing"
+        {...listeners}
+      >
+        <GripVertical size={13} />
+      </button>
       <span className="flex h-4 w-4 shrink-0 items-center justify-center text-faint">
         {row.icon}
       </span>
@@ -124,6 +170,7 @@ export function FavoritesView() {
       documents: s.documents,
       customers: s.customers,
     }))
+  const reorderFavorite = useStore((s) => s.reorderFavorite)
 
   // Local-only header controls: the active type segment and a free-text query
   // (title/name substring). They compose with AND.
@@ -348,6 +395,25 @@ export function FavoritesView() {
     if (focusKey) rowRefs.current[focusKey]?.scrollIntoView({ block: 'nearest' })
   }, [focusKey])
 
+  // Drag-to-reorder — a row's dnd id is its `row.key` (`${type}-${id}`). On drop
+  // we resolve the dragged + target rows back to their positions in the FLAT
+  // `store.favorites` array (matching by type+id, so ids containing hyphens are
+  // safe) and hand those indices to `reorderFavorite`. This keeps the persisted
+  // order authoritative regardless of the on-screen layout/sort.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  )
+  const flatIndexOfKey = (key: string | undefined) =>
+    favorites.findIndex((f) => `${f.type}-${f.id}` === key)
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const from = flatIndexOfKey(active.id as string)
+    const to = flatIndexOfKey(over.id as string)
+    if (from < 0 || to < 0) return
+    reorderFavorite(from, to)
+  }
+
   // The segmented pill row — label + live count per type.
   const segments: { id: FilterType; label: string; count: number }[] = [
     { id: 'all', label: 'All', count: total },
@@ -442,6 +508,15 @@ export function FavoritesView() {
             description="No favorites match your search or type filter."
           />
         ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+          <SortableContext
+            items={navRows.map((r) => r.key)}
+            strategy={verticalListSortingStrategy}
+          >
           <div className="mx-auto max-w-2xl px-4 py-6">
             {layout === 'list' ? (
               <div className="space-y-px">
@@ -537,6 +612,8 @@ export function FavoritesView() {
               </>
             )}
           </div>
+          </SortableContext>
+          </DndContext>
         )}
       </div>
     </div>
