@@ -357,3 +357,36 @@ _Wave 4 (search · docs · customers · feeds · insights):_
 - [x] 🟢 **Customer activity filter** — `CustomerDetail` segmented pills (All / Created / Requested / Completed / Canceled, with counts) filter the activity timeline.
 - [x] 🟢 **Pulse event copy** — `PulseView` hover Copy button on each event copies a one-line summary via `copyToClipboard` + toast.
 - [x] 🟢 **Insights bar value labels + tooltip** — `InsightsView` BarChart renders values inside wide bars (trailing fallback) with a category/value/percent hover tooltip.
+
+### Loop #93 (scouted from real Linear surfaces, all shipped)
+
+- [x] 🟡 **Inline sub-issue editing** — sub-issue rows get clickable status/priority/assignee pickers in `IssueDetailBody`.
+- [x] 🟡 **Activity feed grouping** — consecutive same-actor activities within ~2min collapse into one feed line.
+- [x] 🟢 **Comment ⌘↵ hint + author auto-subscribe** — composer hint; posting subscribes the author (add-only).
+- [x] 🟡 **Blocked-by warning banner** — `IssueRelations` shows a counted banner for incomplete blockers.
+- [x] 🟢 **Resolved-relation strikethrough** — linked issues in completed/canceled states render struck-through.
+- [x] 🟡 **PR copy-branch + review chip** — `IssueDevelopment` per-PR copy-branch item and review-state chip.
+- [x] 🟢 **Attachment image thumbnails** — image attachments render an inline thumbnail with icon fallback.
+- [x] 🟡 **Insights avg cycle time** — Insights stat tile for mean created→completed days.
+- [x] 🟡 **Inline initiative description + target date** — click-to-edit desc, DatePicker target in `InitiativeDetail`.
+- [x] 🟡 **Initiative search + health filter** — name search and On-track/At-risk/Off-track/No-update facet.
+- [x] 🟡 **Project priority property** — Priority PropRow in the project Properties sidebar (`Project.priority`).
+- [x] 🟡 **Project header overflow menu** — Copy link / Copy ID / Delete project (new `deleteProject` store action).
+- [x] 🟡 **Cycle group-by selector** — group cycle issues by Status/Assignee/Priority/Project/None.
+- [x] 🟢 **Projects-board column subtotals** — per-column rolled-up completion percent + issue count.
+- [x] 🟢 **Roadmap today pill + bar dates** — labeled today line and start→target captions on bars.
+- [x] 🟢 **Timeline set-dates affordance** — undated projects get a DatePicker "Set dates" button.
+- [x] 🟡 **Search People tab + me-scope pills** — match members; Assigned-to-me / Created-by-me toggles.
+- [x] 🟢 **Team Overview priority breakdown** — priority-distribution card alongside status breakdown.
+- [x] 🟢 **Inbox subscribe toggle** — Bell/BellOff in the reading-pane header.
+- [x] 🟢 **Favorites keyboard navigation** — j/k/↑/↓ + Enter/o over favorite rows.
+- [x] 🟢 **Archive keyboard navigation** — j/k/↑/↓, Enter/o open, e to restore.
+- [x] 🟢 **Searchable shortcuts overlay** — filter input in the `?` help overlay.
+- [x] 🟢 **Settings nav keyboard select** — Enter/Arrow/Esc in the settings search.
+- [x] 🟢 **Document copy-link** — Copy link button in `DocumentDetail` header.
+- [x] 🟢 **Release description** — description textarea in the New release modal + list rows.
+- [x] 🟢 **Reminder description snippet** — one-line muted issue-description snippet per reminder row.
+- [x] 🟢 **Changelog entry permalink** — hover Copy-link per changelog release.
+- [x] 🟢 **Pulse load-more pagination** — windowed feed with a Load-more button.
+- [x] 🟡 **Command-menu section headers** — grouped uppercase headers in the ⌘K palette.
+- [x] 🟡 **Copy issue ID/URL + assign-to-me shortcuts** — ⌘. / ⌘⇧. copy, `i` assigns to me.

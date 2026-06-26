@@ -2823,3 +2823,58 @@ cleanly in **light and dark**.
 Next: top remaining parity is mostly backend-dependent (real GitHub/Slack
 integrations, async email export, audit-log depth) plus deeper drag-reorder
 surfaces (Releases manual sort, board label swimlanes with de-duped DnD ids).
+
+## 2026-06-26 — Loop #93: 33 features (4 waves) + 1 bug fix + command-menu polish
+
+Backlog was fully checked at the start, so the run opened with a **6-agent
+parallel scout workflow** over every surface group, comparing the clone against
+real Linear and returning 36 genuinely-missing, single-file-scoped features.
+Shipped 33 of them across **four sequential parallel waves** (one subagent per
+file, main agent owning all shared-file deltas), each verified (`tsc -b` ✅ +
+`npm run build` ✅ + Preview MCP console clean) and committed before the next.
+Branch agents were explicitly told NOT to touch the loop-guard (the parent owns
+the lock) after wave 1's first attempt aborted four branches on a BUSY check.
+
+_Wave 1 — issue detail (9):_ **inline sub-issue status/priority/assignee
+editing** · **activity-feed grouping** (same-actor, ~2-min window) · **comment
+⌘↵ hint + author auto-subscribe** · **blocked-by warning banner** · **resolved-
+relation strikethrough** · **PR copy-branch + review-state chip** · **attachment
+image thumbnails** · **Insights avg cycle time** tile.
+
+_Wave 2 — projects/cycles/initiatives (8):_ **inline initiative description +
+DatePicker target date** · **initiative name-search + health facet** · **project
+priority property** (added `Project.priority`) · **project header overflow menu**
+(copy link/ID + delete; added a real `deleteProject` store action with full
+dependent cleanup) · **cycle group-by selector** · **projects-board column
+subtotals** · **roadmap today-pill + bar date captions** · **timeline set-dates
+affordance**.
+
+_Wave 3 — workspace dirs / inbox / search (8):_ **search People tab + me-scope
+pills** · **Team Overview priority breakdown** · **inbox subscribe toggle** ·
+**Favorites keyboard nav** · **Archive keyboard nav (+ e to restore)** ·
+**searchable shortcuts overlay** · **settings nav keyboard-select**.
+
+_Wave 4 — extras + ⌘K/shortcuts (8):_ **document copy-link** · **release
+description** · **reminder description snippet** · **changelog entry permalink** ·
+**Pulse load-more pagination** · **command-menu grouped section headers** ·
+**copy issue ID/URL (⌘. / ⌘⇧.) + assign-to-me (i) global shortcuts**.
+
+**Phase 2 — bug hunt (find → adversarial verify → fix):** 4 parallel finders
+swept the run diff (24a524f..HEAD); a separate adversarial verifier judged each.
+**2 candidates → 1 CONFIRMED, 1 refuted.** Fixed: **SearchView People-tab
+keyboard highlight** — `commentOffset` double-counted hidden issue results on the
+People tab, so no person row ever highlighted; now guarded by `showIssues`.
+Refuted (NOT-A-BUG): `deleteProject` leaving dangling doc/release `projectId`s —
+every consumer already guards the lookup, so no runtime defect; nonetheless added
+the doc/release detach to `deleteProject` for data hygiene.
+
+**Phase 3 — polish (command-menu section headers):** tightened the new ⌘K
+section labels to Linear parity — `font-semibold`, `tracking-wider`, `pt-2.5`
+separation, `select-none`. Token-based (`text-faint`), verified in light + dark.
+
+`tsc -b ✅ · build ✅ · console clean`
+
+Next: remaining parity is increasingly backend-dependent (live GitHub/Slack
+sync, real async email export, audit-log depth) plus deeper DnD surfaces
+(board label swimlanes, Releases manual sort) and richer PR review data
+(`reviewDecision` field feeding the new review chip).
