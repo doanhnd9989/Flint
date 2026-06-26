@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ArrowDownUp,
+  CalendarRange,
   ChevronDown,
   ChevronRight,
   MoreHorizontal,
@@ -13,10 +14,11 @@ import { useStore, useStoreShallow } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { ProgressDonut } from '@/components/ProgressDonut'
+import { DatePicker } from '@/components/DatePicker'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { RELEASE_STATUS, RELEASE_STATUS_ORDER } from '@/lib/constants'
-import { formatDate, timeAgo, cn } from '@/lib/utils'
+import { formatDate, formatFullDate, timeAgo, cn } from '@/lib/utils'
 import type { Issue, Project, ReleaseStatus, WorkflowState } from '@/lib/types'
 
 /** Status filter values for the segmented pill row ('all' = no filter). */
@@ -375,6 +377,7 @@ function NewReleaseModal({
   const [name, setName] = useState('')
   const [version, setVersion] = useState('v1.0.0')
   const [status, setStatus] = useState<ReleaseStatus>('planned')
+  const [targetDate, setTargetDate] = useState<string | undefined>(undefined)
   const [projectId, setProjectId] = useState<string | undefined>(undefined)
 
   useEffect(() => {
@@ -416,6 +419,7 @@ function NewReleaseModal({
       name: name.trim(),
       version: version.trim(),
       status,
+      targetDate,
       projectId,
     })
     onClose()
@@ -469,6 +473,18 @@ function NewReleaseModal({
                 <span className={chip}>
                   <StatusDot status={status} />
                   {RELEASE_STATUS[status].label}
+                </span>
+              }
+            />
+
+            {/* target date — native calendar popover, matches project props */}
+            <DatePicker
+              value={targetDate}
+              onChange={setTargetDate}
+              trigger={
+                <span className={chip}>
+                  <CalendarRange size={13} className="shrink-0 text-faint" />
+                  {targetDate ? formatFullDate(targetDate) : 'Target date'}
                 </span>
               }
             />

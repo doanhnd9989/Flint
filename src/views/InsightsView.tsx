@@ -17,15 +17,30 @@ const RANGES = [
 ] as const
 type RangeId = (typeof RANGES)[number]['id']
 
-/** Exportable breakdown dimensions, mirroring the cards below. */
+/**
+ * Breakdown dimensions for the featured "Group by" chart (and the CSV export,
+ * which mirrors whatever dimension is selected). Matches Linear's Insights
+ * "Group by", which re-pivots the headline chart across any issue attribute.
+ */
 const DIMENSIONS = [
-  { id: 'status', label: 'By status' },
-  { id: 'priority', label: 'By priority' },
-  { id: 'assignee', label: 'By assignee' },
-  { id: 'project', label: 'By project' },
-  { id: 'label', label: 'By label' },
+  { id: 'status', label: 'Status' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'assignee', label: 'Assignee' },
+  { id: 'project', label: 'Project' },
+  { id: 'label', label: 'Label' },
 ] as const
 type DimensionId = (typeof DIMENSIONS)[number]['id']
+
+/**
+ * Sort order for the featured breakdown — Linear lets you flip a breakdown
+ * between largest- and smallest-first to surface either the heavy hitters or
+ * the long tail.
+ */
+const SORTS = [
+  { id: 'desc', label: 'Largest' },
+  { id: 'asc', label: 'Smallest' },
+] as const
+type SortId = (typeof SORTS)[number]['id']
 
 /**
  * Insights "Measure by" toggle — count issues vs. sum their estimate points.
@@ -154,7 +169,10 @@ export function InsightsView() {
   const [teamFilter, setTeamFilter] = useState<string>('all')
   const [range, setRange] = useState<RangeId>('all')
   const [measure, setMeasure] = useState<MeasureId>('count')
-  const [exportDim, setExportDim] = useState<DimensionId>('status')
+  // Featured "Group by" dimension — drives the headline breakdown chart and the
+  // CSV export. `sort` flips that headline chart largest- vs. smallest-first.
+  const [groupBy, setGroupBy] = useState<DimensionId>('status')
+  const [sort, setSort] = useState<SortId>('desc')
   const displayPref = data.preferences.displayNames
 
   const rangeMeta = RANGES.find((r) => r.id === range) ?? RANGES[0]
@@ -274,7 +292,7 @@ export function InsightsView() {
 
   const maxOf = (bars: Bar[]) => bars.reduce((m, b) => Math.max(m, b.value), 0)
 
-  // Map each export dimension to its computed breakdown + human label.
+  // Map each dimension to its computed breakdown + human label.
   const breakdowns: Record<DimensionId, { label: string; bars: Bar[] }> = {
     status: { label: 'Status', bars: byStatus },
     priority: { label: 'Priority', bars: byPriority },
@@ -283,11 +301,24 @@ export function InsightsView() {
     label: { label: 'Label', bars: byLabel },
   }
 
+  // Featured breakdown for the active "Group by" dimension, re-sorted by the
+  // chosen order. "Other" rollups (added by topN) always sink to the bottom so
+  // the long-tail bucket never jumps to the top under smallest-first.
+  const grouped = breakdowns[groupBy]
+  const groupedBars = useMemo<Bar[]>(() => {
+    const bars = [...grouped.bars]
+    bars.sort((a, b) => {
+      if (a.key === '__other') return 1
+      if (b.key === '__other') return -1
+      return sort === 'asc' ? a.value - b.value : b.value - a.value
+    })
+    return bars
+  }, [grouped.bars, sort])
+
   function exportCsv() {
-    const dim = breakdowns[exportDim]
     const teamPart = teamFilter === 'all' ? 'all-teams' : (data.teams.find((t) => t.id === teamFilter)?.key ?? 'team')
-    const filename = `insights-${exportDim}-${measure}-${teamPart}-${range}.csv`
-    downloadCsv(filename, dim.label, dim.bars)
+    const filename = `insights-${groupBy}-${measure}-${teamPart}-${range}.csv`
+    downloadCsv(filename, grouped.label, groupedBars)
   }
 
   return (
@@ -310,29 +341,48 @@ export function InsightsView() {
               }
             />
 
-            {/* Export the selected breakdown dimension as CSV. */}
-            <div className="flex items-center rounded-md border border-border bg-bg">
-              <button
-                type="button"
-                onClick={exportCsv}
-                title={`Export ${breakdowns[exportDim].label} breakdown as CSV`}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[12px] text-fg hover:bg-bg-hover rounded-l-md"
-              >
-                <Download size={13} className="text-muted" />
-                Export
-              </button>
-              <SelectMenu
-                align="end"
-                width={160}
-                options={DIMENSIONS.map((d) => ({ id: d.id, label: d.label, selected: d.id === exportDim }))}
-                onSelect={(id) => setExportDim(id as DimensionId)}
-                trigger={
-                  <span className="inline-flex items-center border-l border-border px-1 py-1 text-muted hover:bg-bg-hover rounded-r-md">
-                    <ChevronDown size={13} />
-                  </span>
-                }
-              />
+            {/* Group-by dimension — re-pivots the featured breakdown chart (and
+                the CSV export) across any issue attribute. */}
+            <SelectMenu
+              align="end"
+              width={180}
+              options={DIMENSIONS.map((d) => ({ id: d.id, label: d.label, selected: d.id === groupBy }))}
+              onSelect={(id) => setGroupBy(id as DimensionId)}
+              trigger={
+                <span className="inline-flex items-center gap-1 rounded-md border border-border bg-bg px-2 py-1 text-[12px] text-fg hover:bg-bg-hover">
+                  Group by: <span className="text-muted">{grouped.label}</span>
+                  <ChevronDown size={13} className="text-muted" />
+                </span>
+              }
+            />
+
+            {/* Sort the featured breakdown largest- vs. smallest-first. */}
+            <div className="flex items-center gap-1 rounded-md bg-bg-secondary p-0.5">
+              {SORTS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSort(s.id)}
+                  className={cn(
+                    'rounded px-2 py-1 text-[12px]',
+                    sort === s.id ? 'bg-bg-elevated font-medium text-fg shadow-sm' : 'text-muted hover:text-fg',
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
             </div>
+
+            {/* Export the active group-by breakdown as CSV. */}
+            <button
+              type="button"
+              onClick={exportCsv}
+              title={`Export ${grouped.label} breakdown as CSV`}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-bg px-2 py-1 text-[12px] text-fg hover:bg-bg-hover"
+            >
+              <Download size={13} className="text-muted" />
+              Export
+            </button>
 
             {/* Measure-by toggle — re-weight every breakdown by issue count or
                 estimate points, mirroring Linear's Insights "Measure by". */}
@@ -411,8 +461,18 @@ export function InsightsView() {
             <Stat label="Scope points" value={totals.points} hint="Excludes canceled" />
           </div>
 
+          {/* Featured breakdown — driven by the "Group by" selector + sort. */}
+          <div className="mt-6">
+            <Card
+              title={`By ${grouped.label.toLowerCase()}`}
+              subtitle={`${measure === 'points' ? 'Points' : 'Issues'} grouped by ${grouped.label.toLowerCase()} · ${sort === 'asc' ? 'smallest' : 'largest'} first`}
+            >
+              <BarChart bars={groupedBars} max={maxOf(groupedBars)} />
+            </Card>
+          </div>
+
           {/* Breakdown charts */}
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card title="By status" subtitle="Issues in each workflow state">
               <BarChart bars={byStatus} max={maxOf(byStatus)} />
             </Card>

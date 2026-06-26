@@ -304,8 +304,9 @@ export function CustomersView() {
         <NewCustomerModal
           onClose={() => setCreating(false)}
           onCreate={(input) => {
-            createCustomer(input)
+            const created = createCustomer(input)
             setCreating(false)
+            navigate(`/customer/${created.id}`)
           }}
         />
       )}

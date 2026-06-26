@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, Plus, IterationCw, Diamond } from 'lucide-react'
+import { ChevronDown, ChevronsRightLeft, Plus, IterationCw, Diamond } from 'lucide-react'
 import {
   DndContext,
   PointerSensor,
@@ -84,8 +84,70 @@ function CardStack({ issues, dropId }: { issues: Issue[]; dropId: string }) {
   )
 }
 
-function Column({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy }) {
+/**
+ * A collapsed column: a narrow vertical rail showing the status glyph, the
+ * group name (rotated to read bottom-to-top, like Linear) and the count. The
+ * whole rail is the expand affordance. Still a droppable so cards can be
+ * dragged onto a collapsed column.
+ */
+function CollapsedRail({
+  group,
+  groupBy,
+  dropId,
+  onExpand,
+}: {
+  group: IssueGroup
+  groupBy: GroupBy
+  dropId: string
+  onExpand: () => void
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: dropId })
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      title={`Expand ${group.label}`}
+      onClick={onExpand}
+      className={cn(
+        'flex w-10 shrink-0 flex-col items-center gap-2 rounded-lg border border-border bg-secondary py-2 transition-colors hover:border-border-strong',
+        isOver && 'bg-accent-subtle',
+      )}
+    >
+      <RowGlyph group={group} by={groupBy} />
+      <span className="text-[12px] text-faint">{group.count}</span>
+      {/* Name reads bottom-to-top, matching Linear's collapsed board columns. */}
+      <span
+        className="rotate-180 text-[13px] font-medium text-fg"
+        style={{ writingMode: 'vertical-rl' }}
+      >
+        {group.label}
+      </span>
+    </button>
+  )
+}
+
+function Column({
+  group,
+  groupBy,
+  collapsed,
+  onToggle,
+}: {
+  group: IssueGroup
+  groupBy: GroupBy
+  collapsed: boolean
+  onToggle: () => void
+}) {
   const openCreateWith = useStore((s) => s.openCreateWith)
+  const dropId = group.stateId ?? group.key
+  if (collapsed)
+    return (
+      <CollapsedRail
+        group={group}
+        groupBy={groupBy}
+        dropId={dropId}
+        onExpand={onToggle}
+      />
+    )
   return (
     <div className="group flex w-72 shrink-0 flex-col">
       <div className="mb-2 flex items-center gap-2 px-1">
@@ -95,6 +157,14 @@ function Column({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy }) {
         <div className="flex-1" />
         <button
           type="button"
+          title="Collapse column"
+          onClick={onToggle}
+          className="flex h-5 w-5 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-bg-hover hover:text-fg group-hover:opacity-100"
+        >
+          <ChevronsRightLeft size={13} />
+        </button>
+        <button
+          type="button"
           title="Add issue"
           onClick={() => openCreateWith(group.stateId ? { stateId: group.stateId } : {})}
           className="flex h-5 w-5 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-bg-hover hover:text-fg group-hover:opacity-100"
@@ -102,7 +172,7 @@ function Column({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy }) {
           <Plus size={14} />
         </button>
       </div>
-      <CardStack issues={group.issues} dropId={group.stateId ?? group.key} />
+      <CardStack issues={group.issues} dropId={dropId} />
     </div>
   )
 }
@@ -133,10 +203,13 @@ function Swimlane({
   row,
   columns,
   subGroupBy,
+  collapsedCols,
 }: {
   row: IssueGroup
   columns: IssueGroup[]
   subGroupBy: GroupBy
+  /** Drop ids of board columns the user collapsed; their cells render as rails. */
+  collapsedCols: Set<string>
 }) {
   const [collapsed, setCollapsed] = useState(false)
   // cell issues = the column's sub-group whose key matches this row.
@@ -159,17 +232,36 @@ function Swimlane({
       </button>
       {!collapsed && (
         <div className="flex gap-4 pb-2">
-          {columns.map((col) => (
-            <div key={col.key} className="flex w-72 shrink-0 flex-col">
-              <CardStack
-                issues={cellFor(col)}
-                dropId={`${row.key}::${col.stateId ?? col.key}`}
-              />
-            </div>
-          ))}
+          {columns.map((col) => {
+            const colKey = col.stateId ?? col.key
+            const dropId = `${row.key}::${colKey}`
+            // A collapsed column shows a narrow droppable rail in each lane so
+            // cards can still be dragged onto it.
+            if (collapsedCols.has(colKey))
+              return <SwimlaneRail key={col.key} dropId={dropId} />
+            return (
+              <div key={col.key} className="flex w-72 shrink-0 flex-col">
+                <CardStack issues={cellFor(col)} dropId={dropId} />
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
+  )
+}
+
+/** A collapsed column's cell within a swimlane: a narrow droppable strip. */
+function SwimlaneRail({ dropId }: { dropId: string }) {
+  const { setNodeRef, isOver } = useDroppable({ id: dropId })
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'min-h-24 w-10 shrink-0 rounded-lg border border-border bg-secondary transition-colors',
+        isOver && 'bg-accent-subtle',
+      )}
+    />
   )
 }
 
@@ -193,6 +285,16 @@ export function IssueBoard({
   const setNavIssueIds = useStore((s) => s.setNavIssueIds)
   const [active, setActive] = useState<Issue | null>(null)
   const [showHidden, setShowHidden] = useState(false)
+  // Column ids the user has collapsed into a narrow rail (component-local; not
+  // persisted to the store). Keyed by the column's drop id (state id or key).
+  const [collapsedCols, setCollapsedCols] = useState<Set<string>>(new Set())
+  const toggleCol = (key: string) =>
+    setCollapsedCols((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
 
   const swimlanes = rows && subGroupBy !== 'none'
   // Empty swimlanes collapse into a "Hidden rows N" bar at the bottom.
@@ -262,7 +364,13 @@ export function IssueBoard({
           {/* Column headers, rendered once across the top. */}
           <div className="flex gap-4">
             {groups.map((g) => (
-              <ColumnHeader key={g.key} group={g} groupBy={groupBy} />
+              <ColumnHeader
+                key={g.key}
+                group={g}
+                groupBy={groupBy}
+                collapsed={collapsedCols.has(g.stateId ?? g.key)}
+                onToggle={() => toggleCol(g.stateId ?? g.key)}
+              />
             ))}
           </div>
           <div className="mt-1 space-y-1">
@@ -272,6 +380,7 @@ export function IssueBoard({
                 row={row}
                 columns={groups}
                 subGroupBy={subGroupBy}
+                collapsedCols={collapsedCols}
               />
             ))}
             {hiddenRows.length > 0 && (
@@ -298,6 +407,7 @@ export function IssueBoard({
                       row={row}
                       columns={groups}
                       subGroupBy={subGroupBy}
+                      collapsedCols={collapsedCols}
                     />
                   ))}
               </div>
@@ -307,7 +417,13 @@ export function IssueBoard({
       ) : (
         <div className="flex h-full gap-4 overflow-x-auto p-4">
           {groups.map((g) => (
-            <Column key={g.key} group={g} groupBy={groupBy} />
+            <Column
+              key={g.key}
+              group={g}
+              groupBy={groupBy}
+              collapsed={collapsedCols.has(g.stateId ?? g.key)}
+              onToggle={() => toggleCol(g.stateId ?? g.key)}
+            />
           ))}
         </div>
       )}
@@ -317,14 +433,46 @@ export function IssueBoard({
 }
 
 /** A board column header (group glyph + name + total count) for swimlane mode. */
-function ColumnHeader({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy }) {
+function ColumnHeader({
+  group,
+  groupBy,
+  collapsed,
+  onToggle,
+}: {
+  group: IssueGroup
+  groupBy: GroupBy
+  collapsed: boolean
+  onToggle: () => void
+}) {
   const openCreateWith = useStore((s) => s.openCreateWith)
+  // Collapsed: a narrow rail header that expands on click; cells below collapse
+  // to matching rails so the column reads as a single thin strip.
+  if (collapsed)
+    return (
+      <button
+        type="button"
+        title={`Expand ${group.label}`}
+        onClick={onToggle}
+        className="flex w-10 shrink-0 flex-col items-center gap-1.5 rounded-md py-1 hover:bg-bg-hover"
+      >
+        <RowGlyph group={group} by={groupBy} />
+        <span className="text-[12px] text-faint">{group.count}</span>
+      </button>
+    )
   return (
     <div className="group flex w-72 shrink-0 items-center gap-2 px-1">
       <RowGlyph group={group} by={groupBy} />
       <span className="text-[13px] font-medium text-fg">{group.label}</span>
       <span className="text-[12px] text-faint">{group.count}</span>
       <div className="flex-1" />
+      <button
+        type="button"
+        title="Collapse column"
+        onClick={onToggle}
+        className="flex h-5 w-5 items-center justify-center rounded text-faint opacity-0 transition-opacity hover:bg-bg-hover hover:text-fg group-hover:opacity-100"
+      >
+        <ChevronsRightLeft size={13} />
+      </button>
       <button
         type="button"
         title="Add issue"

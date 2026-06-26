@@ -65,6 +65,27 @@ export function MyIssues() {
   const params = useParams<{ tab?: string }>()
   const tab: Tab = isTab(params.tab) ? params.tab : 'assigned'
 
+  // Per-tab counts shown as a badge next to each tab label (matches Linear).
+  // Issue tabs count non-triage issues scoped to the current user; the Activity
+  // tab counts the user's own activity + comment events.
+  const data = useStore()
+  const counts = useMemo<Record<Tab, number>>(() => {
+    const me = data.currentUserId
+    let assigned = 0
+    let created = 0
+    let subscribed = 0
+    for (const i of data.issues) {
+      if (i.triage) continue
+      if (i.assigneeId === me) assigned++
+      if (i.creatorId === me) created++
+      if (i.subscriberIds.includes(me)) subscribed++
+    }
+    const activity =
+      data.activities.filter((a) => a.userId === me).length +
+      data.comments.filter((c) => c.userId === me).length
+    return { assigned, created, subscribed, activity }
+  }, [data])
+
   // Display + filter state, held here so it persists across the issue tabs
   // (Linear applies the same display options across Assigned/Created/Subscribed).
   const [layout, setLayout] = useState<ViewLayout>('list')
@@ -90,11 +111,12 @@ export function MyIssues() {
             type="button"
             onClick={() => navigate(`/my-issues/${t}`)}
             className={cn(
-              'rounded-md px-2.5 py-1 text-[13px] capitalize text-muted hover:bg-bg-hover',
+              'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] capitalize text-muted hover:bg-bg-hover',
               tab === t && 'bg-bg-selected font-medium text-fg',
             )}
           >
-            {t}
+            <span>{t}</span>
+            <span className="text-faint tabular-nums">{counts[t]}</span>
           </button>
         ))}
         {tab !== 'activity' && (
