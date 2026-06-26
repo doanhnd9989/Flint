@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { sortIssues, projectProgress, milestoneProgress } from '@/lib/selectors'
+import { ProjectProgressGraph } from '@/components/ProjectProgressGraph'
 import { IssueRow } from '@/components/IssueRow'
 import { Avatar } from '@/components/Avatar'
 import { ProjectUpdates, HealthBadge } from '@/components/ProjectUpdates'
@@ -255,7 +256,7 @@ export function ProjectDetail() {
   const data = useStore()
   const fmt = useDisplayName()
   const project = data.projects.find((p) => p.id === id)
-  const [tab, setTab] = useState<'overview' | 'activity' | 'issues'>('overview')
+  const [tab, setTab] = useState<'overview' | 'activity' | 'graph' | 'issues'>('overview')
   const [editingDesc, setEditingDesc] = useState(false)
   const [descDraft, setDescDraft] = useState('')
   const [focusMilestoneId, setFocusMilestoneId] = useState<string | null>(null)
@@ -331,7 +332,7 @@ export function ProjectDetail() {
 
       {/* Tabs */}
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-1.5">
-        {(['overview', 'activity', 'issues'] as const).map((t) => (
+        {(['overview', 'activity', 'graph', 'issues'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -580,6 +581,12 @@ export function ProjectDetail() {
       ) : tab === 'activity' ? (
         <div className="flex-1 overflow-y-auto">
           <ProjectUpdates projectId={project.id} />
+        </div>
+      ) : tab === 'graph' ? (
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-2xl px-10 py-10">
+            <ProjectProgressGraph projectId={project.id} />
+          </div>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">

@@ -21,6 +21,7 @@ import { IssueAttachments } from './IssueAttachments'
 import { IssueCustomers } from './IssueCustomers'
 import { IssueSimilarIssues } from './IssueSimilarIssues'
 import { IssueReactions } from './IssueReactions'
+import { IssueReminders } from './IssueReminders'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MentionInput } from './MentionInput'
 import { CommentThread } from './CommentThread'
@@ -475,6 +476,9 @@ export function IssueDetailBody({
                 </span>
               }
             />
+          </PropRow>
+          <PropRow label="Reminder">
+            <IssueReminders issue={issue} />
           </PropRow>
         </div>
 

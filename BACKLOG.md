@@ -186,3 +186,10 @@ New nav/lifecycle surfaces, issue-detail & board enhancements, settings pages, r
 - [x] 🟢 **Favorites page** (`/favorites`) — starred issues/projects/views grouped, unstar inline.
 - [x] 🟡 **Teams directory** (`/teams`) — all teams with member avatars + issue/active/project counts, click → overview.
 - [x] 🔴 **All issues** (`/all-issues`) — workspace-wide issue list across every team (FilterBar + Display options + board/list), like IssuesView without team scope.
+
+**Wave 2 — graphs, reminders, labels:**
+- [x] 🟡 **Project progress graph** — a "Graph" tab on the project detail: burn-up SVG (Scope vs cumulative Completed over the project lifespan, today marker, gridlines, legend), mirroring CycleBurndown's idiom.
+- [x] 🟢 **Initiative progress graph** — "Progress by project" roll-up card on the initiative overview (aggregate done/total + per-project bars tinted by project color).
+- [x] 🟡 **Issue reminders** — a "Reminder" property row (Bell): quick presets (In 1 hour / This evening / Tomorrow / Next week) + Remove; `Issue.remindAt`, `setIssueReminder`.
+- [x] 🟡 **Reminders view** (`/reminders`) — issues with a reminder, split Overdue / Upcoming, dismiss inline.
+- [x] 🟢 **Labels directory** (`/labels`) — all labels (groups + children + ungrouped) with per-label issue counts, click → `/label/:id`.

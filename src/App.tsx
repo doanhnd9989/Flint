@@ -27,6 +27,8 @@ import { RecentView } from '@/views/RecentView'
 import { FavoritesView } from '@/views/FavoritesView'
 import { TeamsDirectoryView } from '@/views/TeamsDirectoryView'
 import { AllIssuesView } from '@/views/AllIssuesView'
+import { RemindersView } from '@/views/RemindersView'
+import { LabelsDirectoryView } from '@/views/LabelsDirectoryView'
 import { CyclesView } from '@/views/CyclesView'
 import { TriageView } from '@/views/TriageView'
 import { IssueDetail } from '@/views/IssueDetail'
@@ -115,6 +117,8 @@ export default function App() {
           <Route path="/favorites" element={<FavoritesView />} />
           <Route path="/teams" element={<TeamsDirectoryView />} />
           <Route path="/all-issues" element={<AllIssuesView />} />
+          <Route path="/reminders" element={<RemindersView />} />
+          <Route path="/labels" element={<LabelsDirectoryView />} />
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/my-issues" element={<MyIssues />} />
           <Route path="/my-issues/:tab" element={<MyIssues />} />

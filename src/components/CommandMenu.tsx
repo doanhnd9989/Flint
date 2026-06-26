@@ -38,6 +38,7 @@ import {
   History,
   Star,
   Archive,
+  Bell,
   Layers3,
   User,
   Tag,
@@ -585,6 +586,20 @@ export function CommandMenu() {
         icon: <Archive size={15} />,
         keywords: 'archive archived deleted removed restore',
         run: () => navigate('/archive'),
+      },
+      {
+        id: 'go-reminders',
+        label: 'Go to Reminders',
+        icon: <Bell size={15} />,
+        keywords: 'reminders remind me snooze follow up due',
+        run: () => navigate('/reminders'),
+      },
+      {
+        id: 'go-labels',
+        label: 'Go to Labels',
+        icon: <Tag size={15} />,
+        keywords: 'labels tags categories directory',
+        run: () => navigate('/labels'),
       },
       {
         id: 'new-document',

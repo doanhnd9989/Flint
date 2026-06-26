@@ -6,6 +6,7 @@ import { Avatar } from '@/components/Avatar'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { HealthBadge } from '@/components/ProjectUpdates'
 import { InitiativeUpdates } from '@/components/InitiativeUpdates'
+import { InitiativeProgressGraph } from '@/components/InitiativeProgressGraph'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { initiativeProgress, projectProgress } from '@/lib/selectors'
@@ -207,6 +208,11 @@ export function InitiativeDetail() {
         </div>
       ) : (
       <div className="flex-1 overflow-y-auto p-6">
+        {inProjects.length > 0 && (
+          <div className="mb-6">
+            <InitiativeProgressGraph initiativeId={initiative.id} />
+          </div>
+        )}
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[13px] font-semibold text-fg">
             Projects
