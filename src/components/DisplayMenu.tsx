@@ -176,10 +176,13 @@ export function DisplayMenu({
   showEmptyGroups,
   onShowEmptyGroups,
 }: Props) {
-  const { displayProperties, toggleDisplayProperty } = useStoreShallow((s) => ({
-    displayProperties: s.displayProperties,
-    toggleDisplayProperty: s.toggleDisplayProperty,
-  }))
+  const { displayProperties, toggleDisplayProperty, hideCompleted, toggleHideCompleted } =
+    useStoreShallow((s) => ({
+      displayProperties: s.displayProperties,
+      toggleDisplayProperty: s.toggleDisplayProperty,
+      hideCompleted: s.hideCompleted,
+      toggleHideCompleted: s.toggleHideCompleted,
+    }))
 
   // Linear's "Reset to default" — restores the view's display config to the
   // app defaults. Display properties have no bulk-reset store action, so we
@@ -292,6 +295,12 @@ export function DisplayMenu({
               onChange={onOrderCompletedByRecency}
             />
           )}
+
+          <ToggleRow
+            label="Show completed issues"
+            checked={!hideCompleted}
+            onChange={() => toggleHideCompleted()}
+          />
 
           {onShowSubIssues && (
             <ToggleRow

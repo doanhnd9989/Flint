@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
+import { TeamJoinButton } from '@/components/TeamJoinButton'
 import { EmptyState, IssuesIllustration } from '@/components/EmptyState'
 import { Avatar } from '@/components/Avatar'
 import { StatusIcon } from '@/components/StatusIcon'
@@ -222,7 +223,11 @@ export function TeamOverviewView() {
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Overview" teamName={team.name} teamIcon={team.icon} />
+      <ViewHeader title="Overview" teamName={team.name} teamIcon={team.icon}>
+        <div className="ml-auto">
+          <TeamJoinButton teamId={team.id} />
+        </div>
+      </ViewHeader>
 
       <div className="flex-1 overflow-y-auto bg-bg-secondary">
         <div className="mx-auto max-w-5xl px-8 py-8">

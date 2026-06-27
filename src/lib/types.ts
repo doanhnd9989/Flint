@@ -179,6 +179,8 @@ export interface Project {
   dependsOn?: string[]
   /** Long-form project README / brief (Markdown), shown on the Overview. Optional. */
   readme?: string
+  /** Members subscribed to this project's updates (Linear). Optional. */
+  subscriberIds?: string[]
   createdAt: string
   sortOrder: number
 }

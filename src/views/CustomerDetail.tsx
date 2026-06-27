@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { Avatar } from '@/components/Avatar'
+import { CustomerMergeButton } from '@/components/CustomerMergeButton'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
@@ -215,6 +216,9 @@ export function CustomerDetail() {
         <span className="text-faint">›</span>
         <CustomerTile name={customer.name} color={customer.color} size={16} />
         <span className="truncate font-medium text-fg">{customer.name}</span>
+        <div className="ml-auto">
+          <CustomerMergeButton customerId={customer.id} />
+        </div>
         <button
           type="button"
           onClick={() => data.toggleFavorite('customer', customer.id)}

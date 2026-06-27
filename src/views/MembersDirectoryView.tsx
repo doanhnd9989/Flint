@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowUpDown, Search } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
+import { MemberWorkload } from '@/components/MemberWorkload'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState, SearchIllustration } from '@/components/EmptyState'
 import { cn, timeAgo } from '@/lib/utils'
@@ -193,6 +194,11 @@ export function MembersDirectoryView() {
             >
               Manage in Settings → Members
             </button>
+          </div>
+
+          {/* Workload by assignee — open issues per member. */}
+          <div className="mt-4">
+            <MemberWorkload />
           </div>
 
           {/* Controls: search + role filter */}

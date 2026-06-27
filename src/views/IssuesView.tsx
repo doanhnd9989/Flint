@@ -72,6 +72,13 @@ export function IssuesView() {
       })
     else if (preset === 'completed')
       filtered = filtered.filter((i) => statesByType.get(i.stateId) === 'completed')
+    // "Show completed issues" display option — hide completed/canceled unless the
+    // user is explicitly viewing the Completed preset.
+    if (data.hideCompleted && preset !== 'completed')
+      filtered = filtered.filter((i) => {
+        const t = statesByType.get(i.stateId)
+        return t !== 'completed' && t !== 'canceled'
+      })
     const sorted = sortIssues(
       filtered,
       orderBy,

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Check, ChevronRight, Download, Minus, Plus, Search, Trash2, X } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
+import { CustomerTierArrBreakdown } from '@/components/CustomerTierArrBreakdown'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { CUSTOMER_TIERS, CUSTOMER_TIER_ORDER, LABEL_COLORS } from '@/lib/constants'
@@ -436,6 +437,11 @@ export function CustomersView() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* ARR-by-tier revenue breakdown */}
+          <div className="border-b border-border px-4 py-3">
+            <CustomerTierArrBreakdown />
           </div>
 
           {/* Tier filter pills + search */}

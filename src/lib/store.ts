@@ -136,6 +136,8 @@ interface UIState {
   recentIssueIds: string[]
   /** Issues whose notifications are muted — hidden from the inbox (persisted). */
   mutedIssueIds: string[]
+  /** Display option: hide completed issues from the main issues list (persisted). */
+  hideCompleted: boolean
   /**
    * Generic on/off settings for the workspace/feature settings pages — keyed by
    * a namespaced string (e.g. `integrations.github`, `security.twoFactor`).
@@ -221,6 +223,8 @@ export interface Store extends WorkspaceData, UIState {
   toggleReaction: (commentId: string, emoji: string) => void
   /** Mute / unmute an issue's notifications (hidden from the inbox). */
   toggleMuteIssue: (id: string) => void
+  /** Toggle the "hide completed issues" display option. */
+  toggleHideCompleted: () => void
 
   // ── labels / projects ────────────────────────────────────────
   createLabel: (name: string, color: string, groupId?: string) => Label
@@ -257,6 +261,8 @@ export interface Store extends WorkspaceData, UIState {
   carryOverCycle: (fromCycleId: string) => number
   /** Spin an issue out into its own project (Linear's "Convert to project"). */
   convertIssueToProject: (issueId: string) => Project
+  /** Subscribe / unsubscribe a user to a project's updates. */
+  toggleProjectSubscriber: (projectId: string, userId: string) => void
   createView: (v: Omit<SavedView, 'id'>) => SavedView
   updateView: (id: string, patch: Partial<SavedView>) => void
   deleteView: (id: string) => void
@@ -278,6 +284,8 @@ export interface Store extends WorkspaceData, UIState {
   createCustomer: (input: Omit<Customer, 'id' | 'createdAt'>) => Customer
   updateCustomer: (id: string, patch: Partial<Omit<Customer, 'id' | 'createdAt'>>) => void
   deleteCustomer: (id: string) => void
+  /** Merge one customer into another: re-point all issue links, then delete the source. */
+  mergeCustomers: (sourceId: string, targetId: string) => void
   /** Link / unlink an issue to a customer (a "customer request"). */
   toggleIssueCustomer: (issueId: string, customerId: string) => void
 
@@ -504,6 +512,7 @@ export const useStore = create<Store>()(
       featureValues: {},
       recentIssueIds: [],
       mutedIssueIds: [],
+      hideCompleted: false,
       displayProperties: { ...DEFAULT_DISPLAY_PROPERTIES },
       notificationSettings: structuredClone(DEFAULT_NOTIFICATION_SETTINGS),
 
@@ -1033,6 +1042,9 @@ export const useStore = create<Store>()(
             : [...s.mutedIssueIds, id],
         })),
 
+      toggleHideCompleted: () =>
+        set((s) => ({ hideCompleted: !s.hideCompleted })),
+
       toggleReaction: (commentId, emoji) =>
         set((s) => ({
           comments: s.comments.map((c) => {
@@ -1496,6 +1508,20 @@ export const useStore = create<Store>()(
         return project
       },
 
+      toggleProjectSubscriber: (projectId, userId) =>
+        set((s) => ({
+          projects: s.projects.map((p) => {
+            if (p.id !== projectId) return p
+            const subs = p.subscriberIds ?? []
+            return {
+              ...p,
+              subscriberIds: subs.includes(userId)
+                ? subs.filter((u) => u !== userId)
+                : [...subs, userId],
+            }
+          }),
+        })),
+
       createTemplate: (t) => {
         const tpl: IssueTemplate = { ...t, id: `tpl_${nanoid(8)}` }
         set((s) => ({ templates: [...s.templates, tpl] }))
@@ -1674,6 +1700,21 @@ export const useStore = create<Store>()(
               : i,
           ),
         })),
+      mergeCustomers: (sourceId, targetId) =>
+        set((s) => {
+          if (sourceId === targetId) return {}
+          return {
+            customers: s.customers.filter((c) => c.id !== sourceId),
+            // Re-point every issue's request from the source to the target,
+            // de-duplicating if it already links the target.
+            issues: s.issues.map((i) => {
+              if (!i.customerIds?.includes(sourceId)) return i
+              const next = i.customerIds.filter((x) => x !== sourceId)
+              if (!next.includes(targetId)) next.push(targetId)
+              return { ...i, customerIds: next }
+            }),
+          }
+        }),
       toggleIssueCustomer: (issueId, customerId) =>
         set((s) => ({
           issues: s.issues.map((i) => {

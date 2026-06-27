@@ -15,6 +15,10 @@ export function CommentItem({ comment, rootId }: { comment: Comment; rootId?: st
   const user = store.users.find((u) => u.id === comment.userId)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(comment.body)
+  // Long comments collapse behind a "Show more" toggle (Linear).
+  const [expanded, setExpanded] = useState(false)
+  const isLong =
+    comment.body.length > 700 || comment.body.split('\n').length > 14
 
   function save() {
     const body = draft.trim()
@@ -73,9 +77,29 @@ export function CommentItem({ comment, rootId }: { comment: Comment; rootId?: st
           </div>
         ) : (
           <>
-            <div className="text-[13px] text-fg">
-              <Markdown source={comment.body} />
+            <div className="relative text-[13px] text-fg">
+              <div
+                className={
+                  isLong && !expanded
+                    ? 'max-h-[220px] overflow-hidden'
+                    : undefined
+                }
+              >
+                <Markdown source={comment.body} />
+              </div>
+              {isLong && !expanded && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-transparent to-bg" />
+              )}
             </div>
+            {isLong && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-0.5 text-[12px] font-medium text-accent hover:underline"
+              >
+                {expanded ? 'Show less' : 'Show more'}
+              </button>
+            )}
             <CommentReactions commentId={comment.id} />
             <div className="absolute right-1.5 top-1.5 rounded-md border border-border bg-bg-elevated opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
               <CommentActions commentId={comment.id} rootId={rootId} onEdit={() => setEditing(true)} />
