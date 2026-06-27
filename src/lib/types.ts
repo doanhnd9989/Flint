@@ -323,6 +323,8 @@ export interface Issue {
   sortOrder: number
   createdAt: string
   updatedAt: string
+  /** Last time the title or description was edited by a user (ISO). Optional. */
+  lastEditedAt?: string
   completedAt?: string
   canceledAt?: string
   /** Awaiting triage (incoming, not yet accepted into the workflow). */

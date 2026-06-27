@@ -136,6 +136,8 @@ interface UIState {
   recentIssueIds: string[]
   /** Issues whose notifications are muted — hidden from the inbox (persisted). */
   mutedIssueIds: string[]
+  /** Issues pinned to the sidebar for quick access (persisted, newest first). */
+  pinnedIssueIds: string[]
   /** Display option: hide completed issues from the main issues list (persisted). */
   hideCompleted: boolean
   /**
@@ -218,11 +220,15 @@ export interface Store extends WorkspaceData, UIState {
   deleteComment: (id: string) => void
   /** Resolve / unresolve a comment thread (toggles state on the thread root). */
   toggleResolveThread: (rootId: string) => void
+  /** Resolve every unresolved thread root on an issue in one action. */
+  bulkResolveComments: (issueId: string) => void
   /** Pin / unpin a comment to the top of the issue's comments. */
   togglePinComment: (id: string) => void
   toggleReaction: (commentId: string, emoji: string) => void
   /** Mute / unmute an issue's notifications (hidden from the inbox). */
   toggleMuteIssue: (id: string) => void
+  /** Pin / unpin an issue to the sidebar for quick access. */
+  toggleIssuePinned: (id: string) => void
   /** Toggle the "hide completed issues" display option. */
   toggleHideCompleted: () => void
 
@@ -512,6 +518,7 @@ export const useStore = create<Store>()(
       featureValues: {},
       recentIssueIds: [],
       mutedIssueIds: [],
+      pinnedIssueIds: [],
       hideCompleted: false,
       displayProperties: { ...DEFAULT_DISPLAY_PROPERTIES },
       notificationSettings: structuredClone(DEFAULT_NOTIFICATION_SETTINGS),
@@ -840,9 +847,10 @@ export const useStore = create<Store>()(
         set((s) => {
           const issue = s.issues.find((i) => i.id === id)
           if (!issue || issue.title === title) return s
+          const ts = nowIso()
           return {
             issues: s.issues.map((i) =>
-              i.id === id ? { ...i, title, updatedAt: nowIso() } : i,
+              i.id === id ? { ...i, title, updatedAt: ts, lastEditedAt: ts } : i,
             ),
             activities: [
               ...s.activities,
@@ -858,9 +866,12 @@ export const useStore = create<Store>()(
           // sibling setter — avoids bumping updatedAt on a blur-without-edit.
           if (!issue || issue.description === description) return s
           const had = issue.description.trim().length > 0
+          const ts = nowIso()
           return {
             issues: s.issues.map((i) =>
-              i.id === id ? { ...i, description, updatedAt: nowIso() } : i,
+              i.id === id
+                ? { ...i, description, updatedAt: ts, lastEditedAt: ts }
+                : i,
             ),
             // Log "added" (from empty) vs "updated" the description.
             activities: [
@@ -1026,6 +1037,18 @@ export const useStore = create<Store>()(
           ),
         })),
 
+      bulkResolveComments: (issueId) =>
+        set((s) => {
+          const ts = nowIso()
+          return {
+            comments: s.comments.map((c) =>
+              c.issueId === issueId && !c.parentId && !c.resolvedAt
+                ? { ...c, resolvedAt: ts, resolvedBy: s.currentUserId }
+                : c,
+            ),
+          }
+        }),
+
       togglePinComment: (id) =>
         set((s) => ({
           comments: s.comments.map((c) =>
@@ -1040,6 +1063,13 @@ export const useStore = create<Store>()(
           mutedIssueIds: s.mutedIssueIds.includes(id)
             ? s.mutedIssueIds.filter((x) => x !== id)
             : [...s.mutedIssueIds, id],
+        })),
+
+      toggleIssuePinned: (id) =>
+        set((s) => ({
+          pinnedIssueIds: s.pinnedIssueIds.includes(id)
+            ? s.pinnedIssueIds.filter((x) => x !== id)
+            : [id, ...s.pinnedIssueIds],
         })),
 
       toggleHideCompleted: () =>

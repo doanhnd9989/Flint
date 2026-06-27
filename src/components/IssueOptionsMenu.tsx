@@ -30,7 +30,9 @@ import {
   ArchiveRestore,
   FolderPlus,
   VolumeX,
+  LayoutTemplate,
 } from 'lucide-react'
+import { ApplyTemplateMenu } from './ApplyTemplateMenu'
 
 const MENU_W = 232
 const SUB_W = 220
@@ -322,6 +324,9 @@ export function IssueOptionsMenu({
                   if (dupe) onOpenIssue(dupe.identifier)
                 }}
               />
+              <SubRow id="template" icon={<LayoutTemplate size={14} />} label="Apply template">
+                <ApplyTemplateMenu issueId={issue.id} onClose={close} />
+              </SubRow>
               {issue.parentId && (
                 <Row
                   icon={<ArrowUpFromLine size={14} />}

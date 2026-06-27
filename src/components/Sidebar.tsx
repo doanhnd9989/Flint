@@ -31,6 +31,7 @@ import {
   Tag as TagIcon,
   Plus,
   X,
+  Pin,
   PanelLeftClose,
 } from 'lucide-react'
 import { type ReactNode } from 'react'
@@ -179,6 +180,7 @@ export function Sidebar() {
     favorites,
     users,
     onboardingDismissed,
+    pinnedIssueIds,
     setCreateOpen,
     dismissOnboardingStep,
     toggleSidebar,
@@ -192,6 +194,7 @@ export function Sidebar() {
     favorites: s.favorites,
     users: s.users,
     onboardingDismissed: s.onboardingDismissed,
+    pinnedIssueIds: s.pinnedIssueIds,
     setCreateOpen: s.setCreateOpen,
     dismissOnboardingStep: s.dismissOnboardingStep,
     toggleSidebar: s.toggleSidebar,
@@ -238,6 +241,15 @@ export function Sidebar() {
       return v ? { to: `/view/${v.id}`, icon: <LayersIcon size={15} />, label: v.name } : null
     })
     .filter(Boolean) as { to: string; icon: ReactNode; label: string }[]
+  // Pinned issues (Linear's quick-access pins) — newest first, skip archived/missing.
+  const pinnedItems = pinnedIssueIds
+    .map((id) => issues.find((i) => i.id === id))
+    .filter((i): i is NonNullable<typeof i> => !!i && !i.archivedAt)
+    .map((i) => ({
+      to: `/issue/${i.identifier}`,
+      icon: <Pin size={15} className="text-faint" />,
+      label: i.title,
+    }))
   const unread = notifications.filter(
     (n) => !n.read && !(n.snoozedUntil && new Date(n.snoozedUntil).getTime() > Date.now()),
   ).length
@@ -329,6 +341,14 @@ export function Sidebar() {
           <Section title="Favorites" sectionKey="favorites">
             {favoriteItems.map((f) => (
               <Item key={f.to} to={f.to} icon={f.icon} label={f.label} />
+            ))}
+          </Section>
+        )}
+
+        {pinnedItems.length > 0 && (
+          <Section title="Pinned" sectionKey="pinned">
+            {pinnedItems.map((p) => (
+              <Item key={p.to} to={p.to} icon={p.icon} label={p.label} />
             ))}
           </Section>
         )}

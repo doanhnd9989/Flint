@@ -29,6 +29,9 @@ import { DescriptionTableOfContents } from './DescriptionTableOfContents'
 import { IssueReactions } from './IssueReactions'
 import { IssueReminders } from './IssueReminders'
 import { IssueSnooze } from './IssueSnooze'
+import { IssuePinButton } from './IssuePinButton'
+import { BulkCommentActions } from './BulkCommentActions'
+import { SubIssueBlockedIndicator } from './SubIssueBlockedIndicator'
 import { IssueBlockedBanner } from './IssueBlockedBanner'
 import { IssueAgeChip } from './IssueAgeChip'
 import { IssueDescriptionMeta } from './IssueDescriptionMeta'
@@ -323,6 +326,8 @@ export function IssueDetailBody({
                         <span className="font-mono text-[11px] text-faint">{sub.identifier}</span>
                         <span className="truncate text-[13px] text-fg">{sub.title}</span>
                       </button>
+                      {/* Blocked-by indicator (open blockers). */}
+                      <SubIssueBlockedIndicator issueId={sub.id} />
                       {/* Inline priority. */}
                       <PriorityPicker
                         priority={sub.priority}
@@ -455,6 +460,7 @@ export function IssueDetailBody({
                     </button>
                   ))}
                 </div>
+                <BulkCommentActions issueId={issue.id} />
               </div>
               <button
                 onClick={() =>
@@ -658,6 +664,9 @@ export function IssueDetailBody({
           <PropRow label="Snooze">
             <IssueSnooze issue={issue} />
           </PropRow>
+          <PropRow label="Pin">
+            <IssuePinButton issueId={issue.id} />
+          </PropRow>
         </div>
 
         <div className="mt-4 text-[11px] font-medium uppercase tracking-wide text-faint">
@@ -793,6 +802,14 @@ export function IssueDetailBody({
           ) : (
             <div title={formatFullDate(issue.updatedAt)}>
               Updated {timeAgo(issue.updatedAt)}
+              {issue.lastEditedAt ? (
+                <span
+                  className="text-faint"
+                  title={`Last edited ${formatFullDate(issue.lastEditedAt)}`}
+                >
+                  {' '}· edited
+                </span>
+              ) : null}
             </div>
           )}
         </div>
