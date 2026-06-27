@@ -36,6 +36,8 @@ export interface User {
   timezone?: string
   /** Short profile bio. Optional. */
   bio?: string
+  /** Default email signature appended to outgoing notifications (Linear). Optional. */
+  emailSignature?: string
 }
 
 export interface Label {
@@ -125,6 +127,8 @@ export interface Customer {
   ownerId?: string
   /** Free-text account notes / about (key contacts, renewal notes). Optional. */
   notes?: string
+  /** Company size — approximate employee headcount. Optional. */
+  size?: number
   createdAt: string
 }
 

@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Copy, FolderKanban, History, Link2, Star, Trash2, X } from 'lucide-react'
+import { ChevronLeft, Copy, FolderKanban, History, Link2, Search, Star, Trash2, X } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { MarkdownEditor } from '@/components/MarkdownEditor'
+import { DocumentSearchHighlight } from '@/components/DocumentSearchHighlight'
 import { Avatar } from '@/components/Avatar'
 import { ProjectPicker } from '@/components/pickers'
 import { Popover } from '@/components/ui/Popover'
@@ -94,6 +95,7 @@ export function DocumentDetail() {
   // Version-history drawer (Linear's doc history). `historyOpen` toggles the
   // slide-over; `selectedVersionId` drives the read-only preview pane.
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [findOpen, setFindOpen] = useState(false)
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
 
   // The scrollable body, so the outline can scroll a heading into view.
@@ -154,6 +156,14 @@ export function DocumentDetail() {
         title={doc.title || 'Untitled'}
         right={
           <div className="flex items-center gap-1">
+            <button
+              type="button"
+              title="Find in document"
+              onClick={() => setFindOpen((v) => !v)}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg"
+            >
+              <Search size={15} />
+            </button>
             <button
               type="button"
               title="Version history"
@@ -223,6 +233,12 @@ export function DocumentDetail() {
       </ViewHeader>
 
       <div ref={scrollRef} className="relative flex-1 overflow-y-auto">
+        {/* Find-in-document bar (toggled from the header). */}
+        {findOpen && (
+          <div className="absolute right-6 top-4 z-20">
+            <DocumentSearchHighlight text={doc.content} />
+          </div>
+        )}
         {/* Outline rail — Linear's document table of contents. Sits in the right
             margin and scrolls a heading into view when clicked. */}
         {headings.length > 1 && (

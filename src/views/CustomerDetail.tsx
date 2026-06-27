@@ -15,6 +15,7 @@ import {
 import { useStore, useDisplayName } from '@/lib/store'
 import { Avatar } from '@/components/Avatar'
 import { CustomerMergeButton } from '@/components/CustomerMergeButton'
+import { CustomerCompanySize } from '@/components/CustomerCompanySize'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
@@ -577,6 +578,10 @@ export function CustomerDetail() {
                 className="w-full bg-transparent text-[13px] text-fg outline-none placeholder:text-faint"
               />
             </div>
+          </PropRow>
+
+          <PropRow label="Size">
+            <CustomerCompanySize customerId={customer.id} />
           </PropRow>
 
           <PropRow label="Requests">

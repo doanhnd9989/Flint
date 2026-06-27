@@ -17,6 +17,7 @@ import { copyToClipboard } from '@/lib/toast'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { ProgressDonut } from '@/components/ProgressDonut'
+import { ReleaseBurndownChart } from '@/components/ReleaseBurndownChart'
 import { DatePicker } from '@/components/DatePicker'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
@@ -122,6 +123,8 @@ export function ReleasesView() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  // Which release row is expanded to show its progress breakdown.
+  const [expandedRelease, setExpandedRelease] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [sort, setSort] = useState<SortMode>('manual')
   const [query, setQuery] = useState('')
@@ -338,11 +341,26 @@ export function ReleasesView() {
                     const progress = r.projectId
                       ? progressByProject[r.projectId]
                       : undefined
+                    const expanded = expandedRelease === r.id
                     return (
+                      <div key={r.id} className="border-b border-border">
                       <div
-                        key={r.id}
-                        className="group flex items-center gap-2.5 border-b border-border px-4 py-2 hover:bg-bg-hover"
+                        className="group flex items-center gap-2.5 px-4 py-2 hover:bg-bg-hover"
                       >
+                        {/* expand toggle — reveals the progress breakdown */}
+                        <button
+                          type="button"
+                          title={expanded ? 'Hide progress' : 'Show progress'}
+                          onClick={() =>
+                            setExpandedRelease(expanded ? null : r.id)
+                          }
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-faint hover:bg-bg-tertiary hover:text-fg"
+                        >
+                          <ChevronRight
+                            size={13}
+                            className={cn('transition-transform', expanded && 'rotate-90')}
+                          />
+                        </button>
                         {/* version chip */}
                         <span className="shrink-0 rounded-md bg-bg-tertiary px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-muted">
                           {r.version}
@@ -459,6 +477,12 @@ export function ReleasesView() {
                             }
                           />
                         </div>
+                      </div>
+                      {expanded && (
+                        <div className="px-4 pb-4 pl-11">
+                          <ReleaseBurndownChart releaseId={r.id} />
+                        </div>
+                      )}
                       </div>
                     )
                   })}

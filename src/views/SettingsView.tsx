@@ -39,6 +39,8 @@ import { ImportSettings } from '@/components/ImportSettings'
 import { AuditLogSettings } from '@/components/AuditLogSettings'
 import { FeaturePreviewSettings } from '@/components/FeaturePreviewSettings'
 import { NotificationScheduleSettings } from '@/components/NotificationScheduleSettings'
+import { KeyboardShortcutsSettings } from '@/components/KeyboardShortcutsSettings'
+import { EmailSignatureSettings } from '@/components/EmailSignatureSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
 import { ESTIMATION_TYPES, TIMEZONES } from '@/lib/constants'
@@ -56,8 +58,10 @@ const NAV: NavGroup[] = [
     items: [
       { id: 'preferences', label: 'Preferences' },
       { id: 'profile', label: 'Profile' },
+      { id: 'email-signature', label: 'Email signature' },
       { id: 'notifications', label: 'Notifications' },
       { id: 'notification-schedule', label: 'Notification schedule' },
+      { id: 'keyboard-shortcuts', label: 'Keyboard shortcuts' },
       { id: 'code-and-reviews', label: 'Code & reviews' },
       { id: 'security-access', label: 'Security & access' },
       { id: 'connected-accounts', label: 'Connected accounts' },
@@ -755,10 +759,14 @@ function SettingsContent({ page }: { page: string }) {
       return <PreferencesPage />
     case 'profile':
       return <ProfilePage />
+    case 'email-signature':
+      return <EmailSignatureSettings />
     case 'notifications':
       return <NotificationsSettings />
     case 'notification-schedule':
       return <NotificationScheduleSettings />
+    case 'keyboard-shortcuts':
+      return <KeyboardShortcutsSettings />
     case 'features':
       return <FeaturePreviewSettings />
     case 'issue-labels':

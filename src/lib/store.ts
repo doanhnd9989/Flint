@@ -335,7 +335,7 @@ export interface Store extends WorkspaceData, UIState {
   /** Suspend / reactivate a member (keeps history, distinct from remove). */
   setUserSuspended: (id: string, suspended: boolean) => void
   /** Edit a user's profile. Used by the Profile settings page. */
-  updateUser: (id: string, patch: Partial<Pick<User, 'name' | 'email' | 'username' | 'timezone' | 'bio'>>) => void
+  updateUser: (id: string, patch: Partial<Pick<User, 'name' | 'email' | 'username' | 'timezone' | 'bio' | 'emailSignature'>>) => void
   /** Rename the workspace (Administration → Workspace settings). */
   setWorkspaceName: (name: string) => void
   createState: (s: Omit<WorkflowState, 'id'>) => WorkflowState
