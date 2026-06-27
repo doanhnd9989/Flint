@@ -453,7 +453,7 @@ grep-confirmed missing features; 25 built this run, 33 remain (below).
 - [ ] 🟢 **Quick-filter sidebar issues by assignee/status** — Mine / Assigned-to-me / Started chips on the sidebar All-Issues group.
 - [ ] 🟢 **Cycle start-date filter in FilterBar** — filter issues by their cycle's start-date range.
 - [ ] 🟢 **Milestone start-date filter + display toggle**.
-- [ ] 🟢 **Quick-filter pill bar** — smart preset pills below the FilterBar.
+- [x] 🟢 **Quick-filter pill bar** — smart preset pills below the FilterBar.
 - [x] 🟢 **Quick project status/health edit from the projects list** (inline, no detail open).
 - [x] 🟢 **Project dependency warnings on cards** — highlight blocked-by projects.
 - [x] 🟢 **Cycle retrospective / summary** — read-only end-of-cycle stats card.
@@ -461,14 +461,14 @@ grep-confirmed missing features; 25 built this run, 33 remain (below).
 - [x] 🟢 **Inbox quick bulk assign** — floating action bar when notifications are checked.
 - [x] 🟢 **Triage hotkey speedrun mode** — hold-key auto-accept/decline.
 - [x] 🟢 **Cycle issue carry-over history** — mark issues carried from the previous cycle.
-- [ ] 🟢 **Triage accepted-issues archive** — recently-accepted triage list.
+- [x] 🟢 **Triage accepted-issues archive** — recently-accepted triage list.
 - [x] 🟢 **Convert issue → sub-issue (command menu)**.
 - [x] 🟢 **Remove parent / unlink sub-issue (command menu)**.
 - [x] 🟢 **Quick bulk status/priority update for selection (command menu)**.
-- [ ] 🟢 **Command-palette scope filters** (`is:assigned`, `in:project`…).
-- [ ] 🟢 **View filter/sort presets in command menu**.
+- [x] 🟢 **Command-palette scope filters** (`is:assigned`, `in:project`…).
+- [x] 🟢 **View filter/sort presets in command menu**.
 - [x] 🟢 **Quick-assign to a team member via command menu**.
-- [ ] 🟢 **Toggle column visibility via command menu**.
+- [x] 🟢 **Toggle column visibility via command menu**.
 - [x] 🟢 **Release public share link** (`shareToken`/`public`).
 - [x] 🟢 **Release linked-issues sync drawer**.
 - [x] 🟢 **Member assigned-work breakdown modal** (by priority/status).
@@ -478,5 +478,5 @@ grep-confirmed missing features; 25 built this run, 33 remain (below).
 - [x] 🟢 **Saved-views management settings page**.
 - [ ] 🟢 **Workspace shortcuts** (admin quick links in the sidebar).
 - [x] 🟢 **Workspace accent color** (brand color override + CSS var injection).
-- [ ] 🟢 **Notification rules (advanced if-then)**.
+- [x] 🟢 **Notification rules (advanced if-then)**.
 - [x] 🟢 **Member role permissions matrix** (admin/member/guest capabilities).

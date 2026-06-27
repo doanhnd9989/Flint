@@ -34,6 +34,7 @@ import type {
   NotificationPrefs,
   NotificationType,
   NotificationSettings,
+  NotificationRule,
   NotificationChannel,
   NotificationEvent,
   Priority,
@@ -365,6 +366,9 @@ export interface Store extends WorkspaceData, UIState {
   updateNotificationSettings: (
     patch: Partial<Omit<NotificationSettings, 'channels'>>,
   ) => void
+  addNotificationRule: (rule: Omit<NotificationRule, 'id'>) => void
+  updateNotificationRule: (id: string, patch: Partial<NotificationRule>) => void
+  deleteNotificationRule: (id: string) => void
 
   // ── ui ───────────────────────────────────────────────────────
   setTheme: (t: ThemeMode) => void
@@ -962,18 +966,22 @@ export const useStore = create<Store>()(
         })),
 
       acceptTriage: (id, stateId) =>
-        set((s) => ({
-          issues: s.issues.map((i) =>
-            i.id === id
-              ? {
-                  ...i,
-                  triage: false,
-                  stateId: stateId ?? i.stateId,
-                  updatedAt: nowIso(),
-                }
-              : i,
-          ),
-        })),
+        set((s) => {
+          const ts = nowIso()
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id
+                ? {
+                    ...i,
+                    triage: false,
+                    stateId: stateId ?? i.stateId,
+                    triageAcceptedAt: ts,
+                    updatedAt: ts,
+                  }
+                : i,
+            ),
+          }
+        }),
 
       declineTriage: (id) =>
         set((s) => {
@@ -2159,6 +2167,33 @@ export const useStore = create<Store>()(
           notificationSettings: { ...s.notificationSettings, ...patch },
         })),
 
+      addNotificationRule: (rule) =>
+        set((s) => ({
+          notificationSettings: {
+            ...s.notificationSettings,
+            rules: [
+              ...s.notificationSettings.rules,
+              { ...rule, id: `nr_${nanoid(8)}` },
+            ],
+          },
+        })),
+      updateNotificationRule: (id, patch) =>
+        set((s) => ({
+          notificationSettings: {
+            ...s.notificationSettings,
+            rules: s.notificationSettings.rules.map((r) =>
+              r.id === id ? { ...r, ...patch } : r,
+            ),
+          },
+        })),
+      deleteNotificationRule: (id) =>
+        set((s) => ({
+          notificationSettings: {
+            ...s.notificationSettings,
+            rules: s.notificationSettings.rules.filter((r) => r.id !== id),
+          },
+        })),
+
       setTheme: (theme) => set({ theme }),
       setPreference: (key, value) =>
         set((s) => ({ preferences: { ...s.preferences, [key]: value } })),
@@ -2635,6 +2670,8 @@ export const useStore = create<Store>()(
               email: { ...d.channels.email, events: { ...d.channels.email.events, ...(ns?.channels?.email?.events ?? {}) }, ...(ns?.channels?.email ? { enabled: ns.channels.email.enabled } : {}) },
               slack: { ...d.channels.slack, events: { ...d.channels.slack.events, ...(ns?.channels?.slack?.events ?? {}) }, ...(ns?.channels?.slack ? { enabled: ns.channels.slack.enabled } : {}) },
             },
+            // Backfill if-then rules for workspaces persisted before they existed.
+            rules: Array.isArray(ns?.rules) ? ns.rules : [],
           }
         }
         // Backfill issue links for workspaces persisted before they existed.

@@ -7,6 +7,7 @@ import {
   NOTIFICATION_EVENT_GROUPS,
 } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import { NotificationRulesSettings } from './NotificationRulesSettings'
 import type {
   ChannelSettings,
   NotificationChannel,
@@ -334,6 +335,9 @@ function Overview({
           />
         </div>
       </section>
+
+      {/* Advanced if-then notification rules */}
+      <NotificationRulesSettings />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Bookmark, X } from 'lucide-react'
+import { Bookmark } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
 import type { GroupBy, Issue, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
@@ -9,21 +9,10 @@ import { IssueBoard } from '@/components/IssueBoard'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { ViewHeader } from '@/components/ViewHeader'
 import { FilterBar, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
+import { QuickFilterPills } from '@/components/QuickFilterPills'
 import { cn } from '@/lib/utils'
 
 type Tab = 'active' | 'backlog' | 'all'
-
-// Linear's quick-filter presets — a compact row that composes on top of the
-// chip filters. Each tests a single issue (against the current user / its
-// state type); only one can be active at a time.
-type Preset = 'assignedToMe' | 'createdByMe' | 'notStarted' | 'completed'
-
-const PRESETS: { id: Preset; label: string }[] = [
-  { id: 'assignedToMe', label: 'Assigned to me' },
-  { id: 'createdByMe', label: 'Created by me' },
-  { id: 'notStarted', label: 'Not started' },
-  { id: 'completed', label: 'Completed' },
-]
 
 export function IssuesView() {
   const { teamKey } = useParams()
@@ -40,10 +29,8 @@ export function IssuesView() {
   const [nestedSubIssues, setNestedSubIssues] = useState(false)
   const [showEmptyGroups, setShowEmptyGroups] = useState(false)
   const [filters, setFilters] = useState(emptyFilters())
-  const [preset, setPreset] = useState<Preset | null>(null)
 
   const team = data.teams.find((t) => t.key === teamKey) ?? data.teams[0]
-  const me = data.currentUserId
 
   // Nesting only makes sense in the list view with sub-issues shown.
   const nested = layout === 'list' && showSubIssues && nestedSubIssues
@@ -62,19 +49,8 @@ export function IssuesView() {
     if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
 
     let filtered = filterIssues(scoped, filters)
-    // Quick-filter preset composes on top of the chip filters.
-    if (preset === 'assignedToMe') filtered = filtered.filter((i) => i.assigneeId === me)
-    else if (preset === 'createdByMe') filtered = filtered.filter((i) => i.creatorId === me)
-    else if (preset === 'notStarted')
-      filtered = filtered.filter((i) => {
-        const t = statesByType.get(i.stateId)
-        return t === 'backlog' || t === 'unstarted'
-      })
-    else if (preset === 'completed')
-      filtered = filtered.filter((i) => statesByType.get(i.stateId) === 'completed')
-    // "Show completed issues" display option — hide completed/canceled unless the
-    // user is explicitly viewing the Completed preset.
-    if (data.hideCompleted && preset !== 'completed')
+    // "Show completed issues" display option — hide completed/canceled issues.
+    if (data.hideCompleted)
       filtered = filtered.filter((i) => {
         const t = statesByType.get(i.stateId)
         return t !== 'completed' && t !== 'canceled'
@@ -140,8 +116,6 @@ export function IssuesView() {
     orderCompletedByRecency,
     layout,
     filters,
-    preset,
-    me,
     showSubIssues,
     nested,
     showEmptyGroups,
@@ -216,28 +190,8 @@ export function IssuesView() {
 
       <FilterBar filters={filters} onChange={setFilters} />
 
-      {/* Quick-filter presets — clicking the active pill clears it. */}
-      <div className="flex items-center gap-1.5 border-b border-border px-4 py-1.5">
-        {PRESETS.map((p) => {
-          const on = preset === p.id
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setPreset((cur) => (cur === p.id ? null : p.id))}
-              className={cn(
-                'flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] transition-colors',
-                on
-                  ? 'border-border bg-secondary font-medium text-fg'
-                  : 'border-transparent text-muted hover:bg-bg-hover hover:text-fg',
-              )}
-            >
-              {p.label}
-              {on && <X size={12} className="text-faint" />}
-            </button>
-          )
-        })}
-      </div>
+      {/* Quick-filter pill bar — smart presets that toggle real FilterState. */}
+      <QuickFilterPills filters={filters} onChange={setFilters} />
 
       {layout === 'board' ? (
         <IssueBoard

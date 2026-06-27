@@ -4,8 +4,10 @@ import {
   ArrowDownUp,
   Check,
   ChevronDown,
+  ChevronRight,
   Clock,
   Copy,
+  Inbox,
   IterationCw,
   MoreHorizontal,
   MoveRight,
@@ -14,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { cycleState } from '@/lib/selectors'
+import { timeAgo } from '@/lib/utils'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CheckIllustration } from '@/components/EmptyState'
 import { StatusIcon } from '@/components/StatusIcon'
@@ -133,6 +136,24 @@ export function TriageView() {
     }
     return sorted
   }, [allQueue, priorityFilter, sort])
+
+  // ── Recently-accepted archive ──
+  // Accepting a triage issue clears its triage flag and stamps triageAcceptedAt
+  // (the moment it joined the workflow). We surface the most recent of those
+  // below the live queue so you can glance back at what just left triage —
+  // newest first, capped so the list stays a quick reference, not a log.
+  const recentlyAccepted = useMemo(
+    () =>
+      store.issues
+        .filter((i) => i.teamId === team.id && !!i.triageAcceptedAt)
+        .sort((a, b) =>
+          (b.triageAcceptedAt ?? '').localeCompare(a.triageAcceptedAt ?? ''),
+        )
+        .slice(0, 15),
+    [store.issues, team.id],
+  )
+  // The archive section starts collapsed — it's a reference, not the focus.
+  const [archiveOpen, setArchiveOpen] = useState(false)
 
   // ── Keyboard-driven queue navigation (Linear's signature Triage workflow) ──
   // A single "active" card is highlighted; j/k (or arrows) move it, Enter opens
@@ -720,6 +741,61 @@ export function TriageView() {
                 <Kbd>↵</Kbd> open
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Recently-accepted archive — a collapsible reference list of issues
+            that recently left triage by being accepted into the workflow.
+            Newest first, capped; reuses StatusIcon / Avatar / timeAgo. */}
+        {recentlyAccepted.length > 0 && (
+          <div className="mx-auto mt-8 max-w-3xl">
+            <button
+              onClick={() => setArchiveOpen((o) => !o)}
+              className="flex w-full items-center gap-1.5 text-[12px] font-medium text-muted hover:text-fg"
+            >
+              <ChevronRight
+                size={14}
+                className={`shrink-0 text-faint transition-transform ${
+                  archiveOpen ? 'rotate-90' : ''
+                }`}
+              />
+              <Inbox size={13} className="shrink-0 text-faint" />
+              Recently accepted
+              <span className="tabular-nums text-faint">
+                {recentlyAccepted.length}
+              </span>
+            </button>
+            {archiveOpen && (
+              <div className="mt-2 overflow-hidden rounded-lg border border-border bg-bg-secondary">
+                {recentlyAccepted.map((issue) => {
+                  const state = store.states.find((s) => s.id === issue.stateId)
+                  const assignee = store.users.find(
+                    (u) => u.id === issue.assigneeId,
+                  )
+                  return (
+                    <button
+                      key={issue.id}
+                      onClick={() => store.setPeek(issue.id)}
+                      className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-bg-hover"
+                    >
+                      {state && (
+                        <StatusIcon type={state.type} color={state.color} />
+                      )}
+                      <span className="font-mono text-[11px] text-faint">
+                        {issue.identifier}
+                      </span>
+                      <span className="flex-1 truncate text-[13px] text-fg">
+                        {issue.title}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-faint">
+                        accepted {timeAgo(issue.triageAcceptedAt!)}
+                      </span>
+                      <Avatar user={assignee} size={16} />
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

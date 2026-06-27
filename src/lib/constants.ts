@@ -274,6 +274,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
     email: { enabled: true, events: { ...ALL_EVENTS_ON } },
     slack: { enabled: false, events: { ...ALL_EVENTS_ON } },
   },
+  rules: [],
   emailDigest: true,
   emailDelayLowPriority: true,
   emailUrgentImmediate: true,

@@ -58,6 +58,11 @@ import {
   CopyPlus,
   Trash2,
   BellOff,
+  Eye,
+  EyeOff,
+  Group,
+  ArrowUpDown,
+  Filter,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { Calendar } from './DatePicker'
@@ -69,6 +74,7 @@ import {
   PRIORITY_LABELS,
   PRIORITY_ORDER,
   STATUS_TYPE_ORDER,
+  DISPLAY_PROPERTIES,
   estimatePoints,
   estimateLabel,
   teamEstimationType,
@@ -76,8 +82,26 @@ import {
 import { cycleState } from '@/lib/selectors'
 import { branchName, cn, issueUrl, formatDate } from '@/lib/utils'
 import { copyToClipboard, copyToast } from '@/lib/toast'
-import type { Issue, Priority } from '@/lib/types'
+import type { DisplayProperty, GroupBy, Issue, OrderBy, Priority } from '@/lib/types'
 import type { ReactNode } from 'react'
+
+/** Display presets offered when viewing a saved view (mirrors DisplayMenu). */
+const GROUP_PRESETS: { id: GroupBy; label: string }[] = [
+  { id: 'status', label: 'Status' },
+  { id: 'assignee', label: 'Assignee' },
+  { id: 'priority', label: 'Priority' },
+  { id: 'project', label: 'Project' },
+  { id: 'label', label: 'Label' },
+  { id: 'cycle', label: 'Cycle' },
+  { id: 'none', label: 'No grouping' },
+]
+const ORDER_PRESETS: { id: OrderBy; label: string }[] = [
+  { id: 'priority', label: 'Priority' },
+  { id: 'updated', label: 'Last updated' },
+  { id: 'created', label: 'Last created' },
+  { id: 'title', label: 'Title' },
+  { id: 'manual', label: 'Manual' },
+]
 
 /** A sub-page the menu can drill into for the issue currently in context. */
 type Page =
@@ -99,6 +123,9 @@ type Page =
   | 'bulkStatus'
   | 'bulkPriority'
   | 'bulkAssignee'
+  /** Scope-filter drill-ins: pick a project / cycle, then list its issues. */
+  | 'scopeProject'
+  | 'scopeCycle'
 
 interface Command {
   id: string
@@ -134,6 +161,67 @@ const PAGE_PLACEHOLDER: Record<Page, string> = {
   bulkStatus: 'Set status…',
   bulkPriority: 'Set priority…',
   bulkAssignee: 'Assign to…',
+  scopeProject: 'Search issues in project…',
+  scopeCycle: 'Search issues in cycle…',
+}
+
+/**
+ * Linear's command-palette quick-filter tokens. Typing one (e.g. `is:assigned`)
+ * at the START of the query narrows the palette to the matching issues; typing a
+ * bare `is:` / `in:` surfaces this menu as a hint row. `in:project` / `in:cycle`
+ * drill into a picker first (handled separately via a sub-page).
+ */
+type ScopeId =
+  | 'is:assigned'
+  | 'is:mine'
+  | 'is:unassigned'
+  | 'is:active'
+  | 'is:backlog'
+  | 'in:project'
+  | 'in:cycle'
+
+const SCOPES: { id: ScopeId; label: string; hint: string }[] = [
+  { id: 'is:assigned', label: 'Assigned issues', hint: 'has an assignee' },
+  { id: 'is:mine', label: 'My issues', hint: 'assigned to me' },
+  { id: 'is:unassigned', label: 'Unassigned issues', hint: 'no assignee' },
+  { id: 'is:active', label: 'Active issues', hint: 'in progress' },
+  { id: 'is:backlog', label: 'Backlog issues', hint: 'in backlog' },
+  { id: 'in:project', label: 'Issues in project…', hint: 'pick a project' },
+  { id: 'in:cycle', label: 'Issues in cycle…', hint: 'pick a cycle' },
+]
+
+/**
+ * Split a leading scope token off the query. Returns the matched scope (if the
+ * first whitespace-delimited word is a known `is:`/`in:` token) plus the rest of
+ * the query (the free-text filter applied to the scoped issues). A bare `is:` /
+ * `in:` prefix (no value yet) is reported so the palette can show the hint menu.
+ */
+function parseScope(raw: string): {
+  scope?: ScopeId
+  rest: string
+  hintFor?: 'is' | 'in'
+} {
+  const q = raw.trimStart()
+  const lower = q.toLowerCase()
+  // Bare prefix → show the available-scope hint menu.
+  if (lower === 'is:' || lower === 'in:')
+    return { rest: '', hintFor: lower.slice(0, 2) as 'is' | 'in' }
+  const m = lower.match(/^(is|in):(\S*)/)
+  if (m) {
+    const token = `${m[1]}:${m[2]}` as ScopeId
+    const known = SCOPES.find((s) => s.id === token)
+    // `in:project` / `in:cycle` resolve to a picker (a sub-page), not a direct
+    // issue filter — surface the hint menu so the user drills in deliberately.
+    if (known && token !== 'in:project' && token !== 'in:cycle') {
+      const rest = q.slice(m[0].length).trimStart()
+      return { scope: token, rest }
+    }
+    // `is:`/`in:` typed but value still partial (or a picker token) — keep
+    // showing the hint menu.
+    if (m[2] === '' || token === 'in:project' || token === 'in:cycle')
+      return { rest: '', hintFor: m[1] as 'is' | 'in' }
+  }
+  return { rest: raw }
 }
 
 /**
@@ -144,8 +232,13 @@ const PAGE_PLACEHOLDER: Record<Page, string> = {
 function groupOf(id: string): string {
   if (id.startsWith('ctx-')) return 'Issue actions'
   if (id.startsWith('bulk-')) return 'Selection'
+  if (id.startsWith('scope-')) return 'Filter issues'
   if (id.startsWith('recent-')) return 'Recently viewed'
   if (id.startsWith('issue-')) return 'Issues'
+  if (id.startsWith('view-')) return 'Views'
+  if (id.startsWith('group-')) return 'Group by'
+  if (id.startsWith('order-')) return 'Order by'
+  if (id.startsWith('disp-')) return 'Display properties'
   if (id.startsWith('switch-team-')) return 'Teams'
   if (id.startsWith('theme-') || id.startsWith('toggle-')) return 'Preferences'
   if (id === 'go-settings' || id === 'help') return 'Settings'
@@ -268,6 +361,11 @@ export function CommandMenu() {
   const [dueCustom, setDueCustom] = useState(false)
   /** When the user dismisses the issue-context chip, fall back to global commands. */
   const [noCtx, setNoCtx] = useState(false)
+  /** A project / cycle chosen via `in:project` / `in:cycle` — scopes the issue
+   * list to that entity once picked (cleared when the menu resets). */
+  const [scopeEntity, setScopeEntity] = useState<
+    { kind: 'project' | 'cycle'; id: string } | undefined
+  >(undefined)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -278,6 +376,7 @@ export function CommandMenu() {
       setPage((useStore.getState().commandPage as Page) ?? null)
       setDueCustom(false)
       setNoCtx(false)
+      setScopeEntity(undefined)
     }
   }, [open])
 
@@ -285,7 +384,7 @@ export function CommandMenu() {
   // so the user can keep typing — matches Linear.
   useEffect(() => {
     if (open) inputRef.current?.focus()
-  }, [open, page, dueCustom])
+  }, [open, page, dueCustom, scopeEntity])
 
   // The issue currently being viewed — the peek panel takes precedence, else the
   // /issue/:identifier route. This is what ⌘K offers contextual actions for.
@@ -305,8 +404,77 @@ export function CommandMenu() {
 
   const me = store.users.find((u) => u.isMe)
 
+  // —— Command-palette scope filters (`is:assigned`, `in:project`, …) ——
+  // A leading token narrows the palette to matching issues; a bare `is:`/`in:`
+  // surfaces the available-scope hint menu. The `in:project`/`in:cycle` tokens
+  // drill into a picker sub-page first, then list that entity's issues.
+  const scopeInfo = useMemo(() => parseScope(query), [query])
+
+  // The saved view whose route we're on — its display config is mutable from the
+  // palette (Group by / Order by presets), matching Linear's scoping of display
+  // options to the active view.
+  const currentView = useMemo(() => {
+    const m = location.pathname.match(/^\/view\/([^/]+)/)
+    return m ? store.savedViews.find((v) => v.id === decodeURIComponent(m[1])) : undefined
+  }, [location.pathname, store.savedViews])
+
   const commands = useMemo<Command[]>(() => {
     const team = store.teams[0]
+
+    // Turn a set of issues into navigate-to-issue command rows.
+    const issueRow = (i: Issue, prefix: string): Command => {
+      const st = store.states.find((s) => s.id === i.stateId)!
+      return {
+        id: `${prefix}-${i.id}`,
+        label: i.title,
+        icon: <StatusIcon type={st.type} color={st.color} />,
+        hint: i.identifier,
+        keywords: `${i.identifier} ${i.title}`,
+        run: () => navigate(`/issue/${i.identifier}`),
+      }
+    }
+
+    const stateType = (stateId: string) =>
+      store.states.find((s) => s.id === stateId)?.type
+
+    // —— Scope sub-pages: pick a project / cycle, then (back at root) list that
+    // entity's issues. Selecting sets `scopeEntity` and pops back out of the page.
+    if (page === 'scopeProject') {
+      return store.projects.map((p) => ({
+        id: `sp-${p.id}`,
+        label: p.name,
+        icon: <span>{p.icon}</span>,
+        keywords: p.name,
+        keepOpen: true,
+        meta: `${store.issues.filter((i) => i.projectId === p.id && !i.archivedAt).length}`,
+        run: () => {
+          setScopeEntity({ kind: 'project', id: p.id })
+          setPage(null)
+          setQuery('')
+        },
+      }))
+    }
+    if (page === 'scopeCycle') {
+      return store.cycles
+        .slice()
+        .sort((a, b) => a.number - b.number)
+        .map((c) => {
+          const cycleTeam = store.teams.find((t) => t.id === c.teamId)
+          return {
+            id: `sc-${c.id}`,
+            label: c.name ?? `Cycle ${c.number}`,
+            icon: <IterationCw size={15} />,
+            hint: cycleTeam?.key,
+            keywords: `cycle ${c.number} ${c.name ?? ''}`,
+            keepOpen: true,
+            run: () => {
+              setScopeEntity({ kind: 'cycle', id: c.id })
+              setPage(null)
+              setQuery('')
+            },
+          }
+        })
+    }
 
     // —— Global sub-page: quick-create drill-in (no issue context needed) ——
     if (page === 'create') {
@@ -678,6 +846,92 @@ export function CommandMenu() {
         keepOpen: true,
         run: () => store.toggleIssueLabel(issue.id, l.id),
       }))
+    }
+
+    // —— `in:project` / `in:cycle` result list (after picking the entity) ——
+    // The free-text query narrows within the chosen project's / cycle's issues.
+    if (!page && scopeEntity) {
+      const text = query.toLowerCase().trim()
+      const inEntity = (i: Issue) =>
+        scopeEntity.kind === 'project'
+          ? i.projectId === scopeEntity.id
+          : i.cycleId === scopeEntity.id
+      return store.issues
+        .filter((i) => !i.archivedAt && inEntity(i))
+        .filter(
+          (i) =>
+            !text ||
+            i.title.toLowerCase().includes(text) ||
+            i.identifier.toLowerCase().includes(text),
+        )
+        .slice(0, 50)
+        .map((i) => issueRow(i, 'issue'))
+    }
+
+    // —— Scope filters (only at the root, no issue-context page) ——
+    // A bare `is:`/`in:` shows the available-scope hint rows…
+    if (!page && scopeInfo.hintFor) {
+      return SCOPES.filter((s) => s.id.startsWith(`${scopeInfo.hintFor}:`)).map(
+        (s) => ({
+          id: `scope-${s.id}`,
+          label: s.id,
+          icon: <Filter size={15} />,
+          meta: s.hint,
+          keywords: `${s.id} ${s.label} ${s.hint}`,
+          run: () => {
+            // Project / cycle scopes drill into a picker; the rest re-seed the
+            // query with the chosen token so the scoped issues render.
+            if (s.id === 'in:project') {
+              setPage('scopeProject')
+              setQuery('')
+            } else if (s.id === 'in:cycle') {
+              setPage('scopeCycle')
+              setQuery('')
+            } else {
+              setQuery(`${s.id} `)
+            }
+          },
+          keepOpen: true,
+        }),
+      )
+    }
+
+    // …and a fully-typed `is:` token narrows the palette to matching issues,
+    // with the trailing text (`scopeInfo.rest`) applied as a free-text filter.
+    // (`in:project` / `in:cycle` need a picker — handled via their sub-pages.)
+    if (
+      !page &&
+      scopeInfo.scope &&
+      scopeInfo.scope !== 'in:project' &&
+      scopeInfo.scope !== 'in:cycle'
+    ) {
+      const sc = scopeInfo.scope
+      const text = scopeInfo.rest.toLowerCase()
+      const matches = (i: Issue): boolean => {
+        if (i.archivedAt) return false
+        if (sc === 'is:assigned' && !i.assigneeId) return false
+        if (sc === 'is:mine' && i.assigneeId !== store.currentUserId) return false
+        if (sc === 'is:unassigned' && i.assigneeId) return false
+        if (sc === 'is:active') {
+          const t = stateType(i.stateId)
+          if (t !== 'started' && t !== 'unstarted') return false
+        }
+        if (sc === 'is:backlog' && stateType(i.stateId) !== 'backlog') return false
+        return true
+      }
+      const scoped = store.issues
+        .filter(matches)
+        .filter(
+          (i) =>
+            !text ||
+            i.title.toLowerCase().includes(text) ||
+            i.identifier.toLowerCase().includes(text),
+        )
+        .slice(0, 50)
+        .map((i) => issueRow(i, 'issue'))
+      // Keep the scope chip itself visible as a non-actionable header-like row by
+      // returning just the issues — the input still shows the typed token.
+      return scoped
     }
 
     // —— Root page ——
@@ -1259,30 +1513,105 @@ export function CommandMenu() {
       })),
     ]
 
+    // —— Saved views: open one straight from the palette (Linear's "Open view"). —
+    const viewCommands: Command[] = store.savedViews.map((v) => ({
+      id: `view-${v.id}`,
+      label: `Open view: ${v.name}`,
+      icon: <span className="text-[13px]">{v.icon}</span>,
+      keywords: `view saved ${v.name} preset`,
+      run: () => navigate(`/view/${v.id}`),
+    }))
+
+    // —— Display presets — Group by / Order by. These mutate display config, so
+    // they only make sense against a concrete target: the saved view currently
+    // open (mutated through updateView). Outside a saved view there's nothing to
+    // apply them to, so they're hidden (matches Linear scoping display to a view).
+    const displayCommands: Command[] = currentView
+      ? [
+          ...GROUP_PRESETS.map((g) => ({
+            id: `group-${g.id}`,
+            label: `Group by ${g.label.toLowerCase()}`,
+            icon: <Group size={15} />,
+            keywords: `group by ${g.label} display`,
+            selected: currentView.groupBy === g.id,
+            keepOpen: true,
+            run: () => store.updateView(currentView.id, { groupBy: g.id }),
+          })),
+          ...ORDER_PRESETS.map((o) => ({
+            id: `order-${o.id}`,
+            label: `Order by ${o.label.toLowerCase()}`,
+            icon: <ArrowUpDown size={15} />,
+            keywords: `order by sort ${o.label} display`,
+            selected: currentView.orderBy === o.id,
+            keepOpen: true,
+            run: () => store.updateView(currentView.id, { orderBy: o.id }),
+          })),
+        ]
+      : []
+
+    // —— Toggle issue-row display property visibility (global, persisted). The
+    // check marks the currently-visible ones; running flips it via the existing
+    // toggleDisplayProperty action and keeps the menu open for rapid toggling.
+    const displayPropCommands: Command[] = DISPLAY_PROPERTIES.map((p) => {
+      const on = store.displayProperties[p.id]
+      return {
+        id: `disp-${p.id}`,
+        label: `${on ? 'Hide' : 'Show'} ${p.label.toLowerCase()}`,
+        icon: on ? <Eye size={15} /> : <EyeOff size={15} />,
+        keywords: `display property column ${p.label} show hide toggle`,
+        selected: on,
+        keepOpen: true,
+        run: () => store.toggleDisplayProperty(p.id as DisplayProperty),
+      }
+    })
+
     return [
       ...contextual,
       ...bulkCommands,
       ...recentCommands,
       ...base,
+      ...viewCommands,
+      ...displayCommands,
+      ...displayPropCommands,
       ...entityCommands,
       ...issueCommands,
     ]
-  }, [store, navigate, fmt, page, currentIssue, me, query])
+  }, [
+    store,
+    navigate,
+    fmt,
+    page,
+    currentIssue,
+    currentView,
+    scopeInfo,
+    scopeEntity,
+    me,
+    query,
+  ])
 
   const filtered = useMemo(() => {
     // The due-date page bakes the query into its own suggestions — show as-is.
     if (page === 'dueDate') return commands
+    // A scope token (`is:…`/`in:…`) or a picked project/cycle already produced
+    // the exact result set (query applied inline) — skip fuzzy re-scoring.
+    if (!page && (scopeInfo.scope || scopeInfo.hintFor || scopeEntity))
+      return commands
     if (!query) {
       // Inside a sub-page show every option; on the root, the landing state is
       // the "Recently viewed" rows followed by a short slice of root commands —
-      // the long entity-nav / per-issue lists only surface once you type.
+      // the long entity-nav / per-issue / view / display lists only surface once
+      // you type.
       if (page) return commands
       const recent = commands.filter((c) => c.id.startsWith('recent-'))
       const roots = commands.filter(
         (c) =>
           !c.id.startsWith('recent-') &&
           !c.id.startsWith('nav-') &&
-          !c.id.startsWith('issue-'),
+          !c.id.startsWith('issue-') &&
+          !c.id.startsWith('view-') &&
+          !c.id.startsWith('group-') &&
+          !c.id.startsWith('order-') &&
+          !c.id.startsWith('disp-'),
       )
       return [...recent, ...roots.slice(0, 8)]
     }
@@ -1300,7 +1629,7 @@ export function CommandMenu() {
       .sort((a, b) => b.score - a.score || a.i - b.i)
       .slice(0, 40)
       .map((x) => x.c)
-  }, [commands, query, page])
+  }, [commands, query, page, scopeInfo, scopeEntity])
 
   useEffect(() => {
     setActive(0)
@@ -1328,6 +1657,10 @@ export function CommandMenu() {
   function back() {
     if (dueCustom) {
       setDueCustom(false)
+    } else if (scopeEntity) {
+      // Pop the picked project/cycle scope back to the plain palette.
+      setScopeEntity(undefined)
+      setQuery('')
     } else if (page) {
       // A row property hotkey opens a focused picker — backing out of it closes
       // the menu rather than revealing the full command palette (matches Linear).
@@ -1344,7 +1677,21 @@ export function CommandMenu() {
     }
   }
 
-  const placeholder = page ? PAGE_PLACEHOLDER[page] : 'Type a command or search…'
+  // Name the active project/cycle scope so the chip + placeholder reflect it.
+  const scopeEntityName = scopeEntity
+    ? scopeEntity.kind === 'project'
+      ? store.projects.find((p) => p.id === scopeEntity.id)?.name
+      : (() => {
+          const c = store.cycles.find((cy) => cy.id === scopeEntity.id)
+          return c ? (c.name ?? `Cycle ${c.number}`) : undefined
+        })()
+    : undefined
+
+  const placeholder = page
+    ? PAGE_PLACEHOLDER[page]
+    : scopeEntity
+      ? `Search issues in ${scopeEntityName ?? scopeEntity.kind}…`
+      : 'Type a command or search…'
 
   return createPortal(
     <div
@@ -1378,7 +1725,11 @@ export function CommandMenu() {
           } else if (e.key === 'Enter') {
             e.preventDefault()
             if (filtered[active]) exec(filtered[active])
-          } else if (e.key === 'Backspace' && query === '' && (page || currentIssue)) {
+          } else if (
+            e.key === 'Backspace' &&
+            query === '' &&
+            (page || scopeEntity || currentIssue)
+          ) {
             e.preventDefault()
             back()
           }
@@ -1395,6 +1746,22 @@ export function CommandMenu() {
                 onClick={back}
                 className="flex h-4 w-4 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
                 aria-label="Remove issue context"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          )}
+          {scopeEntity && (
+            <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-bg-hover py-1 pl-2 pr-1 text-[12px] text-fg">
+              <Filter size={11} className="text-faint" />
+              <span className="max-w-40 truncate text-muted">
+                {scopeEntityName ?? scopeEntity.kind}
+              </span>
+              <button
+                type="button"
+                onClick={back}
+                className="flex h-4 w-4 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
+                aria-label="Remove scope filter"
               >
                 <X size={12} />
               </button>

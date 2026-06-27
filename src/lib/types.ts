@@ -359,6 +359,8 @@ export interface Issue {
   canceledAt?: string
   /** Awaiting triage (incoming, not yet accepted into the workflow). */
   triage?: boolean
+  /** Set when the issue was accepted out of triage (ISO). Optional. */
+  triageAcceptedAt?: string
   /** Archived out of the active workspace (hidden from lists). Optional. */
   archivedAt?: string
   /** Personal reminder time (ISO). Surfaces the issue back in Reminders. Optional. */
@@ -622,8 +624,23 @@ export interface ChannelSettings {
   events: Record<NotificationEvent, boolean>
 }
 
+/** An advanced if-then notification rule (Settings → Notifications → Rules).
+ *  Configuration-only: persisted intent, no live evaluation engine. */
+export interface NotificationRule {
+  id: string
+  enabled: boolean
+  /** What attribute of an issue the rule matches on. */
+  condition: 'priority' | 'label' | 'assignee' | 'project'
+  /** The matched value — a priority number (as string), or a label/user/project id. */
+  value: string
+  /** What to do when an issue matches. */
+  action: 'notify' | 'mute'
+}
+
 export interface NotificationSettings {
   channels: Record<NotificationChannel, ChannelSettings>
+  /** Advanced user-defined if-then notification rules. */
+  rules: NotificationRule[]
   /** Email-only: group emails into a digest vs. send individually. */
   emailDigest: boolean
   /** Email-only digest behaviours. */
