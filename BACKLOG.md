@@ -433,3 +433,50 @@ _Wave 4 (search · docs · customers · feeds · insights):_
 - [x] 🟡 **Issues/comments/editor** — pin/unpin comments (pinned float up), Quote reply, checklist progress chip, editor selection formatting toolbar, Referenced-by backlinks, Status-history timeline, description Table of contents, Mute issue notifications.
 - [x] 🟡 **List/teams/customers** — "Show completed issues" display toggle (all list views), Join/Leave team, merge customers, Workload-by-assignee, subscribe to a project, ARR-by-tier breakdown, project Health trend, long-comment Show more/less.
 - [x] 🟢 **Misc parity** — relative due-date chip, sort projects by Priority, Copy issue title. (Document word-count meta was built then removed — duplicated an existing stats block.)
+
+### Loop #98 — Discovered + shipped (25 features, 5 waves)
+
+Empirical replenishment: 8 Explore finders + 8 adversarial verifiers produced 57
+grep-confirmed missing features; 25 built this run, 33 remain (below).
+
+- [x] 🟡 **Issue detail** — Pin issue to sidebar (`pinnedIssueIds`), Apply template to existing issue, Resolve-all comment threads, Sub-issue blocked-by indicator, "· edited" hint (`Issue.lastEditedAt`).
+- [x] 🟡 **List/board** — Group-by-Creator, Creator display property, Subscriber-count badge, Per-group completion %.
+- [x] 🟡 **Projects/cycles** — Archive/restore project & initiative, Project Key Results, Cycle goal, Previous-cycle comparison metrics.
+- [x] 🟡 **Search/teams/members** — Member detail page (`/member/:userId`), Member status badge, Team velocity chart, Member contribution heatmap, Insights utilization widget, Search results j/k navigation.
+- [x] 🟡 **Settings/customers/docs** — Keyboard-shortcuts settings page, Email-signature setting, Release progress breakdown, Find-in-document widget, Customer company size.
+
+### Loop #98 — Discovered, not yet built (33 verified-missing candidates)
+
+- [ ] 🟢 **Description edit history with rollback** — version history panel from the description editor.
+- [ ] 🟢 **Inline issue preview on hover/mention** — quick preview card on issue mention links in comments.
+- [ ] 🟢 **Due-date reminders with configurable lead time** — remind X days before due (1/3/7).
+- [ ] 🟢 **Quick-filter sidebar issues by assignee/status** — Mine / Assigned-to-me / Started chips on the sidebar All-Issues group.
+- [ ] 🟢 **Cycle start-date filter in FilterBar** — filter issues by their cycle's start-date range.
+- [ ] 🟢 **Milestone start-date filter + display toggle**.
+- [ ] 🟢 **Quick-filter pill bar** — smart preset pills below the FilterBar.
+- [ ] 🟢 **Quick project status/health edit from the projects list** (inline, no detail open).
+- [ ] 🟢 **Project dependency warnings on cards** — highlight blocked-by projects.
+- [ ] 🟢 **Cycle retrospective / summary** — read-only end-of-cycle stats card.
+- [ ] 🟢 **Cycle pause / soft-delete** (`pausedAt`).
+- [ ] 🟢 **Inbox quick bulk assign** — floating action bar when notifications are checked.
+- [ ] 🟢 **Triage hotkey speedrun mode** — hold-key auto-accept/decline.
+- [ ] 🟢 **Cycle issue carry-over history** — mark issues carried from the previous cycle.
+- [ ] 🟢 **Triage accepted-issues archive** — recently-accepted triage list.
+- [ ] 🟢 **Convert issue → sub-issue (command menu)**.
+- [ ] 🟢 **Remove parent / unlink sub-issue (command menu)**.
+- [ ] 🟢 **Quick bulk status/priority update for selection (command menu)**.
+- [ ] 🟢 **Command-palette scope filters** (`is:assigned`, `in:project`…).
+- [ ] 🟢 **View filter/sort presets in command menu**.
+- [ ] 🟢 **Quick-assign to a team member via command menu**.
+- [ ] 🟢 **Toggle column visibility via command menu**.
+- [ ] 🟢 **Release public share link** (`shareToken`/`public`).
+- [ ] 🟢 **Release linked-issues sync drawer**.
+- [ ] 🟢 **Member assigned-work breakdown modal** (by priority/status).
+- [ ] 🟢 **Profile username + bio + timezone display**.
+- [ ] 🟢 **Team overview settings sidebar** (icon/name/key/members).
+- [ ] 🟢 **Sidebar customization** (toggle/reorder sections).
+- [ ] 🟢 **Saved-views management settings page**.
+- [ ] 🟢 **Workspace shortcuts** (admin quick links in the sidebar).
+- [ ] 🟢 **Workspace accent color** (brand color override + CSS var injection).
+- [ ] 🟢 **Notification rules (advanced if-then)**.
+- [ ] 🟢 **Member role permissions matrix** (admin/member/guest capabilities).

@@ -2,6 +2,77 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-27 — Loop #98: 25 features (5 waves) + 3 bug fixes + Members-area polish
+
+The backlog was fully checked off, so this run **replenished empirically**: a
+Workflow fan-out of 8 per-surface Explore finders → 8 separate adversarial
+verifiers produced **57 grep-confirmed missing features**, each with an exact
+new-file + mount point. 25 were built across 5 sequential waves. Every wave: the
+main agent owns ALL shared files (store/types/constants/selectors/routes/menus)
+and ALL mounting; per-feature builder agents each write ONE new component in
+isolation (no write collisions). Each wave verified (`tsc -b` + `npm run build`)
+and committed before the next. Browser pass via Preview MCP (console clean, no
+"Maximum update depth"; screenshots of issues list, cycles, members, member
+detail in light+dark).
+
+_Wave 1 — issue detail (5):_ **Pin issue to sidebar** (`pinnedIssueIds` +
+`toggleIssuePinned` + a "Pinned" sidebar section, `IssuePinButton`) · **Apply
+template to an existing issue** (⋯ → Apply template, reuses the per-property
+setters, `ApplyTemplateMenu`) · **Resolve-all comment threads**
+(`bulkResolveComments`, `BulkCommentActions`) · **Sub-issue blocked-by
+indicator** (`SubIssueBlockedIndicator`) · **"· edited" hint** on the metadata
+footer (`Issue.lastEditedAt`, set by the title/description setters).
+
+_Wave 2 — list / board (4):_ **Group-by-Creator** (`GroupBy 'creator'` + selector
+group + DisplayMenu group/subgroup + avatar glyphs) · **Creator display property**
+(`'creator'` DisplayProperty toggle, avatar in rows + cards, `CreatorDisplay`) ·
+**Subscriber-count badge** (`SubscriberBadge`, >1 subscriber, names tooltip) ·
+**Per-group completion %** (`GroupCompletionBadge`, donut + pct in list group
+headers and the board `CountChip`).
+
+_Wave 3 — projects / cycles (5):_ **Archive/restore project** (`Project.archivedAt`,
+hidden from list, `ProjectArchiveButton`) · **Archive/restore initiative**
+(`Initiative.archivedAt`, `InitiativeArchiveButton`) · **Project Key Results**
+(`ProjectKeyResult` + `keyResults` CRUD + `ProjectKeyResults` with progress bars +
+inline edit) · **Cycle goal** (`Cycle.goal` + `setCycleGoal`, `CycleGoals` inline
+editor) · **Previous-cycle comparison metrics** (`CycleDeltaMetrics`).
+
+_Wave 4 — search / teams / members (6):_ **Member detail page**
+(`/member/:userId` `MemberDetailView`: header, Assigned/Created/Completed stats,
+contribution heatmap, assigned-issues grouped by state) · **Member status badge**
+(`MemberStatusBadge`) · **Team velocity chart** (`TeamVelocityChart`) · **Member
+contribution heatmap** (`MemberContributionHeatmap`) · **Insights utilization
+widget** (`UtilizationChart`) · **Search results j/k navigation** (window keydown
+with overlay+typing guards, Enter/o open, Esc clear).
+
+_Wave 5 — settings / customers / docs (5):_ **Keyboard-shortcuts settings page**
+(`KeyboardShortcutsSettings`, read-only reference mirroring HelpOverlay) ·
+**Email-signature settings** (`User.emailSignature`, `EmailSignatureSettings`) ·
+**Release progress breakdown** (`ReleaseBurndownChart`, done/total segmented bar +
+date-elapsed fallback, per-release expand toggle) · **Find-in-document widget**
+(`DocumentSearchHighlight`, match counter + ↑↓ stepper + context snippet) ·
+**Customer company size** (`Customer.size`, `CustomerCompanySize` PropRow).
+
+_Phase 2 — bug hunt (3 CONFIRMED, all in this run's code; find→adversarial-verify
+Workflow):_ (1) group-by-Creator board drops silently no-op'd (creator is
+immutable) → `boardColumnGroupBy` now falls `'creator'`→`'status'`. (2)
+`SubscriberBadge` showed the raw subscriber-id count but its tooltip listed only
+resolved users → resolve first, gate/display on `names.length`. (3)
+`ProjectKeyResults` "Add" stayed enabled for a non-numeric target (`NaN<=0` is
+false) → disabled now also checks `Number.isFinite`. _(0 refuted — the verifier
+returned exactly the 3 finders surfaced.)_
+
+_Phase 3 — polish (Members):_ `MemberStatusBadge` was duplicating the row's
+existing role pill; narrowed it to surface ONLY the new account state
+(Suspended / Invited), null for active members. Member rows now navigate to the
+detail page with a hover-underline affordance. Verified in light + dark.
+
+`tsc -b ✅ · build ✅ · console clean` (no infinite-loop). Browser MCP available;
+UI visually checked. **Next:** top remaining items in the Loop #98 "Discovered"
+candidate pool (e.g. inline issue-mention preview cards, cycle retrospective,
+triage speedrun mode, workspace accent color) — see the 57-candidate audit; 32
+remain unbuilt.
+
 ## 2026-06-27 — Loop #97: 27 net features (4 waves) + 7 bug fixes + Cycles-cluster both-theme polish
 
 The backlog was effectively exhausted, so this run **replenished the queue
