@@ -45,6 +45,17 @@ function thisEvening(): Date {
   return evening.getTime() <= Date.now() ? atTime(1, 18) : evening
 }
 
+/**
+ * `dueDate` minus `leadDays`, pinned to 09:00 local on that day — the moment
+ * we'd nudge you "N days before this is due". Returns a fresh Date.
+ */
+function beforeDue(dueIso: string, leadDays: number): Date {
+  const d = new Date(dueIso)
+  d.setDate(d.getDate() - leadDays)
+  d.setHours(9, 0, 0, 0)
+  return d
+}
+
 const triggerCls =
   'flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] text-fg hover:bg-bg-hover'
 
@@ -63,6 +74,15 @@ export function IssueReminders({ issue }: { issue: Issue }) {
     { label: 'This evening', at: thisEvening() },
     { label: 'Tomorrow', at: atTime(1, 9) },
     { label: 'Next week', at: nextMonday() },
+  ]
+
+  // Due-date-relative presets — only meaningful when the issue has a due date.
+  // Each computes remindAt = dueDate − N days (at 09:00) and reuses the same
+  // setIssueReminder action, so the resolved date shows up like any reminder.
+  const leadOptions: { label: string; days: number }[] = [
+    { label: '1 day before due', days: 1 },
+    { label: '3 days before due', days: 3 },
+    { label: '7 days before due', days: 7 },
   ]
 
   return (
@@ -105,6 +125,31 @@ export function IssueReminders({ issue }: { issue: Issue }) {
               </span>
             </button>
           ))}
+          {issue.dueDate && (
+            <>
+              <div className="my-1 border-t border-border" />
+              <div className="px-2 pb-0.5 pt-1 text-[11px] font-medium text-faint">
+                Before due date · {formatDate(issue.dueDate)}
+              </div>
+              {leadOptions.map((o) => {
+                const at = beforeDue(issue.dueDate!, o.days)
+                return (
+                  <button
+                    key={o.days}
+                    type="button"
+                    onClick={() => {
+                      setIssueReminder(issue.id, at.toISOString())
+                      close()
+                    }}
+                    className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                  >
+                    <span>{o.label}</span>
+                    <span className="text-[12px] text-faint">{formatDate(at.toISOString())}</span>
+                  </button>
+                )
+              })}
+            </>
+          )}
           {issue.remindAt && (
             <>
               <div className="my-1 border-t border-border" />

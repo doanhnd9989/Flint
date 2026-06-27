@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Lock, Globe, Check } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { TeamJoinButton } from '@/components/TeamJoinButton'
@@ -8,9 +9,12 @@ import { EmptyState, IssuesIllustration } from '@/components/EmptyState'
 import { Avatar } from '@/components/Avatar'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
+import { EmojiPicker } from '@/components/EmojiPicker'
+import { Popover } from '@/components/ui/Popover'
+import { SelectMenu } from '@/components/ui/SelectMenu'
 import { cycleProgress, cycleState, projectProgress } from '@/lib/selectors'
-import { PRIORITY_ORDER, PRIORITY_LABELS } from '@/lib/constants'
-import type { Issue, Priority, UserRole, WorkflowState } from '@/lib/types'
+import { PRIORITY_ORDER, PRIORITY_LABELS, LABEL_COLORS, TIMEZONES } from '@/lib/constants'
+import type { Issue, Priority, Team, UserRole, WorkflowState } from '@/lib/types'
 
 /** Capitalised role chip (Admin / Member / Guest) — mirrors MembersDirectory. */
 function RoleChip({ role }: { role: UserRole }) {
@@ -58,6 +62,215 @@ function Stat({ label, value, hint }: { label: string; value: string | number; h
       <div className="mt-1 text-[22px] font-semibold tracking-tight text-fg tabular-nums">{value}</div>
       {hint && <div className="mt-0.5 text-[11px] text-muted">{hint}</div>}
     </div>
+  )
+}
+
+/** A labelled row in the details panel: a faint caption above a value. */
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-faint">{label}</div>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Team details properties panel — Linear's at-a-glance team sidebar on the
+ * overview page. Surfaces the team's identity (icon / name / key) and core
+ * settings (privacy, timezone, members) with inline editing wired through the
+ * existing `updateTeam` action. Icon, color and name are editable here; the
+ * team key stays read-only (Linear treats it as immutable identity).
+ */
+function TeamDetailsPanel({ team }: { team: Team }) {
+  const navigate = useNavigate()
+  const data = useStore()
+  const display = useDisplayName()
+
+  // Inline name editing — buffer the draft so we only commit on blur/Enter.
+  const [editingName, setEditingName] = useState(false)
+  const [draftName, setDraftName] = useState(team.name)
+  const nameRef = useRef<HTMLInputElement>(null)
+
+  const members = useMemo(
+    () =>
+      team.memberIds
+        .map((id) => data.users.find((u) => u.id === id))
+        .filter((u): u is NonNullable<typeof u> => !!u),
+    [team.memberIds, data.users],
+  )
+
+  function commitName() {
+    const next = draftName.trim()
+    if (next && next !== team.name) data.updateTeam(team.id, { name: next })
+    else setDraftName(team.name)
+    setEditingName(false)
+  }
+
+  const tzLabel = team.timezone
+    ? (TIMEZONES.find((t) => t.value === team.timezone)?.label ?? team.timezone)
+    : 'Local time'
+
+  // Up to 6 stacked member avatars, with a "+N" overflow chip.
+  const shown = members.slice(0, 6)
+  const overflow = members.length - shown.length
+
+  return (
+    <aside className="rounded-xl border border-border bg-bg p-5">
+      <h2 className="mb-4 text-[13px] font-semibold text-fg">Team details</h2>
+
+      {/* Identity — editable icon (emoji + color) and name, read-only key */}
+      <div className="flex items-center gap-3">
+        <Popover
+          width={240}
+          trigger={
+            <span
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-[20px] leading-none hover:bg-bg-hover"
+              style={{ backgroundColor: team.color + '22' }}
+              title="Change icon"
+            >
+              {team.icon}
+            </span>
+          }
+        >
+          {(close) => (
+            <div>
+              {/* Color swatches drive the icon backdrop, matching Linear */}
+              <div className="mb-1 grid grid-cols-6 gap-1 px-1 pt-1">
+                {LABEL_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => data.updateTeam(team.id, { color: c })}
+                    className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-bg-hover"
+                    title="Set color"
+                  >
+                    <span className="h-4 w-4 rounded-full" style={{ backgroundColor: c }}>
+                      {team.color === c && (
+                        <Check size={12} className="m-0.5 text-white" strokeWidth={3} />
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <EmojiPicker
+                onPick={(emoji) => {
+                  data.updateTeam(team.id, { icon: emoji })
+                  close()
+                }}
+              />
+            </div>
+          )}
+        </Popover>
+
+        <div className="min-w-0 flex-1">
+          {editingName ? (
+            <input
+              ref={nameRef}
+              autoFocus
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitName()
+                else if (e.key === 'Escape') {
+                  setDraftName(team.name)
+                  setEditingName(false)
+                }
+              }}
+              className="w-full rounded-md border border-accent bg-bg px-1.5 py-0.5 text-[15px] font-semibold text-fg outline-none"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setDraftName(team.name)
+                setEditingName(true)
+              }}
+              className="-mx-1.5 block w-full truncate rounded-md px-1.5 py-0.5 text-left text-[15px] font-semibold text-fg hover:bg-bg-hover"
+              title="Rename team"
+            >
+              {team.name}
+            </button>
+          )}
+          <div className="mt-0.5 px-1.5 text-[12px] tabular-nums text-faint">{team.key}</div>
+        </div>
+      </div>
+
+      {/* Properties */}
+      <div className="mt-5 space-y-4">
+        <DetailRow label="Privacy">
+          <SelectMenu
+            width={220}
+            align="start"
+            options={[
+              { id: 'public', label: 'Public', selected: !team.private },
+              { id: 'private', label: 'Private', selected: !!team.private },
+            ]}
+            onSelect={(id) => data.updateTeam(team.id, { private: id === 'private' })}
+            trigger={
+              <span className="-mx-1.5 flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] text-fg hover:bg-bg-hover">
+                {team.private ? <Lock size={13} className="text-muted" /> : <Globe size={13} className="text-muted" />}
+                {team.private ? 'Private' : 'Public'}
+              </span>
+            }
+          />
+        </DetailRow>
+
+        <DetailRow label="Timezone">
+          <SelectMenu
+            width={240}
+            align="start"
+            options={TIMEZONES.map((tz) => ({
+              id: tz.value,
+              label: tz.label,
+              selected: team.timezone === tz.value,
+            }))}
+            onSelect={(id) => data.updateTeam(team.id, { timezone: id })}
+            trigger={
+              <span className="-mx-1.5 block truncate rounded-md px-1.5 py-1 text-left text-[13px] text-fg hover:bg-bg-hover">
+                {tzLabel}
+              </span>
+            }
+          />
+        </DetailRow>
+
+        <DetailRow label={`Members · ${members.length}`}>
+          {members.length === 0 ? (
+            <div className="text-[13px] text-muted">No members</div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => navigate('/members')}
+              className="flex items-center gap-2 rounded-md hover:opacity-90"
+              title="View all members"
+            >
+              <div className="flex items-center">
+                {shown.map((u, i) => (
+                  <span
+                    key={u.id}
+                    className="rounded-full ring-2 ring-bg"
+                    style={{ marginLeft: i === 0 ? 0 : -6, zIndex: shown.length - i }}
+                    title={display(u.name)}
+                  >
+                    <Avatar user={u} size={24} />
+                  </span>
+                ))}
+                {overflow > 0 && (
+                  <span
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-bg-tertiary text-[10px] font-medium text-muted ring-2 ring-bg"
+                    style={{ marginLeft: -6 }}
+                    title={`${overflow} more`}
+                  >
+                    +{overflow}
+                  </span>
+                )}
+              </div>
+            </button>
+          )}
+        </DetailRow>
+      </div>
+    </aside>
   )
 }
 
@@ -231,7 +444,13 @@ export function TeamOverviewView() {
       </ViewHeader>
 
       <div className="flex-1 overflow-y-auto bg-bg-secondary">
-        <div className="mx-auto max-w-5xl px-8 py-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-8 lg:flex-row">
+          {/* Team details sidebar — at-a-glance identity + settings */}
+          <div className="order-first lg:order-last lg:w-72 lg:shrink-0">
+            <TeamDetailsPanel team={team} />
+          </div>
+
+          <div className="min-w-0 flex-1">
           {/* Stat row */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Total issues" value={totals.total} hint={`${totals.rate}% completed`} />
@@ -508,6 +727,7 @@ export function TeamOverviewView() {
                 </div>
               )}
             </Card>
+          </div>
           </div>
         </div>
       </div>

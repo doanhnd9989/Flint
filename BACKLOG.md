@@ -447,9 +447,9 @@ grep-confirmed missing features; 25 built this run, 33 remain (below).
 
 ### Loop #98 — Discovered, not yet built (33 verified-missing candidates)
 
-- [ ] 🟢 **Description edit history with rollback** — version history panel from the description editor.
+- [x] 🟢 **Description edit history with rollback** — version history panel from the description editor.
 - [ ] 🟢 **Inline issue preview on hover/mention** — quick preview card on issue mention links in comments.
-- [ ] 🟢 **Due-date reminders with configurable lead time** — remind X days before due (1/3/7).
+- [x] 🟢 **Due-date reminders with configurable lead time** — remind X days before due (1/3/7).
 - [ ] 🟢 **Quick-filter sidebar issues by assignee/status** — Mine / Assigned-to-me / Started chips on the sidebar All-Issues group.
 - [ ] 🟢 **Cycle start-date filter in FilterBar** — filter issues by their cycle's start-date range.
 - [ ] 🟢 **Milestone start-date filter + display toggle**.
@@ -457,7 +457,7 @@ grep-confirmed missing features; 25 built this run, 33 remain (below).
 - [ ] 🟢 **Quick project status/health edit from the projects list** (inline, no detail open).
 - [x] 🟢 **Project dependency warnings on cards** — highlight blocked-by projects.
 - [x] 🟢 **Cycle retrospective / summary** — read-only end-of-cycle stats card.
-- [ ] 🟢 **Cycle pause / soft-delete** (`pausedAt`).
+- [x] 🟢 **Cycle pause / soft-delete** (`pausedAt`).
 - [x] 🟢 **Inbox quick bulk assign** — floating action bar when notifications are checked.
 - [x] 🟢 **Triage hotkey speedrun mode** — hold-key auto-accept/decline.
 - [ ] 🟢 **Cycle issue carry-over history** — mark issues carried from the previous cycle.
@@ -473,10 +473,10 @@ grep-confirmed missing features; 25 built this run, 33 remain (below).
 - [x] 🟢 **Release linked-issues sync drawer**.
 - [x] 🟢 **Member assigned-work breakdown modal** (by priority/status).
 - [x] 🟢 **Profile username + bio + timezone display**.
-- [ ] 🟢 **Team overview settings sidebar** (icon/name/key/members).
+- [x] 🟢 **Team overview settings sidebar** (icon/name/key/members).
 - [ ] 🟢 **Sidebar customization** (toggle/reorder sections).
-- [ ] 🟢 **Saved-views management settings page**.
+- [x] 🟢 **Saved-views management settings page**.
 - [ ] 🟢 **Workspace shortcuts** (admin quick links in the sidebar).
-- [ ] 🟢 **Workspace accent color** (brand color override + CSS var injection).
+- [x] 🟢 **Workspace accent color** (brand color override + CSS var injection).
 - [ ] 🟢 **Notification rules (advanced if-then)**.
-- [ ] 🟢 **Member role permissions matrix** (admin/member/guest capabilities).
+- [x] 🟢 **Member role permissions matrix** (admin/member/guest capabilities).

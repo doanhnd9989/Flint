@@ -34,6 +34,7 @@ export function usePreferenceEffect() {
   const pointerCursors = useStore((s) => s.preferences.pointerCursors)
   const reduceMotion = useStore((s) => s.preferences.reduceMotion)
   const underlineLinks = useStore((s) => s.preferences.underlineLinks)
+  const accentColor = useStore((s) => s.preferences.accentColor)
   useEffect(() => {
     const root = document.documentElement
     root.style.fontSize =
@@ -41,5 +42,23 @@ export function usePreferenceEffect() {
     root.classList.toggle('pointer-cursors', pointerCursors)
     root.classList.toggle('reduce-motion', !!reduceMotion)
     root.classList.toggle('underline-links', !!underlineLinks)
-  }, [fontSize, pointerCursors, reduceMotion, underlineLinks])
+    // Accent override: set --accent and derive the hover / subtle variants from
+    // it (color-mix) so every accented surface stays consistent. Removing the
+    // properties falls back to the themed tokens defined in index.css.
+    if (accentColor) {
+      root.style.setProperty('--accent', accentColor)
+      root.style.setProperty(
+        '--accent-hover',
+        `color-mix(in srgb, ${accentColor} 88%, black)`,
+      )
+      root.style.setProperty(
+        '--accent-subtle',
+        `color-mix(in srgb, ${accentColor} 14%, transparent)`,
+      )
+    } else {
+      root.style.removeProperty('--accent')
+      root.style.removeProperty('--accent-hover')
+      root.style.removeProperty('--accent-subtle')
+    }
+  }, [fontSize, pointerCursors, reduceMotion, underlineLinks, accentColor])
 }

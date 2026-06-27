@@ -35,6 +35,7 @@ import { SubIssueBlockedIndicator } from './SubIssueBlockedIndicator'
 import { IssueBlockedBanner } from './IssueBlockedBanner'
 import { IssueAgeChip } from './IssueAgeChip'
 import { IssueDescriptionMeta } from './IssueDescriptionMeta'
+import { IssueDescriptionHistory } from './IssueDescriptionHistory'
 import { SubIssueCreator } from './SubIssueCreator'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MentionInput } from './MentionInput'
@@ -249,7 +250,10 @@ export function IssueDetailBody({
             value={issue.description}
             onChange={(v) => store.setIssueDescription(issue.id, v)}
           />
-          <IssueDescriptionMeta issue={issue} />
+          <div className="mt-1 flex items-center gap-2">
+            <IssueDescriptionMeta issue={issue} />
+            <IssueDescriptionHistory issue={issue} />
+          </div>
           <div className="mt-2 flex items-center gap-2">
             <IssueDueChip issue={issue} />
             <IssueChecklistProgress issueId={issue.id} />

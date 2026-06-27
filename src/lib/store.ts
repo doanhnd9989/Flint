@@ -190,6 +190,7 @@ export interface Store extends WorkspaceData, UIState {
   setIssueDueDate: (id: string, dueDate?: string) => void
   setIssueTitle: (id: string, title: string) => void
   setIssueDescription: (id: string, description: string) => void
+  restoreIssueDescription: (id: string, index: number) => void
   moveIssue: (id: string, stateId: string, sortOrder: number) => void
   setIssueSortOrder: (id: string, sortOrder: number) => void
   acceptTriage: (id: string, stateId?: string) => void
@@ -270,6 +271,8 @@ export interface Store extends WorkspaceData, UIState {
   deleteInitiativeUpdate: (id: string) => void
   /** Set a cycle's free-text goal / objectives. */
   setCycleGoal: (cycleId: string, goal: string) => void
+  pauseCycle: (id: string) => void
+  resumeCycle: (id: string) => void
   /** Create the next cycle for a team (auto-numbered, 2-week window after the latest). */
   createCycle: (teamId: string, name?: string) => Cycle
   /** Move a cycle's unfinished (non-completed/canceled) issues into the team's next upcoming cycle (creating it if needed). Returns the moved count. */
@@ -876,16 +879,47 @@ export const useStore = create<Store>()(
           if (!issue || issue.description === description) return s
           const had = issue.description.trim().length > 0
           const ts = nowIso()
+          // Snapshot the outgoing body so it can be rolled back to later
+          // (newest first, capped — mirrors the DocumentVersion idiom).
+          const history = [
+            { body: issue.description, at: issue.lastEditedAt ?? issue.updatedAt, userId: s.currentUserId },
+            ...(issue.descriptionHistory ?? []),
+          ].slice(0, 30)
           return {
             issues: s.issues.map((i) =>
               i.id === id
-                ? { ...i, description, updatedAt: ts, lastEditedAt: ts }
+                ? { ...i, description, descriptionHistory: history, updatedAt: ts, lastEditedAt: ts }
                 : i,
             ),
             // Log "added" (from empty) vs "updated" the description.
             activities: [
               ...s.activities,
               logActivity(s, id, 'description', had ? 'edit' : undefined, 'set'),
+            ],
+          }
+        }),
+
+      restoreIssueDescription: (id, index) =>
+        set((s) => {
+          const issue = s.issues.find((i) => i.id === id)
+          if (!issue) return s
+          const target = (issue.descriptionHistory ?? [])[index]
+          if (!target) return s
+          const ts = nowIso()
+          // Snapshot the current body first so a restore is itself undoable.
+          const history = [
+            { body: issue.description, at: issue.lastEditedAt ?? issue.updatedAt, userId: s.currentUserId },
+            ...(issue.descriptionHistory ?? []),
+          ].slice(0, 30)
+          return {
+            issues: s.issues.map((i) =>
+              i.id === id
+                ? { ...i, description: target.body, descriptionHistory: history, updatedAt: ts, lastEditedAt: ts }
+                : i,
+            ),
+            activities: [
+              ...s.activities,
+              logActivity(s, id, 'description', 'edit', 'restore'),
             ],
           }
         }),
@@ -1497,6 +1531,20 @@ export const useStore = create<Store>()(
         set((s) => ({
           cycles: s.cycles.map((c) =>
             c.id === cycleId ? { ...c, goal: goal.trim() || undefined } : c,
+          ),
+        })),
+
+      pauseCycle: (id) =>
+        set((s) => ({
+          cycles: s.cycles.map((c) =>
+            c.id === id ? { ...c, pausedAt: nowIso() } : c,
+          ),
+        })),
+
+      resumeCycle: (id) =>
+        set((s) => ({
+          cycles: s.cycles.map((c) =>
+            c.id === id ? { ...c, pausedAt: undefined } : c,
           ),
         })),
 

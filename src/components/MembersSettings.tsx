@@ -4,6 +4,7 @@ import { useStoreShallow } from '@/lib/store'
 import type { UserRole } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { Avatar } from './Avatar'
+import { RolePermissionsSettings } from './RolePermissionsSettings'
 
 const ROLES: UserRole[] = ['admin', 'member', 'guest']
 
@@ -200,6 +201,15 @@ export function MembersSettings() {
           <UserPlus size={13} /> Invite
         </button>
       </div>
+
+      {/* Roles & permissions reference matrix */}
+      <section className="mt-6 border-t border-border pt-5">
+        <h2 className="text-[13px] font-semibold text-fg">Roles &amp; permissions</h2>
+        <p className="mb-3 mt-0.5 text-[12px] text-muted">
+          What each role can do across the workspace.
+        </p>
+        <RolePermissionsSettings />
+      </section>
     </div>
   )
 }

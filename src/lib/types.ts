@@ -271,6 +271,8 @@ export interface Cycle {
   endsAt: string
   /** Free-text goal / objectives for the cycle (Linear's cycle goal). Optional. */
   goal?: string
+  /** Set when the cycle is paused/soft-deleted; resumable by clearing it. Optional. */
+  pausedAt?: string
 }
 
 export interface Comment {
@@ -347,6 +349,8 @@ export interface Issue {
   updatedAt: string
   /** Last time the title or description was edited by a user (ISO). Optional. */
   lastEditedAt?: string
+  /** Prior description bodies for version history (newest first). Optional. */
+  descriptionHistory?: { body: string; at: string; userId: string }[]
   completedAt?: string
   canceledAt?: string
   /** Awaiting triage (incoming, not yet accepted into the workflow). */
@@ -677,4 +681,6 @@ export interface Preferences {
   spellCheck?: boolean
   /** Show issue counts next to sidebar items. Optional (defaults on). */
   showSidebarCounts?: boolean
+  /** Workspace accent color override (a hex string), or undefined for the default. */
+  accentColor?: string
 }

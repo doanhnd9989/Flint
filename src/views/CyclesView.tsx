@@ -20,6 +20,7 @@ import { CycleScopeChart } from '@/components/CycleScopeChart'
 import { CycleGoals } from '@/components/CycleGoals'
 import { CycleDeltaMetrics } from '@/components/CycleDeltaMetrics'
 import { CycleRetrospective } from '@/components/CycleRetrospective'
+import { CyclePauseButton } from '@/components/CyclePauseButton'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
 import { Avatar } from '@/components/Avatar'
@@ -370,6 +371,8 @@ export function CyclesView() {
           </button>
 
           <div className="ml-auto flex items-center gap-3 text-[12px]">
+            {/* Pause / resume (soft-delete) the cycle — shows a Paused badge. */}
+            <CyclePauseButton cycleId={current.id} />
             {/* Carry unfinished work into the next cycle + spin up a new cycle. */}
             <CycleCarryOver cycleId={current.id} />
             <CreateCycleButton teamId={team.id} />

@@ -41,6 +41,8 @@ import { FeaturePreviewSettings } from '@/components/FeaturePreviewSettings'
 import { NotificationScheduleSettings } from '@/components/NotificationScheduleSettings'
 import { KeyboardShortcutsSettings } from '@/components/KeyboardShortcutsSettings'
 import { EmailSignatureSettings } from '@/components/EmailSignatureSettings'
+import { AccentColorSettings } from '@/components/AccentColorSettings'
+import { SavedViewsSettings } from '@/components/SavedViewsSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
 import { ESTIMATION_TYPES, TIMEZONES } from '@/lib/constants'
@@ -106,8 +108,10 @@ const NAV: NavGroup[] = [
     header: 'Administration',
     items: [
       { id: 'workspace', label: 'Workspace' },
+      { id: 'accent-color', label: 'Accent color' },
       { id: 'features', label: 'Features' },
       { id: 'teams', label: 'Teams' },
+      { id: 'saved-views', label: 'Views' },
       { id: 'members', label: 'Members' },
       { id: 'import', label: 'Import' },
       { id: 'audit-log', label: 'Audit log' },
@@ -789,6 +793,10 @@ function SettingsContent({ page }: { page: string }) {
       )
     case 'workspace':
       return <WorkspacePage />
+    case 'accent-color':
+      return <AccentColorSettings />
+    case 'saved-views':
+      return <SavedViewsSettings />
     case 'teams':
       return (
         <Page title="Teams" description="Teams group issues, cycles and members.">
