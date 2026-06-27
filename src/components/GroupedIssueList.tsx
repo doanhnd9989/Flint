@@ -28,6 +28,7 @@ import type { IssueGroup } from '@/lib/selectors'
 import type { CreatePrefill, GroupBy, Issue, Priority } from '@/lib/types'
 import { useStore } from '@/lib/store'
 import { IssueRow } from './IssueRow'
+import { GroupCompletionBadge } from './GroupCompletionBadge'
 import { VirtualIssueList } from './VirtualIssueList'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
@@ -67,7 +68,7 @@ function GroupGlyph({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy })
   if (groupBy === 'priority') {
     return <PriorityIcon priority={Number(group.key) as 0 | 1 | 2 | 3 | 4} />
   }
-  if (groupBy === 'assignee') {
+  if (groupBy === 'assignee' || groupBy === 'creator') {
     const u = users.find((x) => x.id === group.key)
     return <Avatar user={u} size={16} />
   }
@@ -439,6 +440,7 @@ export function GroupedIssueList({
                 </span>
                 <span className="text-[12px] text-faint">{group.count}</span>
                 <EstimateBadge issues={group.issues} />
+                <GroupCompletionBadge issues={group.issues} states={states} />
               </button>
               <div className="flex-1" />
               <Popover

@@ -189,6 +189,7 @@ export const DISPLAY_PROPERTIES: { id: DisplayProperty; label: string }[] = [
   { id: 'timeInStatus', label: 'Time in status' },
   { id: 'created', label: 'Created' },
   { id: 'updated', label: 'Updated' },
+  { id: 'creator', label: 'Creator' },
 ]
 
 export const DEFAULT_DISPLAY_PROPERTIES: Record<DisplayProperty, boolean> = {
@@ -206,6 +207,7 @@ export const DEFAULT_DISPLAY_PROPERTIES: Record<DisplayProperty, boolean> = {
   timeInStatus: false,
   created: true,
   updated: false,
+  creator: false,
 }
 
 // ── Settings → Notifications ────────────────────────────────────────────────

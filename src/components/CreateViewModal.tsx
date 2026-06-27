@@ -16,6 +16,7 @@ const ICONS = ['🔭', '📋', '⭐', '🎯', '🗂️', '🔍', '📌', '🧭',
 const GROUP_LABEL: Record<GroupBy, string> = {
   status: 'Status',
   assignee: 'Assignee',
+  creator: 'Creator',
   priority: 'Priority',
   project: 'Project',
   label: 'Label',

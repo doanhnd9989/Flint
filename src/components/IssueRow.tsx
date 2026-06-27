@@ -10,6 +10,8 @@ import { LabelDot } from './LabelChip'
 import { StatusPicker, PriorityPicker, AssigneePicker } from './pickers'
 import { ProgressDonut } from './ProgressDonut'
 import { IssueRowActions } from './IssueRowActions'
+import { SubscriberBadge } from './SubscriberBadge'
+import { CreatorDisplay } from './CreatorDisplay'
 import { cn, formatDate, isDueSoon, isOverdue, timeAgo } from '@/lib/utils'
 
 // The last row whose checkbox was toggled (an issue identifier) — anchors
@@ -329,6 +331,7 @@ export function IssueRow({
             {commentCount}
           </span>
         )}
+        <SubscriberBadge issueId={issue.id} />
         {dp.timeInStatus && (
           <span
             className="flex items-center gap-0.5 text-[11px] text-faint"
@@ -348,6 +351,7 @@ export function IssueRow({
             {formatDate(issue.updatedAt)}
           </span>
         )}
+        <CreatorDisplay issueId={issue.id} />
         {dp.assignee && (
           <AssigneePicker
             assigneeId={issue.assigneeId}

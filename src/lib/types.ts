@@ -432,6 +432,7 @@ export type ViewLayout = 'list' | 'board'
 export type GroupBy =
   | 'status'
   | 'assignee'
+  | 'creator'
   | 'priority'
   | 'project'
   | 'label'
@@ -481,6 +482,7 @@ export type DisplayProperty =
   | 'timeInStatus'
   | 'created'
   | 'updated'
+  | 'creator'
 
 /** Which issue timestamp a date filter compares against. */
 export type DateField = 'due' | 'created' | 'updated' | 'completed'

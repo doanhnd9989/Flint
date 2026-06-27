@@ -19,6 +19,9 @@ import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
+import { SubscriberBadge } from './SubscriberBadge'
+import { CreatorDisplay } from './CreatorDisplay'
+import { GroupCompletionBadge } from './GroupCompletionBadge'
 import { cn, formatDate, isDueSoon, isOverdue } from '@/lib/utils'
 
 /**
@@ -90,16 +93,19 @@ function CountChip({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy }) 
     groupBy === 'status' && states.find((s) => s.id === group.stateId)?.type === 'started'
   const overWip = isStarted && group.count > WIP_SOFT_CAP
   return (
-    <span
-      title={overWip ? 'High work in progress' : undefined}
-      className={cn(
-        'text-[12px]',
-        overWip
-          ? 'rounded bg-accent-subtle px-1 font-medium text-accent'
-          : 'text-faint',
-      )}
-    >
-      {group.count}
+    <span className="flex items-center gap-1.5">
+      <span
+        title={overWip ? 'High work in progress' : undefined}
+        className={cn(
+          'text-[12px]',
+          overWip
+            ? 'rounded bg-accent-subtle px-1 font-medium text-accent'
+            : 'text-faint',
+        )}
+      >
+        {group.count}
+      </span>
+      <GroupCompletionBadge issues={group.issues} states={states} />
     </span>
   )
 }
@@ -175,7 +181,9 @@ function Card({ issue, dragging }: { issue: Issue; dragging?: boolean }) {
     (dp.cycle && !!cycle) ||
     (dp.milestone && !!milestone) ||
     (dp.estimate && estimationUsed && !!estimateText) ||
-    dp.assignee
+    dp.assignee ||
+    dp.creator ||
+    issue.subscriberIds.length > 1
   return (
     <div
       // A plain click peeks the issue in the right-side panel; a drag is
@@ -252,8 +260,12 @@ function Card({ issue, dragging }: { issue: Issue; dragging?: boolean }) {
                 <span className="max-w-24 truncate">{milestone.name}</span>
               </span>
             )}
+            <SubscriberBadge issueId={issue.id} />
           </div>
-          {dp.assignee && <Avatar user={assignee} size={18} />}
+          <div className="flex items-center gap-1">
+            <CreatorDisplay issueId={issue.id} />
+            {dp.assignee && <Avatar user={assignee} size={18} />}
+          </div>
         </div>
       )}
     </div>
@@ -416,7 +428,7 @@ function RowGlyph({ group, by }: { group: IssueGroup; by: GroupBy }) {
   }
   if (by === 'priority')
     return <PriorityIcon priority={Number(group.key) as 0 | 1 | 2 | 3 | 4} />
-  if (by === 'assignee') {
+  if (by === 'assignee' || by === 'creator') {
     const u = users.find((x) => x.id === group.key)
     return <Avatar user={u} size={16} />
   }

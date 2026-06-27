@@ -372,6 +372,19 @@ export function groupIssues(
     return groups.map((g) => ({ ...g, count: g.issues.length })).filter((g) => showEmptyGroups || g.count > 0)
   }
 
+  if (groupBy === 'creator') {
+    const groups: IssueGroup[] = data.users.map((u) => ({
+      key: u.id,
+      label: displayName(u.name, displayNamesMode),
+      color: u.avatarColor,
+      count: 0,
+      issues: issues.filter((i) => i.creatorId === u.id),
+    }))
+    return groups
+      .map((g) => ({ ...g, count: g.issues.length }))
+      .filter((g) => showEmptyGroups || g.count > 0)
+  }
+
   if (groupBy === 'priority') {
     const order: Priority[] = [1, 2, 3, 4, 0]
     return order
