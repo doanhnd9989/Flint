@@ -2,6 +2,83 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-06-27 — Loop #97: 27 net features (4 waves) + 7 bug fixes + Cycles-cluster both-theme polish
+
+The backlog was effectively exhausted, so this run **replenished the queue
+empirically**: rather than trust feature guesses (this clone is very mature — most
+"obvious" gaps already exist), every candidate was **grep-classified present/absent
+against the real source** before building, and 4 parallel Explore gap-audit agents
+seeded the candidate pool. Many proposals were filtered out as already-shipped
+(subscribers UI, git-branch copy, activity-feed filter, group estimate sums,
+duplicate-issue, recent searches, command theme-switch, collapse-all-groups,
+document outline, label issue counts, `toggleTeamMember`). Each wave was a parallel
+per-feature fan-out via the **Workflow tool** (one new file per builder; all shared
+store/types/seed deltas pre-added or integrated by the main agent as the single
+writer), then verified (`tsc -b` + `npm run build` + Preview MCP console/screenshot)
+and committed before the next wave.
+
+_Wave 1 — cycles, projects & views (8):_ manual **Create cycle** (`createCycle`
+store action + `CreateCycleButton`) · end-of-cycle **Carry over** unfinished issues
+(`carryOverCycle` + `CycleCarryOver`) · per-cycle **Scope** segmented chart +
+**Estimate distribution** panel · **project-update emoji reactions**
+(`ProjectUpdate.reactions` + `toggleProjectUpdateReaction` + `ProjectUpdateReactions`)
+· editable project **Brief/README** (`Project.readme` + `setProjectReadme` +
+`ProjectReadme`) · **Convert issue → project** (`convertIssueToProject`, wired into
+both ⋯ menus) · **Pin saved view to sidebar** (`SavedView.pinned` + `togglePinView`
++ `PinViewButton`, rendered in the Sidebar).
+
+_Wave 2 — issues, comments & editor (8):_ **pin/unpin comments**
+(`Comment.pinnedAt` + `togglePinComment`, pinned threads float up with a badge) ·
+comment **Quote reply** (`replyDraft` store seeds the thread composer) · **issue
+checklist progress** chip · editor **selection formatting toolbar** (floating
+B/I/S/code/link/H1-3 over a selection in MentionInput) · **Referenced-by backlinks**
+· condensed **Status history** timeline · description **Table of contents** ·
+**Mute issue notifications** (`mutedIssueIds` + `toggleMuteIssue`, filtered from the
+Inbox).
+
+_Wave 3 — list, teams & customers (8):_ **Show completed issues** display toggle
+(`hideCompleted` + `toggleHideCompleted`, honored across all list views) ·
+**Join/Leave team** button · **merge customers** (`mergeCustomers` +
+`CustomerMergeButton`) · **Workload by assignee** bar · **subscribe to a project**
+(`Project.subscriberIds` + `toggleProjectSubscriber` + `ProjectSubscribeButton`) ·
+**ARR-by-tier** breakdown · project **Health trend** · long-comment **Show
+more/less** collapse.
+
+_Wave 4 — misc parity (4, one later removed):_ relative **due-date chip**
+(`IssueDueChip`) · **sort projects by Priority** · **Copy issue title** · ~~document
+word-count meta~~ (removed in Phase 2 — duplicated an existing stats block).
+
+**Phase 2 — bug hunt (find → adversarial verify → fix):** a Workflow ran 4 parallel
+finders over the run diff (`56d2283..HEAD`); a **separate** adversarial verifier
+judged each of the 8 candidates → **7 CONFIRMED, 1 refuted.** Fixed: (1) **MED** —
+`IssueChecklistProgress` checked-item regex `\[xX\]` was a literal, never matched
+real `- [x]`/`- [X]` (done always 0; full checklists vanished) → `\[[xX]\]` class.
+(2) **MED** — the new "Show completed issues" toggle only worked in IssuesView →
+honored it in AllIssuesView/MyIssues/SavedViewScreen/LabelView (stat banners still
+count the full set). (3) **MED** — DocumentDetail rendered the word-count/reading-time
+block **twice** (my `DocumentWordCount` duplicated the existing stats) → removed the
+duplicate component + mount. (4) **LOW** — pinning a *reply* was a silent no-op with
+misleading "Unpin" feedback → Pin shows only on thread roots. (5) **LOW** —
+long-comment fade used `to-bg` over a `bg-bg-secondary` card (seam) → `to-bg-secondary`.
+(6) **LOW** — CustomerDetail had two `ml-auto` siblings splitting Merge+star → one
+`ml-auto flex`. (7) **LOW** — merging a customer stranded the user on the deleted
+page → `CustomerMergeButton onMerged` navigates to the survivor. Refuted: quote-reply
+draft "stranded" under the updates feed filter (NOT_A_BUG).
+
+**Phase 3 — polish (Cycles detail cluster):** paired the new **Scope** chart and
+**Estimate distribution** into matching bordered cards with consistent uppercase
+`tracking-wide` section headers (matching BURNDOWN / WORKLOAD), and gave the Scope
+bar a `bg-bg-tertiary` track so the empty remainder reads correctly. Verified the
+cluster renders 1:1 in **both light and dark** themes.
+
+`tsc -b ✅ · build ✅ · console clean` (the only console lines were stale Vite-HMR
+"failed to reload" entries for the intentionally-deleted `DocumentWordCount.tsx`;
+the production build has zero references and every surface re-renders cleanly).
+
+Next: remaining parity is increasingly backend-dependent (live GitHub/Slack sync,
+real async email export, audit-log depth) plus deeper DnD surfaces and promoting
+project templates to a shared store collection.
+
 ## 2026-06-27 — Loop #95: 29 features (5 waves) + 7 bug fixes + keyboard-affordance polish
 
 The backlog was fully checked off, so this run opened by **replenishing the

@@ -28,16 +28,18 @@ export function CycleScopeChart({ issues }: { issues: Issue[] }) {
   ]
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-bg p-3">
       {/* header */}
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium text-faint">Scope</span>
+        <span className="text-[11px] font-medium uppercase tracking-wide text-faint">
+          Scope
+        </span>
         <span className="text-[11px] tabular-nums text-faint">
           {completed}/{total}
         </span>
       </div>
       {/* segmented bar */}
-      <div className="flex h-2 overflow-hidden rounded-full">
+      <div className="flex h-2 overflow-hidden rounded-full bg-bg-tertiary">
         {segments
           .filter((s) => s.count > 0)
           .map((s) => (

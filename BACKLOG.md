@@ -426,3 +426,10 @@ _Wave 4 (search · docs · customers · feeds · insights):_
 - [x] 🟡 **Features settings page** (enable/disable workspace features) + **Notification schedule / Do-not-disturb settings**.
 - [x] 🟡 **Markdown** tables + image embeds (XSS-guarded) + code-block language label/copy + `~~strikethrough~~`.
 - [x] 🟡 **Searchable EmojiPicker** (wired into comment reactions + inline add-reaction button), **HelpOverlay** editor/board/display/selection/history sections, **My Issues workload strip**, **Customers group-by tier/health**, **Triage per-card snooze (+H)**, **GroupedIssueList filtered-count bar**.
+
+### Loop #97 — Discovered + shipped (27 net features, 4 waves)
+
+- [x] 🟡 **Cycles/projects/views** — manual Create cycle (`createCycle`), end-of-cycle Carry-over (`carryOverCycle`), per-cycle Scope segmented chart + Estimate distribution, project-update emoji reactions, editable project Brief/README, Convert issue → project, Pin saved view to sidebar.
+- [x] 🟡 **Issues/comments/editor** — pin/unpin comments (pinned float up), Quote reply, checklist progress chip, editor selection formatting toolbar, Referenced-by backlinks, Status-history timeline, description Table of contents, Mute issue notifications.
+- [x] 🟡 **List/teams/customers** — "Show completed issues" display toggle (all list views), Join/Leave team, merge customers, Workload-by-assignee, subscribe to a project, ARR-by-tier breakdown, project Health trend, long-comment Show more/less.
+- [x] 🟢 **Misc parity** — relative due-date chip, sort projects by Priority, Copy issue title. (Document word-count meta was built then removed — duplicated an existing stats block.)

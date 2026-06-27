@@ -22,7 +22,7 @@ export function EstimateDistribution({ issues }: { issues: Issue[] }) {
 
   return (
     <div className="rounded-lg border border-border bg-bg p-3">
-      <div className="mb-2 text-[11px] font-medium uppercase text-faint">Estimate distribution</div>
+      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint">Estimate distribution</div>
       <div className="flex flex-col gap-1.5">
         {buckets.map((b) => (
           <div key={b.label} className="flex items-center gap-2">
