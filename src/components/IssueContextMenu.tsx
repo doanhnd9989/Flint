@@ -39,6 +39,7 @@ import {
   ArchiveRestore,
   ArrowUpFromLine,
   FolderPlus,
+  VolumeX,
   Trash2,
 } from 'lucide-react'
 import type { RelationPickerKind } from '@/lib/types'
@@ -406,6 +407,11 @@ export function IssueContextMenu() {
           label={subscribed ? 'Unsubscribe' : 'Subscribe'}
           hint="⇧S"
           onClick={() => { store.toggleIssueSubscriber(issue.id, store.currentUserId); close() }}
+        />
+        <ActionRow
+          icon={<VolumeX size={14} />}
+          label={store.mutedIssueIds.includes(issue.id) ? 'Unmute notifications' : 'Mute notifications'}
+          onClick={() => { store.toggleMuteIssue(issue.id); close() }}
         />
 
         <div className="my-1 h-px bg-border" />

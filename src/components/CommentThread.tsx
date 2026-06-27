@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { CheckCircle2, ChevronRight } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { CheckCircle2, ChevronRight, Pin } from 'lucide-react'
 import type { Comment } from '@/lib/types'
 import { useStore, useDisplayName } from '@/lib/store'
+import { useReplyDraft } from '@/lib/replyDraft'
 import { timeAgo } from '@/lib/utils'
 import { Avatar } from './Avatar'
 import { MentionInput } from './MentionInput'
@@ -31,6 +32,17 @@ export function CommentThread({ root, replies }: { root: Comment; replies: Comme
   const [replying, setReplying] = useState(false)
   const [draft, setDraft] = useState('')
   const [expanded, setExpanded] = useState(false)
+
+  // "Quote reply" from a comment's ⋯ menu seeds this thread's composer.
+  const quoted = useReplyDraft((s) => s.drafts[root.id])
+  const clearQuote = useReplyDraft((s) => s.clear)
+  useEffect(() => {
+    if (!quoted) return
+    setExpanded(true)
+    setReplying(true)
+    setDraft((d) => (d ? `${d}\n${quoted}` : quoted))
+    clearQuote(root.id)
+  }, [quoted, root.id, clearQuote])
 
   const resolved = !!root.resolvedAt
   // Resolved threads start collapsed; clicking the bar expands them.
@@ -78,6 +90,12 @@ export function CommentThread({ root, replies }: { root: Comment; replies: Comme
 
   return (
     <div>
+      {root.pinnedAt && (
+        <div className="mb-1.5 flex items-center gap-1.5 pl-[30px] text-[11px] font-medium text-muted">
+          <Pin size={11} style={{ fill: 'currentColor' }} />
+          <span>Pinned</span>
+        </div>
+      )}
       {resolved && (
         <div className="mb-1.5 flex items-center gap-1.5 pl-[30px] text-[12px] text-muted">
           <CheckCircle2 size={13} style={{ color: 'var(--c-green)' }} />

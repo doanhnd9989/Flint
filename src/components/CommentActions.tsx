@@ -9,10 +9,14 @@ import {
   Trash2,
   CheckCircle2,
   Circle,
+  Pin,
+  PinOff,
+  Quote,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { Popover } from './ui/Popover'
 import { copyToClipboard } from '@/lib/toast'
+import { useReplyDraft, quoteOf } from '@/lib/replyDraft'
 import { cn, issueUrl } from '@/lib/utils'
 
 const EMOJIS = ['👍', '❤️', '🎉', '🚀', '👀', '😄', '🙏', '🔥', '💯', '😅', '🤔', '👏']
@@ -106,6 +110,24 @@ export function CommentActions({
                 onClick={() => {
                   close()
                   if (root) store.toggleResolveThread(root.id)
+                }}
+              />
+              <MenuItem
+                icon={<Quote size={14} />}
+                label="Quote reply"
+                onClick={() => {
+                  close()
+                  useReplyDraft
+                    .getState()
+                    .set(rootId ?? commentId, quoteOf(comment.body))
+                }}
+              />
+              <MenuItem
+                icon={comment.pinnedAt ? <PinOff size={14} /> : <Pin size={14} />}
+                label={comment.pinnedAt ? 'Unpin comment' : 'Pin comment'}
+                onClick={() => {
+                  close()
+                  store.togglePinComment(commentId)
                 }}
               />
               <div className="my-1 border-t border-border" />

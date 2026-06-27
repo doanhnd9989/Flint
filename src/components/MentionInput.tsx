@@ -8,6 +8,11 @@ import {
   ListChecks,
   Code2,
   TextQuote,
+  Bold,
+  Italic,
+  Strikethrough,
+  Code,
+  Link as LinkIcon,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { Avatar } from './Avatar'
@@ -122,6 +127,14 @@ export function MentionInput({
   const [slashActive, setSlashActive] = useState(0)
   const [slashAnchor, setSlashAnchor] = useState(0) // index of the '/'
   const dismissedAt = useRef(-1) // anchor index dismissed via Escape
+
+  // Selection-formatting toolbar — appears while text is selected (Linear's
+  // floating format bar). We track only whether a non-empty selection exists.
+  const [hasSelection, setHasSelection] = useState(false)
+  function syncSelection() {
+    const el = ref.current
+    setHasSelection(!!el && (el.selectionEnd ?? 0) > (el.selectionStart ?? 0))
+  }
 
   const matches =
     query === null
@@ -511,6 +524,7 @@ export function MentionInput({
           const el = e.currentTarget
           detect(el.value, el.selectionStart ?? el.value.length)
         }}
+        onSelect={syncSelection}
         onKeyDown={handleKey}
         onPaste={handlePaste}
         onDrop={handleDrop}
@@ -520,12 +534,60 @@ export function MentionInput({
           setTimeout(() => {
             setQuery(null)
             setSlashQuery(null)
+            setHasSelection(false)
           }, 120)
           onBlur?.()
         }}
         className={className}
         style={{ minHeight }}
       />
+      {hasSelection && (
+        <div
+          data-overlay
+          className="absolute right-2 top-2 z-30 flex items-center gap-0.5 rounded-lg border border-border bg-bg-elevated px-1 py-0.5 shadow-lg animate-pop"
+        >
+          {(
+            [
+              { icon: Bold, title: 'Bold ⌘B', run: () => wrapSelection('**', '**') },
+              { icon: Italic, title: 'Italic ⌘I', run: () => wrapSelection('_', '_') },
+              { icon: Strikethrough, title: 'Strikethrough ⌘⇧X', run: () => wrapSelection('~~', '~~') },
+              { icon: Code, title: 'Code ⌘E', run: () => wrapSelection('`', '`') },
+              { icon: LinkIcon, title: 'Link ⌘K', run: () => wrapLink() },
+            ] as const
+          ).map(({ icon: Icon, title, run }) => (
+            <button
+              key={title}
+              type="button"
+              title={title}
+              onMouseDown={(e) => {
+                // Keep the textarea's selection; apply the wrap in place.
+                e.preventDefault()
+                run()
+                requestAnimationFrame(syncSelection)
+              }}
+              className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg"
+            >
+              <Icon size={13} />
+            </button>
+          ))}
+          <span className="mx-0.5 h-4 w-px bg-border" />
+          {([1, 2, 3] as const).map((lvl) => (
+            <button
+              key={lvl}
+              type="button"
+              title={`Heading ${lvl} ⌘⌥${lvl}`}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                setHeading(lvl)
+                requestAnimationFrame(syncSelection)
+              }}
+              className="flex h-6 w-6 items-center justify-center rounded text-[11px] font-semibold text-muted hover:bg-bg-hover hover:text-fg"
+            >
+              H{lvl}
+            </button>
+          ))}
+        </div>
+      )}
       {mentionOpen && (
         <div
           data-overlay

@@ -134,6 +134,8 @@ interface UIState {
   displayProperties: Record<DisplayProperty, boolean>
   /** Recently-viewed issue ids (persisted, newest first, capped). */
   recentIssueIds: string[]
+  /** Issues whose notifications are muted — hidden from the inbox (persisted). */
+  mutedIssueIds: string[]
   /**
    * Generic on/off settings for the workspace/feature settings pages — keyed by
    * a namespaced string (e.g. `integrations.github`, `security.twoFactor`).
@@ -214,7 +216,11 @@ export interface Store extends WorkspaceData, UIState {
   deleteComment: (id: string) => void
   /** Resolve / unresolve a comment thread (toggles state on the thread root). */
   toggleResolveThread: (rootId: string) => void
+  /** Pin / unpin a comment to the top of the issue's comments. */
+  togglePinComment: (id: string) => void
   toggleReaction: (commentId: string, emoji: string) => void
+  /** Mute / unmute an issue's notifications (hidden from the inbox). */
+  toggleMuteIssue: (id: string) => void
 
   // ── labels / projects ────────────────────────────────────────
   createLabel: (name: string, color: string, groupId?: string) => Label
@@ -497,6 +503,7 @@ export const useStore = create<Store>()(
       featureSettings: {},
       featureValues: {},
       recentIssueIds: [],
+      mutedIssueIds: [],
       displayProperties: { ...DEFAULT_DISPLAY_PROPERTIES },
       notificationSettings: structuredClone(DEFAULT_NOTIFICATION_SETTINGS),
 
@@ -1008,6 +1015,22 @@ export const useStore = create<Store>()(
                 : { ...c, resolvedAt: nowIso(), resolvedBy: s.currentUserId }
               : c,
           ),
+        })),
+
+      togglePinComment: (id) =>
+        set((s) => ({
+          comments: s.comments.map((c) =>
+            c.id === id
+              ? { ...c, pinnedAt: c.pinnedAt ? undefined : nowIso() }
+              : c,
+          ),
+        })),
+
+      toggleMuteIssue: (id) =>
+        set((s) => ({
+          mutedIssueIds: s.mutedIssueIds.includes(id)
+            ? s.mutedIssueIds.filter((x) => x !== id)
+            : [...s.mutedIssueIds, id],
         })),
 
       toggleReaction: (commentId, emoji) =>

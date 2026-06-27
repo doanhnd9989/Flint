@@ -261,6 +261,8 @@ export interface Comment {
   /** Set on a thread root when the thread is resolved — Linear collapses it. */
   resolvedAt?: string
   resolvedBy?: string
+  /** Set when the comment is pinned to the top of the issue's comments. */
+  pinnedAt?: string
   /** emoji → userIds who reacted with it */
   reactions?: Record<string, string[]>
 }

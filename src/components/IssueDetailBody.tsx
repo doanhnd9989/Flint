@@ -21,6 +21,10 @@ import { IssueDevelopment } from './IssueDevelopment'
 import { IssueAttachments } from './IssueAttachments'
 import { IssueCustomers } from './IssueCustomers'
 import { IssueSimilarIssues } from './IssueSimilarIssues'
+import { IssueChecklistProgress } from './IssueChecklistProgress'
+import { IssueBacklinks } from './IssueBacklinks'
+import { IssueStatusHistory } from './IssueStatusHistory'
+import { DescriptionTableOfContents } from './DescriptionTableOfContents'
 import { IssueReactions } from './IssueReactions'
 import { IssueReminders } from './IssueReminders'
 import { IssueSnooze } from './IssueSnooze'
@@ -124,8 +128,11 @@ export function IssueDetailBody({
     .filter((c) => c.issueId === issue.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   // Thread roots: top-level comments, plus replies whose parent was deleted.
+  // Pinned roots float to the top (Linear), otherwise chronological.
   const commentIds = new Set(comments.map((c) => c.id))
-  const threads = comments.filter((c) => !c.parentId || !commentIds.has(c.parentId))
+  const threads = comments
+    .filter((c) => !c.parentId || !commentIds.has(c.parentId))
+    .sort((a, b) => (a.pinnedAt ? 0 : 1) - (b.pinnedAt ? 0 : 1))
   const subIssues = store.issues.filter((i) => i.parentId === issue.id && !i.archivedAt)
   const progress = subIssueProgress(issue.id, store.issues, store)
   const parent = issue.parentId
@@ -239,6 +246,12 @@ export function IssueDetailBody({
             onChange={(v) => store.setIssueDescription(issue.id, v)}
           />
           <IssueDescriptionMeta issue={issue} />
+          <div className="mt-2 flex items-center gap-2">
+            <IssueChecklistProgress issueId={issue.id} />
+          </div>
+          <div className="mt-3">
+            <DescriptionTableOfContents source={issue.description} />
+          </div>
           <IssueReactions issue={issue} />
           <IssueAgeChip issue={issue} />
 
@@ -407,6 +420,11 @@ export function IssueDetailBody({
 
           {/* Relations */}
           <IssueRelations issue={issue} onOpenIssue={onOpenIssue} />
+
+          {/* Referenced by (backlinks from other issues / comments) */}
+          <div className="mt-6">
+            <IssueBacklinks issueId={issue.id} />
+          </div>
 
           {/* Similar issues (suggested) */}
           <IssueSimilarIssues issue={issue} onOpenIssue={onOpenIssue} />
@@ -747,6 +765,11 @@ export function IssueDetailBody({
             </span>
           }
         />
+
+        {/* Status history — when this issue moved between workflow states. */}
+        <div className="mt-5 border-t border-border pt-3">
+          <IssueStatusHistory issueId={issue.id} />
+        </div>
 
         {/* Metadata footer — mirrors Linear's "opened by / updated" block at the
             bottom of the property sidebar. Each timestamp tooltips its full date. */}

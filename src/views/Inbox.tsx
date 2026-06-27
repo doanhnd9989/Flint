@@ -684,6 +684,8 @@ export function Inbox() {
         if (snoozed && !display.showSnoozed) return false
         if (!display.showRead && n.read) return false
       }
+      // Muted issues never surface in the inbox (Linear's mute).
+      if (n.issueId && store.mutedIssueIds.includes(n.issueId)) return false
       const issue = store.issues.find((i) => i.id === n.issueId)
       if (filters.types.length && !filters.types.includes(n.type)) return false
       if (filters.from.length && !filters.from.includes(n.actorId)) return false
@@ -867,7 +869,10 @@ export function Inbox() {
   }, [])
 
   const unreadCount = store.notifications.filter(
-    (n) => !n.read && !isSnoozed(n.snoozedUntil, now),
+    (n) =>
+      !n.read &&
+      !isSnoozed(n.snoozedUntil, now) &&
+      !(n.issueId && store.mutedIssueIds.includes(n.issueId)),
   ).length
 
   return (
