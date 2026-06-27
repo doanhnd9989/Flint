@@ -122,6 +122,11 @@ export function ProjectsView() {
       switch (orderBy) {
         case 'name':
           return a.name.localeCompare(b.name)
+        case 'priority': {
+          // Urgent→Low first, "No priority" (0/undefined) last (Linear order).
+          const rank = (p?: number) => (p && p > 0 ? p : 5)
+          return rank(a.priority) - rank(b.priority)
+        }
         case 'targetDate':
           return (a.targetDate ?? '9999').localeCompare(b.targetDate ?? '9999')
         case 'created':

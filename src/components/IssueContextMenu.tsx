@@ -371,6 +371,11 @@ export function IssueContextMenu() {
             onClick={() => copy(issue.identifier, copyToast.id(issue.identifier))}
           />
           <ActionRow
+            icon={<Copy size={14} />}
+            label="Copy issue title"
+            onClick={() => copy(issue.title, 'Issue title copied to clipboard')}
+          />
+          <ActionRow
             icon={<Link2 size={14} />}
             label="Copy issue URL"
             hint="⌘⇧,"

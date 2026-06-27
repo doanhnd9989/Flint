@@ -22,6 +22,7 @@ import { IssueAttachments } from './IssueAttachments'
 import { IssueCustomers } from './IssueCustomers'
 import { IssueSimilarIssues } from './IssueSimilarIssues'
 import { IssueChecklistProgress } from './IssueChecklistProgress'
+import { IssueDueChip } from './IssueDueChip'
 import { IssueBacklinks } from './IssueBacklinks'
 import { IssueStatusHistory } from './IssueStatusHistory'
 import { DescriptionTableOfContents } from './DescriptionTableOfContents'
@@ -247,6 +248,7 @@ export function IssueDetailBody({
           />
           <IssueDescriptionMeta issue={issue} />
           <div className="mt-2 flex items-center gap-2">
+            <IssueDueChip issue={issue} />
             <IssueChecklistProgress issueId={issue.id} />
           </div>
           <div className="mt-3">

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 export type ProjectLayout = 'list' | 'board' | 'timeline'
 export type ProjectGroupBy = 'none' | 'status' | 'health' | 'lead' | 'initiative'
-export type ProjectOrderBy = 'manual' | 'name' | 'targetDate' | 'created'
+export type ProjectOrderBy = 'manual' | 'name' | 'priority' | 'targetDate' | 'created'
 export type ProjectProperty =
   | 'status'
   | 'health'
@@ -42,6 +42,7 @@ const GROUPS: { id: ProjectGroupBy; label: string }[] = [
 const ORDERS: { id: ProjectOrderBy; label: string }[] = [
   { id: 'manual', label: 'Manual' },
   { id: 'name', label: 'Name' },
+  { id: 'priority', label: 'Priority' },
   { id: 'targetDate', label: 'Target date' },
   { id: 'created', label: 'Created' },
 ]
