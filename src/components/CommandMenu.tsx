@@ -91,8 +91,14 @@ type Page =
   | 'milestone'
   | 'estimate'
   | 'moveTeam'
+  /** Pick the issue this one should become a sub-issue of (Convert → sub-issue). */
+  | 'parent'
   /** Global quick-create drill-in (New issue / project / document / view / …). */
   | 'create'
+  /** Bulk drill-ins for an active multi-selection (no single-issue context). */
+  | 'bulkStatus'
+  | 'bulkPriority'
+  | 'bulkAssignee'
 
 interface Command {
   id: string
@@ -123,7 +129,11 @@ const PAGE_PLACEHOLDER: Record<Page, string> = {
   milestone: 'Set milestone…',
   estimate: 'Set estimate…',
   moveTeam: 'Move to team…',
+  parent: 'Make sub-issue of…',
   create: 'Create…',
+  bulkStatus: 'Set status…',
+  bulkPriority: 'Set priority…',
+  bulkAssignee: 'Assign to…',
 }
 
 /**
@@ -133,6 +143,7 @@ const PAGE_PLACEHOLDER: Record<Page, string> = {
  */
 function groupOf(id: string): string {
   if (id.startsWith('ctx-')) return 'Issue actions'
+  if (id.startsWith('bulk-')) return 'Selection'
   if (id.startsWith('recent-')) return 'Recently viewed'
   if (id.startsWith('issue-')) return 'Issues'
   if (id.startsWith('switch-team-')) return 'Teams'
@@ -348,6 +359,54 @@ export function CommandMenu() {
           keywords: 'new initiative strategy goal create',
           run: () => store.setCreateInitiativeOpen(true),
         },
+      ]
+    }
+
+    // —— Bulk sub-pages: apply one property to the whole active selection ——
+    // (no single-issue context — these mirror the per-issue pickers but call the
+    // bulkSet* actions over store.selectedIssueIds.)
+    if (page === 'bulkStatus' || page === 'bulkPriority' || page === 'bulkAssignee') {
+      const ids = store.selectedIssueIds
+      if (page === 'bulkStatus') {
+        return [...store.states]
+          .sort(
+            (a, b) =>
+              STATUS_TYPE_ORDER[a.type] - STATUS_TYPE_ORDER[b.type] ||
+              a.position - b.position,
+          )
+          .map((st) => ({
+            id: `bs-${st.id}`,
+            label: st.name,
+            icon: <StatusIcon type={st.type} color={st.color} />,
+            keywords: st.name,
+            run: () => store.bulkSetStatus(ids, st.id),
+          }))
+      }
+      if (page === 'bulkPriority') {
+        return PRIORITY_ORDER.map((p) => ({
+          id: `bp-${p}`,
+          label: PRIORITY_LABELS[p],
+          icon: <PriorityIcon priority={p} />,
+          keywords: PRIORITY_LABELS[p],
+          run: () => store.bulkSetPriority(ids, p as Priority),
+        }))
+      }
+      // bulkAssignee
+      return [
+        {
+          id: 'ba-none',
+          label: 'No assignee',
+          icon: <Avatar />,
+          keywords: 'unassigned none',
+          run: () => store.bulkSetAssignee(ids, undefined),
+        },
+        ...store.users.map((u) => ({
+          id: `ba-${u.id}`,
+          label: fmt(u.name),
+          icon: <Avatar user={u} />,
+          keywords: u.name,
+          run: () => store.bulkSetAssignee(ids, u.id),
+        })),
       ]
     }
 
@@ -578,6 +637,37 @@ export function CommandMenu() {
         return opts
       }
 
+      if (page === 'parent') {
+        // Collect this issue + all its descendants so they can't be chosen as a
+        // parent (that would create a cycle — the store guards it too, but the
+        // picker shouldn't even offer them).
+        const blocked = new Set<string>([issue.id])
+        let grew = true
+        while (grew) {
+          grew = false
+          for (const i of store.issues) {
+            if (i.parentId && blocked.has(i.parentId) && !blocked.has(i.id)) {
+              blocked.add(i.id)
+              grew = true
+            }
+          }
+        }
+        return store.issues
+          .filter((i) => !blocked.has(i.id) && !i.archivedAt)
+          .map((i) => {
+            const st = store.states.find((s) => s.id === i.stateId)!
+            return {
+              id: `pa-${i.id}`,
+              label: i.title,
+              icon: <StatusIcon type={st.type} color={st.color} />,
+              hint: i.identifier,
+              keywords: `${i.identifier} ${i.title}`,
+              selected: i.id === issue.parentId,
+              run: () => store.setIssueParent(issue.id, i.id),
+            }
+          })
+      }
+
       // label
       return store.labels.filter((l) => !l.isGroup).map((l) => ({
         id: `lb-${l.id}`,
@@ -758,6 +848,24 @@ export function CommandMenu() {
                 if (dupe) navigate(`/issue/${dupe.identifier}`)
               },
             },
+            {
+              id: 'ctx-parent',
+              label: 'Make sub-issue of…',
+              icon: <GitBranch size={15} />,
+              keywords: 'parent sub issue convert nest move under child',
+              goPage: 'parent' as Page,
+            },
+            ...(issue.parentId
+              ? [
+                  {
+                    id: 'ctx-remove-parent',
+                    label: 'Remove parent',
+                    icon: <X size={15} />,
+                    keywords: 'remove parent unlink unnest detach sub issue',
+                    run: () => store.setIssueParent(issue.id, undefined),
+                  },
+                ]
+              : []),
             ...(store.teams.length > 1
               ? [
                   {
@@ -796,6 +904,36 @@ export function CommandMenu() {
           ]
         })()
       : []
+
+    // —— Bulk actions over an active multi-selection (only when no single issue
+    // is in context — those get the per-issue `contextual` commands instead).
+    const selectedCount = store.selectedIssueIds.length
+    const bulkCommands: Command[] =
+      !currentIssue && selectedCount > 0
+        ? [
+            {
+              id: 'bulk-status',
+              label: `Set status for ${selectedCount} ${selectedCount === 1 ? 'issue' : 'issues'}…`,
+              icon: <StatusIcon type="started" color="var(--status-started)" />,
+              keywords: 'bulk set status state selection selected issues',
+              goPage: 'bulkStatus' as Page,
+            },
+            {
+              id: 'bulk-priority',
+              label: `Set priority for ${selectedCount} ${selectedCount === 1 ? 'issue' : 'issues'}…`,
+              icon: <PriorityIcon priority={0} />,
+              keywords: 'bulk set priority selection selected issues',
+              goPage: 'bulkPriority' as Page,
+            },
+            {
+              id: 'bulk-assign',
+              label: `Assign selected to…`,
+              icon: <User size={15} />,
+              keywords: 'bulk assign assignee selection selected issues member',
+              goPage: 'bulkAssignee' as Page,
+            },
+          ]
+        : []
 
     const base: Command[] = [
       {
@@ -1123,6 +1261,7 @@ export function CommandMenu() {
 
     return [
       ...contextual,
+      ...bulkCommands,
       ...recentCommands,
       ...base,
       ...entityCommands,

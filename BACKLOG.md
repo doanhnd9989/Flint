@@ -454,22 +454,22 @@ grep-confirmed missing features; 25 built this run, 33 remain (below).
 - [ ] 🟢 **Cycle start-date filter in FilterBar** — filter issues by their cycle's start-date range.
 - [ ] 🟢 **Milestone start-date filter + display toggle**.
 - [ ] 🟢 **Quick-filter pill bar** — smart preset pills below the FilterBar.
-- [ ] 🟢 **Quick project status/health edit from the projects list** (inline, no detail open).
+- [x] 🟢 **Quick project status/health edit from the projects list** (inline, no detail open).
 - [x] 🟢 **Project dependency warnings on cards** — highlight blocked-by projects.
 - [x] 🟢 **Cycle retrospective / summary** — read-only end-of-cycle stats card.
 - [x] 🟢 **Cycle pause / soft-delete** (`pausedAt`).
 - [x] 🟢 **Inbox quick bulk assign** — floating action bar when notifications are checked.
 - [x] 🟢 **Triage hotkey speedrun mode** — hold-key auto-accept/decline.
-- [ ] 🟢 **Cycle issue carry-over history** — mark issues carried from the previous cycle.
+- [x] 🟢 **Cycle issue carry-over history** — mark issues carried from the previous cycle.
 - [ ] 🟢 **Triage accepted-issues archive** — recently-accepted triage list.
-- [ ] 🟢 **Convert issue → sub-issue (command menu)**.
-- [ ] 🟢 **Remove parent / unlink sub-issue (command menu)**.
-- [ ] 🟢 **Quick bulk status/priority update for selection (command menu)**.
+- [x] 🟢 **Convert issue → sub-issue (command menu)**.
+- [x] 🟢 **Remove parent / unlink sub-issue (command menu)**.
+- [x] 🟢 **Quick bulk status/priority update for selection (command menu)**.
 - [ ] 🟢 **Command-palette scope filters** (`is:assigned`, `in:project`…).
 - [ ] 🟢 **View filter/sort presets in command menu**.
-- [ ] 🟢 **Quick-assign to a team member via command menu**.
+- [x] 🟢 **Quick-assign to a team member via command menu**.
 - [ ] 🟢 **Toggle column visibility via command menu**.
-- [ ] 🟢 **Release public share link** (`shareToken`/`public`).
+- [x] 🟢 **Release public share link** (`shareToken`/`public`).
 - [x] 🟢 **Release linked-issues sync drawer**.
 - [x] 🟢 **Member assigned-work breakdown modal** (by priority/status).
 - [x] 🟢 **Profile username + bio + timezone display**.

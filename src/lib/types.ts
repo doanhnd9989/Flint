@@ -147,6 +147,10 @@ export interface Release {
   projectId?: string
   targetDate?: string
   releasedAt?: string
+  /** Set when a public share link is enabled. */
+  public?: boolean
+  /** Stable token used in the public share URL. */
+  shareToken?: string
   createdAt: string
   sortOrder: number
 }
@@ -363,6 +367,8 @@ export interface Issue {
   remindNote?: string
   /** Snoozed until this ISO time — hidden from active lists, resurfaces after. Optional. */
   snoozedUntil?: string
+  /** The cycle this issue was carried over FROM (set by carryOverCycle). Optional. */
+  carriedFromCycleId?: string
 }
 
 /**

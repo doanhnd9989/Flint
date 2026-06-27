@@ -311,6 +311,7 @@ export interface Store extends WorkspaceData, UIState {
   createRelease: (input: Omit<Release, 'id' | 'createdAt' | 'sortOrder'>) => Release
   updateRelease: (id: string, patch: Partial<Omit<Release, 'id' | 'createdAt'>>) => void
   deleteRelease: (id: string) => void
+  toggleReleaseShare: (id: string) => void
 
   // ── attachments ──────────────────────────────────────────────
   addAttachment: (issueId: string, input: Omit<Attachment, 'id' | 'issueId' | 'creatorId' | 'createdAt'>) => void
@@ -1603,7 +1604,7 @@ export const useStore = create<Store>()(
         set((s) => ({
           issues: s.issues.map((i) =>
             moved.has(i.id)
-              ? { ...i, cycleId: target.id, updatedAt: nowIso() }
+              ? { ...i, cycleId: target.id, carriedFromCycleId: fromCycleId, updatedAt: nowIso() }
               : i,
           ),
         }))
@@ -1893,6 +1894,22 @@ export const useStore = create<Store>()(
         })),
       deleteRelease: (id) =>
         set((s) => ({ releases: s.releases.filter((r) => r.id !== id) })),
+
+      toggleReleaseShare: (id) =>
+        set((s) => ({
+          releases: s.releases.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  public: !r.public,
+                  // Mint a stable token on first enable; keep it on disable so
+                  // re-sharing yields the same URL.
+                  shareToken:
+                    !r.public && !r.shareToken ? `rsh_${nanoid(10)}` : r.shareToken,
+                }
+              : r,
+          ),
+        })),
 
       // ── attachments ───────────────────────────────────────────
       addAttachment: (issueId, input) =>

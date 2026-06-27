@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Link2,
   MoreHorizontal,
   Plus,
   Rocket,
@@ -20,6 +21,7 @@ import { ProgressDonut } from '@/components/ProgressDonut'
 import { ReleaseBurndownChart } from '@/components/ReleaseBurndownChart'
 import { ReleaseLinkedIssues } from '@/components/ReleaseLinkedIssues'
 import { DatePicker } from '@/components/DatePicker'
+import { Popover } from '@/components/ui/Popover'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { RELEASE_STATUS, RELEASE_STATUS_ORDER } from '@/lib/constants'
@@ -111,6 +113,95 @@ function StatusDot({ status }: { status: ReleaseStatus }) {
 
 const chip =
   'flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover'
+
+/**
+ * Per-release share affordance — toggles a public, read-only share link for the
+ * release (Linear's "Share" popover). When enabled it surfaces the shareable URL
+ * with a Copy button and the "Anyone with the link can view" hint; toggling off
+ * revokes public access. The link button tints accent while sharing is active.
+ */
+function ReleaseShareButton({ release }: { release: Release }) {
+  const toggleReleaseShare = useStore((s) => s.toggleReleaseShare)
+  const isPublic = !!release.public
+  // The public URL is only valid once a token has been minted (i.e. enabled).
+  const shareUrl =
+    release.shareToken && typeof location !== 'undefined'
+      ? `${location.origin}/release/${release.shareToken}`
+      : ''
+
+  return (
+    <Popover
+      align="end"
+      width={300}
+      trigger={
+        <span
+          title={isPublic ? 'Public share link enabled' : 'Share release'}
+          className={cn(
+            'flex h-6 w-6 items-center justify-center rounded-md',
+            isPublic
+              ? 'text-accent hover:bg-bg-tertiary'
+              : 'text-faint opacity-0 transition-opacity hover:bg-bg-tertiary hover:text-fg group-hover:opacity-100',
+          )}
+        >
+          <Link2 size={14} />
+        </span>
+      }
+    >
+      {() => (
+        <div className="p-2">
+          {/* enable / disable toggle row */}
+          <div className="flex items-center justify-between gap-3 px-1 py-1">
+            <div className="min-w-0">
+              <div className="text-[13px] font-medium text-fg">
+                Publish to web
+              </div>
+              <div className="text-[11px] text-muted">
+                Anyone with the link can view
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isPublic}
+              onClick={() => toggleReleaseShare(release.id)}
+              className={cn(
+                'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+                isPublic ? 'bg-accent' : 'bg-bg-tertiary',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform',
+                  isPublic ? 'left-0.5 translate-x-4' : 'left-0.5',
+                )}
+              />
+            </button>
+          </div>
+
+          {/* read-only URL + copy — only while a link exists */}
+          {isPublic && shareUrl && (
+            <div className="mt-1.5 flex items-center gap-1.5 rounded-md border border-border bg-bg-tertiary px-2 py-1">
+              <input
+                readOnly
+                value={shareUrl}
+                onFocus={(e) => e.currentTarget.select()}
+                className="min-w-0 flex-1 bg-transparent text-[12px] text-muted outline-none"
+              />
+              <button
+                type="button"
+                title="Copy link"
+                onClick={() => copyToClipboard(shareUrl, 'Link copied')}
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
+              >
+                <Copy size={13} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </Popover>
+  )
+}
 
 export function ReleasesView() {
   const { releases, projects, issues, states } = useStoreShallow((s) => ({
@@ -406,6 +497,9 @@ export function ReleasesView() {
                               {progress.done}/{progress.total}
                             </span>
                           )}
+
+                          {/* public share link popover */}
+                          <ReleaseShareButton release={r} />
 
                           {/* status picker */}
                           <SelectMenu

@@ -14,6 +14,7 @@ import {
   Star,
   Trash2,
   Plus,
+  Activity,
 } from 'lucide-react'
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
@@ -22,7 +23,7 @@ import { PROJECT_STATUS, PROJECT_STATUS_ORDER } from '@/lib/constants'
 import { Avatar } from '@/components/Avatar'
 import { ProjectStatusIcon } from '@/components/ProjectStatusIcon'
 import { ProgressDonut } from '@/components/ProgressDonut'
-import { HealthBadge } from '@/components/ProjectUpdates'
+import { HealthBadge, HEALTH } from '@/components/ProjectUpdates'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { Popover } from '@/components/ui/Popover'
 import { SelectMenu } from '@/components/ui/SelectMenu'
@@ -541,7 +542,14 @@ export function ProjectsView() {
                       }}
                       className="group flex w-full cursor-default items-center gap-2 border-b border-border px-4 py-2 text-left hover:bg-bg-hover"
                     >
-                      {props.status && <ProjectStatusIcon status={p.status} />}
+                      {props.status && (
+                        <InlineStatusEdit
+                          project={p}
+                          onSet={(status) =>
+                            data.updateProject(p.id, { status })
+                          }
+                        />
+                      )}
                       <span className="text-[14px]">{p.icon}</span>
                       <span className="truncate text-[13px] font-medium text-fg">
                         {p.name}
@@ -553,8 +561,13 @@ export function ProjectsView() {
                             {prog.percent}%
                           </span>
                         )}
-                        {props.health && health && (
-                          <HealthBadge health={health} />
+                        {props.health && (
+                          <InlineHealthEdit
+                            health={health}
+                            onSet={(h) =>
+                              data.createProjectUpdate(p.id, h, '')
+                            }
+                          />
                         )}
                         {props.targetDate && p.targetDate && (
                           <span className="tabular-nums">
@@ -613,6 +626,96 @@ export function ProjectsView() {
         />
       )}
     </div>
+  )
+}
+
+/**
+ * Inline project-status picker for a list row — Linear lets you change a
+ * project's status straight from the projects list without opening it. The
+ * status glyph becomes a SelectMenu trigger; choosing a status calls
+ * updateProject(id, { status }). stopPropagation keeps the row's click-through
+ * to the project detail from firing.
+ */
+function InlineStatusEdit({
+  project,
+  onSet,
+}: {
+  project: Project
+  onSet: (status: Project['status']) => void
+}) {
+  return (
+    <SelectMenu
+      align="start"
+      width={200}
+      placeholder="Change status…"
+      options={PROJECT_STATUS_ORDER.map((s) => ({
+        id: s,
+        label: PROJECT_STATUS[s].label,
+        icon: <ProjectStatusIcon status={s} />,
+        selected: s === project.status,
+      }))}
+      onSelect={(id) => onSet(id as Project['status'])}
+      trigger={
+        <span
+          className="flex h-5 w-5 items-center justify-center rounded hover:bg-bg-tertiary"
+          title="Change status"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ProjectStatusIcon status={project.status} />
+        </span>
+      }
+    />
+  )
+}
+
+const INLINE_HEALTH_ORDER: ProjectHealth[] = ['on-track', 'at-risk', 'off-track']
+
+/**
+ * Inline project-health setter for a list row — mirrors Linear's quick health
+ * ping. If a health is already shown, its badge is the trigger; otherwise a
+ * faint "Set health" affordance appears on row hover. Picking a value posts an
+ * empty-body health update via createProjectUpdate(projectId, health, '').
+ */
+function InlineHealthEdit({
+  health,
+  onSet,
+}: {
+  health?: ProjectHealth
+  onSet: (health: ProjectHealth) => void
+}) {
+  return (
+    <SelectMenu
+      align="end"
+      width={180}
+      placeholder="Set health…"
+      options={INLINE_HEALTH_ORDER.map((h) => ({
+        id: h,
+        label: HEALTH[h].label,
+        icon: (
+          <span
+            className="h-2 w-2 rounded-full"
+            style={{ background: HEALTH[h].color }}
+          />
+        ),
+        selected: h === health,
+      }))}
+      onSelect={(id) => onSet(id as ProjectHealth)}
+      trigger={
+        <span
+          onClick={(e) => e.stopPropagation()}
+          title={health ? 'Set health' : 'Set project health'}
+        >
+          {health ? (
+            <HealthBadge health={health} />
+          ) : (
+            <span className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] text-faint opacity-0 hover:bg-bg-tertiary hover:text-muted group-hover:opacity-100">
+              <Activity size={11} />
+              Health
+            </span>
+          )}
+        </span>
+      }
+    />
   )
 }
 
