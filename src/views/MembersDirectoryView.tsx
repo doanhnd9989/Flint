@@ -5,6 +5,7 @@ import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { MemberWorkload } from '@/components/MemberWorkload'
 import { Avatar } from '@/components/Avatar'
+import { MemberStatusBadge } from '@/components/MemberStatusBadge'
 import { EmptyState, SearchIllustration } from '@/components/EmptyState'
 import { cn, timeAgo } from '@/lib/utils'
 import type { User, UserRole, Team } from '@/lib/types'
@@ -284,19 +285,19 @@ export function MembersDirectoryView() {
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate text-[13px] font-medium text-fg">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/member/${u.id}`)}
+                          className="truncate text-left text-[13px] font-medium text-fg hover:underline"
+                        >
                           {fmtName(u.name)}
-                        </span>
+                        </button>
                         {u.isMe && (
                           <span className="rounded bg-bg-tertiary px-1 text-[10px] text-faint">
                             You
                           </span>
                         )}
-                        {u.pending && (
-                          <span className="rounded bg-bg-tertiary px-1 text-[10px] text-faint">
-                            Pending
-                          </span>
-                        )}
+                        <MemberStatusBadge userId={u.id} />
                       </div>
                       <div className="truncate text-[11px] text-muted">{u.email}</div>
                     </div>

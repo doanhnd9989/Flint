@@ -264,6 +264,48 @@ export function SearchView() {
     el?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex])
 
+  // Window-level j/k/↑/↓/↵/o navigation so the cursor is drivable even when focus
+  // isn't in the search box (Linear lets you move through results from anywhere on
+  // the page). The input's own onKeyDown handles the focused-field case; this
+  // listener covers the rest while mirroring the app's global-key guards.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!flatResults.length) return
+      const t = e.target as HTMLElement | null
+      const tag = t?.tagName
+      const typing =
+        tag === 'INPUT' || tag === 'TEXTAREA' || !!t?.isContentEditable
+      // Don't steal keys from any open menu / popover / modal (matches the
+      // `[data-overlay]` guard in useShortcuts) or from the "Save as view" popover.
+      if (document.querySelector('[data-overlay]')) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      // When focus is in the search box (or any other field), only the arrow keys
+      // and ↵ drive the list — the input's onKeyDown owns those, so we bail here to
+      // avoid double-handling, and never react to literal j/k/o while typing.
+      if (typing) return
+
+      if (e.key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        setActiveIndex((i) => Math.min(i + 1, flatResults.length - 1))
+      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        setActiveIndex((i) => Math.max(i - 1, 0))
+      } else if (e.key === 'Enter' || e.key === 'o') {
+        const hit = flatResults[activeIndex]
+        if (hit) {
+          e.preventDefault()
+          if (query.trim()) addRecentSearch(query)
+          navigate(hit.href)
+        }
+      } else if (e.key === 'Escape') {
+        setActiveIndex(0)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [flatResults, activeIndex, query, navigate, addRecentSearch])
+
   // Per-group offsets into `flatResults` so each rendered row knows its global
   // index for highlighting (groups render in the same order they were flattened).
   const projOffset = 0

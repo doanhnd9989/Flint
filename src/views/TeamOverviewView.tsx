@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { TeamJoinButton } from '@/components/TeamJoinButton'
+import { TeamVelocityChart } from '@/components/TeamVelocityChart'
 import { EmptyState, IssuesIllustration } from '@/components/EmptyState'
 import { Avatar } from '@/components/Avatar'
 import { StatusIcon } from '@/components/StatusIcon'
@@ -472,6 +473,11 @@ export function TeamOverviewView() {
                 </div>
               )}
             </Card>
+          </div>
+
+          {/* Velocity — completed issues per cycle (chart carries its own heading) */}
+          <div className="mt-4 rounded-xl border border-border bg-bg p-5">
+            <TeamVelocityChart teamId={team.id} />
           </div>
 
           {/* Recent issues — full width */}

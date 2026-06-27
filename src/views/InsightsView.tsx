@@ -4,6 +4,7 @@ import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import { DatePicker } from '@/components/DatePicker'
+import { UtilizationChart } from '@/components/UtilizationChart'
 import { LABEL_COLORS, PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
 import { displayName, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -1067,6 +1068,7 @@ export function InsightsView() {
                 </div>
               </div>
             </Card>
+            <UtilizationChart />
           </div>
         </div>
       </div>
