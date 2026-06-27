@@ -15,15 +15,16 @@ export function SubscriberBadge({ issueId }: { issueId: string }) {
   const users = useStore((s) => s.users)
   const fmt = useDisplayName()
 
-  // Dedupe — a subscriber should never be double-counted.
+  // Dedupe, then resolve to existing users so the count and the tooltip names
+  // always agree (a subscriber whose account was deleted is dropped from both).
   const ids = Array.from(new Set(issue?.subscriberIds ?? []))
-  // Linear only shows the badge when there are multiple subscribers.
-  if (ids.length <= 1) return null
-
   const names = ids
     .map((id) => users.find((u) => u.id === id)?.name)
     .filter((n): n is string => Boolean(n))
     .map((n) => fmt(n))
+  // Linear only shows the badge when there are multiple subscribers.
+  if (names.length <= 1) return null
+
   const shown = names.slice(0, 6)
   const overflow = names.length - shown.length
   const title =
@@ -35,7 +36,7 @@ export function SubscriberBadge({ issueId }: { issueId: string }) {
       title={title}
     >
       <Users size={12} />
-      {ids.length}
+      {names.length}
     </span>
   )
 }

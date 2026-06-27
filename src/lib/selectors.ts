@@ -477,7 +477,12 @@ export function groupIssues(
  * column semantics, so the board falls back to status columns for them.
  */
 export function boardColumnGroupBy(groupBy: GroupBy): GroupBy {
-  return groupBy === 'label' || groupBy === 'cycle' || groupBy === 'milestone'
+  // Creator is immutable (no setIssueCreator), so a creator-grouped board falls
+  // back to status for drag-to-change semantics — like label/cycle/milestone.
+  return groupBy === 'label' ||
+    groupBy === 'cycle' ||
+    groupBy === 'milestone' ||
+    groupBy === 'creator'
     ? 'status'
     : groupBy
 }

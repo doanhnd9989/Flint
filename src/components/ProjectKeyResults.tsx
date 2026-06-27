@@ -159,7 +159,11 @@ export function ProjectKeyResults({ projectId }: { projectId: string }) {
           <div className="flex items-center gap-2">
             <button
               type="submit"
-              disabled={!name.trim() || Number(target) <= 0}
+              disabled={
+                !name.trim() ||
+                !Number.isFinite(Number(target)) ||
+                Number(target) <= 0
+              }
               className="rounded-md bg-accent px-2.5 py-1 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-40"
             >
               Add
