@@ -99,6 +99,7 @@ export function InitiativesView() {
   const q = query.trim().toLowerCase()
   const shown = useMemo(() => {
     const rows = initiatives
+      .filter((i) => !i.archivedAt)
       .filter((i) => activeTab.match.includes(i.status))
       .filter((i) => ownerId === 'all' || i.ownerId === ownerId)
       .filter((i) => {

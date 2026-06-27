@@ -17,6 +17,8 @@ import { CreateCycleButton } from '@/components/CreateCycleButton'
 import { CycleCarryOver } from '@/components/CycleCarryOver'
 import { EstimateDistribution } from '@/components/EstimateDistribution'
 import { CycleScopeChart } from '@/components/CycleScopeChart'
+import { CycleGoals } from '@/components/CycleGoals'
+import { CycleDeltaMetrics } from '@/components/CycleDeltaMetrics'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
 import { Avatar } from '@/components/Avatar'
@@ -356,6 +358,7 @@ export function CyclesView() {
               {formatDate(current.startsAt)} – {formatDate(current.endsAt)}
               {cs.status === 'active' && ` · ${cs.daysLeft} days left`}
             </div>
+            <CycleGoals cycleId={current.id} />
           </div>
           <button
             disabled={idx >= cycles.length - 1}
@@ -426,6 +429,11 @@ export function CyclesView() {
             />
           </div>
         )}
+
+        {/* Previous-cycle comparison metrics */}
+        <div className="mt-5">
+          <CycleDeltaMetrics cycleId={current.id} />
+        </div>
 
         {/* Scope mix + estimate distribution for this cycle. */}
         <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">

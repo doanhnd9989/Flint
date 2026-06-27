@@ -38,6 +38,7 @@ import type {
   NotificationEvent,
   Priority,
   Project,
+  ProjectKeyResult,
   ProjectHealth,
   ProjectUpdate,
   PullRequest,
@@ -259,8 +260,16 @@ export interface Store extends WorkspaceData, UIState {
   toggleProjectUpdateReaction: (updateId: string, emoji: string) => void
   /** Set a project's long-form README / brief. */
   setProjectReadme: (id: string, readme: string) => void
+  /** Add a key result / success metric to a project. */
+  addKeyResult: (projectId: string, name: string, target: number, unit?: string) => void
+  /** Patch a project key result (name / current / target / unit). */
+  updateKeyResult: (projectId: string, krId: string, patch: Partial<ProjectKeyResult>) => void
+  /** Remove a key result from a project. */
+  deleteKeyResult: (projectId: string, krId: string) => void
   createInitiativeUpdate: (initiativeId: string, health: ProjectHealth, body: string) => void
   deleteInitiativeUpdate: (id: string) => void
+  /** Set a cycle's free-text goal / objectives. */
+  setCycleGoal: (cycleId: string, goal: string) => void
   /** Create the next cycle for a team (auto-numbered, 2-week window after the latest). */
   createCycle: (teamId: string, name?: string) => Cycle
   /** Move a cycle's unfinished (non-completed/canceled) issues into the team's next upcoming cycle (creating it if needed). Returns the moved count. */
@@ -1403,6 +1412,44 @@ export const useStore = create<Store>()(
           ),
         })),
 
+      addKeyResult: (projectId, name, target, unit) =>
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === projectId
+              ? {
+                  ...p,
+                  keyResults: [
+                    ...(p.keyResults ?? []),
+                    { id: `kr_${nanoid(8)}`, name, current: 0, target, unit },
+                  ],
+                }
+              : p,
+          ),
+        })),
+
+      updateKeyResult: (projectId, krId, patch) =>
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === projectId
+              ? {
+                  ...p,
+                  keyResults: (p.keyResults ?? []).map((k) =>
+                    k.id === krId ? { ...k, ...patch } : k,
+                  ),
+                }
+              : p,
+          ),
+        })),
+
+      deleteKeyResult: (projectId, krId) =>
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === projectId
+              ? { ...p, keyResults: (p.keyResults ?? []).filter((k) => k.id !== krId) }
+              : p,
+          ),
+        })),
+
       createInitiativeUpdate: (initiativeId, health, body) =>
         set((s) => ({
           initiativeUpdates: [
@@ -1443,6 +1490,13 @@ export const useStore = create<Store>()(
         set((s) => ({
           savedViews: s.savedViews.map((v) =>
             v.id === id ? { ...v, pinned: !v.pinned } : v,
+          ),
+        })),
+
+      setCycleGoal: (cycleId, goal) =>
+        set((s) => ({
+          cycles: s.cycles.map((c) =>
+            c.id === cycleId ? { ...c, goal: goal.trim() || undefined } : c,
           ),
         })),
 

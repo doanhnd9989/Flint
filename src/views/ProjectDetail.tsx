@@ -26,6 +26,8 @@ import { ProjectResources } from '@/components/ProjectResources'
 import { ProjectReadme } from '@/components/ProjectReadme'
 import { ProjectHealthTrend } from '@/components/ProjectHealthTrend'
 import { ProjectSubscribeButton } from '@/components/ProjectSubscribeButton'
+import { ProjectArchiveButton } from '@/components/ProjectArchiveButton'
+import { ProjectKeyResults } from '@/components/ProjectKeyResults'
 import { ProjectDependencies } from '@/components/ProjectDependencies'
 import { IssueRow } from '@/components/IssueRow'
 import { Avatar } from '@/components/Avatar'
@@ -621,6 +623,7 @@ export function ProjectDetail() {
           {project.icon} {project.name}
         </span>
         <div className="flex-1" />
+        <ProjectArchiveButton projectId={project.id} />
         <ProjectSubscribeButton projectId={project.id} />
         <StarButton type="project" id={project.id} />
         <Popover
@@ -850,6 +853,11 @@ export function ProjectDetail() {
               {/* Resources */}
               <div className="mt-8">
                 <ProjectResources projectId={project.id} />
+              </div>
+
+              {/* Key results */}
+              <div className="mt-8">
+                <ProjectKeyResults projectId={project.id} />
               </div>
 
               {/* Dependencies */}

@@ -104,9 +104,11 @@ export function ProjectsView() {
   }, [data.projectUpdates])
 
   const filtered = useMemo(() => {
+    // Archived projects are hidden from the active projects list (Linear).
+    const active = projects.filter((p) => !p.archivedAt)
     if (!fStatus.size && !fHealth.size && !fLead.size && !fInitiative.size)
-      return projects
-    return projects.filter((p) => {
+      return active
+    return active.filter((p) => {
       if (fStatus.size && !fStatus.has(p.status)) return false
       if (fHealth.size && !fHealth.has(healthById[p.id] ?? '__none')) return false
       if (fLead.size && !fLead.has(p.leadId ?? '__none')) return false

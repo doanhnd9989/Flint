@@ -181,8 +181,22 @@ export interface Project {
   readme?: string
   /** Members subscribed to this project's updates (Linear). Optional. */
   subscriberIds?: string[]
+  /** Success metrics / key results tracked on the project Overview. Optional. */
+  keyResults?: ProjectKeyResult[]
+  /** Archived out of the active workspace (hidden from the projects list). Optional. */
+  archivedAt?: string
   createdAt: string
   sortOrder: number
+}
+
+/** A measurable success metric / key result on a project (Linear's "Key results"). */
+export interface ProjectKeyResult {
+  id: string
+  name: string
+  current: number
+  target: number
+  /** Optional unit suffix shown after the numbers (e.g. "%", "users", "$"). */
+  unit?: string
 }
 /** A named external link attached to a project (Linear's "Resources"). */
 export interface ProjectResource {
@@ -207,6 +221,8 @@ export interface Initiative {
   status: InitiativeStatus
   ownerId?: string
   targetDate?: string
+  /** Archived out of the active workspace (hidden from the initiatives list). Optional. */
+  archivedAt?: string
   createdAt: string
   sortOrder: number
 }
@@ -249,6 +265,8 @@ export interface Cycle {
   name?: string
   startsAt: string
   endsAt: string
+  /** Free-text goal / objectives for the cycle (Linear's cycle goal). Optional. */
+  goal?: string
 }
 
 export interface Comment {

@@ -8,6 +8,7 @@ import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { HealthBadge } from '@/components/ProjectUpdates'
 import { InitiativeUpdates } from '@/components/InitiativeUpdates'
 import { InitiativeProgressGraph } from '@/components/InitiativeProgressGraph'
+import { InitiativeArchiveButton } from '@/components/InitiativeArchiveButton'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { initiativeProgress, projectProgress } from '@/lib/selectors'
@@ -221,6 +222,7 @@ export function InitiativeDetail() {
           {initiative.icon} {initiative.name}
         </span>
         <div className="flex-1" />
+        <InitiativeArchiveButton initiativeId={initiative.id} />
         <button
           type="button"
           title="Delete initiative"
