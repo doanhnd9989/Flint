@@ -1,11 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Users } from 'lucide-react'
+import { ArrowLeft, BarChart3, Users } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { StatusIcon } from '@/components/StatusIcon'
 import { MemberContributionHeatmap } from '@/components/MemberContributionHeatmap'
+import { MemberWorkBreakdown } from '@/components/MemberWorkBreakdown'
 import { PriorityIcon } from '@/components/PriorityIcon'
 import type { Issue, User, WorkflowState } from '@/lib/types'
 
@@ -49,6 +50,7 @@ export function MemberDetailView() {
   const states = useStore((s) => s.states)
   const setPeek = useStore((s) => s.setPeek)
   const fmt = useDisplayName()
+  const [breakdownOpen, setBreakdownOpen] = useState(false)
 
   const user = useMemo<User | undefined>(
     () => users.find((u) => u.id === userId),
@@ -183,7 +185,18 @@ export function MemberDetailView() {
           </section>
 
           {/* Stat cards */}
-          <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="mt-6 flex items-center justify-between">
+            <h2 className="text-[13px] font-semibold text-fg">Work overview</h2>
+            <button
+              type="button"
+              onClick={() => setBreakdownOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[12px] text-muted transition-colors hover:bg-bg-hover hover:text-fg"
+            >
+              <BarChart3 size={13} />
+              View breakdown
+            </button>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-3">
             <Stat label="Assigned" value={stats.assigned} hint="open right now" />
             <Stat label="Created" value={stats.created} hint="issues created" />
             <Stat label="Completed" value={stats.completed} hint="assigned & done" />
@@ -232,6 +245,10 @@ export function MemberDetailView() {
           </div>
         </div>
       </div>
+
+      {breakdownOpen && (
+        <MemberWorkBreakdown userId={user.id} onClose={() => setBreakdownOpen(false)} />
+      )}
     </div>
   )
 }

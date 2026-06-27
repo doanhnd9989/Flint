@@ -18,6 +18,7 @@ import { Avatar } from '@/components/Avatar'
 import { ProjectStatusIcon } from '@/components/ProjectStatusIcon'
 import { ProgressDonut } from '@/components/ProgressDonut'
 import { HealthBadge } from '@/components/ProjectUpdates'
+import { ProjectDependencyWarning } from '@/components/ProjectDependencyWarning'
 import { Popover } from '@/components/ui/Popover'
 import { formatDate, cn } from '@/lib/utils'
 import type { Project, ProjectHealth, ProjectStatus, User } from '@/lib/types'
@@ -71,6 +72,9 @@ function ProjectCard({
           <Avatar user={lead} size={18} />
         </span>
       </div>
+      {/* Blocked-by-dependency warning — renders nothing unless an incomplete
+          project in `dependsOn` is still gating this one. */}
+      <ProjectDependencyWarning project={p} />
     </div>
   )
 }

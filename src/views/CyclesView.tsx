@@ -19,6 +19,7 @@ import { EstimateDistribution } from '@/components/EstimateDistribution'
 import { CycleScopeChart } from '@/components/CycleScopeChart'
 import { CycleGoals } from '@/components/CycleGoals'
 import { CycleDeltaMetrics } from '@/components/CycleDeltaMetrics'
+import { CycleRetrospective } from '@/components/CycleRetrospective'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
 import { Avatar } from '@/components/Avatar'
@@ -434,6 +435,13 @@ export function CyclesView() {
         <div className="mt-5">
           <CycleDeltaMetrics cycleId={current.id} />
         </div>
+
+        {/* End-of-cycle retrospective — only for completed (past) cycles. */}
+        {cs.status === 'past' && (
+          <div className="mt-5">
+            <CycleRetrospective cycleId={current.id} />
+          </div>
+        )}
 
         {/* Scope mix + estimate distribution for this cycle. */}
         <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">

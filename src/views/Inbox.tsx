@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { EmptyState, InboxIllustration } from '@/components/EmptyState'
 import { DatePicker } from '@/components/DatePicker'
+import { InboxBulkActions } from '@/components/InboxBulkActions'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { IssueDetailBody } from '@/components/IssueDetailBody'
@@ -782,6 +783,18 @@ export function Inbox() {
     if (selectedId && checkedVisible.includes(selectedId)) setSelectedId(null)
     clearChecked()
   }
+  // Bulk-assign: map each checked notification to its underlying issue and set
+  // the assignee on the issue (de-duped — a thread of events shares one issue).
+  // Notifications without a linked issue are skipped. Keeps the rows selected so
+  // a different assignee can be picked again, matching Linear's bulk reassign.
+  const bulkAssign = (assigneeId?: string) => {
+    const issueIds = new Set<string>()
+    for (const id of checkedVisible) {
+      const n = store.notifications.find((x) => x.id === id)
+      if (n?.issueId) issueIds.add(n.issueId)
+    }
+    issueIds.forEach((iid) => store.setIssueAssignee(iid, assigneeId))
+  }
 
   // Inbox keyboard shortcuts (soi'd Linear's shortcut reference, workspace
   // "Claude Test App"): ↑/↓ + j/k move the selection · Esc clears it ·
@@ -1069,64 +1082,45 @@ export function Inbox() {
             )
           })}
 
-          {/* ── bulk action bar — floats over the list while rows are checked ── */}
-          {someChecked && (
-            <div className="sticky bottom-2 z-20 mx-3 mt-2 flex items-center gap-1 rounded-lg border border-border bg-bg-elevated px-1.5 py-1.5 shadow-lg">
-              <span className="px-1.5 text-[12px] font-medium text-fg">
-                {checkedVisible.length}
-              </span>
-              <button
-                onClick={() => bulkAct(store.markNotificationRead)}
-                title="Mark as read"
-                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-fg hover:bg-bg-hover"
-              >
-                <CheckCheck size={14} className="text-faint" /> Mark read
-              </button>
-              <Popover
-                align="start"
-                width={160}
-                trigger={
-                  <span className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-fg hover:bg-bg-hover">
-                    <Clock size={14} className="text-faint" /> Snooze
-                  </span>
-                }
-              >
-                {(close) => (
-                  <SnoozeMenu
-                    close={close}
-                    onSnoozeMs={(ms) =>
-                      bulkAct((id) =>
-                        store.snoozeNotification(
-                          id,
-                          new Date(now + ms).toISOString(),
-                        ),
-                      )
-                    }
-                    onSnoozeAt={(iso) =>
-                      bulkAct((id) => store.snoozeNotification(id, iso))
-                    }
-                  />
-                )}
-              </Popover>
-              <button
-                onClick={() => bulkAct(store.deleteNotification)}
-                title="Delete"
-                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-fg hover:bg-bg-hover"
-              >
-                <Trash2 size={14} className="text-faint" /> Delete
-              </button>
-              <div className="mx-0.5 h-4 w-px bg-border" />
-              <button
-                onClick={clearChecked}
-                title="Clear selection (Esc)"
-                className="flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-bg-hover hover:text-fg"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* ── bulk action bar — floats bottom-centre while rows are checked ── */}
+      <InboxBulkActions
+        count={checkedVisible.length}
+        onAssign={bulkAssign}
+        onMarkRead={() => bulkAct(store.markNotificationRead)}
+        onDelete={() => bulkAct(store.deleteNotification)}
+        onClear={clearChecked}
+        snoozeMenu={
+          <Popover
+            align="start"
+            width={160}
+            trigger={
+              <span className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg">
+                <Clock size={14} /> Snooze
+              </span>
+            }
+          >
+            {(close) => (
+              <SnoozeMenu
+                close={close}
+                onSnoozeMs={(ms) =>
+                  bulkAct((id) =>
+                    store.snoozeNotification(
+                      id,
+                      new Date(now + ms).toISOString(),
+                    ),
+                  )
+                }
+                onSnoozeAt={(iso) =>
+                  bulkAct((id) => store.snoozeNotification(id, iso))
+                }
+              />
+            )}
+          </Popover>
+        }
+      />
 
       {/* ── reading pane ──────────────────────────────────────────────────── */}
       <div className="flex h-full min-w-0 flex-1 flex-col">

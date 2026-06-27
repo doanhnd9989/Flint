@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   MoveRight,
   X,
+  Zap,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { cycleState } from '@/lib/selectors'
@@ -140,6 +141,27 @@ export function TriageView() {
   const [cursor, setCursor] = useState(0)
   const cardRefs = useRef<(HTMLDivElement | null)[]>([])
 
+  // ── Speedrun mode (Linear-style focused triage) ──
+  // A distraction-free single-card mode: the first issue in the queue is shown
+  // large with big on-screen key hints, and A accepts / D|X declines, advancing
+  // to the next issue after each action. Esc exits. The queue narrows from the
+  // front as you act, so we always focus queue[0].
+  const [speedrun, setSpeedrun] = useState(false)
+  // The card under the speedrun spotlight — always the head of the live queue,
+  // so accepting/declining (which removes it) naturally advances to the next.
+  const focusIssue = queue[0]
+  // Progress: how far through the original session we are. We track the total at
+  // the moment speedrun began so "3 of 12" counts down a stable denominator.
+  const [speedrunTotal, setSpeedrunTotal] = useState(0)
+  const enterSpeedrun = () => {
+    setSpeedrunTotal(queue.length)
+    setSpeedrun(true)
+  }
+  // Auto-exit once the queue is exhausted (or filtered to empty) while running.
+  useEffect(() => {
+    if (speedrun && queue.length === 0) setSpeedrun(false)
+  }, [speedrun, queue.length])
+
   // ── Bulk multi-select (Linear lets you triage several issues at once) ──
   // A set of selected issue ids; `x` toggles the active row, and a floating
   // action bar appears while anything is selected to Accept / Decline the whole
@@ -214,6 +236,8 @@ export function TriageView() {
   // of the Inbox queue. Guarded against typing targets and open overlays.
   const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
   onKeyRef.current = (e: KeyboardEvent) => {
+    // Speedrun owns the keyboard while active — its handler runs the show.
+    if (speedrun) return
     const t = e.target as HTMLElement
     if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
       return
@@ -291,6 +315,46 @@ export function TriageView() {
     return () => window.removeEventListener('keydown', handler, true)
   }, [])
 
+  // ── Speedrun keyboard handler ──
+  // Capture-phase, so it pre-empts the queue handler above while speedrun is on.
+  // Same guards as the queue: bail when typing in a field or when an overlay /
+  // menu is open ([data-overlay]). A accepts, D|X declines, Esc exits — each
+  // accept/decline removes the head of the queue, advancing the spotlight.
+  const onSpeedKeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  onSpeedKeyRef.current = (e: KeyboardEvent) => {
+    if (!speedrun) return
+    const t = e.target as HTMLElement
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+      return
+    if (document.querySelector('[data-overlay]')) return
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    const own = () => {
+      e.preventDefault()
+      e.stopImmediatePropagation()
+    }
+    if (e.key === 'Escape') {
+      own()
+      setSpeedrun(false)
+      return
+    }
+    if (!focusIssue) return
+    if (e.code === 'KeyA') {
+      own()
+      store.acceptTriage(focusIssue.id)
+      return
+    }
+    if (e.code === 'KeyD' || e.code === 'KeyX') {
+      own()
+      store.declineTriage(focusIssue.id)
+      return
+    }
+  }
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => onSpeedKeyRef.current(e)
+    window.addEventListener('keydown', handler, true)
+    return () => window.removeEventListener('keydown', handler, true)
+  }, [])
+
   // Priority filter options: "All priorities" + every priority in visual order.
   const priorityOptions = useMemo<SelectOption[]>(
     () => [
@@ -349,6 +413,17 @@ export function TriageView() {
             when there's nothing in the queue at all. */}
         {allQueue.length > 0 && (
           <div className="ml-auto flex items-center gap-2">
+            {/* Speedrun — enter a focused, one-card-at-a-time triage mode driven
+                entirely by the keyboard (A accept / D decline). */}
+            {queue.length > 0 && (
+              <button
+                onClick={enterSpeedrun}
+                className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg"
+              >
+                <Zap size={13} className="shrink-0 text-faint" />
+                Speedrun
+              </button>
+            )}
             <SelectMenu
               width={200}
               align="end"
@@ -675,6 +750,116 @@ export function TriageView() {
               className="rounded-md px-2 py-1 text-[12px] text-faint hover:bg-bg-hover hover:text-fg"
             >
               Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Speedrun overlay — a focused, single-card spotlight. The first issue in
+          the live queue is shown large; A accepts, D/X declines (each removes it
+          and advances to the next), Esc exits. */}
+      {speedrun && focusIssue && (
+        <div className="absolute inset-0 z-30 flex flex-col bg-bg/95 backdrop-blur-sm">
+          {/* Note: intentionally NOT [data-overlay] — this surface OWNS the
+              keyboard (A/D/Esc). Real popovers opened on top carry their own
+              [data-overlay], which still suppresses the speedrun keys. */}
+          {/* Top bar — progress + exit. */}
+          <div className="flex items-center justify-between px-5 py-4">
+            <div className="flex items-center gap-2 text-[13px] font-medium text-fg">
+              <Zap size={15} className="text-[var(--status-review)]" />
+              Speedrun
+              <span className="tabular-nums text-faint">
+                {Math.min(speedrunTotal - queue.length + 1, speedrunTotal)} of{' '}
+                {speedrunTotal}
+              </span>
+            </div>
+            <button
+              onClick={() => setSpeedrun(false)}
+              className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-fg"
+            >
+              <X size={13} /> Exit <Kbd>Esc</Kbd>
+            </button>
+          </div>
+
+          {/* Progress bar — fills as the queue drains. */}
+          <div className="mx-5 h-1 overflow-hidden rounded-full bg-bg-tertiary">
+            <div
+              className="h-full rounded-full bg-[var(--status-review)] transition-all"
+              style={{
+                width: `${
+                  speedrunTotal === 0
+                    ? 0
+                    : ((speedrunTotal - queue.length) / speedrunTotal) * 100
+                }%`,
+              }}
+            />
+          </div>
+
+          {/* Spotlight card. */}
+          <div className="flex flex-1 items-center justify-center p-6">
+            {(() => {
+              const state = store.states.find((s) => s.id === focusIssue.stateId)!
+              const assignee = store.users.find(
+                (u) => u.id === focusIssue.assigneeId,
+              )
+              const labels = focusIssue.labelIds
+                .map((id) => store.labels.find((l) => l.id === id))
+                .filter(Boolean)
+              return (
+                <div className="w-full max-w-2xl rounded-2xl border border-accent bg-bg-secondary p-8 shadow-2xl ring-1 ring-accent">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[12px] text-faint">
+                      {focusIssue.identifier}
+                    </span>
+                    <PriorityIcon priority={focusIssue.priority} />
+                    <span className="text-[12px] text-muted">
+                      {PRIORITY_LABELS[focusIssue.priority]}
+                    </span>
+                  </div>
+                  <h2 className="mt-3 text-[22px] font-semibold leading-snug text-fg">
+                    {focusIssue.title}
+                  </h2>
+                  {focusIssue.description && (
+                    <p className="mt-3 line-clamp-6 whitespace-pre-wrap text-[13px] text-muted">
+                      {focusIssue.description}
+                    </p>
+                  )}
+                  <div className="mt-5 flex flex-wrap items-center gap-1.5">
+                    <span className={chip}>
+                      <StatusIcon type={state.type} color={state.color} />
+                      {state.name}
+                    </span>
+                    <span className={chip}>
+                      <Avatar user={assignee} size={16} />
+                      {assignee ? fmt(assignee.name) : 'Unassigned'}
+                    </span>
+                    {labels.length > 0 && (
+                      <span className={chip}>
+                        {labels.slice(0, 3).map((l) => (
+                          <LabelDot key={l!.id} color={l!.color} />
+                        ))}
+                        {labels.length} label{labels.length > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* Big on-screen key hints + clickable fallbacks. */}
+          <div className="flex items-center justify-center gap-3 px-6 pb-10">
+            <button
+              onClick={() => store.acceptTriage(focusIssue.id)}
+              className="flex items-center gap-2 rounded-lg bg-[var(--status-review)] px-4 py-2.5 text-[14px] font-medium text-white hover:opacity-90"
+            >
+              <Check size={16} /> Accept <Kbd>A</Kbd>
+            </button>
+            <button
+              onClick={() => store.declineTriage(focusIssue.id)}
+              className="flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-[14px] text-muted hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
+            >
+              <X size={16} /> Decline <Kbd>D</Kbd>
             </button>
           </div>
         </div>

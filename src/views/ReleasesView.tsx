@@ -18,6 +18,7 @@ import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { ProgressDonut } from '@/components/ProgressDonut'
 import { ReleaseBurndownChart } from '@/components/ReleaseBurndownChart'
+import { ReleaseLinkedIssues } from '@/components/ReleaseLinkedIssues'
 import { DatePicker } from '@/components/DatePicker'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
@@ -479,8 +480,10 @@ export function ReleasesView() {
                         </div>
                       </div>
                       {expanded && (
-                        <div className="px-4 pb-4 pl-11">
+                        <div className="space-y-3 px-4 pb-4 pl-11">
                           <ReleaseBurndownChart releaseId={r.id} />
+                          {/* read-only list of the linked project's issues */}
+                          <ReleaseLinkedIssues projectId={r.projectId} />
                         </div>
                       )}
                       </div>

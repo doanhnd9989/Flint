@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   MessageSquare,
@@ -14,12 +14,15 @@ import {
   GitBranch,
   Keyboard,
   ChevronRight,
+  Globe,
+  Check,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { Avatar } from '@/components/Avatar'
 import { PriorityIcon } from '@/components/PriorityIcon'
 import { StatusIcon } from '@/components/StatusIcon'
+import { SelectMenu } from '@/components/ui/SelectMenu'
 import { PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
 import { timeAgo } from '@/lib/utils'
 import type { Activity, ActivityKind, Issue, Priority, User, WorkflowState } from '@/lib/types'
@@ -471,6 +474,137 @@ function ShortcutsReference() {
   )
 }
 
+// ── Editable profile details (username + bio + timezone) ─────────────────────
+
+/**
+ * Curated list of common IANA timezones — kept local to ProfileView so the
+ * timezone picker reads like Linear's (a tidy ~20-zone dropdown rather than the
+ * full 400-entry tz database). `value` is the IANA id stored on the user.
+ */
+const TIMEZONES: { value: string; label: string }[] = [
+  { value: 'Pacific/Honolulu', label: 'Honolulu (HST)' },
+  { value: 'America/Anchorage', label: 'Anchorage (AKT)' },
+  { value: 'America/Los_Angeles', label: 'Los Angeles (PT)' },
+  { value: 'America/Denver', label: 'Denver (MT)' },
+  { value: 'America/Chicago', label: 'Chicago (CT)' },
+  { value: 'America/New_York', label: 'New York (ET)' },
+  { value: 'America/Sao_Paulo', label: 'São Paulo (BRT)' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Paris (CET)' },
+  { value: 'Europe/Berlin', label: 'Berlin (CET)' },
+  { value: 'Europe/Moscow', label: 'Moscow (MSK)' },
+  { value: 'Africa/Johannesburg', label: 'Johannesburg (SAST)' },
+  { value: 'Asia/Dubai', label: 'Dubai (GST)' },
+  { value: 'Asia/Kolkata', label: 'Kolkata (IST)' },
+  { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
+  { value: 'Asia/Shanghai', label: 'Shanghai (CST)' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+  { value: 'Australia/Sydney', label: 'Sydney (AET)' },
+  { value: 'Pacific/Auckland', label: 'Auckland (NZT)' },
+]
+
+/** Human label for a stored timezone id, falling back to the raw id. */
+function tzLabel(value: string | undefined): string {
+  if (!value) return ''
+  return TIMEZONES.find((t) => t.value === value)?.label ?? value
+}
+
+/** A labelled field row — label on the left, control on the right (stacked). */
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline gap-2">
+        <span className="text-[12px] font-medium text-fg">{label}</span>
+        {hint && <span className="text-[11px] text-faint">{hint}</span>}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Inline editor for the current user's public profile details — username (with
+ * an @ prefix), bio, and timezone — matching Linear's profile page. Text edits
+ * commit on blur; the timezone commits on select. All mutations route through
+ * `updateUser`, so the rest of the app (mentions, member pages) stays in sync.
+ */
+function ProfileDetails({ me }: { me: User }) {
+  const updateUser = useStore((s) => s.updateUser)
+
+  // Local draft state for the text fields, synced when the user identity
+  // changes (e.g. switching accounts) so we never show a stale draft.
+  const [username, setUsername] = useState(me.username ?? '')
+  const [bio, setBio] = useState(me.bio ?? '')
+  useEffect(() => {
+    setUsername(me.username ?? '')
+    setBio(me.bio ?? '')
+  }, [me.id, me.username, me.bio])
+
+  const tzOptions = useMemo(
+    () =>
+      TIMEZONES.map((tz) => ({
+        id: tz.value,
+        label: tz.label,
+        keywords: tz.value,
+        icon: <Globe size={14} className="text-faint" />,
+        selected: me.timezone === tz.value,
+      })),
+    [me.timezone],
+  )
+
+  return (
+    <Card title="Profile details" subtitle="Your public username, bio, and timezone">
+      <div className="space-y-5">
+        {/* Username — @-prefixed, like a handle. */}
+        <Field label="Username">
+          <div className="flex items-center rounded-md border border-border bg-bg focus-within:border-accent">
+            <span className="pl-3 text-[13px] text-faint">@</span>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onBlur={() => updateUser(me.id, { username: username.trim() })}
+              placeholder="username"
+              className="w-full bg-transparent py-2 pl-1 pr-3 text-[13px] text-fg outline-none placeholder:text-faint"
+            />
+          </div>
+        </Field>
+
+        {/* Bio — short free-text description. */}
+        <Field label="Bio" hint="A short description about yourself">
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            onBlur={() => updateUser(me.id, { bio: bio.trim() })}
+            rows={3}
+            placeholder="Tell people a little about yourself"
+            className="w-full resize-none rounded-md border border-border bg-bg px-3 py-2 text-[13px] text-fg outline-none focus:border-accent placeholder:text-faint"
+          />
+        </Field>
+
+        {/* Timezone — curated IANA dropdown. */}
+        <Field label="Timezone">
+          <SelectMenu
+            options={tzOptions}
+            onSelect={(v) => updateUser(me.id, { timezone: v })}
+            placeholder="Search timezones…"
+            width={260}
+            trigger={
+              <span className="flex w-full items-center gap-2 rounded-md border border-border bg-bg px-3 py-2 text-[13px] hover:border-accent">
+                <Globe size={14} className="shrink-0 text-faint" />
+                <span className={me.timezone ? 'flex-1 truncate text-fg' : 'flex-1 truncate text-faint'}>
+                  {me.timezone ? tzLabel(me.timezone) : 'Set your timezone'}
+                </span>
+                {me.timezone && <Check size={14} className="shrink-0 text-accent" />}
+                <ChevronRight size={14} className="shrink-0 rotate-90 text-faint" />
+              </span>
+            }
+          />
+        </Field>
+      </div>
+    </Card>
+  )
+}
+
 /**
  * Profile / "Your work" — a personal dashboard for the current user: their
  * profile header, a row of work stats, an open-issues-by-status breakdown, and
@@ -666,7 +800,17 @@ export function ProfileView() {
                   </span>
                 )}
               </div>
+              {me?.username && (
+                <div className="mt-0.5 truncate text-[13px] text-muted">@{me.username}</div>
+              )}
               {me?.email && <div className="mt-0.5 truncate text-[13px] text-muted">{me.email}</div>}
+              {me?.bio && <p className="mt-1.5 text-[13px] leading-relaxed text-fg">{me.bio}</p>}
+              {me?.timezone && (
+                <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-faint">
+                  <Globe size={13} className="text-faint" />
+                  <span>{tzLabel(me.timezone)}</span>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => navigate('/settings?page=profile')}
@@ -676,6 +820,13 @@ export function ProfileView() {
               </button>
             </div>
           </section>
+
+          {/* Editable profile details — username, bio, timezone (current user). */}
+          {me?.isMe && (
+            <div className="mt-6">
+              <ProfileDetails me={me} />
+            </div>
+          )}
 
           {/* Stat cards — Created/Completed scoped to the selected period. */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

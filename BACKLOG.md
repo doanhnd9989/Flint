@@ -455,11 +455,11 @@ grep-confirmed missing features; 25 built this run, 33 remain (below).
 - [ ] 🟢 **Milestone start-date filter + display toggle**.
 - [ ] 🟢 **Quick-filter pill bar** — smart preset pills below the FilterBar.
 - [ ] 🟢 **Quick project status/health edit from the projects list** (inline, no detail open).
-- [ ] 🟢 **Project dependency warnings on cards** — highlight blocked-by projects.
-- [ ] 🟢 **Cycle retrospective / summary** — read-only end-of-cycle stats card.
+- [x] 🟢 **Project dependency warnings on cards** — highlight blocked-by projects.
+- [x] 🟢 **Cycle retrospective / summary** — read-only end-of-cycle stats card.
 - [ ] 🟢 **Cycle pause / soft-delete** (`pausedAt`).
-- [ ] 🟢 **Inbox quick bulk assign** — floating action bar when notifications are checked.
-- [ ] 🟢 **Triage hotkey speedrun mode** — hold-key auto-accept/decline.
+- [x] 🟢 **Inbox quick bulk assign** — floating action bar when notifications are checked.
+- [x] 🟢 **Triage hotkey speedrun mode** — hold-key auto-accept/decline.
 - [ ] 🟢 **Cycle issue carry-over history** — mark issues carried from the previous cycle.
 - [ ] 🟢 **Triage accepted-issues archive** — recently-accepted triage list.
 - [ ] 🟢 **Convert issue → sub-issue (command menu)**.
@@ -470,9 +470,9 @@ grep-confirmed missing features; 25 built this run, 33 remain (below).
 - [ ] 🟢 **Quick-assign to a team member via command menu**.
 - [ ] 🟢 **Toggle column visibility via command menu**.
 - [ ] 🟢 **Release public share link** (`shareToken`/`public`).
-- [ ] 🟢 **Release linked-issues sync drawer**.
-- [ ] 🟢 **Member assigned-work breakdown modal** (by priority/status).
-- [ ] 🟢 **Profile username + bio + timezone display**.
+- [x] 🟢 **Release linked-issues sync drawer**.
+- [x] 🟢 **Member assigned-work breakdown modal** (by priority/status).
+- [x] 🟢 **Profile username + bio + timezone display**.
 - [ ] 🟢 **Team overview settings sidebar** (icon/name/key/members).
 - [ ] 🟢 **Sidebar customization** (toggle/reorder sections).
 - [ ] 🟢 **Saved-views management settings page**.
