@@ -1,16 +1,16 @@
 import { useStore } from '@/lib/store'
 
 /**
- * Member status badge — a small account-status pill for the members directory,
- * mirroring Linear's people directory. Reflects the highest-priority status:
- * Suspended (red) → Invited/pending (amber) → Admin / Guest role. A plain
- * active member needs no badge, so we render nothing in that case.
+ * Member account-status pill for the members directory, mirroring Linear's
+ * people directory. Surfaces only the account *state* that isn't already shown
+ * by the row's role pill: Suspended (red) → Invited/pending (amber). Active
+ * members (any role) render nothing here — their role is shown separately.
  */
 export function MemberStatusBadge({ userId }: { userId: string }) {
   const user = useStore((s) => s.users.find((u) => u.id === userId))
   if (!user) return null
 
-  // Status priority: suspended outranks a pending invite, which outranks role.
+  // Suspended outranks a pending invite. Role is rendered by the row, not here.
   let label: string
   let style: string
   if (user.suspended) {
@@ -19,14 +19,8 @@ export function MemberStatusBadge({ userId }: { userId: string }) {
   } else if (user.pending) {
     label = 'Invited'
     style = 'bg-[var(--status-started)]/15 text-[var(--status-started)]'
-  } else if (user.role === 'admin') {
-    label = 'Admin'
-    style = 'bg-bg-tertiary text-muted'
-  } else if (user.role === 'guest') {
-    label = 'Guest'
-    style = 'bg-bg-tertiary text-faint'
   } else {
-    // Plain active member — no badge needed.
+    // Active member — its role pill already conveys the status.
     return null
   }
 
