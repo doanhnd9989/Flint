@@ -122,14 +122,17 @@ export function CommentActions({
                     .set(rootId ?? commentId, quoteOf(comment.body))
                 }}
               />
-              <MenuItem
-                icon={comment.pinnedAt ? <PinOff size={14} /> : <Pin size={14} />}
-                label={comment.pinnedAt ? 'Unpin comment' : 'Pin comment'}
-                onClick={() => {
-                  close()
-                  store.togglePinComment(commentId)
-                }}
-              />
+              {/* Pin acts on whole threads (Linear); only offered on the root. */}
+              {(rootId == null || rootId === commentId) && (
+                <MenuItem
+                  icon={comment.pinnedAt ? <PinOff size={14} /> : <Pin size={14} />}
+                  label={comment.pinnedAt ? 'Unpin comment' : 'Pin comment'}
+                  onClick={() => {
+                    close()
+                    store.togglePinComment(commentId)
+                  }}
+                />
+              )}
               <div className="my-1 border-t border-border" />
               <MenuItem
                 icon={<Link2 size={14} />}

@@ -11,7 +11,7 @@ export function IssueChecklistProgress({ issueId }: { issueId: string }) {
   let done = 0;
   for (const line of (issue.description ?? '').split('\n')) {
     if (/^\s*[-*]\s+\[ \]\s+/.test(line)) open++;
-    else if (/^\s*[-*]\s+\[xX\]\s+/.test(line)) done++;
+    else if (/^\s*[-*]\s+\[[xX]\]\s+/.test(line)) done++;
   }
   const total = open + done;
   if (total === 0) return null;

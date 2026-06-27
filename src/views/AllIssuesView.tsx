@@ -54,7 +54,13 @@ export function AllIssuesView() {
 
     if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
 
-    const filtered = filterIssues(scoped, filters)
+    let filtered = filterIssues(scoped, filters)
+    // "Show completed issues" display option.
+    if (data.hideCompleted)
+      filtered = filtered.filter((i) => {
+        const t = statesByType.get(i.stateId)
+        return t !== 'completed' && t !== 'canceled'
+      })
     const sorted = sortIssues(
       filtered,
       orderBy,

@@ -3,7 +3,14 @@ import { useStoreShallow } from '@/lib/store';
 import { Popover } from '@/components/ui/Popover';
 
 // Merge this customer into another (Linear's customer merge).
-export function CustomerMergeButton({ customerId }: { customerId: string }) {
+export function CustomerMergeButton({
+  customerId,
+  onMerged,
+}: {
+  customerId: string
+  /** Called with the surviving customer's id after a merge (e.g. to navigate). */
+  onMerged?: (targetId: string) => void
+}) {
   const { customers, mergeCustomers } = useStoreShallow((s) => ({
     customers: s.customers,
     mergeCustomers: s.mergeCustomers,
@@ -38,6 +45,7 @@ export function CustomerMergeButton({ customerId }: { customerId: string }) {
                 ) {
                   mergeCustomers(customerId, c.id);
                   close();
+                  onMerged?.(c.id);
                 }
               }}
             >

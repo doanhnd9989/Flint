@@ -302,8 +302,16 @@ function IssueTab({
         if (isOverdue(i.dueDate)) stats.overdue++
       }
     }
+    // "Show completed issues" display option (applied to the list, not the
+    // workload strip above, which already excludes completed/canceled).
+    const listFiltered = data.hideCompleted
+      ? filtered.filter((i) => {
+          const t = data.states.find((s) => s.id === i.stateId)?.type
+          return t !== 'completed' && t !== 'canceled'
+        })
+      : filtered
     const sorted = sortIssues(
-      filtered,
+      listFiltered,
       orderBy,
       data,
       orderCompletedByRecency,

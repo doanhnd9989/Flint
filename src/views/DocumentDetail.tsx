@@ -4,7 +4,6 @@ import { ChevronLeft, Copy, FolderKanban, History, Link2, Star, Trash2, X } from
 import { useStore, useStoreShallow, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { MarkdownEditor } from '@/components/MarkdownEditor'
-import { DocumentWordCount } from '@/components/DocumentWordCount'
 import { Avatar } from '@/components/Avatar'
 import { ProjectPicker } from '@/components/pickers'
 import { Popover } from '@/components/ui/Popover'
@@ -309,7 +308,6 @@ export function DocumentDetail() {
                 <span>
                   {author ? fmt(author.name) : 'Someone'} · updated {timeAgo(doc.updatedAt)}
                 </span>
-                <DocumentWordCount content={doc.content} />
                 <ProjectPicker
                   projectId={doc.projectId}
                   onChange={(pid) => updateDocument(doc.id, { projectId: pid })}

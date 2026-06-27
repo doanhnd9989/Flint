@@ -36,7 +36,15 @@ export function SavedViewScreen() {
     let scoped = data.issues
     if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
 
-    const filtered = filterIssues(scoped, view.filters)
+    let filtered = filterIssues(scoped, view.filters)
+    // "Show completed issues" display option.
+    if (data.hideCompleted) {
+      const typeOf = new Map(data.states.map((s) => [s.id, s.type]))
+      filtered = filtered.filter((i) => {
+        const t = typeOf.get(i.stateId)
+        return t !== 'completed' && t !== 'canceled'
+      })
+    }
     const sorted = sortIssues(
       filtered,
       view.orderBy,

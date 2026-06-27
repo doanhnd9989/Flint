@@ -88,7 +88,7 @@ export function CommentItem({ comment, rootId }: { comment: Comment; rootId?: st
                 <Markdown source={comment.body} />
               </div>
               {isLong && !expanded && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-transparent to-bg" />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-transparent to-bg-secondary" />
               )}
             </div>
             {isLong && (

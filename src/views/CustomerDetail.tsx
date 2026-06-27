@@ -216,19 +216,22 @@ export function CustomerDetail() {
         <span className="text-faint">›</span>
         <CustomerTile name={customer.name} color={customer.color} size={16} />
         <span className="truncate font-medium text-fg">{customer.name}</span>
-        <div className="ml-auto">
-          <CustomerMergeButton customerId={customer.id} />
+        <div className="ml-auto flex items-center gap-2">
+          <CustomerMergeButton
+            customerId={customer.id}
+            onMerged={(targetId) => navigate(`/customer/${targetId}`)}
+          />
+          <button
+            type="button"
+            onClick={() => data.toggleFavorite('customer', customer.id)}
+            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md hover:bg-bg-hover ${
+              isFavorite ? 'text-[var(--c-yellow)]' : 'text-faint hover:text-fg'
+            }`}
+          >
+            <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => data.toggleFavorite('customer', customer.id)}
-          title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-          className={`ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md hover:bg-bg-hover ${
-            isFavorite ? 'text-[var(--c-yellow)]' : 'text-faint hover:text-fg'
-          }`}
-        >
-          <Star size={15} fill={isFavorite ? 'currentColor' : 'none'} />
-        </button>
       </header>
 
       {/* Body — two columns */}

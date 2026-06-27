@@ -88,7 +88,17 @@ export function LabelView() {
 
   const groups = useMemo(() => {
     if (!label) return []
-    const sorted = sortIssues(scoped, orderBy, data, false, orderDir)
+    // "Show completed issues" display option (the stats banner above still
+    // counts the full set; only the list honors the toggle).
+    let listScoped = scoped
+    if (data.hideCompleted) {
+      const typeOf = new Map(data.states.map((s) => [s.id, s.type]))
+      listScoped = scoped.filter((i) => {
+        const t = typeOf.get(i.stateId)
+        return t !== 'completed' && t !== 'canceled'
+      })
+    }
+    const sorted = sortIssues(listScoped, orderBy, data, false, orderDir)
     // The board groups by columns; label/cycle/milestone fall back to status.
     const effectiveGroupBy = layout === 'board' ? boardColumnGroupBy(groupBy) : groupBy
     return groupIssues(
