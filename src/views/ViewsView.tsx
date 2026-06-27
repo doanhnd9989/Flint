@@ -4,6 +4,7 @@ import { ChevronDown, Copy, Layers, Pencil, Search, Trash2 } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import { filterIssues } from '@/lib/selectors'
 import { ViewHeader } from '@/components/ViewHeader'
+import { PinViewButton } from '@/components/PinViewButton'
 import { EmptyState, StackIllustration } from '@/components/EmptyState'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
@@ -228,6 +229,9 @@ export function ViewsView() {
                   >
                     {count}
                   </span>
+                  {/* Pin to sidebar — surfaces this view under the sidebar's
+                      Views section, mirroring Linear's pinned views. */}
+                  <PinViewButton viewId={v.id} />
                   {/* Rename — enters inline edit mode for this row's name,
                       matching Linear's per-view rename. Hidden while this row is
                       already being edited. */}

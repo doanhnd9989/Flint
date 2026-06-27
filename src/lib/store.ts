@@ -18,6 +18,7 @@ import type {
   Attachment,
   Comment,
   CreatePrefill,
+  Cycle,
   Customer,
   Document,
   Release,
@@ -238,11 +239,23 @@ export interface Store extends WorkspaceData, UIState {
   deleteMilestone: (id: string) => void
   createProjectUpdate: (projectId: string, health: ProjectHealth, body: string) => void
   deleteProjectUpdate: (id: string) => void
+  /** Toggle the current user's emoji reaction on a project update. */
+  toggleProjectUpdateReaction: (updateId: string, emoji: string) => void
+  /** Set a project's long-form README / brief. */
+  setProjectReadme: (id: string, readme: string) => void
   createInitiativeUpdate: (initiativeId: string, health: ProjectHealth, body: string) => void
   deleteInitiativeUpdate: (id: string) => void
+  /** Create the next cycle for a team (auto-numbered, 2-week window after the latest). */
+  createCycle: (teamId: string, name?: string) => Cycle
+  /** Move a cycle's unfinished (non-completed/canceled) issues into the team's next upcoming cycle (creating it if needed). Returns the moved count. */
+  carryOverCycle: (fromCycleId: string) => number
+  /** Spin an issue out into its own project (Linear's "Convert to project"). */
+  convertIssueToProject: (issueId: string) => Project
   createView: (v: Omit<SavedView, 'id'>) => SavedView
   updateView: (id: string, patch: Partial<SavedView>) => void
   deleteView: (id: string) => void
+  /** Pin / unpin a saved view to the sidebar. */
+  togglePinView: (id: string) => void
   createTemplate: (t: Omit<IssueTemplate, 'id'>) => IssueTemplate
   deleteTemplate: (id: string) => void
   toggleTeamMember: (teamId: string, userId: string) => void
@@ -1302,6 +1315,29 @@ export const useStore = create<Store>()(
           projectUpdates: s.projectUpdates.filter((u) => u.id !== id),
         })),
 
+      toggleProjectUpdateReaction: (updateId, emoji) =>
+        set((s) => ({
+          projectUpdates: s.projectUpdates.map((u) => {
+            if (u.id !== updateId) return u
+            const me = s.currentUserId
+            const reactions = { ...(u.reactions ?? {}) }
+            const users = reactions[emoji] ?? []
+            const next = users.includes(me)
+              ? users.filter((id) => id !== me)
+              : [...users, me]
+            if (next.length) reactions[emoji] = next
+            else delete reactions[emoji]
+            return { ...u, reactions }
+          }),
+        })),
+
+      setProjectReadme: (id, readme) =>
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === id ? { ...p, readme } : p,
+          ),
+        })),
+
       createInitiativeUpdate: (initiativeId, health, body) =>
         set((s) => ({
           initiativeUpdates: [
@@ -1337,6 +1373,105 @@ export const useStore = create<Store>()(
 
       deleteView: (id) =>
         set((s) => ({ savedViews: s.savedViews.filter((v) => v.id !== id) })),
+
+      togglePinView: (id) =>
+        set((s) => ({
+          savedViews: s.savedViews.map((v) =>
+            v.id === id ? { ...v, pinned: !v.pinned } : v,
+          ),
+        })),
+
+      createCycle: (teamId, name) => {
+        const teamCycles = get().cycles.filter((c) => c.teamId === teamId)
+        const lastEnd = teamCycles.reduce(
+          (mx, c) => Math.max(mx, new Date(c.endsAt).getTime()),
+          Date.now(),
+        )
+        const number =
+          teamCycles.reduce((mx, c) => Math.max(mx, c.number), 0) + 1
+        const cycle: Cycle = {
+          id: `cy_${nanoid(8)}`,
+          teamId,
+          number,
+          name: name?.trim() || undefined,
+          startsAt: new Date(lastEnd).toISOString(),
+          endsAt: new Date(lastEnd + 14 * 86_400_000).toISOString(),
+        }
+        set((s) => ({ cycles: [...s.cycles, cycle] }))
+        return cycle
+      },
+
+      carryOverCycle: (fromCycleId) => {
+        const from = get().cycles.find((c) => c.id === fromCycleId)
+        if (!from) return 0
+        const doneTypes = new Set(
+          get()
+            .states.filter(
+              (x) => x.type === 'completed' || x.type === 'canceled',
+            )
+            .map((x) => x.id),
+        )
+        const movable = get().issues.filter(
+          (i) =>
+            i.cycleId === fromCycleId &&
+            !i.archivedAt &&
+            !doneTypes.has(i.stateId),
+        )
+        if (!movable.length) return 0
+        // Reassign into the team's next upcoming cycle, creating one if needed.
+        const fromStart = new Date(from.startsAt).getTime()
+        const target =
+          get()
+            .cycles.filter(
+              (c) =>
+                c.teamId === from.teamId &&
+                c.id !== fromCycleId &&
+                new Date(c.startsAt).getTime() >= fromStart,
+            )
+            .sort(
+              (a, b) =>
+                new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+            )[0] ?? get().createCycle(from.teamId)
+        const moved = new Set(movable.map((i) => i.id))
+        set((s) => ({
+          issues: s.issues.map((i) =>
+            moved.has(i.id)
+              ? { ...i, cycleId: target.id, updatedAt: nowIso() }
+              : i,
+          ),
+        }))
+        return moved.size
+      },
+
+      convertIssueToProject: (issueId) => {
+        const issue = get().issues.find((i) => i.id === issueId)
+        const project = get().createProject({
+          name: issue?.title || 'New project',
+          description: issue?.description || undefined,
+          icon: '📋',
+          color: '#5e6ad2',
+          status: 'planned',
+          leadId: issue?.assigneeId,
+          memberIds: issue?.assigneeId ? [issue.assigneeId] : [],
+          teamIds: issue ? [issue.teamId] : [],
+        })
+        if (issue) {
+          const ids = new Set([
+            issue.id,
+            ...get()
+              .issues.filter((i) => i.parentId === issue.id)
+              .map((i) => i.id),
+          ])
+          set((s) => ({
+            issues: s.issues.map((i) =>
+              ids.has(i.id)
+                ? { ...i, projectId: project.id, updatedAt: nowIso() }
+                : i,
+            ),
+          }))
+        }
+        return project
+      },
 
       createTemplate: (t) => {
         const tpl: IssueTemplate = { ...t, id: `tpl_${nanoid(8)}` }

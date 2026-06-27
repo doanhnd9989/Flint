@@ -13,6 +13,10 @@ import type { GroupBy } from '@/lib/types'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import { CycleBurndown } from '@/components/CycleBurndown'
+import { CreateCycleButton } from '@/components/CreateCycleButton'
+import { CycleCarryOver } from '@/components/CycleCarryOver'
+import { EstimateDistribution } from '@/components/EstimateDistribution'
+import { CycleScopeChart } from '@/components/CycleScopeChart'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
 import { Avatar } from '@/components/Avatar'
@@ -361,7 +365,10 @@ export function CyclesView() {
             <ChevronRight size={16} />
           </button>
 
-          <div className="ml-auto flex items-center gap-4 text-[12px]">
+          <div className="ml-auto flex items-center gap-3 text-[12px]">
+            {/* Carry unfinished work into the next cycle + spin up a new cycle. */}
+            <CycleCarryOver cycleId={current.id} />
+            <CreateCycleButton teamId={team.id} />
             {/* Issues / Points unit toggle — a small segmented control. */}
             <div className="flex items-center rounded-md border border-border bg-bg-secondary p-0.5">
               {(['issues', 'points'] as const).map((u) => (
@@ -419,6 +426,20 @@ export function CyclesView() {
             />
           </div>
         )}
+
+        {/* Scope mix + estimate distribution for this cycle. */}
+        <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <CycleScopeChart
+            issues={data.issues.filter(
+              (i) => i.cycleId === current.id && !i.archivedAt,
+            )}
+          />
+          <EstimateDistribution
+            issues={data.issues.filter(
+              (i) => i.cycleId === current.id && !i.archivedAt,
+            )}
+          />
+        </div>
 
         {/* Workload by assignee */}
         {workload.length > 0 && (

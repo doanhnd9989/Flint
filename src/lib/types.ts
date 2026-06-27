@@ -177,6 +177,8 @@ export interface Project {
    * inverse ("blocking") is derived. Optional for back-compat.
    */
   dependsOn?: string[]
+  /** Long-form project README / brief (Markdown), shown on the Overview. Optional. */
+  readme?: string
   createdAt: string
   sortOrder: number
 }
@@ -216,6 +218,8 @@ export interface ProjectUpdate {
   health: ProjectHealth
   body: string
   createdAt: string
+  /** emoji → userIds who reacted to this update. Optional. */
+  reactions?: Record<string, string[]>
 }
 
 export interface InitiativeUpdate {
@@ -527,6 +531,8 @@ export interface SavedView {
   groupBy: GroupBy
   orderBy: OrderBy
   filters: FilterState
+  /** Pinned to the sidebar under "Views". Optional. */
+  pinned?: boolean
 }
 
 export type NotificationType =

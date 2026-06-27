@@ -347,6 +347,17 @@ export function Sidebar() {
           <Item to="/pulse" icon={<Activity size={15} />} label="Pulse" />
           <Item to="/insights" icon={<BarChart3 size={15} />} label="Insights" />
           <Item to="/views" icon={<LayersIcon size={15} />} label="Views" />
+          {/* Pinned saved views surface directly in the sidebar (Linear). */}
+          {savedViews
+            .filter((v) => v.pinned)
+            .map((v) => (
+              <Item
+                key={v.id}
+                to={`/view/${v.id}`}
+                icon={<LayersIcon size={15} className="text-faint" />}
+                label={v.name}
+              />
+            ))}
           <Item to="/labels" icon={<TagIcon size={15} />} label="Labels" />
           <Item to="/teams" icon={<Building2 size={15} />} label="Teams" />
           <Item to="/favorites" icon={<Star size={15} />} label="Favorites" />

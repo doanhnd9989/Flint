@@ -38,6 +38,7 @@ import {
   Archive,
   ArchiveRestore,
   ArrowUpFromLine,
+  FolderPlus,
   Trash2,
 } from 'lucide-react'
 import type { RelationPickerKind } from '@/lib/types'
@@ -423,6 +424,17 @@ export function IssueContextMenu() {
             icon={<ArrowUpFromLine size={14} />}
             label="Convert to issue"
             onClick={() => { store.setIssueParent(issue.id, undefined); close() }}
+          />
+        )}
+        {!issue.projectId && (
+          <ActionRow
+            icon={<FolderPlus size={14} />}
+            label="Convert to project"
+            onClick={() => {
+              const project = store.convertIssueToProject(issue.id)
+              close()
+              navigate(`/project/${project.id}`)
+            }}
           />
         )}
         {issue.archivedAt ? (

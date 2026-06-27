@@ -23,6 +23,7 @@ import {
 } from '@/lib/selectors'
 import { ProjectProgressGraph } from '@/components/ProjectProgressGraph'
 import { ProjectResources } from '@/components/ProjectResources'
+import { ProjectReadme } from '@/components/ProjectReadme'
 import { ProjectDependencies } from '@/components/ProjectDependencies'
 import { IssueRow } from '@/components/IssueRow'
 import { Avatar } from '@/components/Avatar'
@@ -831,6 +832,11 @@ export function ProjectDetail() {
                     )}
                   </button>
                 )}
+              </div>
+
+              {/* Brief / README */}
+              <div className="mt-8">
+                <ProjectReadme projectId={project.id} />
               </div>
 
               {/* Resources */}

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import type { Issue, RelationPickerKind } from '@/lib/types'
 import { branchName, issueUrl } from '@/lib/utils'
@@ -27,6 +28,7 @@ import {
   GitFork,
   Archive,
   ArchiveRestore,
+  FolderPlus,
 } from 'lucide-react'
 
 const MENU_W = 232
@@ -83,6 +85,7 @@ export function IssueOptionsMenu({
   onDeleted: () => void
 }) {
   const store = useStore()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [sub, setSub] = useState<string | null>(null)
   const anchorRef = useRef<HTMLButtonElement>(null)
@@ -325,6 +328,17 @@ export function IssueOptionsMenu({
                   onClick={() => {
                     store.setIssueParent(issue.id, undefined)
                     close()
+                  }}
+                />
+              )}
+              {!issue.projectId && (
+                <Row
+                  icon={<FolderPlus size={14} />}
+                  label="Convert to project"
+                  onClick={() => {
+                    const project = store.convertIssueToProject(issue.id)
+                    close()
+                    navigate(`/project/${project.id}`)
                   }}
                 />
               )}

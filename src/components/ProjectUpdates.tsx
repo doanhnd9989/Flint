@@ -5,6 +5,7 @@ import type { ProjectHealth } from '@/lib/types'
 import { Avatar } from './Avatar'
 import { Markdown } from '@/lib/markdown'
 import { MentionInput } from './MentionInput'
+import { ProjectUpdateReactions } from './ProjectUpdateReactions'
 import { timeAgo, cn } from '@/lib/utils'
 
 export const HEALTH: Record<ProjectHealth, { label: string; color: string }> = {
@@ -111,6 +112,7 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
                 <div className="mt-1 text-[13px] text-fg">
                   <Markdown source={u.body} />
                 </div>
+                <ProjectUpdateReactions updateId={u.id} />
               </div>
             </div>
           )
