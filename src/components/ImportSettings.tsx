@@ -43,10 +43,10 @@ const SOURCES: ImportSource[] = [
     desc: 'Turn Trello cards and lists into issues and workflow states.',
   },
   {
-    id: 'linear',
-    name: 'Linear',
-    initial: 'L',
-    desc: 'Import an existing Linear export to migrate your workspace.',
+    id: 'asana',
+    name: 'Asana',
+    initial: 'A',
+    desc: 'Import Asana tasks and projects to migrate your workspace.',
   },
   {
     id: 'csv',
@@ -62,7 +62,7 @@ const SOURCES: ImportSource[] = [
   },
 ]
 
-/** Linear's Import admin page — choose a source to import issues from. */
+/** Import admin page — choose a source to import issues from. */
 export function ImportSettings() {
   const featureSettings = useStore((s) => s.featureSettings)
   const setFeatureSetting = useStore((s) => s.setFeatureSetting)

@@ -33,9 +33,12 @@ import {
   X,
   Pin,
   PanelLeftClose,
+  Shield,
+  LogOut,
 } from 'lucide-react'
 import { type ReactNode } from 'react'
 import { useStore, useStoreShallow } from '@/lib/store'
+import { useAuth, useFeature } from '@/lib/auth'
 
 /** GitHub octocat mark (lucide dropped brand icons) — matches Linear's row. */
 function GithubMark({ size = 15 }: { size?: number }) {
@@ -95,6 +98,22 @@ function Item({
       {inner}
     </button>
   )
+}
+
+/** An Item that the admin can hide via a feature flag. Renders nothing when the
+ *  flag is disabled. Unknown flags default to enabled (useFeature). */
+function FlagItem({
+  flag,
+  ...props
+}: {
+  flag: string
+  to: string
+  icon: ReactNode
+  label: string
+}) {
+  const enabled = useFeature(flag)
+  if (!enabled) return null
+  return <Item {...props} />
 }
 
 /** A "Try" onboarding row: leading icon + label, click runs the action, and a
@@ -200,6 +219,11 @@ export function Sidebar() {
     toggleSidebar: s.toggleSidebar,
   }))
 
+  // The admin-managed workspace name (backend) wins over the local seed so a
+  // rename in the admin console shows up here too.
+  const backendName = useAuth((s) => s.workspace.name)
+  const displayName = backendName || workspaceName
+
   // Linear's "Try" getting-started section. Each step is hidden once the user
   // dismisses it (×) or completes the underlying action; the section disappears
   // when none remain.
@@ -265,10 +289,10 @@ export function Sidebar() {
             trigger={
               <span className="flex w-full items-center gap-2 rounded-md px-1 py-1 hover:bg-bg-hover">
                 <span className="flex h-5 w-5 items-center justify-center rounded bg-accent text-[11px] font-bold text-white">
-                  {workspaceName.slice(0, 1)}
+                  {displayName.slice(0, 1)}
                 </span>
                 <span className="truncate text-[13px] font-semibold text-fg">
-                  {workspaceName}
+                  {displayName}
                 </span>
                 <ChevronDown size={14} className="text-faint" />
               </span>
@@ -355,18 +379,18 @@ export function Sidebar() {
 
         <Section title="Workspace" sectionKey="workspace">
           <Item to="/all-issues" icon={<Layers3 size={15} />} label="All issues" />
-          <Item to="/initiatives" icon={<Goal size={15} />} label="Initiatives" />
-          <Item to="/projects" icon={<Box size={15} />} label="Projects" />
-          <Item to="/customers" icon={<Building2 size={15} />} label="Customers" />
-          <Item to="/releases" icon={<Rocket size={15} />} label="Releases" />
-          <Item to="/members" icon={<Users size={15} />} label="Members" />
-          <Item to="/documents" icon={<FileText size={15} />} label="Documents" />
-          <Item to="/roadmap" icon={<MapIcon size={15} />} label="Roadmap" />
-          <Item to="/changelog" icon={<Megaphone size={15} />} label="Changelog" />
-          <Item to="/cycles" icon={<IterationCw size={15} />} label="Cycles" />
-          <Item to="/pulse" icon={<Activity size={15} />} label="Pulse" />
-          <Item to="/insights" icon={<BarChart3 size={15} />} label="Insights" />
-          <Item to="/views" icon={<LayersIcon size={15} />} label="Views" />
+          <FlagItem flag="initiatives" to="/initiatives" icon={<Goal size={15} />} label="Initiatives" />
+          <FlagItem flag="projects" to="/projects" icon={<Box size={15} />} label="Projects" />
+          <FlagItem flag="customers" to="/customers" icon={<Building2 size={15} />} label="Customers" />
+          <FlagItem flag="releases" to="/releases" icon={<Rocket size={15} />} label="Releases" />
+          <FlagItem flag="members" to="/members" icon={<Users size={15} />} label="Members" />
+          <FlagItem flag="documents" to="/documents" icon={<FileText size={15} />} label="Documents" />
+          <FlagItem flag="roadmap" to="/roadmap" icon={<MapIcon size={15} />} label="Roadmap" />
+          <FlagItem flag="changelog" to="/changelog" icon={<Megaphone size={15} />} label="Changelog" />
+          <FlagItem flag="cycles" to="/cycles" icon={<IterationCw size={15} />} label="Cycles" />
+          <FlagItem flag="pulse" to="/pulse" icon={<Activity size={15} />} label="Pulse" />
+          <FlagItem flag="insights" to="/insights" icon={<BarChart3 size={15} />} label="Insights" />
+          <FlagItem flag="views" to="/views" icon={<LayersIcon size={15} />} label="Views" />
           {/* Pinned saved views surface directly in the sidebar (Linear). */}
           {savedViews
             .filter((v) => v.pinned)
@@ -378,7 +402,7 @@ export function Sidebar() {
                 label={v.name}
               />
             ))}
-          <Item to="/labels" icon={<TagIcon size={15} />} label="Labels" />
+          <FlagItem flag="labels" to="/labels" icon={<TagIcon size={15} />} label="Labels" />
           <Item to="/teams" icon={<Building2 size={15} />} label="Teams" />
           <Item to="/favorites" icon={<Star size={15} />} label="Favorites" />
           <Item to="/archive" icon={<Archive size={15} />} label="Archive" />
@@ -403,7 +427,8 @@ export function Sidebar() {
               label="Issues"
             />
             {(team.cyclesEnabled ?? true) && (
-              <Item
+              <FlagItem
+                flag="cycles"
                 to={`/team/${team.key}/cycles`}
                 icon={<IterationCw size={15} />}
                 label="Cycles"
@@ -432,9 +457,73 @@ export function Sidebar() {
         )}
       </div>
 
-      <div className="border-t border-border px-2 py-2">
+      <div className="border-t border-border px-2 py-2 space-y-px">
         <Item to="/settings" icon={<Settings size={15} />} label="Settings" />
+        <UserMenu />
       </div>
     </aside>
+  )
+}
+
+/** Footer account row: shows the signed-in user with a popover for the admin
+ *  console (admins only) and sign-out. */
+function UserMenu() {
+  const navigate = useNavigate()
+  const user = useAuth((s) => s.user)
+  const logout = useAuth((s) => s.logout)
+  if (!user) return null
+  return (
+    <Popover
+      align="start"
+      width={220}
+      trigger={
+        <span className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-[13px] text-muted hover:bg-bg-hover hover:text-fg">
+          <span
+            className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+            style={{ background: user.avatarColor }}
+          >
+            {user.name.slice(0, 2).toUpperCase()}
+          </span>
+          <span className="flex-1 truncate text-left">{user.name}</span>
+          {user.role === 'admin' && <Shield size={13} className="text-faint" />}
+        </span>
+      }
+    >
+      {(close) => (
+        <div>
+          <div className="px-2 py-1.5">
+            <p className="truncate text-[13px] font-medium text-fg">{user.name}</p>
+            <p className="truncate text-[11px] text-faint">{user.email}</p>
+            <span className="mt-1 inline-block rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted">
+              {user.role}
+            </span>
+          </div>
+          <div className="my-1 h-px bg-border" />
+          {user.role === 'admin' && (
+            <button
+              type="button"
+              onClick={() => {
+                close()
+                navigate('/admin')
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+            >
+              <Shield size={14} className="text-faint" /> System administration
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              close()
+              logout()
+              navigate('/welcome')
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+          >
+            <LogOut size={14} className="text-faint" /> Sign out
+          </button>
+        </div>
+      )}
+    </Popover>
   )
 }

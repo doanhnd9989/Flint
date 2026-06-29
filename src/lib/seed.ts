@@ -436,7 +436,7 @@ export function buildSeed(): WorkspaceData {
       title: 'Product requirements',
       icon: '📄',
       content:
-        '# Product requirements\n\nThis document captures the **scope and goals** for the MVP launch.\n\n## Goals\n\n- Ship a keyboard-first issue tracker\n- Match Linear\'s look and feel\n- Fast, offline-first\n\n## Non-goals\n\n- Real-time multiplayer (post-launch)\n\n## Open questions\n\n- [ ] Pricing model\n- [ ] Mobile parity\n',
+        '# Product requirements\n\nThis document captures the **scope and goals** for the MVP launch.\n\n## Goals\n\n- Ship a keyboard-first issue tracker\n- A polished, fast, intuitive UX\n- Fast, offline-first\n\n## Non-goals\n\n- Real-time multiplayer (post-launch)\n\n## Open questions\n\n- [ ] Pricing model\n- [ ] Mobile parity\n',
       creatorId: 'u_me',
       projectId: 'p_mvp',
       createdAt: nowIso(),
@@ -497,7 +497,7 @@ export function buildSeed(): WorkspaceData {
   ]
 
   return {
-    workspaceName: 'Claude Test App',
+    workspaceName: 'Flint Task',
     users,
     currentUserId: 'u_me',
     teams,

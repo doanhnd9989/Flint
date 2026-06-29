@@ -7,8 +7,18 @@ import path from 'node:path'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   // Honor the PORT env (used by the preview harness) so the dev server binds the
-  // expected port; falls back to Vite's default when unset.
-  server: process.env.PORT ? { port: Number(process.env.PORT) } : undefined,
+  // expected port; falls back to Vite's default when unset. Proxy /api to the
+  // local auth/admin backend during development.
+  server: {
+    ...(process.env.PORT ? { port: Number(process.env.PORT) } : {}),
+    proxy: {
+      // Anchor on `/api/` so the `/api-docs` page route isn't proxied to the backend.
+      '^/api/': {
+        target: process.env.API_URL || 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

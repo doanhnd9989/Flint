@@ -298,7 +298,7 @@ function PreferencesPage() {
         <PrefCard>
           <PrefRow
             title="Default home view"
-            description="Select which view to display when launching Linear"
+            description="Select which view to display when launching Flint Task"
             control={
               <PrefDropdown
                 value={p.homeView}
@@ -313,7 +313,7 @@ function PreferencesPage() {
           />
           <PrefRow
             title="Display names"
-            description="Select how names are displayed in the Linear interface"
+            description="Select how names are displayed in the Flint Task interface"
             control={
               <PrefDropdown
                 value={p.displayNames}

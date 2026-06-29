@@ -7,7 +7,7 @@ import {
   useLocation,
 } from 'react-router-dom'
 import { useEffect } from 'react'
-import { PanelLeft } from 'lucide-react'
+import { PanelLeft, Loader2 } from 'lucide-react'
 import { Sidebar } from '@/components/Sidebar'
 import { CommandMenu } from '@/components/CommandMenu'
 import { CreateIssueModal } from '@/components/CreateIssueModal'
@@ -63,6 +63,13 @@ import { SettingsView } from '@/views/SettingsView'
 import { ViewsView } from '@/views/ViewsView'
 import { SavedViewScreen } from '@/views/SavedViewScreen'
 import { SearchView } from '@/views/SearchView'
+import { Landing } from '@/views/Landing'
+import { Login } from '@/views/Login'
+import { Register } from '@/views/Register'
+import { ApiDocs } from '@/views/ApiDocs'
+import { AdminView } from '@/views/AdminView'
+import { RequireAuth, RequireAdmin } from '@/components/RequireAuth'
+import { useAuth } from '@/lib/auth'
 
 function Shell() {
   useThemeEffect()
@@ -118,6 +125,13 @@ function Shell() {
   )
 }
 
+/** Root route: marketing landing for visitors, redirect into the app for
+ *  authenticated users. Landing is prerendered to static HTML at `/`. */
+function RootGate() {
+  const user = useAuth((s) => s.user)
+  return user ? <DefaultRedirect /> : <Landing />
+}
+
 function DefaultRedirect() {
   const teamKey = useStore((s) => s.teams[0].key)
   const homeView = useStore((s) => s.preferences.homeView)
@@ -130,12 +144,53 @@ function DefaultRedirect() {
   return <Navigate to={to} replace />
 }
 
+/** Full-screen splash while the auth session bootstraps. */
+function BootSplash() {
+  return (
+    <div className="flex h-screen w-screen items-center justify-center bg-bg text-muted">
+      <Loader2 className="animate-spin" />
+    </div>
+  )
+}
+
 export default function App() {
+  const ready = useAuth((s) => s.ready)
+  const bootstrap = useAuth((s) => s.bootstrap)
+  useEffect(() => {
+    void bootstrap()
+  }, [bootstrap])
+
+  if (!ready) return <BootSplash />
+
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<Shell />}>
-          <Route path="/" element={<DefaultRedirect />} />
+        {/* Public — landing lives at the root for SEO; logged-in users are
+            redirected into the app by RootGate. */}
+        <Route path="/" element={<RootGate />} />
+        <Route path="/welcome" element={<Navigate to="/" replace />} />
+        <Route path="/api-docs" element={<ApiDocs />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        {/* Admin console lives outside the product Shell (its own chrome) */}
+        <Route
+          path="/admin"
+          element={
+            <RequireAuth>
+              <RequireAdmin>
+                <AdminView />
+              </RequireAdmin>
+            </RequireAuth>
+          }
+        />
+        {/* Authenticated app */}
+        <Route
+          element={
+            <RequireAuth>
+              <Shell />
+            </RequireAuth>
+          }
+        >
           <Route path="/search" element={<SearchView />} />
           <Route path="/archive" element={<ArchiveView />} />
           <Route path="/recent" element={<RecentView />} />

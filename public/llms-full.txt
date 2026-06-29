@@ -1,0 +1,56 @@
+# Flint Task — Full reference for AI assistants
+
+Flint Task is a keyboard-first issue tracker and project-management platform
+(a Linear-style workspace). It runs in the browser, is free to sign up for, and
+is designed around speed and keyboard navigation.
+
+## Product areas
+- Issues: statuses (Backlog, Todo, In Progress, In Review, Done, Canceled),
+  priorities (Urgent, High, Medium, Low, None), labels, assignees, due dates,
+  estimates, sub-issues, relations (blocking / blocked by / related / duplicate),
+  description edit history, comments and reactions.
+- Projects: health (on track / at risk / off track), milestones, progress,
+  status updates, dependency tracking.
+- Cycles: time-boxed iterations with scope, progress, carry-over and pause/resume.
+- Initiatives: roll projects into strategic initiatives with target dates.
+- Roadmap: timeline of projects.
+- Insights: analytics dashboards over issue data.
+- Customers, Releases, Documents, Changelog, Pulse (activity feed), Members.
+- Command menu (⌘K), saved views, filtering, triage, notification inbox + rules.
+- Light/dark themes, configurable workspace accent color.
+
+## Access model
+- Authentication is email + password; sessions are JWTs valid for 7 days.
+- Roles: admin, member, guest. Self-service sign-up creates a member.
+- Admins manage feature flags (which product areas are enabled), user accounts
+  (role, suspend, create, delete) and workspace branding (name, tagline, accent).
+
+## API reference
+Base URL: https://flinttask.com/api  (JSON request/response)
+Authentication: send `Authorization: Bearer <token>` on authenticated requests.
+
+Authentication
+- POST /auth/register  { name, email, password } -> 201 { token, user }
+- POST /auth/login     { email, password }        -> 200 { token, user }
+- GET  /auth/me        (bearer)                    -> 200 { user }
+- POST /auth/change-password (bearer) { currentPassword, newPassword } -> { ok }
+
+Public config
+- GET /config -> { workspace: { name, tagline, accentColor }, flags: [...] }
+
+Administration (admin role required, else 403)
+- GET    /admin/flags
+- PATCH  /admin/flags/:key        { enabled }
+- GET    /admin/users
+- POST   /admin/users             { name, email, password, role }
+- PATCH  /admin/users/:id         { role, status }
+- DELETE /admin/users/:id
+- PATCH  /admin/workspace         { name, tagline, accentColor }
+
+Human-readable API docs: https://flinttask.com/api-docs
+
+## Links
+- Home:    https://flinttask.com/
+- Sign up: https://flinttask.com/register
+- Sign in: https://flinttask.com/login
+- API:     https://flinttask.com/api-docs

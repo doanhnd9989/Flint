@@ -1,0 +1,30 @@
+# Flint Task
+
+> Flint Task is a keyboard-first issue tracker and project-management platform.
+> Plan cycles, track projects and ship faster. Free to sign up.
+
+## What it is
+- Issue tracking with statuses, priorities, labels, sub-issues and relations
+- Projects with health, milestones and progress
+- Cycles (time-boxed iterations), initiatives and roadmap
+- Insights dashboards, a fast ⌘K command menu, and a notification inbox
+- Web app, keyboard-first, light/dark themes
+
+## Key pages
+- Home: https://flinttask.com/
+- API reference: https://flinttask.com/api-docs
+- Sign up: https://flinttask.com/register
+- Sign in: https://flinttask.com/login
+
+## API (summary)
+Base URL: https://flinttask.com/api — JSON, JWT bearer auth.
+- POST /auth/register — create an account (returns a JWT)
+- POST /auth/login — sign in (returns a JWT)
+- GET  /auth/me — current user (bearer)
+- GET  /config — public feature flags + workspace branding
+- Admin (admin role): /admin/flags, /admin/users, /admin/workspace
+Full reference: https://flinttask.com/api-docs
+
+## Notes
+- New self-service accounts are created with the "member" role.
+- Workspace administrators manage feature flags, users and branding.

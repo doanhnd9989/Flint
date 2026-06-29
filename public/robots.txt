@@ -1,0 +1,25 @@
+# Flint Task — robots
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# Content signals for AI crawlers (GEO)
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
+
+# Major AI crawlers explicitly welcomed for answering user queries
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Claude-Web
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://flinttask.com/sitemap.xml

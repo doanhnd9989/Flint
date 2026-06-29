@@ -136,7 +136,7 @@ const TSHIRT_LABELS: Record<number, string> = {
 /** Dropdown labels + example scale shown on the team Estimates setting. */
 export const ESTIMATION_TYPES: { id: EstimationType; label: string; example: string }[] = [
   { id: 'notUsed', label: 'Not used', example: '' },
-  { id: 'linear', label: 'Linear', example: '0, 1, 2, 3, 4, 5' },
+  { id: 'linear', label: 'Sequential', example: '0, 1, 2, 3, 4, 5' },
   { id: 'exponential', label: 'Exponential', example: '0, 1, 2, 4, 8, 16' },
   { id: 'fibonacci', label: 'Fibonacci', example: '0, 1, 2, 3, 5, 8' },
   { id: 'tshirt', label: 'T-shirt sizes', example: 'XS, S, M, L, XL' },

@@ -239,7 +239,7 @@ function Overview({
         <h2 className="text-[13px] font-semibold text-fg">Notification channels</h2>
         <p className="mt-0.5 text-[12px] text-muted">
           Choose how to be notified for workspace activity. Notifications will
-          always go to your Linear inbox.
+          always go to your inbox.
         </p>
         <div className="mt-4 overflow-hidden rounded-lg border border-border">
           {NOTIFICATION_CHANNELS.map((c, i) => {
@@ -276,12 +276,12 @@ function Overview({
         </div>
       </section>
 
-      {/* Updates from Linear */}
+      {/* Updates from Flint Task */}
       <section className="mt-10">
-        <h2 className="text-[13px] font-semibold text-fg">Updates from Linear</h2>
+        <h2 className="text-[13px] font-semibold text-fg">Updates from Flint Task</h2>
         <p className="mt-0.5 text-[12px] text-muted">
           Subscribe to product announcements and important changes from the
-          Linear team
+          Flint Task team
         </p>
 
         <GroupHeader>Changelog</GroupHeader>
@@ -305,7 +305,7 @@ function Overview({
         <div className="border-b border-border">
           <ToggleRow
             label="Marketing and onboarding"
-            hint="Occasional updates to help you get the most of out of Linear"
+            hint="Occasional updates to help you get the most of out of Flint Task"
             checked={settings.marketingOnboarding}
             onChange={(v) => updateNotificationSettings({ marketingOnboarding: v })}
           />
