@@ -5,6 +5,7 @@ import { Router } from 'express'
 import { randomUUID } from 'node:crypto'
 import { requireAuth } from './auth.js'
 import { getWorkspace, saveWorkspace, getMeta } from './workspace.js'
+import { fireEvent } from './webhooks.js'
 
 export const apiRouter = Router()
 apiRouter.use(requireAuth)
@@ -33,8 +34,24 @@ apiRouter.put('/workspace', (req, res) => {
     return res.status(400).json({ error: 'workspace must be a JSON object' })
   }
   const writer = req.get('x-client-id') || req.body?.clientId || null
+  const prevIssues = (getWorkspace()?.issues) || []
   const version = saveWorkspace(data, writer)
   res.json({ ok: true, version, updatedAt: now() })
+  // Diff issues so app-driven changes fire webhooks too (bounded to issues).
+  try {
+    const prev = new Map(prevIssues.map((i) => [i.id, i]))
+    const nextIssues = Array.isArray(data.issues) ? data.issues : []
+    const nextIds = new Set()
+    for (const i of nextIssues) {
+      nextIds.add(i.id)
+      const before = prev.get(i.id)
+      if (!before) fireEvent('issue', 'create', i)
+      else if (before.updatedAt !== i.updatedAt) fireEvent('issue', 'update', i)
+    }
+    for (const i of prevIssues) if (!nextIds.has(i.id)) fireEvent('issue', 'remove', { id: i.id })
+  } catch {
+    /* diff is best-effort */
+  }
 })
 
 // ---- reference collections ----
@@ -185,6 +202,7 @@ apiRouter.post('/issues', (req, res) => {
   }
   w.issues.unshift(issue)
   saveWorkspace(w)
+  fireEvent('issue', 'create', issue)
   res.status(201).json({ issue })
 })
 apiRouter.patch('/issues/:id', (req, res) => {
@@ -196,6 +214,7 @@ apiRouter.patch('/issues/:id', (req, res) => {
   }
   i.updatedAt = now()
   saveWorkspace(w)
+  fireEvent('issue', 'update', i)
   res.json({ issue: i })
 })
 apiRouter.delete('/issues/:id', (req, res) => {
@@ -205,6 +224,7 @@ apiRouter.delete('/issues/:id', (req, res) => {
   if (w.issues.length === before) return res.status(404).json({ error: 'Issue not found' })
   w.comments = (w.comments || []).filter((c) => w.issues.some((i) => i.id === c.issueId))
   saveWorkspace(w)
+  fireEvent('issue', 'remove', { id: req.params.id })
   res.json({ ok: true })
 })
 
@@ -228,5 +248,6 @@ apiRouter.post('/issues/:id/comments', (req, res) => {
   if (!Array.isArray(w.comments)) w.comments = []
   w.comments.push(comment)
   saveWorkspace(w)
+  fireEvent('comment', 'create', comment)
   res.status(201).json({ comment })
 })

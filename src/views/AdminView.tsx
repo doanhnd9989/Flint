@@ -11,12 +11,15 @@ import {
   Users as UsersIcon,
   SlidersHorizontal,
   Building2,
+  Webhook,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAuth, type AuthUser, type FeatureFlag, type AuthRole } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
-type Tab = 'features' | 'users' | 'workspace'
+type Tab = 'features' | 'users' | 'workspace' | 'webhooks'
 
 /** Admin-only system console: feature flags, users, workspace config. */
 export function AdminView() {
@@ -44,6 +47,9 @@ export function AdminView() {
           <TabButton active={tab === 'workspace'} onClick={() => setTab('workspace')} icon={Building2}>
             Workspace
           </TabButton>
+          <TabButton active={tab === 'webhooks'} onClick={() => setTab('webhooks')} icon={Webhook}>
+            Webhooks
+          </TabButton>
         </div>
       </header>
 
@@ -51,6 +57,7 @@ export function AdminView() {
         {tab === 'features' && <FeaturesTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'workspace' && <WorkspaceTab />}
+        {tab === 'webhooks' && <WebhooksTab />}
       </main>
     </div>
   )
@@ -392,6 +399,143 @@ function WorkspaceTab() {
           {saved && <span className="text-sm text-green-600">Saved ✓</span>}
         </div>
       </form>
+    </section>
+  )
+}
+
+// ---------- Webhooks ----------
+interface Webhook {
+  id: string
+  url: string
+  events: string
+  enabled: boolean
+  secretHint: string
+  createdAt: string
+  lastStatus: string | null
+  lastAt: string | null
+}
+
+function WebhooksTab() {
+  const [hooks, setHooks] = useState<Webhook[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [url, setUrl] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [secret, setSecret] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    api<{ webhooks: Webhook[] }>('/admin/webhooks')
+      .then((d) => setHooks(d.webhooks))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function create(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      const { webhook, secret: s } = await api<{ webhook: Webhook; secret: string }>('/admin/webhooks', {
+        method: 'POST',
+        body: { url: url.trim() },
+      })
+      setHooks((prev) => [{ ...webhook, secretHint: '', lastStatus: null, lastAt: null }, ...prev])
+      setSecret(s)
+      setCopied(false)
+      setUrl('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create webhook')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function toggle(h: Webhook) {
+    const next = !h.enabled
+    setHooks((prev) => prev.map((x) => (x.id === h.id ? { ...x, enabled: next } : x)))
+    await api(`/admin/webhooks/${h.id}`, { method: 'PATCH', body: { enabled: next } }).catch(() => {})
+  }
+  async function remove(h: Webhook) {
+    if (!confirm(`Delete webhook for ${h.url}?`)) return
+    await api(`/admin/webhooks/${h.id}`, { method: 'DELETE' }).catch(() => {})
+    setHooks((prev) => prev.filter((x) => x.id !== h.id))
+  }
+
+  if (loading) return <Spinner />
+  return (
+    <section>
+      <SectionHead title="Webhooks" subtitle="POST a signed event to your endpoint when issues or comments change." />
+      {error && <p className="mb-3 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-500">{error}</p>}
+
+      {secret && (
+        <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+          <p className="text-sm font-medium text-amber-700">Signing secret — copy it now, shown once.</p>
+          <div className="mt-2 flex items-center gap-2">
+            <code className="flex-1 truncate rounded bg-bg px-3 py-2 text-[13px]">{secret}</code>
+            <button
+              type="button"
+              onClick={() => { navigator.clipboard?.writeText(secret); setCopied(true) }}
+              className="flex items-center gap-1 rounded-md border border-border bg-bg px-3 py-2 text-sm hover:bg-bg-hover"
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            Verify deliveries with <code>HMAC-SHA256(secret, body)</code> against the <code>X-Flint-Signature</code> header.
+          </p>
+        </div>
+      )}
+
+      <form onSubmit={create} className="flex items-end gap-2">
+        <label className="flex flex-1 flex-col gap-1">
+          <span className="text-xs font-medium text-muted">Endpoint URL</span>
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://example.com/webhooks/flint"
+            className={inputCls}
+          />
+        </label>
+        <button type="submit" disabled={busy} className="flex items-center gap-1.5 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white disabled:opacity-60">
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add webhook
+        </button>
+      </form>
+
+      <div className="mt-4 overflow-hidden rounded-lg border border-border bg-bg">
+        {hooks.length === 0 ? (
+          <div className="px-4 py-10 text-center text-sm text-muted">No webhooks yet.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-faint">
+              <tr>
+                <th className="px-4 py-2 font-medium">Endpoint</th>
+                <th className="px-4 py-2 font-medium">Last delivery</th>
+                <th className="px-4 py-2 font-medium">Enabled</th>
+                <th className="px-4 py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {hooks.map((h) => (
+                <tr key={h.id}>
+                  <td className="px-4 py-3"><code className="text-[13px]">{h.url}</code></td>
+                  <td className="px-4 py-3 text-muted">{h.lastStatus ? `${h.lastStatus}` : '—'}</td>
+                  <td className="px-4 py-3">
+                    <button type="button" onClick={() => toggle(h)} className={cn('transition', h.enabled ? 'text-accent' : 'text-faint')}>
+                      {h.enabled ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button type="button" onClick={() => remove(h)} className="text-faint hover:text-red-500" title="Delete">
+                      <Trash2 size={15} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </section>
   )
 }

@@ -236,6 +236,27 @@ export function ApiDocs() {
             </section>
           ))}
 
+          <section id="webhooks" className="mt-12 scroll-mt-24">
+            <h2 className="text-xl font-semibold tracking-tight">Webhooks</h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              A workspace admin can register endpoints (System administration → Webhooks). When an
+              issue or comment changes, {name} POSTs a JSON payload to each endpoint.
+            </p>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-bg-tertiary p-3 text-[12px] leading-relaxed">
+{`POST <your endpoint>
+X-Flint-Event: issue.create
+X-Flint-Signature: sha256=<hex>
+
+{ "type": "issue", "action": "create",
+  "data": { "id", "identifier", "title", … },
+  "createdAt": "2026-…Z" }`}
+            </pre>
+            <p className="mt-2 text-sm text-muted">
+              Verify authenticity with <code className="rounded bg-bg-tertiary px-1 text-[13px]">HMAC-SHA256(secret, rawBody)</code>{' '}
+              and compare to the <code className="rounded bg-bg-tertiary px-1 text-[13px]">X-Flint-Signature</code> header.
+            </p>
+          </section>
+
           <footer className="mt-16 border-t border-border pt-8 text-sm text-faint">
             <p>
               Need an account? <Link to="/register" className="text-muted hover:text-fg">Sign up</Link> ·{' '}

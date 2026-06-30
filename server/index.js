@@ -98,6 +98,41 @@ app.delete('/api/auth/api-keys/:id', requireAuth, (req, res) => {
   res.json({ ok: true })
 })
 
+// ---- webhooks (admin-managed outgoing integrations) ----
+const maskSecret = (s) => `whsec_…${s.slice(-6)}`
+app.get('/api/admin/webhooks', requireAuth, requireAdmin, (_req, res) => {
+  const hooks = db.prepare('SELECT * FROM webhooks ORDER BY created_at DESC').all().map((w) => ({
+    id: w.id, url: w.url, events: w.events, enabled: !!w.enabled,
+    secretHint: maskSecret(w.secret), createdAt: w.created_at,
+    lastStatus: w.last_status, lastAt: w.last_at,
+  }))
+  res.json({ webhooks: hooks })
+})
+app.post('/api/admin/webhooks', requireAuth, requireAdmin, (req, res) => {
+  const url = String(req.body?.url || '').trim()
+  if (!/^https?:\/\/.+/.test(url)) return res.status(400).json({ error: 'A valid http(s) URL is required' })
+  const events = String(req.body?.events || 'all').trim() || 'all'
+  const id = randomUUID()
+  const secret = 'whsec_' + randomBytes(24).toString('hex')
+  db.prepare('INSERT INTO webhooks (id, url, secret, events, enabled, created_at) VALUES (?,?,?,?,1,?)').run(
+    id, url, secret, events, new Date().toISOString(),
+  )
+  // Secret returned once so the admin can configure signature verification.
+  res.status(201).json({ webhook: { id, url, events, enabled: true, createdAt: new Date().toISOString() }, secret })
+})
+app.patch('/api/admin/webhooks/:id', requireAuth, requireAdmin, (req, res) => {
+  const w = db.prepare('SELECT * FROM webhooks WHERE id = ?').get(req.params.id)
+  if (!w) return res.status(404).json({ error: 'Webhook not found' })
+  const enabled = req.body?.enabled ? 1 : 0
+  db.prepare('UPDATE webhooks SET enabled = ? WHERE id = ?').run(enabled, req.params.id)
+  res.json({ id: req.params.id, enabled: !!enabled })
+})
+app.delete('/api/admin/webhooks/:id', requireAuth, requireAdmin, (req, res) => {
+  const info = db.prepare('DELETE FROM webhooks WHERE id = ?').run(req.params.id)
+  if (!info.changes) return res.status(404).json({ error: 'Webhook not found' })
+  res.json({ ok: true })
+})
+
 // ---- public config (read-only, used by landing/login + app boot) ----
 app.get('/api/config', (_req, res) => {
   const workspace = Object.fromEntries(

@@ -50,6 +50,17 @@ db.exec(`
     created_at   TEXT NOT NULL,
     last_used_at TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS webhooks (
+    id          TEXT PRIMARY KEY,
+    url         TEXT NOT NULL,
+    secret      TEXT NOT NULL,        -- HMAC-SHA256 signing secret
+    events      TEXT NOT NULL DEFAULT 'all',  -- comma list or 'all'
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT NOT NULL,
+    last_status TEXT,                 -- last delivery result
+    last_at     TEXT
+  );
 `)
 
 // Default feature set — keys match the SPA's sidebar sections so the admin can
