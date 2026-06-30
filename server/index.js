@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs'
 import { randomUUID } from 'node:crypto'
 import { db, seed } from './db.js'
 import { signToken, publicUser, requireAuth, requireAdmin } from './auth.js'
+import { apiRouter } from './api.js'
 
 seed() // idempotent: creates tables' default rows + admin on first boot
 
@@ -174,6 +175,10 @@ app.delete('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
   db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id)
   res.json({ ok: true })
 })
+
+// Product domain REST API (issues, projects, cycles, …) — mounted after the
+// auth/admin routes so those specific paths win.
+app.use('/api', apiRouter)
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => console.log(`Flint API listening on :${PORT}`))
