@@ -2,9 +2,9 @@
 import express from 'express'
 import cors from 'cors'
 import bcrypt from 'bcryptjs'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, randomBytes } from 'node:crypto'
 import { db, seed } from './db.js'
-import { signToken, publicUser, requireAuth, requireAdmin } from './auth.js'
+import { signToken, publicUser, requireAuth, requireAdmin, hashApiKey, API_KEY_PREFIX } from './auth.js'
 import { apiRouter } from './api.js'
 
 seed() // idempotent: creates tables' default rows + admin on first boot
@@ -68,6 +68,33 @@ app.post('/api/auth/change-password', requireAuth, (req, res) => {
     return res.status(401).json({ error: 'Current password is incorrect' })
   }
   db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(next, 10), req.user.id)
+  res.json({ ok: true })
+})
+
+// ---- personal API keys (Linear-style) ----
+app.get('/api/auth/api-keys', requireAuth, (req, res) => {
+  const keys = db
+    .prepare('SELECT id, name, prefix, created_at, last_used_at FROM api_keys WHERE user_id = ? ORDER BY created_at DESC')
+    .all(req.user.id)
+    .map((k) => ({ id: k.id, name: k.name, prefix: k.prefix, createdAt: k.created_at, lastUsedAt: k.last_used_at }))
+  res.json({ keys })
+})
+
+app.post('/api/auth/api-keys', requireAuth, (req, res) => {
+  const name = String(req.body?.name || '').trim() || 'API key'
+  const key = API_KEY_PREFIX + randomBytes(24).toString('hex')
+  const id = randomUUID()
+  const prefix = key.slice(0, 12)
+  db.prepare('INSERT INTO api_keys (id, user_id, name, prefix, hash, created_at) VALUES (?,?,?,?,?,?)').run(
+    id, req.user.id, name, prefix, hashApiKey(key), new Date().toISOString(),
+  )
+  // The full key is returned ONCE — it is never retrievable again.
+  res.status(201).json({ key, apiKey: { id, name, prefix, createdAt: new Date().toISOString(), lastUsedAt: null } })
+})
+
+app.delete('/api/auth/api-keys/:id', requireAuth, (req, res) => {
+  const info = db.prepare('DELETE FROM api_keys WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id)
+  if (!info.changes) return res.status(404).json({ error: 'API key not found' })
   res.json({ ok: true })
 })
 

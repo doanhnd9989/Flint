@@ -187,7 +187,9 @@ export function ApiDocs() {
           <section className="mt-6 rounded-xl border border-border bg-bg-secondary p-5">
             <h2 className="text-base font-semibold">Authentication</h2>
             <p className="mt-1 text-sm text-muted">
-              Get a token from <code className="rounded bg-bg-tertiary px-1 text-[13px]">/auth/login</code>, then send it on each request:
+              Use a personal API key (create one under{' '}
+              <Link to="/api-keys" className="text-accent hover:underline">API keys</Link>) or a token from{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">/auth/login</code>, then send it on each request:
             </p>
             <pre className="mt-3 overflow-x-auto rounded-lg bg-bg-tertiary p-3 text-[13px] leading-relaxed">
 {`curl ${BASE_URL}/issues?limit=20 \\

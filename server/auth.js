@@ -1,6 +1,12 @@
 // JWT + bcrypt helpers and Express middleware.
 import jwt from 'jsonwebtoken'
+import { createHash } from 'node:crypto'
 import { db } from './db.js'
+
+export const API_KEY_PREFIX = 'flint_'
+export function hashApiKey(key) {
+  return createHash('sha256').update(key).digest('hex')
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me'
 const JWT_TTL = '7d'
@@ -27,21 +33,34 @@ export function publicUser(u) {
   }
 }
 
-/** Populates req.user from the Bearer token; 401 if missing/invalid/suspended. */
+/**
+ * Populates req.user from the Authorization header — accepts either a JWT
+ * (from login) or a personal API key (`flint_…`). 401 if missing/invalid,
+ * 403 if the account is suspended.
+ */
 export function requireAuth(req, res, next) {
   const header = req.headers.authorization || ''
   const token = header.startsWith('Bearer ') ? header.slice(7) : null
   if (!token) return res.status(401).json({ error: 'Not authenticated' })
-  try {
-    const payload = jwt.verify(token, JWT_SECRET)
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.sub)
-    if (!user) return res.status(401).json({ error: 'Account no longer exists' })
-    if (user.status === 'suspended') return res.status(403).json({ error: 'Account suspended' })
-    req.user = user
-    next()
-  } catch {
-    return res.status(401).json({ error: 'Invalid or expired token' })
+
+  let user
+  if (token.startsWith(API_KEY_PREFIX)) {
+    const row = db.prepare('SELECT * FROM api_keys WHERE hash = ?').get(hashApiKey(token))
+    if (!row) return res.status(401).json({ error: 'Invalid API key' })
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id)
+    if (user) db.prepare('UPDATE api_keys SET last_used_at = ? WHERE id = ?').run(new Date().toISOString(), row.id)
+  } else {
+    try {
+      const payload = jwt.verify(token, JWT_SECRET)
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.sub)
+    } catch {
+      return res.status(401).json({ error: 'Invalid or expired token' })
+    }
   }
+  if (!user) return res.status(401).json({ error: 'Account no longer exists' })
+  if (user.status === 'suspended') return res.status(403).json({ error: 'Account suspended' })
+  req.user = user
+  next()
 }
 
 /** Must run after requireAuth. 403 unless the user is an admin. */

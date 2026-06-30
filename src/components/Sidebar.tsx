@@ -35,6 +35,7 @@ import {
   PanelLeftClose,
   Shield,
   LogOut,
+  KeyRound,
 } from 'lucide-react'
 import { type ReactNode } from 'react'
 import { useStore, useStoreShallow } from '@/lib/store'
@@ -515,8 +516,18 @@ function UserMenu() {
             type="button"
             onClick={() => {
               close()
+              navigate('/api-keys')
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+          >
+            <KeyRound size={14} className="text-faint" /> API keys
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              close()
               logout()
-              navigate('/welcome')
+              navigate('/')
             }}
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
           >

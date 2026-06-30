@@ -4,7 +4,7 @@
 import { Router } from 'express'
 import { randomUUID } from 'node:crypto'
 import { requireAuth } from './auth.js'
-import { getWorkspace, saveWorkspace } from './workspace.js'
+import { getWorkspace, saveWorkspace, getMeta } from './workspace.js'
 
 export const apiRouter = Router()
 apiRouter.use(requireAuth)
@@ -23,15 +23,18 @@ function doc() {
 
 // ---- whole-workspace document (used by the web app to hydrate + persist) ----
 apiRouter.get('/workspace', (_req, res) => {
-  res.json({ workspace: getWorkspace() })
+  res.json({ workspace: getWorkspace(), meta: getMeta() })
 })
+// Cheap endpoint clients poll to detect changes from other devices/the API.
+apiRouter.get('/workspace/meta', (_req, res) => res.json(getMeta()))
 apiRouter.put('/workspace', (req, res) => {
-  const data = req.body
+  const data = req.body?.workspace ?? req.body
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return res.status(400).json({ error: 'workspace must be a JSON object' })
   }
-  saveWorkspace(data)
-  res.json({ ok: true, updatedAt: now() })
+  const writer = req.get('x-client-id') || req.body?.clientId || null
+  const version = saveWorkspace(data, writer)
+  res.json({ ok: true, version, updatedAt: now() })
 })
 
 // ---- reference collections ----

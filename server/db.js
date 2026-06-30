@@ -40,6 +40,16 @@ db.exec(`
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS api_keys (
+    id           TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL,
+    name         TEXT NOT NULL,
+    prefix       TEXT NOT NULL,   -- first chars, shown in the UI
+    hash         TEXT NOT NULL UNIQUE,  -- sha256 of the full key
+    created_at   TEXT NOT NULL,
+    last_used_at TEXT
+  );
 `)
 
 // Default feature set — keys match the SPA's sidebar sections so the admin can

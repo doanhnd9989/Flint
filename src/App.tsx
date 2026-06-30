@@ -68,6 +68,7 @@ import { Login } from '@/views/Login'
 import { Register } from '@/views/Register'
 import { ApiDocs } from '@/views/ApiDocs'
 import { AdminView } from '@/views/AdminView'
+import { ApiKeysView } from '@/views/ApiKeysView'
 import { RequireAuth, RequireAdmin } from '@/components/RequireAuth'
 import { useAuth } from '@/lib/auth'
 import { hydrateWorkspace, startWorkspaceSync } from '@/lib/sync'
@@ -191,6 +192,15 @@ export default function App() {
         <Route path="/api-docs" element={<ApiDocs />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        {/* Self-service API key management (any authenticated user) */}
+        <Route
+          path="/api-keys"
+          element={
+            <RequireAuth>
+              <ApiKeysView />
+            </RequireAuth>
+          }
+        />
         {/* Admin console lives outside the product Shell (its own chrome) */}
         <Route
           path="/admin"
