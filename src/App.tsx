@@ -6,7 +6,7 @@ import {
   Outlet,
   useLocation,
 } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { PanelLeft, Loader2 } from 'lucide-react'
 import { Sidebar } from '@/components/Sidebar'
 import { CommandMenu } from '@/components/CommandMenu'
@@ -70,6 +70,7 @@ import { ApiDocs } from '@/views/ApiDocs'
 import { AdminView } from '@/views/AdminView'
 import { RequireAuth, RequireAdmin } from '@/components/RequireAuth'
 import { useAuth } from '@/lib/auth'
+import { hydrateWorkspace, startWorkspaceSync } from '@/lib/sync'
 
 function Shell() {
   useThemeEffect()
@@ -155,12 +156,30 @@ function BootSplash() {
 
 export default function App() {
   const ready = useAuth((s) => s.ready)
+  const user = useAuth((s) => s.user)
   const bootstrap = useAuth((s) => s.bootstrap)
+  const [hydrated, setHydrated] = useState(false)
   useEffect(() => {
     void bootstrap()
   }, [bootstrap])
 
-  if (!ready) return <BootSplash />
+  // Once authenticated, hydrate the workspace from the server (source of truth)
+  // and start persisting changes back. Gate the app behind a splash until done.
+  useEffect(() => {
+    if (!ready || !user || hydrated) return
+    let cancelled = false
+    void hydrateWorkspace().then(() => {
+      if (cancelled) return
+      startWorkspaceSync()
+      setHydrated(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [ready, user, hydrated])
+
+  const wsReady = !user || hydrated
+  if (!ready || !wsReady) return <BootSplash />
 
   return (
     <BrowserRouter>
