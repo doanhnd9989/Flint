@@ -28,6 +28,12 @@ export function getWorkspace() {
   }
 }
 
+const saveListeners = []
+/** Register a callback fired after every workspace save ({version, writer}). */
+export function onWorkspaceSave(cb) {
+  saveListeners.push(cb)
+}
+
 export function saveWorkspace(data, writer = null) {
   const cur = db.prepare('SELECT version FROM workspace_doc WHERE id = 1').get()
   const version = (cur?.version || 0) + 1
@@ -38,6 +44,9 @@ export function saveWorkspace(data, writer = null) {
        data = excluded.data, updated_at = excluded.updated_at,
        version = excluded.version, last_writer = excluded.last_writer`,
   ).run(JSON.stringify(data), new Date().toISOString(), version, writer)
+  for (const cb of saveListeners) {
+    try { cb({ version, writer }) } catch { /* listener errors are non-fatal */ }
+  }
   return version
 }
 

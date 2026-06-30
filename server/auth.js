@@ -63,6 +63,27 @@ export function requireAuth(req, res, next) {
   next()
 }
 
+/** Resolve a user from a raw token (JWT or API key). Returns null if invalid or
+ *  suspended. Used for non-Express contexts like the WebSocket handshake. */
+export function verifyToken(token) {
+  if (!token) return null
+  let user
+  if (token.startsWith(API_KEY_PREFIX)) {
+    const row = db.prepare('SELECT * FROM api_keys WHERE hash = ?').get(hashApiKey(token))
+    if (!row) return null
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id)
+  } else {
+    try {
+      const payload = jwt.verify(token, JWT_SECRET)
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.sub)
+    } catch {
+      return null
+    }
+  }
+  if (!user || user.status === 'suspended') return null
+  return user
+}
+
 /** Must run after requireAuth. 403 unless the user is an admin. */
 export function requireAdmin(req, res, next) {
   if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Admin access required' })

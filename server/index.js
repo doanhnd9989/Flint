@@ -6,6 +6,7 @@ import { randomUUID, randomBytes } from 'node:crypto'
 import { db, seed } from './db.js'
 import { signToken, publicUser, requireAuth, requireAdmin, hashApiKey, API_KEY_PREFIX } from './auth.js'
 import { apiRouter } from './api.js'
+import { setupWebsocket } from './realtime.js'
 
 seed() // idempotent: creates tables' default rows + admin on first boot
 
@@ -243,4 +244,5 @@ app.delete('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
 app.use('/api', apiRouter)
 
 const PORT = process.env.PORT || 3001
-app.listen(PORT, () => console.log(`Flint API listening on :${PORT}`))
+const server = app.listen(PORT, () => console.log(`Flint API listening on :${PORT}`))
+setupWebsocket(server)

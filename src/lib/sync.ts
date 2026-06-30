@@ -5,6 +5,7 @@
 // the source of truth.
 import { useStore } from './store'
 import { api } from './api'
+import { useAuth } from './auth'
 
 const WORKSPACE_KEYS = [
   'workspaceName', 'users', 'currentUserId', 'teams', 'states', 'labels',
@@ -88,7 +89,37 @@ async function poll() {
   }
 }
 
-/** Begin persisting changes (debounced) + polling for remote changes. Idempotent. */
+// Realtime: a WebSocket pushes version bumps for instant refresh. Polling stays
+// on as a fallback for when the socket can't connect.
+function connectWebsocket() {
+  const token = useAuth.getState().token
+  if (!token || typeof WebSocket === 'undefined') return
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+  let ws: WebSocket
+  try {
+    ws = new WebSocket(`${proto}://${location.host}/api/ws?token=${encodeURIComponent(token)}`)
+  } catch {
+    return
+  }
+  ws.onmessage = (ev) => {
+    try {
+      const m = JSON.parse(ev.data)
+      // Ignore our own writes; refresh on anything else.
+      if (m.type === 'workspace' && m.lastWriter !== CLIENT_ID && m.version > lastVersion) {
+        void poll()
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  // Reconnect with a small backoff; polling covers the gap meanwhile.
+  ws.onclose = () => setTimeout(connectWebsocket, 5000)
+  ws.onerror = () => {
+    try { ws.close() } catch { /* ignore */ }
+  }
+}
+
+/** Begin persisting changes (debounced) + realtime/poll refresh. Idempotent. */
 export function startWorkspaceSync(): void {
   if (started) return
   started = true
@@ -103,5 +134,6 @@ export function startWorkspaceSync(): void {
       }
     }
   })
+  connectWebsocket()
   setInterval(() => void poll(), 5000)
 }
