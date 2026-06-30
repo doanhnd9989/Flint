@@ -22,8 +22,8 @@ Base URL: https://flinttask.com/api — JSON, JWT bearer auth.
 - POST /auth/login — sign in (returns a JWT)
 - GET  /auth/me — current user (bearer)
 - GET  /config — public feature flags + workspace branding
-- Admin (admin role): /admin/flags, /admin/users, /admin/workspace
 Full reference: https://flinttask.com/api-docs
+(Workspace administration is an internal, admin-gated surface and is not publicly documented.)
 
 ## Notes
 - New self-service accounts are created with the "member" role.

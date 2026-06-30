@@ -1,16 +1,18 @@
 import { Link } from 'react-router-dom'
-import { Zap, Lock, Globe, Shield, ArrowLeft } from 'lucide-react'
+import { Zap, Lock, Globe, ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 
 /**
- * Public API reference for the Flint Task auth/admin API. Pure presentational
- * (no data fetching) so it prerenders to static HTML for SEO/GEO.
+ * Public API reference for the Flint Task API. Documents only the public-facing
+ * endpoints (authentication + read-only config). Workspace administration is an
+ * internal, admin-gated surface and is intentionally NOT documented here.
+ * Pure presentational so it prerenders to static HTML for SEO/GEO.
  */
 
-type Access = 'public' | 'auth' | 'admin'
+type Access = 'public' | 'auth'
 
 interface Endpoint {
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+  method: 'GET' | 'POST'
   path: string
   access: Access
   summary: string
@@ -32,7 +34,7 @@ const GROUPS: Group[] = [
     id: 'auth',
     title: 'Authentication',
     description:
-      'Email + password authentication. A successful login or registration returns a JWT (valid 7 days) — send it as a Bearer token on every authenticated request.',
+      'Email + password authentication. A successful login or registration returns a JWT (valid 7 days) — send it as a Bearer token on authenticated requests.',
     endpoints: [
       {
         method: 'POST',
@@ -98,13 +100,13 @@ const GROUPS: Group[] = [
   {
     id: 'config',
     title: 'Workspace config',
-    description: 'Public, read-only system configuration — feature flags and workspace branding. No authentication required.',
+    description: 'Public, read-only workspace configuration — enabled features and branding. No authentication required.',
     endpoints: [
       {
         method: 'GET',
         path: '/config',
         access: 'public',
-        summary: 'Feature flags + workspace branding (name, tagline, accent color).',
+        summary: 'Enabled feature flags + workspace branding (name, tagline, accent color).',
         response: `200 OK
 {
   "workspace": { "name", "tagline", "accentColor" },
@@ -116,95 +118,17 @@ const GROUPS: Group[] = [
       },
     ],
   },
-  {
-    id: 'admin',
-    title: 'Administration',
-    description:
-      'System-management endpoints. Require a Bearer token belonging to a user with the admin role; otherwise they return 403.',
-    endpoints: [
-      {
-        method: 'GET',
-        path: '/admin/flags',
-        access: 'admin',
-        summary: 'List all feature flags.',
-        response: `200 OK
-{ "flags": [ { "key", "label", "description", "enabled" } ] }`,
-      },
-      {
-        method: 'PATCH',
-        path: '/admin/flags/:key',
-        access: 'admin',
-        summary: 'Enable or disable a feature for the whole workspace.',
-        request: `{ "enabled": false }`,
-        response: `200 OK
-{ "key": "cycles", "enabled": false }`,
-      },
-      {
-        method: 'GET',
-        path: '/admin/users',
-        access: 'admin',
-        summary: 'List all user accounts.',
-        response: `200 OK
-{ "users": [ { "id", "name", "email", "role", "status" } ] }`,
-      },
-      {
-        method: 'POST',
-        path: '/admin/users',
-        access: 'admin',
-        summary: 'Create a user account with a chosen role.',
-        request: `{
-  "name": "Sam Lee",
-  "email": "sam@example.com",
-  "password": "secret123",
-  "role": "member"   // admin | member | guest
-}`,
-        response: `201 Created
-{ "user": { … } }`,
-      },
-      {
-        method: 'PATCH',
-        path: '/admin/users/:id',
-        access: 'admin',
-        summary: 'Update a user’s role or status (active / suspended).',
-        request: `{ "role": "admin", "status": "active" }`,
-        response: `200 OK
-{ "user": { … } }
-
-400 — cannot demote/suspend the last active admin`,
-      },
-      {
-        method: 'DELETE',
-        path: '/admin/users/:id',
-        access: 'admin',
-        summary: 'Delete a user account.',
-        response: `200 OK
-{ "ok": true }`,
-      },
-      {
-        method: 'PATCH',
-        path: '/admin/workspace',
-        access: 'admin',
-        summary: 'Update workspace branding (name, tagline, accent color).',
-        request: `{ "name": "Flint Task", "tagline": "…", "accentColor": "#5e6ad2" }`,
-        response: `200 OK
-{ "workspace": { … } }`,
-      },
-    ],
-  },
 ]
 
 const METHOD_COLORS: Record<Endpoint['method'], string> = {
   GET: '#4cb782',
   POST: '#4ea7fc',
-  PATCH: '#f2994a',
-  DELETE: '#eb5da8',
 }
 
 function AccessBadge({ access }: { access: Access }) {
   const map = {
     public: { icon: Globe, label: 'Public', cls: 'text-green-600 bg-green-500/10' },
     auth: { icon: Lock, label: 'Bearer token', cls: 'text-blue-600 bg-blue-500/10' },
-    admin: { icon: Shield, label: 'Admin only', cls: 'text-amber-600 bg-amber-500/10' },
   }[access]
   const Icon = map.icon
   return (
@@ -239,8 +163,8 @@ export function ApiDocs() {
       <main className="mx-auto max-w-4xl px-6 py-12">
         <h1 className="text-3xl font-semibold tracking-tight">API Reference</h1>
         <p className="mt-3 max-w-2xl text-muted">
-          The {name} REST API lets you authenticate users and administer the workspace
-          programmatically. All endpoints are served under{' '}
+          The {name} API lets you authenticate users and read public workspace configuration.
+          All endpoints are served under{' '}
           <code className="rounded bg-bg-tertiary px-1.5 py-0.5 text-sm">{BASE_URL}</code> and exchange JSON.
         </p>
 
