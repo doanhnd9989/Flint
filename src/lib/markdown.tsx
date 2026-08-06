@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { copyToClipboard } from '@/lib/toast'
@@ -65,7 +66,53 @@ function languageLabel(lang: string): string {
 
 /** Reject `javascript:` / `data:` URLs so rendered links + images stay safe. */
 function safeUrl(url: string): boolean {
+  // data: is blocked except for raster images — that's the shape the editor
+  // falls back to when the upload API can't be reached, and it can't execute
+  // (SVG stays out, since an SVG data URL can carry script).
+  if (/^\s*data:image\/(png|jpeg|jpg|gif|webp|avif);/i.test(url)) return true
   return !/^\s*(javascript|data|vbscript):/i.test(url)
+}
+
+/**
+ * An image inside a description or comment. Click opens it full size, the way
+ * Linear's editor does — a screenshot pasted into an issue is usually too wide
+ * to read at the width the body column gives it.
+ */
+function MarkdownImage({ src, alt }: { src: string; alt: string }) {
+  const [zoomed, setZoomed] = useState(false)
+  return (
+    <>
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onClick={(e) => {
+          e.stopPropagation()
+          setZoomed(true)
+        }}
+        className="my-2 block max-h-[420px] max-w-full cursor-zoom-in rounded-md border border-border object-contain"
+      />
+      {zoomed &&
+        createPortal(
+          <div
+            data-overlay
+            onMouseDown={(e) => {
+              e.stopPropagation()
+              setZoomed(false)
+            }}
+            className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-3 bg-bg-scrim p-10 animate-fade"
+          >
+            <img
+              src={src}
+              alt={alt}
+              className="max-h-[85vh] max-w-full rounded-lg border border-border object-contain shadow-lg"
+            />
+            {alt && <span className="text-[12px] text-muted">{alt}</span>}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
 }
 
 /** Fenced code block with a language bar and a hover Copy button. */
@@ -127,17 +174,7 @@ function renderInline(text: string, key: string): ReactNode[] {
     else if (m[4]) {
       // ![alt](src) — image
       const src = m[6]
-      if (safeUrl(src))
-        nodes.push(
-          <img
-            key={`${key}-${i}`}
-            src={src}
-            alt={m[5]}
-            loading="lazy"
-            className="my-2 block max-w-full rounded-md border border-border"
-            onClick={(e) => e.stopPropagation()}
-          />,
-        )
+      if (safeUrl(src)) nodes.push(<MarkdownImage key={`${key}-${i}`} src={src} alt={m[5]} />)
       else nodes.push(m[5] || src)
     } else if (m[7]) nodes.push(<strong key={`${key}-${i}`}>{m[8]}</strong>)
     else if (m[9]) nodes.push(<strong key={`${key}-${i}`}>{m[10]}</strong>)

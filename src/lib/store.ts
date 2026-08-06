@@ -51,6 +51,7 @@ import type {
   RelationType,
   RelationPickerKind,
   SavedView,
+  PendingUpload,
   Preferences,
   Team,
   IssueDraft,
@@ -328,6 +329,12 @@ export interface Store extends WorkspaceData, UIState {
   // ── attachments ──────────────────────────────────────────────
   addAttachment: (issueId: string, input: Omit<Attachment, 'id' | 'issueId' | 'creatorId' | 'createdAt'>) => void
   removeAttachment: (id: string) => void
+  /** In-flight uploads, so the attachments list can show progress. Transient. */
+  pendingUploads: PendingUpload[]
+  startUpload: (upload: PendingUpload) => void
+  setUploadProgress: (id: string, progress: number) => void
+  failUpload: (id: string, error: string) => void
+  clearUpload: (id: string) => void
 
   // ── issue reactions ──────────────────────────────────────────
   toggleIssueReaction: (issueId: string, emoji: string) => void
@@ -1962,6 +1969,19 @@ export const useStore = create<Store>()(
       removeAttachment: (id) =>
         set((s) => ({ attachments: s.attachments.filter((a) => a.id !== id) })),
 
+      pendingUploads: [],
+      startUpload: (upload) => set((s) => ({ pendingUploads: [...s.pendingUploads, upload] })),
+      setUploadProgress: (id, progress) =>
+        set((s) => ({
+          pendingUploads: s.pendingUploads.map((u) => (u.id === id ? { ...u, progress } : u)),
+        })),
+      failUpload: (id, error) =>
+        set((s) => ({
+          pendingUploads: s.pendingUploads.map((u) => (u.id === id ? { ...u, error } : u)),
+        })),
+      clearUpload: (id) =>
+        set((s) => ({ pendingUploads: s.pendingUploads.filter((u) => u.id !== id) })),
+
       // ── issue reactions ───────────────────────────────────────
       toggleIssueReaction: (issueId, emoji) =>
         set((s) => ({
@@ -2693,8 +2713,10 @@ export const useStore = create<Store>()(
           shareIssueId: _sh,
           moveIssueId: _mv,
           customizeSidebarOpen: _cs,
+          pendingUploads: _pu,
           ...rest
         } = s
+        void _pu
         void _cs
         void _c
         void _cr

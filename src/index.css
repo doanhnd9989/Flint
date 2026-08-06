@@ -13,6 +13,9 @@
   --bg-selected: #ecedef;
   --bg-elevated: #ffffff;
   --bg-overlay: rgba(0, 0, 0, 0.25);
+  /* Full-bleed scrim behind an image lightbox — dark in both themes, the way
+     Linear dims the app when it opens an attachment. */
+  --bg-scrim: rgba(0, 0, 0, 0.72);
 
   --text: #282a30;
   --text-secondary: #6b6f76;
@@ -67,6 +70,7 @@ html.dark {
   --bg-selected: #1f2023;
   --bg-elevated: #1a1b1e;
   --bg-overlay: rgba(0, 0, 0, 0.55);
+  --bg-scrim: rgba(0, 0, 0, 0.8);
 
   --text: #f7f8f8;
   --text-secondary: #b4b8bf;
@@ -98,6 +102,7 @@ html.dark {
   --color-bg-selected: var(--bg-selected);
   --color-bg-elevated: var(--bg-elevated);
   --color-bg-overlay: var(--bg-overlay);
+  --color-bg-scrim: var(--bg-scrim);
 
   --color-fg: var(--text);
   --color-muted: var(--text-secondary);

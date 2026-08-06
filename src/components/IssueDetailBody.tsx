@@ -27,6 +27,7 @@ import { IssueBacklinks } from './IssueBacklinks'
 import { IssueStatusHistory } from './IssueStatusHistory'
 import { DescriptionTableOfContents } from './DescriptionTableOfContents'
 import { IssueReactions } from './IssueReactions'
+import { AttachFileButton, ComposerAttachButton } from './AttachFileButton'
 import { IssueReminders } from './IssueReminders'
 import { IssueSnooze } from './IssueSnooze'
 import { IssuePinButton } from './IssuePinButton'
@@ -285,7 +286,10 @@ export function IssueDetailBody({
           <div className="mt-3">
             <DescriptionTableOfContents source={issue.description} />
           </div>
-          <IssueReactions issue={issue} />
+          <IssueReactions
+            issue={issue}
+            trailing={<AttachFileButton issueId={issue.id} />}
+          />
           <IssueAgeChip issue={issue} />
 
           {/* Sub-issues */}
@@ -536,7 +540,14 @@ export function IssueDetailBody({
                   }}
                   className="min-h-16 w-full resize-none rounded-lg border border-border bg-bg px-3 py-2 text-[13px] text-fg outline-none focus:border-border-strong"
                 />
-                <div className="mt-1 flex justify-end">
+                {/* Linear keeps the paperclip beside the submit control, not
+                    off on the other side of the composer. */}
+                <div className="mt-1 flex items-center justify-end gap-2">
+                  <ComposerAttachButton
+                    onInsert={(md) =>
+                      setCommentBody((b) => (b.trim() ? `${b.replace(/\s+$/, '')}\n\n${md}` : md))
+                    }
+                  />
                   <button
                     disabled={!commentBody.trim()}
                     onClick={() => {

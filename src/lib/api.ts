@@ -6,6 +6,11 @@ export function setApiToken(token: string | null) {
   authToken = token
 }
 
+/** The current bearer token, for callers that can't go through {@link api} (uploads). */
+export function getApiToken(): string | null {
+  return authToken
+}
+
 export interface ApiOptions {
   method?: string
   body?: unknown

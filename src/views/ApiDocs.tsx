@@ -327,8 +327,42 @@ export function ApiDocs() {
 { "input": { "title": "Rate-limit the public API", "teamId": "<team id or key>", "priority": 2 } }`}
             </pre>
             <p className="mt-3 max-w-2xl text-sm text-muted">
-              Available: <code className="rounded bg-bg-tertiary px-1 text-[13px]">issueCreate · issueUpdate · issueDelete · issueArchive · issueUnarchive · commentCreate · commentUpdate · commentDelete · projectCreate · projectUpdate · projectDelete · cycleCreate · cycleUpdate · issueLabelCreate · issueLabelUpdate · issueLabelDelete</code>.
+              Available: <code className="rounded bg-bg-tertiary px-1 text-[13px]">issueCreate · issueUpdate · issueDelete · issueArchive · issueUnarchive · commentCreate · commentUpdate · commentDelete · projectCreate · projectUpdate · projectDelete · cycleCreate · cycleUpdate · issueLabelCreate · issueLabelUpdate · issueLabelDelete · attachmentCreate · attachmentDelete · fileUpload</code>.
               Introspection is enabled, so codegen and GraphQL IDEs work against the endpoint directly.
+            </p>
+
+            <h3 className="mt-6 text-sm font-semibold">Uploading files</h3>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              Uploads are two steps: ask for a URL, then PUT the bytes to it. The returned{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">assetUrl</code> is what you
+              reference from a description, a comment or an attachment. Files are capped at 25 MB.
+            </p>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-bg-tertiary p-3 text-[12px] leading-relaxed">
+{`mutation FileUpload($contentType: String!, $filename: String!, $size: Int!) {
+  fileUpload(contentType: $contentType, filename: $filename, size: $size) {
+    success
+    uploadFile { assetUrl uploadUrl headers { key value } }
+  }
+}
+
+# then, with the headers the payload asked for:
+curl -X PUT "<uploadUrl>" \\
+  -H "Authorization: Bearer <token>" \\
+  -H "Content-Type: image/png" \\
+  --data-binary @screenshot.png
+
+# and attach it to an issue:
+mutation { attachmentCreate(input: {
+  issueId: "<id>", title: "screenshot.png", url: "<assetUrl>"
+}) { success attachment { id url } } }`}
+            </pre>
+            <p className="mt-3 max-w-2xl text-sm text-muted">
+              A one-shot REST form exists for clients that would rather not round-trip:{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">POST /api/files</code> with the
+              file as the raw body, its name in an{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">x-filename</code> header
+              (percent-encoded) and its type in{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">Content-Type</code>.
             </p>
           </section>
 

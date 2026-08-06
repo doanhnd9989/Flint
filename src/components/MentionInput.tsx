@@ -17,6 +17,8 @@ import {
 import { useStore } from '@/lib/store'
 import { Avatar } from './Avatar'
 import { cn } from '@/lib/utils'
+import { uploadAsset, UploadError } from '@/lib/upload'
+import { toast } from '@/lib/toast'
 
 interface Props {
   value: string
@@ -338,28 +340,39 @@ export function MentionInput({
     rewrite(next, selStart + caretInText)
   }
 
-  /** Read a pasted/dropped file and resolve its placeholder to a data URL. */
+  /**
+   * Upload a pasted/dropped file and swap its placeholder for the real link.
+   * Images embed (`![]()`); anything else becomes a plain link, which is what
+   * Linear does for a PDF or a zip dropped into a description.
+   */
   function uploadFile(file: File, selStart: number, selEnd: number) {
     const id = ++uploadSeq
-    const placeholder = `![Uploading ${file.name}…]()`
+    const image = file.type.startsWith('image/')
+    const placeholder = image ? `![Uploading ${file.name}…]()` : `[Uploading ${file.name}…]()`
     insertAt(placeholder, selStart, selEnd, placeholder.length)
-    const reader = new FileReader()
-    reader.onload = () => {
-      const url = typeof reader.result === 'string' ? reader.result : ''
-      // Resolve the placeholder in place — find it in the latest value via the
-      // textarea (value prop may be stale inside this async callback).
-      const el = ref.current
-      const current = el?.value ?? value
+
+    /** Replace the placeholder wherever it now sits (value may be stale here). */
+    function resolve(replacement: string) {
+      const current = ref.current?.value ?? value
       const idx = current.indexOf(placeholder)
-      const resolved = `![${file.name}](${url})`
       if (idx === -1) return // placeholder was edited away; drop silently
-      const next = current.slice(0, idx) + resolved + current.slice(idx + placeholder.length)
-      const caret = idx + resolved.length
+      const next = current.slice(0, idx) + replacement + current.slice(idx + placeholder.length)
+      const caret = idx + replacement.length
       // Only steal the caret if our placeholder is still the last thing we touched.
       if (id === uploadSeq) rewrite(next, caret)
       else onChange(next)
     }
-    reader.readAsDataURL(file)
+
+    uploadAsset(file).then(
+      (asset) => resolve(`${image ? '!' : ''}[${asset.filename}](${asset.url})`),
+      (err) => {
+        resolve('')
+        toast({
+          title: file.name,
+          message: err instanceof UploadError ? err.message : 'Upload failed',
+        })
+      },
+    )
   }
 
   /** Paste — image files become uploads; a URL onto a selection auto-links. */
@@ -369,7 +382,7 @@ export function MentionInput({
     const start = el.selectionStart ?? value.length
     const end = el.selectionEnd ?? start
     // 1) Image/file paste → placeholder upload.
-    const file = Array.from(e.clipboardData.files).find((f) => f.type.startsWith('image/'))
+    const file = e.clipboardData.files[0]
     if (file) {
       e.preventDefault()
       uploadFile(file, start, end)
@@ -391,7 +404,7 @@ export function MentionInput({
 
   /** Drop — image files dropped onto the editor become placeholder uploads. */
   function handleDrop(e: React.DragEvent<HTMLTextAreaElement>) {
-    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'))
+    const file = e.dataTransfer.files[0]
     if (!file) return
     e.preventDefault()
     const el = e.currentTarget

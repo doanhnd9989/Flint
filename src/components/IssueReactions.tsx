@@ -11,8 +11,11 @@ const EMOJIS = ['👍', '❤️', '🎉', '🚀', '👀', '😄', '🙏', '🔥'
  * Emoji reactions on an issue itself, mirroring `CommentReactions`: a row of
  * reaction pills (emoji + count, accent ring when you reacted, reactor names on
  * hover) plus an "add reaction" affordance that opens an emoji-picker popover.
+ *
+ * `trailing` shares the row — Linear sits the attach-file paperclip right next
+ * to the add-reaction button, so they belong to the same wrapping flex line.
  */
-export function IssueReactions({ issue }: { issue: Issue }) {
+export function IssueReactions({ issue, trailing }: { issue: Issue; trailing?: React.ReactNode }) {
   const { users, currentUserId, toggleIssueReaction } = useStoreShallow((s) => ({
     users: s.users,
     currentUserId: s.currentUserId,
@@ -78,6 +81,8 @@ export function IssueReactions({ issue }: { issue: Issue }) {
           </div>
         )}
       </Popover>
+
+      {trailing}
     </div>
   )
 }

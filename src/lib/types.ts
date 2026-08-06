@@ -376,9 +376,9 @@ export interface Issue {
 }
 
 /**
- * A file/attachment on an issue — Linear's attachments. We have no upload
- * backend, so an attachment is metadata (name + type + optional URL) the user
- * adds manually; rendered with a type-appropriate icon.
+ * A file/attachment on an issue — Linear's attachments. Files uploaded through
+ * the UI are stored by the API (see lib/upload.ts) and referenced by URL;
+ * an attachment can also be pure metadata (a name and a link the user typed).
  */
 export interface Attachment {
   id: string
@@ -387,9 +387,29 @@ export interface Attachment {
   /** Coarse kind driving the icon: image / file / link / design. */
   kind: 'image' | 'file' | 'design' | 'video'
   url?: string
+  /** Human-readable size ("2.4 MB"), shown next to the name. */
   size?: string
+  /** Byte count, when the file went through an upload. Optional. */
+  sizeBytes?: number
+  /** Mime type from the upload, used to preview images. Optional. */
+  contentType?: string
   creatorId: string
   createdAt: string
+}
+
+/**
+ * A file being uploaded right now. Transient (never persisted) — it exists so
+ * the attachments list can show a progress row the way Linear does, and so a
+ * failure has somewhere to be reported.
+ */
+export interface PendingUpload {
+  id: string
+  issueId: string
+  name: string
+  size: number
+  /** 0–1. */
+  progress: number
+  error?: string
 }
 
 /**

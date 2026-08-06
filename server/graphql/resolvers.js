@@ -6,6 +6,20 @@ import { GraphQLScalarType, GraphQLError } from 'graphql'
 import { getWorkspace, saveWorkspace, getMeta } from '../workspace.js'
 import { fireEvent } from '../webhooks.js'
 import { connect, sortRows, matchFilter } from './pagination.js'
+import { createFileRecord, MAX_UPLOAD_BYTES } from '../files.js'
+
+/** Coarse attachment kind, from the mime type we uploaded with or the extension. */
+function kindForUrl(url, metadata) {
+  const type = String(metadata?.contentType || '')
+  if (type.startsWith('image/')) return 'image'
+  if (type.startsWith('video/')) return 'video'
+  const ext = String(url || '').split('?')[0].split('.').pop()?.toLowerCase()
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif'].includes(ext)) return 'image'
+  if (['mp4', 'mov', 'webm', 'avi'].includes(ext)) return 'video'
+  if (['fig', 'sketch', 'xd'].includes(ext)) return 'design'
+  if (/figma\.com|sketch\.com/.test(String(url))) return 'design'
+  return 'file'
+}
 
 const COLLECTIONS = [
   'teams', 'states', 'labels', 'users', 'projects', 'cycles', 'issues',
@@ -746,6 +760,53 @@ export const resolvers = {
       }
       const lastSyncId = commit(w, ctx.clientId)
       return { lastSyncId, success: true, entityId: id }
+    },
+
+    attachmentCreate: (_r, { input }, ctx) => {
+      const w = doc()
+      if (!w.issues.some((i) => i.id === input.issueId)) {
+        throw userError(`No issue with id "${input.issueId}"`)
+      }
+      const att = {
+        id: input.id || randomUUID(),
+        issueId: input.issueId,
+        name: input.title,
+        kind: kindForUrl(input.url, input.metadata),
+        url: input.url,
+        size: input.subtitle || undefined,
+        creatorId: ctx.viewerId(w),
+        createdAt: now(),
+      }
+      w.attachments.push(att)
+      const lastSyncId = commit(w, ctx.clientId)
+      return { lastSyncId, success: true, attachment: att }
+    },
+
+    attachmentDelete: (_r, { id }, ctx) => {
+      const w = doc()
+      if (!w.attachments.some((a) => a.id === id)) throw userError(`No attachment with id "${id}"`)
+      w.attachments = w.attachments.filter((a) => a.id !== id)
+      const lastSyncId = commit(w, ctx.clientId)
+      return { lastSyncId, success: true, entityId: id }
+    },
+
+    fileUpload: (_r, { contentType, filename, size }, ctx) => {
+      if (size > MAX_UPLOAD_BYTES) {
+        throw userError(`File exceeds the ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB limit`)
+      }
+      const rec = createFileRecord({ filename, contentType, size, userId: ctx.user?.id })
+      return {
+        lastSyncId: getMeta().version,
+        success: true,
+        uploadFile: {
+          filename: rec.filename,
+          contentType: rec.contentType,
+          size: rec.size,
+          uploadUrl: rec.uploadUrl,
+          assetUrl: rec.assetUrl,
+          headers: [{ key: 'Content-Type', value: rec.contentType }],
+        },
+      }
     },
   },
 }

@@ -7,12 +7,16 @@ import { db, seed } from './db.js'
 import { signToken, publicUser, requireAuth, requireAdmin, hashApiKey, API_KEY_PREFIX } from './auth.js'
 import { apiRouter } from './api.js'
 import { graphqlRouter } from './graphql/index.js'
+import { filesRouter } from './files.js'
 import { setupWebsocket } from './realtime.js'
 
 seed() // idempotent: creates tables' default rows + admin on first boot
 
 const app = express()
 app.use(cors())
+// Mounted before express.json() so raw upload bodies reach it untouched — a
+// .json file being uploaded would otherwise be eaten by the JSON parser.
+app.use('/api/files', filesRouter)
 app.use(express.json())
 
 const ROLES = ['admin', 'member', 'guest']

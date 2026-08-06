@@ -599,6 +599,30 @@ export const typeDefs = /* GraphQL */ `
   type IssueLabelPayload { lastSyncId: Float! success: Boolean! issueLabel: IssueLabel }
   type IssueArchivePayload { lastSyncId: Float! success: Boolean! entity: Issue }
   type DeletePayload { lastSyncId: Float! success: Boolean! entityId: String! }
+  type AttachmentPayload { lastSyncId: Float! success: Boolean! attachment: Attachment }
+
+  "A header the client must send when PUTting the file to uploadUrl."
+  type UploadFileHeader { key: String! value: String! }
+  type UploadFile {
+    filename: String!
+    contentType: String!
+    size: Int!
+    "Where to PUT the raw bytes."
+    uploadUrl: String!
+    "Where the file will be readable once uploaded."
+    assetUrl: String!
+    headers: [UploadFileHeader!]!
+  }
+  type UploadPayload { lastSyncId: Float! success: Boolean! uploadFile: UploadFile }
+
+  input AttachmentCreateInput {
+    id: String
+    issueId: String!
+    title: String!
+    subtitle: String
+    url: String!
+    metadata: JSONObject
+  }
 
   # ── root ────────────────────────────────────────────────────────────────────
   type Query {
@@ -711,5 +735,11 @@ export const typeDefs = /* GraphQL */ `
     issueLabelCreate(input: IssueLabelCreateInput!): IssueLabelPayload!
     issueLabelUpdate(id: String!, input: IssueLabelUpdateInput!): IssueLabelPayload!
     issueLabelDelete(id: String!): DeletePayload!
+
+    attachmentCreate(input: AttachmentCreateInput!): AttachmentPayload!
+    attachmentDelete(id: String!): DeletePayload!
+
+    "Request a URL to upload a file to. PUT the bytes to uploadUrl, then use assetUrl to reference it."
+    fileUpload(contentType: String!, filename: String!, size: Int!, metaData: JSONObject): UploadPayload!
   }
 `
