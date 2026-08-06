@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayersIcon,
+  Search,
   Settings,
   PenSquare,
   ChevronDown,
@@ -107,6 +108,23 @@ function FlagItem({
   const enabled = useFeature(flag)
   if (!enabled) return null
   return <Item {...props} />
+}
+
+/** An indented child row (Linear nests Current / Upcoming under Cycles). */
+function SubItem({ to, label }: { to: string; label: string }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cn(
+          'flex items-center rounded-md py-1 pl-8 pr-2 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors',
+          isActive && 'bg-bg-selected text-fg font-medium',
+        )
+      }
+    >
+      <span className="truncate">{label}</span>
+    </NavLink>
+  )
 }
 
 /**
@@ -425,6 +443,15 @@ export function Sidebar() {
             )}
           </Popover>
         </div>
+        {/* Linear keeps search in the header next to the compose button. */}
+        <button
+          type="button"
+          title="Search"
+          onClick={() => navigate('/search')}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-bg-hover hover:text-fg"
+        >
+          <Search size={16} />
+        </button>
         <button
           type="button"
           title="New issue"
@@ -489,7 +516,7 @@ export function Sidebar() {
             <Item
               to={`/team/${team.key}/overview`}
               icon={<Home size={15} />}
-              label="Overview"
+              label="Home"
             />
             <Item
               to={`/team/${team.key}/triage`}
@@ -503,17 +530,27 @@ export function Sidebar() {
               label="Issues"
             />
             {(team.cyclesEnabled ?? true) && (
-              <FlagItem
-                flag="cycles"
-                to={`/team/${team.key}/cycles`}
-                icon={<IterationCw size={15} />}
-                label="Cycles"
-              />
+              <>
+                <FlagItem
+                  flag="cycles"
+                  to={`/team/${team.key}/cycles`}
+                  icon={<IterationCw size={15} />}
+                  label="Cycles"
+                />
+                {/* Linear nests Current / Upcoming under a team's Cycles. */}
+                <SubItem to={`/team/${team.key}/cycles?c=current`} label="Current" />
+                <SubItem to={`/team/${team.key}/cycles?c=upcoming`} label="Upcoming" />
+              </>
             )}
             <Item
               to={`/team/${team.key}/projects`}
               icon={<FolderKanban size={15} />}
               label="Projects"
+            />
+            <Item
+              to={`/team/${team.key}/views`}
+              icon={<LayersIcon size={15} />}
+              label="Views"
             />
           </Section>
         ))}

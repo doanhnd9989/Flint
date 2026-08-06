@@ -266,6 +266,7 @@ export default function App() {
           <Route path="/team/:teamKey/triage" element={<TriageView />} />
           <Route path="/team/:teamKey/cycles" element={<CyclesView />} />
           <Route path="/team/:teamKey/projects" element={<ProjectsView />} />
+          <Route path="/team/:teamKey/views" element={<ViewsView />} />
           <Route path="/issue/:identifier" element={<IssueDetail />} />
           <Route path="/settings" element={<SettingsView />} />
           <Route path="*" element={<DefaultRedirect />} />

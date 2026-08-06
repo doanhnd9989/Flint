@@ -333,30 +333,34 @@ export interface SidebarItemDef {
 }
 
 export const SIDEBAR_ITEMS: SidebarItemDef[] = [
-  { key: 'search', label: 'Search', to: '/search', section: 'personal', visibility: 'always' },
+  // Personal — Linear ships Inbox · My issues · Drafts. Search lives in the
+  // header magnifier, not a row; Recent / Reminders / Profile are ours and stay
+  // one click away under "More".
   { key: 'inbox', label: 'Inbox', to: '/inbox', section: 'personal', visibility: 'always', alwaysAvailable: true },
   { key: 'my-issues', label: 'My Issues', to: '/my-issues', section: 'personal', visibility: 'always' },
   { key: 'drafts', label: 'Drafts', to: '/drafts', section: 'personal', visibility: 'badged' },
-  { key: 'recent', label: 'Recent', to: '/recent', section: 'personal', visibility: 'always' },
-  { key: 'reminders', label: 'Reminders', to: '/reminders', section: 'personal', visibility: 'always' },
-  { key: 'profile', label: 'Profile', to: '/profile', section: 'personal', visibility: 'always' },
-  { key: 'all-issues', label: 'All issues', to: '/all-issues', section: 'workspace', visibility: 'always' },
-  { key: 'initiatives', label: 'Initiatives', to: '/initiatives', section: 'workspace', visibility: 'always', flag: 'initiatives' },
+  { key: 'search', label: 'Search', to: '/search', section: 'personal', visibility: 'hidden' },
+  { key: 'recent', label: 'Recent', to: '/recent', section: 'personal', visibility: 'hidden' },
+  { key: 'reminders', label: 'Reminders', to: '/reminders', section: 'personal', visibility: 'hidden' },
+  { key: 'profile', label: 'Profile', to: '/profile', section: 'personal', visibility: 'hidden' },
+  // Workspace — Linear shows only Projects · Teams · Views, then "More".
   { key: 'projects', label: 'Projects', to: '/projects', section: 'workspace', visibility: 'always', flag: 'projects' },
-  { key: 'customers', label: 'Customers', to: '/customers', section: 'workspace', visibility: 'always', flag: 'customers' },
-  { key: 'releases', label: 'Releases', to: '/releases', section: 'workspace', visibility: 'always', flag: 'releases' },
-  { key: 'members', label: 'Members', to: '/members', section: 'workspace', visibility: 'always', flag: 'members' },
-  { key: 'documents', label: 'Documents', to: '/documents', section: 'workspace', visibility: 'always', flag: 'documents' },
-  { key: 'roadmap', label: 'Roadmap', to: '/roadmap', section: 'workspace', visibility: 'always', flag: 'roadmap' },
-  { key: 'changelog', label: 'Changelog', to: '/changelog', section: 'workspace', visibility: 'always', flag: 'changelog' },
-  { key: 'cycles', label: 'Cycles', to: '/cycles', section: 'workspace', visibility: 'always', flag: 'cycles' },
-  { key: 'pulse', label: 'Pulse', to: '/pulse', section: 'workspace', visibility: 'always', flag: 'pulse' },
-  { key: 'insights', label: 'Insights', to: '/insights', section: 'workspace', visibility: 'always', flag: 'insights' },
-  { key: 'views', label: 'Views', to: '/views', section: 'workspace', visibility: 'always', flag: 'views' },
-  { key: 'labels', label: 'Labels', to: '/labels', section: 'workspace', visibility: 'always', flag: 'labels' },
   { key: 'teams', label: 'Teams', to: '/teams', section: 'workspace', visibility: 'always' },
-  { key: 'favorites', label: 'Favorites', to: '/favorites', section: 'workspace', visibility: 'always' },
-  { key: 'archive', label: 'Archive', to: '/archive', section: 'workspace', visibility: 'always' },
+  { key: 'views', label: 'Views', to: '/views', section: 'workspace', visibility: 'always', flag: 'views' },
+  { key: 'all-issues', label: 'All issues', to: '/all-issues', section: 'workspace', visibility: 'hidden' },
+  { key: 'initiatives', label: 'Initiatives', to: '/initiatives', section: 'workspace', visibility: 'hidden', flag: 'initiatives' },
+  { key: 'members', label: 'Members', to: '/members', section: 'workspace', visibility: 'hidden', flag: 'members' },
+  { key: 'customers', label: 'Customers', to: '/customers', section: 'workspace', visibility: 'hidden', flag: 'customers' },
+  { key: 'releases', label: 'Releases', to: '/releases', section: 'workspace', visibility: 'hidden', flag: 'releases' },
+  { key: 'documents', label: 'Documents', to: '/documents', section: 'workspace', visibility: 'hidden', flag: 'documents' },
+  { key: 'roadmap', label: 'Roadmap', to: '/roadmap', section: 'workspace', visibility: 'hidden', flag: 'roadmap' },
+  { key: 'changelog', label: 'Changelog', to: '/changelog', section: 'workspace', visibility: 'hidden', flag: 'changelog' },
+  { key: 'cycles', label: 'Cycles', to: '/cycles', section: 'workspace', visibility: 'hidden', flag: 'cycles' },
+  { key: 'pulse', label: 'Pulse', to: '/pulse', section: 'workspace', visibility: 'hidden', flag: 'pulse' },
+  { key: 'insights', label: 'Insights', to: '/insights', section: 'workspace', visibility: 'hidden', flag: 'insights' },
+  { key: 'labels', label: 'Labels', to: '/labels', section: 'workspace', visibility: 'hidden', flag: 'labels' },
+  { key: 'favorites', label: 'Favorites', to: '/favorites', section: 'workspace', visibility: 'hidden' },
+  { key: 'archive', label: 'Archive', to: '/archive', section: 'workspace', visibility: 'hidden' },
 ]
 
 /** The visibility options a row offers, in Linear's menu order. */

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { useStore } from '@/lib/store'
@@ -59,6 +60,8 @@ export function CyclesView() {
     [data.cycles, team.id],
   )
 
+  const [searchParams] = useSearchParams()
+
   const activeId = useMemo(() => {
     const active = cycles.find(
       (c) => cycleState(c.startsAt, c.endsAt, nowMs).status === 'active',
@@ -66,11 +69,27 @@ export function CyclesView() {
     return active?.id ?? cycles[cycles.length - 1]?.id
   }, [cycles, nowMs])
 
+  // Linear's sidebar nests Current / Upcoming under a team's Cycles; both land
+  // here with `?c=`, which preselects the matching cycle.
+  const requested = searchParams.get('c')
+  const upcomingId = useMemo(
+    () =>
+      cycles.find(
+        (c) => cycleState(c.startsAt, c.endsAt, nowMs).status === 'upcoming',
+      )?.id,
+    [cycles, nowMs],
+  )
+  const routedId =
+    requested === 'upcoming' ? (upcomingId ?? activeId) : requested === 'current' ? activeId : undefined
+
   const [selectedId, setSelectedId] = useState<string | undefined>(activeId)
   // Validate selectedId against THIS team's cycles — a stale id left over from a
   // previous team (the route reuses the component) falls through to activeId.
+  // An explicit `?c=` in the URL wins, so the sidebar rows always land right.
   const current =
-    cycles.find((c) => c.id === selectedId) ?? cycles.find((c) => c.id === activeId)
+    cycles.find((c) => c.id === routedId) ??
+    cycles.find((c) => c.id === selectedId) ??
+    cycles.find((c) => c.id === activeId)
 
   // Whether the cycle stats / progress bar are measured in issue counts or
   // summed estimate points — Linear's Issues / Points unit toggle. Component-
