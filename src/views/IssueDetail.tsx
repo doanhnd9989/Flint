@@ -7,7 +7,7 @@ import { IssueNav } from '@/components/IssueNav'
 import { IssueOptionsMenu } from '@/components/IssueOptionsMenu'
 import { branchName, issueUrl } from '@/lib/utils'
 import { copyToClipboard, copyToast } from '@/lib/toast'
-import { Trash2, Link2, GitBranch } from 'lucide-react'
+import { Link2, GitBranch } from 'lucide-react'
 
 export function IssueDetail() {
   const { identifier } = useParams()
@@ -64,16 +64,6 @@ export function IssueDetail() {
           className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover"
         >
           <Link2 size={15} />
-        </button>
-        <button
-          title="Delete issue"
-          onClick={() => {
-            store.deleteIssue(issue.id)
-            navigate(-1)
-          }}
-          className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
-        >
-          <Trash2 size={15} />
         </button>
         <IssueNav
           identifier={issue.identifier}

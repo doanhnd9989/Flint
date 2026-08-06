@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { ConfirmDialog } from './ui/ConfirmDialog'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import {
@@ -96,6 +97,7 @@ export function IssueContextMenu() {
   const navigate = useNavigate()
   const store = useStore()
   const [sub, setSub] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const ctx = store.contextMenu
   const issue = store.issues.find((i) => i.id === ctx?.issueId)
 
@@ -198,6 +200,17 @@ export function IssueContextMenu() {
   )
 
   return createPortal(
+    <>
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`Delete ${issue.identifier}?`}
+        description="This deletes the issue along with its comments and relations. It can't be undone."
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          setConfirmDelete(false)
+          store.deleteIssue(issue.id)
+        }}
+      />
     <div
       data-overlay
       className="fixed inset-0 z-50"
@@ -466,10 +479,11 @@ export function IssueContextMenu() {
           label="Delete"
           hint="⌘⌫"
           danger
-          onClick={() => { store.deleteIssue(issue.id); close() }}
+          onClick={() => { close(); setConfirmDelete(true) }}
         />
       </div>
-    </div>,
+    </div>
+    </>,
     document.body,
   )
 }

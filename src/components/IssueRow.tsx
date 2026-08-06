@@ -342,12 +342,12 @@ export function IssueRow({
           </span>
         )}
         {dp.created && (
-          <span className="w-10 text-right text-[11px] text-faint">
+          <span className="w-14 shrink-0 text-right text-[11px] text-faint">
             {formatDate(issue.createdAt)}
           </span>
         )}
         {dp.updated && (
-          <span className="w-10 text-right text-[11px] text-faint">
+          <span className="w-14 shrink-0 text-right text-[11px] text-faint">
             {formatDate(issue.updatedAt)}
           </span>
         )}

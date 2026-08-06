@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { ConfirmDialog } from './ui/ConfirmDialog'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import type { Issue, RelationPickerKind } from '@/lib/types'
@@ -94,6 +95,9 @@ export function IssueOptionsMenu({
   const anchorRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  // Deleting an issue takes its comments and relations with it, so it always
+  // goes through a confirmation — Linear does the same.
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useLayoutEffect(() => {
     if (!open || !anchorRef.current) return
@@ -189,6 +193,17 @@ export function IssueOptionsMenu({
 
   return (
     <>
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`Delete ${issue.identifier}?`}
+        description="This deletes the issue along with its comments and relations. It can't be undone."
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          setConfirmDelete(false)
+          store.deleteIssue(issue.id)
+          onDeleted()
+        }}
+      />
       <button
         ref={anchorRef}
         type="button"
@@ -412,8 +427,7 @@ export function IssueOptionsMenu({
                 danger
                 onClick={() => {
                   close()
-                  store.deleteIssue(issue.id)
-                  onDeleted()
+                  setConfirmDelete(true)
                 }}
               />
             </div>

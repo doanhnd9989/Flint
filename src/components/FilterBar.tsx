@@ -10,6 +10,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Type,
+  CircleDashed,
+  User as UserIcon,
+  PenLine,
+  SignalHigh,
+  Tag as TagIcon,
+  Box,
+  Flag,
+  Users,
+  type LucideIcon,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { Popover } from './ui/Popover'
@@ -33,16 +42,16 @@ type Dim =
   | 'milestoneIds'
   | 'subscriberIds'
 
-const DIMS: { id: Dim; label: string }[] = [
-  { id: 'statusIds', label: 'Status' },
-  { id: 'assigneeIds', label: 'Assignee' },
-  { id: 'creatorIds', label: 'Creator' },
-  { id: 'priorities', label: 'Priority' },
-  { id: 'labelIds', label: 'Label' },
-  { id: 'projectIds', label: 'Project' },
-  { id: 'cycleIds', label: 'Cycle' },
-  { id: 'milestoneIds', label: 'Milestone' },
-  { id: 'subscriberIds', label: 'Subscribers' },
+const DIMS: { id: Dim; label: string; icon: LucideIcon }[] = [
+  { id: 'statusIds', label: 'Status', icon: CircleDashed },
+  { id: 'assigneeIds', label: 'Assignee', icon: UserIcon },
+  { id: 'creatorIds', label: 'Creator', icon: PenLine },
+  { id: 'priorities', label: 'Priority', icon: SignalHigh },
+  { id: 'labelIds', label: 'Label', icon: TagIcon },
+  { id: 'projectIds', label: 'Project', icon: Box },
+  { id: 'cycleIds', label: 'Cycle', icon: IterationCw },
+  { id: 'milestoneIds', label: 'Milestone', icon: Flag },
+  { id: 'subscriberIds', label: 'Subscribers', icon: Users },
 ]
 
 /** Linear's Dates submenu — we back the four fields we track timestamps for. */
@@ -406,26 +415,30 @@ function AddFilterPanel({
     const showDates = !q || 'dates'.includes(q)
     const showText = !q || 'content'.includes(q) || 'text'.includes(q)
     return (
-      <div>
+      <div className="relative">
         <input
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Filter…"
-          className="mb-1 w-full rounded-md bg-bg px-2 py-1.5 text-[13px] text-fg outline-none placeholder:text-faint"
+          className="w-full bg-transparent px-2 py-1.5 pr-7 text-[13px] text-fg outline-none placeholder:text-faint"
         />
+        {/* Linear puts the shortcut that opens this menu on the search field. */}
+        <span className="pointer-events-none absolute right-3 top-2 text-[11px] text-faint">F</span>
         <div className="-mx-1 mb-1 border-t border-border" />
         {dims.map((d) => (
           <button
             key={d.id}
             type="button"
             onClick={() => go(d.id)}
-            className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
           >
-            {d.label}
+            <d.icon size={14} className="shrink-0 text-faint" />
+            <span className="flex-1 truncate">{d.label}</span>
             {valuesOf(filters, d.id).length > 0 && (
               <span className="text-[11px] text-faint">{valuesOf(filters, d.id).length}</span>
             )}
+            <ChevronRight size={13} className="shrink-0 text-faint" />
           </button>
         ))}
         {showText && (
@@ -434,9 +447,10 @@ function AddFilterPanel({
             onClick={() => go('text')}
             className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
           >
-            <span className="flex items-center gap-2">
+            <span className="flex flex-1 items-center gap-2">
               <Type size={14} className="text-faint" /> Content
             </span>
+            <ChevronRight size={13} className="shrink-0 text-faint" />
           </button>
         )}
         {showDates && (
@@ -445,9 +459,10 @@ function AddFilterPanel({
             onClick={() => go('dates')}
             className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
           >
-            <span className="flex items-center gap-2">
+            <span className="flex flex-1 items-center gap-2">
               <CalendarDays size={14} className="text-faint" /> Dates
             </span>
+            <ChevronRight size={13} className="shrink-0 text-faint" />
           </button>
         )}
         {dims.length === 0 && !showDates && !showText && (

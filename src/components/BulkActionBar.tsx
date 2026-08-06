@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { ConfirmDialog } from './ui/ConfirmDialog'
 import {
   X, Trash2, Archive, CalendarDays, IterationCw, Bell, Star, Hash,
 } from 'lucide-react'
@@ -101,8 +102,20 @@ export function BulkActionBar() {
     return iss?.subscriberIds.includes(currentUserId)
   })
   const allFavorited = ids.every((id) => favorites.some((f) => f.type === 'issue' && f.id === id))
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   return createPortal(
+    <>
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`Delete ${count} issue${count > 1 ? 's' : ''}?`}
+        description="This deletes them along with their comments and relations. It can't be undone."
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          setConfirmDelete(false)
+          bulkDelete(ids)
+        }}
+      />
     <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 animate-pop">
       <div className="flex items-center gap-1 rounded-xl border border-border bg-bg-elevated px-2 py-1.5 shadow-lg">
         <span className="flex items-center gap-2 rounded-md bg-accent px-2.5 py-1.5 text-[12px] font-medium text-white">
@@ -183,15 +196,14 @@ export function BulkActionBar() {
         </button>
 
         <button
-          onClick={() => {
-            if (confirm(`Delete ${count} issue${count > 1 ? 's' : ''}?`)) bulkDelete(ids)
-          }}
+          onClick={() => setConfirmDelete(true)}
           className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] text-muted hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
         >
           <Trash2 size={14} /> Delete
         </button>
       </div>
-    </div>,
+    </div>
+    </>,
     document.body,
   )
 }

@@ -230,28 +230,28 @@ export function DisplayMenu({
     >
       {() => (
         <div>
-          <Row label="Layout">
-            <button
-              type="button"
-              onClick={() => onLayout('list')}
-              className={cn(
-                'flex items-center gap-1 rounded-md px-2 py-1 text-[12px] text-muted hover:bg-bg-hover',
-                layout === 'list' && 'bg-bg-selected text-fg',
-              )}
-            >
-              <LayoutList size={13} /> List
-            </button>
-            <button
-              type="button"
-              onClick={() => onLayout('board')}
-              className={cn(
-                'flex items-center gap-1 rounded-md px-2 py-1 text-[12px] text-muted hover:bg-bg-hover',
-                layout === 'board' && 'bg-bg-selected text-fg',
-              )}
-            >
-              <Columns3 size={13} /> Board
-            </button>
-          </Row>
+          {/* Linear opens the popover with an unlabelled, full-width List | Board
+              segmented control rather than a labelled row. */}
+          <div className="mb-1 flex gap-1">
+            {([
+              { id: 'list', label: 'List', icon: LayoutList },
+              { id: 'board', label: 'Board', icon: Columns3 },
+            ] as const).map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onLayout(id)}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-[12px] transition-colors',
+                  layout === id
+                    ? 'border-border bg-bg-elevated text-fg shadow-sm'
+                    : 'border-transparent bg-bg-tertiary text-muted hover:text-fg',
+                )}
+              >
+                <Icon size={13} /> {label}
+              </button>
+            ))}
+          </div>
           <Row label={layout === 'board' ? 'Columns' : 'Grouping'}>
             <Seg value={groupBy} options={GROUPS} onChange={onGroupBy} />
           </Row>
