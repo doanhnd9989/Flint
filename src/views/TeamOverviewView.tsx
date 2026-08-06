@@ -1,11 +1,23 @@
 import { useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Lock, Globe, Check } from 'lucide-react'
+import {
+  Lock,
+  Globe,
+  Check,
+  Settings,
+  Ticket,
+  Layers3,
+  IterationCw,
+  FolderKanban,
+  Layers as LayersIcon,
+  Plus,
+  X,
+} from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
 import { TeamJoinButton } from '@/components/TeamJoinButton'
 import { TeamVelocityChart } from '@/components/TeamVelocityChart'
-import { EmptyState, IssuesIllustration } from '@/components/EmptyState'
+import { EmptyState, IssuesIllustration, StackIllustration } from '@/components/EmptyState'
 import { Avatar } from '@/components/Avatar'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
@@ -14,6 +26,7 @@ import { Popover } from '@/components/ui/Popover'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import { cycleProgress, cycleState, projectProgress } from '@/lib/selectors'
 import { PRIORITY_ORDER, PRIORITY_LABELS, LABEL_COLORS, TIMEZONES } from '@/lib/constants'
+import { cn, timeAgo } from '@/lib/utils'
 import type { Issue, Priority, Team, UserRole, WorkflowState } from '@/lib/types'
 
 /** Capitalised role chip (Admin / Member / Guest) — mirrors MembersDirectory. */
@@ -270,7 +283,225 @@ function TeamDetailsPanel({ team }: { team: Team }) {
           )}
         </DetailRow>
       </div>
+
+      {/* "Go to" — Linear's quick links into the team's surfaces. */}
+      <div className="mt-5 border-t border-border pt-4">
+        <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint">
+          Go to
+        </h3>
+        <div className="space-y-px">
+          {[
+            { icon: <Settings size={14} />, label: 'Team settings', to: '/settings' },
+            { icon: <Ticket size={14} />, label: 'Triage', to: `/team/${team.key}/triage` },
+            { icon: <Layers3 size={14} />, label: 'Issues', to: `/team/${team.key}/active` },
+            { icon: <IterationCw size={14} />, label: 'Cycles', to: `/team/${team.key}/cycles` },
+            { icon: <FolderKanban size={14} />, label: 'Projects', to: `/team/${team.key}/projects` },
+            { icon: <LayersIcon size={14} />, label: 'Views', to: '/views' },
+          ].map((row) => (
+            <button
+              key={row.label}
+              type="button"
+              onClick={() => navigate(row.to)}
+              className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] text-muted hover:bg-bg-hover hover:text-fg"
+            >
+              <span className="text-faint">{row.icon}</span>
+              {row.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </aside>
+  )
+}
+
+/** The team home's sub-navigation — Linear's Overview · Documents · Members. */
+const TEAM_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'members', label: 'Members' },
+] as const
+
+type TeamTab = (typeof TEAM_TABS)[number]['id']
+
+function TeamTabs({ team, active }: { team: Team; active: TeamTab }) {
+  const navigate = useNavigate()
+  return (
+    <div className="flex items-center gap-1 border-b border-border px-4 py-1.5">
+      {TEAM_TABS.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() =>
+            navigate(t.id === 'overview' ? `/team/${team.key}/overview` : `/team/${team.key}/${t.id}`)
+          }
+          className={cn(
+            'rounded-md px-2 py-1 text-[13px] transition-colors',
+            t.id === active
+              ? 'bg-bg-selected font-medium text-fg'
+              : 'text-muted hover:bg-bg-hover hover:text-fg',
+          )}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Team → Documents. Linear scopes documents to a team; ours are workspace-level,
+ * so a doc counts as this team's when it is tagged with the team or belongs to
+ * one of the team's projects.
+ */
+export function TeamDocumentsView() {
+  const { teamKey } = useParams()
+  const navigate = useNavigate()
+  const data = useStore()
+  const team = data.teams.find((t) => t.key === teamKey)
+
+  const docs = useMemo(() => {
+    if (!team) return []
+    const teamProjectIds = new Set(
+      data.projects.filter((p) => p.teamIds.includes(team.id)).map((p) => p.id),
+    )
+    return data.documents
+      .filter((d) => d.teamId === team.id || (d.projectId && teamProjectIds.has(d.projectId)))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }, [team, data.documents, data.projects])
+
+  if (!team) return null
+
+  return (
+    <div className="flex h-full flex-col">
+      <ViewHeader title="Documents" teamName={team.name} teamIcon={team.icon} />
+      <TeamTabs team={team} active="documents" />
+      <div className="flex-1 overflow-y-auto">
+        {docs.length === 0 ? (
+          <EmptyState
+            illustration={<StackIllustration />}
+            title="No documents yet"
+            description="Documents attached to this team or its projects show up here."
+            action={{
+              label: 'New document',
+              onClick: () => {
+                const doc = data.createDocument({ teamId: team.id })
+                navigate(`/document/${doc.id}`)
+              },
+            }}
+          />
+        ) : (
+          docs.map((d) => {
+            const project = data.projects.find((p) => p.id === d.projectId)
+            return (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => navigate(`/document/${d.id}`)}
+                className="flex w-full items-center gap-3 border-b border-border px-4 py-2.5 text-left hover:bg-bg-hover"
+              >
+                <span className="text-[15px]">{d.icon}</span>
+                <span className="flex-1 truncate text-[13px] text-fg">{d.title}</span>
+                {project && (
+                  <span className="shrink-0 text-[12px] text-muted">
+                    {project.icon} {project.name}
+                  </span>
+                )}
+                <span className="shrink-0 text-[12px] text-faint">{timeAgo(d.updatedAt)}</span>
+              </button>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Team → Members. Linear's Name / Email / Role table with "+ Add a member". */
+export function TeamMembersView() {
+  const { teamKey } = useParams()
+  const navigate = useNavigate()
+  const data = useStore()
+  const display = useDisplayName()
+  const team = data.teams.find((t) => t.key === teamKey)
+
+  const members = useMemo(() => {
+    if (!team) return []
+    return data.users
+      .filter((u) => team.memberIds.includes(u.id))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [team, data.users])
+
+  if (!team) return null
+
+  const candidates = data.users.filter((u) => !team.memberIds.includes(u.id))
+
+  return (
+    <div className="flex h-full flex-col">
+      <ViewHeader
+        title="Members"
+        teamName={team.name}
+        teamIcon={team.icon}
+        right={
+          <SelectMenu
+            align="end"
+            width={260}
+            placeholder="Search people…"
+            options={candidates.map((u) => ({
+              id: u.id,
+              label: display(u.name),
+              icon: <Avatar user={u} size={18} />,
+              keywords: u.email,
+            }))}
+            onSelect={(id) => data.toggleTeamMember(team.id, id)}
+            trigger={
+              <span className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] text-muted hover:bg-bg-hover hover:text-fg">
+                <Plus size={14} /> Add a member
+              </span>
+            }
+          />
+        }
+      />
+      <TeamTabs team={team} active="members" />
+      <div className="flex-1 overflow-y-auto">
+        <div className="flex items-center gap-3 border-b border-border px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-faint">
+          <span className="flex-1">Name</span>
+          <span className="w-64">Email</span>
+          <span className="w-28">Role</span>
+        </div>
+        {members.map((u) => (
+          <div
+            key={u.id}
+            className="group flex items-center gap-3 border-b border-border px-4 py-2 hover:bg-bg-hover"
+          >
+            <button
+              type="button"
+              onClick={() => navigate(`/member/${u.id}`)}
+              className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+            >
+              <Avatar user={u} size={24} />
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] text-fg">{display(u.name)}</span>
+                <span className="block truncate text-[12px] text-faint">
+                  {u.username ?? u.email.split('@')[0]}
+                </span>
+              </span>
+            </button>
+            <span className="w-64 truncate text-[12px] text-muted">{u.email}</span>
+            <span className="w-28">
+              <RoleChip role={u.role} />
+            </span>
+            <button
+              type="button"
+              title="Remove from team"
+              onClick={() => data.toggleTeamMember(team.id, u.id)}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-faint opacity-0 hover:bg-bg-tertiary hover:text-fg group-hover:opacity-100"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -442,6 +673,7 @@ export function TeamOverviewView() {
           <TeamJoinButton teamId={team.id} />
         </div>
       </ViewHeader>
+      <TeamTabs team={team} active="overview" />
 
       <div className="flex-1 overflow-y-auto bg-bg-secondary">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-8 lg:flex-row">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useStore, useDisplayName } from '@/lib/store'
@@ -52,12 +52,16 @@ export function CreateIssueModal() {
   // Lines parsed from a multi-line paste into the title input. When non-empty,
   // we surface a "Create N issues" affordance (Linear's paste-to-create).
   const [pasteLines, setPasteLines] = useState<string[]>([])
+  // The Drafts row this modal is editing. Set when resuming a draft, and set on
+  // dismiss so re-opening keeps updating the same draft instead of piling up.
+  const [draftId, setDraftId] = useState<string | undefined>()
 
   useEffect(() => {
     if (open) {
       const p = store.createPrefill
-      setTitle('')
-      setDescription('')
+      setDraftId(p?.draftId)
+      setTitle(p?.title ?? '')
+      setDescription(p?.description ?? '')
       setPriority(p?.priority ?? 0)
       setAssigneeId(p?.assigneeId ?? (store.preferences.autoAssignSelf ? store.currentUserId : undefined))
       setLabelIds(p?.labelIds ?? [])
@@ -73,12 +77,62 @@ export function CreateIssueModal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
+  // Latest form values for `dismiss`, which runs from a handler registered once
+  // per open and would otherwise close over a stale render.
+  const formRef = useRef({
+    draftId,
+    title,
+    description,
+    teamId,
+    stateId,
+    priority,
+    assigneeId,
+    labelIds,
+    projectId,
+  })
+  formRef.current = {
+    draftId,
+    title,
+    description,
+    teamId,
+    stateId,
+    priority,
+    assigneeId,
+    labelIds,
+    projectId,
+  }
+
+  /**
+   * Closing with something typed keeps it as a Drafts row (Linear never throws
+   * away an unsent issue); an empty form just closes.
+   */
+  function dismiss() {
+    const f = formRef.current
+    if (f.title.trim() || f.description.trim()) {
+      const id = store.saveDraft({
+        id: f.draftId,
+        teamId: f.teamId,
+        title: f.title,
+        description: f.description,
+        statusId: f.stateId,
+        assigneeId: f.assigneeId,
+        priority: f.priority,
+        labelIds: f.labelIds,
+        projectId: f.projectId,
+      })
+      setDraftId(id)
+    }
+    store.setCreateOpen(false)
+  }
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && open) store.setCreateOpen(false)
+      if (e.key === 'Escape' && open) dismiss()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
+    // `dismiss` reads the live form through formRef, so it needs no deps here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, store])
 
   if (!open) return null
@@ -141,6 +195,11 @@ export function CreateIssueModal() {
     })
     // createIssue's input has no milestoneId field; persist it via the action.
     if (milestoneId) store.setIssueMilestone(issue.id, milestoneId)
+    // The draft has become a real issue — drop it from Drafts.
+    if (draftId) {
+      store.deleteDraft(draftId)
+      setDraftId(undefined)
+    }
     if (store.createMore) {
       // Linear's "Create more": keep the modal open and reset the form for rapid
       // entry, preserving the group context the modal was opened with.
@@ -180,7 +239,7 @@ export function CreateIssueModal() {
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-bg-overlay pt-24 animate-fade"
-      onMouseDown={() => store.setCreateOpen(false)}
+      onMouseDown={() => dismiss()}
     >
       <div
         className="w-[640px] max-w-[92vw] rounded-xl border border-border bg-bg-elevated shadow-lg animate-pop"
@@ -222,7 +281,7 @@ export function CreateIssueModal() {
             />
           )}
           <button
-            onClick={() => store.setCreateOpen(false)}
+            onClick={() => dismiss()}
             aria-label="Close"
             className="-mr-1 flex h-6 w-6 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-muted"
           >

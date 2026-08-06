@@ -474,9 +474,69 @@ grep-confirmed missing features; 25 built this run, 33 remain (below).
 - [x] 🟢 **Member assigned-work breakdown modal** (by priority/status).
 - [x] 🟢 **Profile username + bio + timezone display**.
 - [x] 🟢 **Team overview settings sidebar** (icon/name/key/members).
-- [ ] 🟢 **Sidebar customization** (toggle/reorder sections).
+- [x] 🟢 **Sidebar customization** — shipped as Linear's **Customize sidebar** dialog (see loop #99 below).
 - [x] 🟢 **Saved-views management settings page**.
 - [ ] 🟢 **Workspace shortcuts** (admin quick links in the sidebar).
 - [x] 🟢 **Workspace accent color** (brand color override + CSS var injection).
 - [x] 🟢 **Notification rules (advanced if-then)**.
 - [x] 🟢 **Member role permissions matrix** (admin/member/guest capabilities).
+
+### Loop #99 — Soi'd the real Linear workspace (`thehumaninc`), 3 features shipped
+
+Browsed the signed-in account directly instead of replenishing from greps. The
+live sidebar there is deliberately small — Inbox · Reviews · My issues · Agent,
+then Workspace: Projects · Teams · Views · **More** — which exposed three gaps.
+
+- [x] 🔴 **Customize sidebar** — soi'd Linear's `More ▸ Customize sidebar` dialog: a
+  **Default badge style** row (`1 Count` / `● Dot`, check on current), then
+  **Personal** (Inbox · Reviews · My issues · Drafts · Agent) and **Workspace**
+  (Projects · Teams · Views · Members · Customers) sections whose rows each carry
+  a drag handle, icon, label and a right-hand selector — **Always show** /
+  **Show when badged** / **Don't show** — with `Don't show` rows dimmed and
+  badge-bearing rows (Inbox) offering only the first two. Reproduced 1:1: a
+  `SidebarPrefs` model (`badgeStyle` · per-key `visibility` · per-section
+  `order`) + `SIDEBAR_ITEMS` registry in `constants.ts` (the single source of
+  truth for label/route/flag/default-visibility, with `orderedSidebarItems()`
+  appending registry rows a saved order predates), store actions
+  `setSidebarBadgeStyle` / `setSidebarVisibility` / `setSidebarOrder` +
+  `setCustomizeSidebarOpen` (transient, excluded from persist) and a
+  persist-merge backfill; a `CustomizeSidebarModal` with dnd-kit sortable rows
+  (handle-only drag so the selector stays clickable); a shared `sidebarIcons.tsx`
+  so the sidebar and the dialog can't drift; the Sidebar's Personal/Workspace
+  sections now render from the registry, honour `badged` (row appears only while
+  it carries a badge) and render the badge as a count chip or an accent dot; and
+  a **More** row closing the Workspace section that lists every `Don't show` item
+  plus **Customize sidebar**. Also reachable from ⌘K. Verified live: hiding
+  Releases moved it into More instantly, dragging Reminders above Recent
+  reordered the sidebar live and persisted, Dot restyled the Inbox badge, dark
+  mode matches, console clean.
+- [x] 🟡 **Drafts** — soi'd Linear's `/drafts`: a **Drafts** row in the Personal
+  section (default **Show when badged**, so it only appears while you have one)
+  and a screen whose empty state is a stack-of-sheets-with-a-pen line drawing
+  over **"No active drafts"**. Reproduced 1:1: an `IssueDraft` model + persisted
+  `drafts` slice with `saveDraft` (upsert) / `deleteDraft`; the New-issue modal
+  now **keeps whatever you typed** when you dismiss it (×, Esc or backdrop) as a
+  draft instead of discarding it — reading the live form through a ref so the
+  once-per-open Esc handler can't save a stale value — and **consumes** the draft
+  when the issue is finally created; `CreatePrefill` gained `title` /
+  `description` / `draftId` so a row can resume straight back into the modal; a
+  `/drafts` view listing drafts newest-first (priority · status · team key ·
+  title-or-"Untitled" · project · labels · relative time · assignee, hover
+  discard) with a new `DraftsIllustration`. ⌘K "Go to Drafts". Verified live:
+  typing a title then Esc surfaced **Drafts 1** in the sidebar, the row re-opened
+  the modal seeded, Create issue removed the draft and the row auto-hid again.
+- [x] 🟡 **Team home sub-navigation** — soi'd Linear's team Home: the page is
+  tabbed **Overview · Documents · Members** with a right-hand rail carrying
+  **Members** and a **Go to** list (Connect channel / Team settings / Triage /
+  Issues / Cycles / Projects / Views). Added the tab bar to our team Overview
+  plus two new panes: **Documents** (`/team/:key/documents`) — docs tagged with
+  the team or belonging to one of its projects, with an empty state that creates
+  one (`Document.teamId` added) — and **Members** (`/team/:key/members`) —
+  Linear's Name / Email / Role table (avatar + name + handle, role chip, hover
+  remove) with a **+ Add a member** picker in the header. The Team details panel
+  gained the **Go to** block. _(Connect channel omitted — no Slack backend.)_
+
+**Not built (needs a backend we don't have):** Linear's **Agent** (Ask Linear /
+Skills) and **Reviews** (GitHub PR + coding-session diffs) — both are gated on a
+real integration; Reviews renders only an "Enable code access" empty state in the
+live workspace too.

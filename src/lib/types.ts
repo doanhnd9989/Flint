@@ -91,6 +91,8 @@ export interface Document {
   content: string
   creatorId: string
   projectId?: string
+  /** Team the doc belongs to — surfaces it on the team home's Documents tab. */
+  teamId?: string
   createdAt: string
   updatedAt: string
   sortOrder: number
@@ -498,6 +500,10 @@ export interface CreatePrefill {
   assigneeId?: string
   labelIds?: string[]
   projectId?: string
+  /** Set when resuming a Drafts row — seeds the editor and is cleaned up on create. */
+  title?: string
+  description?: string
+  draftId?: string
 }
 
 /** Properties that can be shown/hidden on issue rows (Linear's Display options). */
@@ -706,4 +712,40 @@ export interface Preferences {
   showSidebarCounts?: boolean
   /** Workspace accent color override (a hex string), or undefined for the default. */
   accentColor?: string
+}
+
+/**
+ * How a sidebar row behaves — Linear's "Customize sidebar" per-item selector.
+ * `badged` only renders the row when it has a non-zero badge.
+ */
+export type SidebarVisibility = 'always' | 'badged' | 'hidden'
+
+/** Linear's "Default badge style" — a number or a plain dot. */
+export type SidebarBadgeStyle = 'count' | 'dot'
+
+/** Persisted sidebar customization (Customize sidebar modal). */
+export interface SidebarPrefs {
+  badgeStyle: SidebarBadgeStyle
+  /** Item key → visibility. Missing keys fall back to the item's default. */
+  visibility: Record<string, SidebarVisibility>
+  /** Ordered item keys per section. Unknown/new keys append in registry order. */
+  order: Record<'personal' | 'workspace', string[]>
+}
+
+/**
+ * An unsent issue draft — Linear keeps whatever you typed into the New issue
+ * modal and lists it under Drafts until you create or discard it.
+ */
+export interface IssueDraft {
+  id: string
+  teamId: string
+  title: string
+  description: string
+  statusId?: string
+  assigneeId?: string
+  priority?: Priority
+  labelIds: string[]
+  projectId?: string
+  createdAt: string
+  updatedAt: string
 }

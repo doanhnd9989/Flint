@@ -15,6 +15,8 @@ import { CreateInitiativeModal } from '@/components/CreateInitiativeModal'
 import { CreateProjectModal } from '@/components/CreateProjectModal'
 import { CreateDocumentModal } from '@/components/CreateDocumentModal'
 import { CreateViewModal } from '@/components/CreateViewModal'
+import { CustomizeSidebarModal } from '@/components/CustomizeSidebarModal'
+import { DraftsView } from '@/views/DraftsView'
 import { IssuePeek } from '@/components/IssuePeek'
 import { BulkActionBar } from '@/components/BulkActionBar'
 import { IssueContextMenu } from '@/components/IssueContextMenu'
@@ -47,7 +49,11 @@ import { InsightsView } from '@/views/InsightsView'
 import { ActiveCyclesView } from '@/views/ActiveCyclesView'
 import { PulseView } from '@/views/PulseView'
 import { LabelView } from '@/views/LabelView'
-import { TeamOverviewView } from '@/views/TeamOverviewView'
+import {
+  TeamOverviewView,
+  TeamDocumentsView,
+  TeamMembersView,
+} from '@/views/TeamOverviewView'
 import { CustomersView } from '@/views/CustomersView'
 import { CustomerDetail } from '@/views/CustomerDetail'
 import { ReleasesView } from '@/views/ReleasesView'
@@ -114,6 +120,7 @@ function Shell() {
       <CreateProjectModal />
       <CreateDocumentModal />
       <CreateViewModal />
+      <CustomizeSidebarModal />
       <IssuePeek />
       <BulkActionBar />
       <IssueContextMenu />
@@ -223,6 +230,7 @@ export default function App() {
           <Route path="/search" element={<SearchView />} />
           <Route path="/archive" element={<ArchiveView />} />
           <Route path="/recent" element={<RecentView />} />
+          <Route path="/drafts" element={<DraftsView />} />
           <Route path="/favorites" element={<FavoritesView />} />
           <Route path="/teams" element={<TeamsDirectoryView />} />
           <Route path="/all-issues" element={<AllIssuesView />} />
@@ -252,6 +260,8 @@ export default function App() {
           <Route path="/views" element={<ViewsView />} />
           <Route path="/view/:id" element={<SavedViewScreen />} />
           <Route path="/team/:teamKey/overview" element={<TeamOverviewView />} />
+          <Route path="/team/:teamKey/documents" element={<TeamDocumentsView />} />
+          <Route path="/team/:teamKey/members" element={<TeamMembersView />} />
           <Route path="/team/:teamKey/active" element={<IssuesView />} />
           <Route path="/team/:teamKey/triage" element={<TriageView />} />
           <Route path="/team/:teamKey/cycles" element={<CyclesView />} />

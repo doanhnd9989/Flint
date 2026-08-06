@@ -3161,3 +3161,46 @@ Next: remaining parity is increasingly backend-dependent (live GitHub/Slack
 sync, real async email export, audit-log depth) plus deeper DnD surfaces
 (Releases manual sort, board label swimlanes with de-duped drop ids) and
 promoting project templates to a real shared store collection.
+
+## Loop #99 — Soi'd the live Linear workspace, shipped 3 features
+
+Instead of grep-based replenishment this round browsed the signed-in Linear
+account (`thehumaninc`) directly. Its sidebar is much smaller than ours —
+Inbox · Reviews · My issues · Agent, then Workspace: Projects · Teams · Views ·
+**More** — which pointed straight at the gaps.
+
+**1. Customize sidebar** (`More ▸ Customize sidebar`). New `SidebarPrefs`
+(badge style · per-item visibility · per-section order) + a `SIDEBAR_ITEMS`
+registry so the sidebar and the dialog share one source of truth; store actions
+`setSidebarBadgeStyle` / `setSidebarVisibility` / `setSidebarOrder`, a transient
+`customizeSidebarOpen`, and a persist-merge backfill. The dialog reproduces
+Linear's layout exactly (Default badge style `1 Count`/`● Dot`, Personal +
+Workspace sections, per-row Always show / Show when badged / Don't show, dimmed
+hidden rows, Inbox without a hide option) with dnd-kit sortable rows — the drag
+listeners live on the handle only so the selector stays clickable. The Workspace
+section now ends in a **More** popover holding every hidden row plus Customize
+sidebar. Also on ⌘K.
+
+**2. Drafts.** `IssueDraft` + a persisted `drafts` slice. The New-issue modal no
+longer throws away an unsent issue: dismissing it (×, Esc, backdrop) saves a
+draft, re-opening one seeds the form (`CreatePrefill.title/description/draftId`),
+and creating the issue consumes it. The Esc handler reads the live form through a
+ref, since it is registered once per open. `/drafts` lists them newest-first with
+Linear's "No active drafts" empty state and a new stack-of-sheets illustration;
+the sidebar row defaults to **Show when badged**, so it appears only when you
+have drafts.
+
+**3. Team home sub-navigation.** The team page is now tabbed **Overview ·
+Documents · Members** like Linear's, with a **Go to** block in the details rail.
+Documents (`/team/:key/documents`) lists docs tagged with the team or owned by
+its projects (`Document.teamId` added); Members (`/team/:key/members`) is
+Linear's Name / Email / Role table with **+ Add a member** and hover-remove.
+
+`tsc -b ✅ · npm run build ✅ · console clean` — verified live in light and dark:
+hiding Releases moved it into More, dragging Reminders reordered the sidebar and
+persisted, the Dot style restyled the Inbox badge, a typed-then-dismissed issue
+surfaced as **Drafts 1** and round-tripped back into the modal.
+
+Deliberately not built: **Agent** (Ask Linear / Skills) and **Reviews** (GitHub
+diffs) — both need a real integration; Reviews is an "Enable code access" empty
+state in the live workspace too.

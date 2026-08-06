@@ -214,3 +214,28 @@ export function CheckIllustration() {
     </svg>
   )
 }
+
+/** A stack of sheets with a pen resting on it — Linear's Drafts empty state. */
+export function DraftsIllustration() {
+  return (
+    <svg width={SIZE} height={SIZE} viewBox="0 0 120 120" fill="none" aria-hidden>
+      <g
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {/* Two sheets peeking out behind the top one. */}
+        <path d="M30 74 L58 84 L92 70 L64 60 Z" opacity={0.35} />
+        <path d="M30 66 L58 76 L92 62 L64 52 Z" opacity={0.6} />
+        <path d="M30 58 L58 68 L92 54 L64 44 Z" fill="var(--bg-secondary)" />
+        {/* Ruled lines on the top sheet. */}
+        <path d="M44 56 L62 62" opacity={0.5} />
+        <path d="M54 52 L72 58" opacity={0.5} />
+        {/* Pen laid across the stack. */}
+        <path d="M62 44 L86 30 L92 38 L68 52 Z" fill="var(--bg-secondary)" />
+        <path d="M62 44 L68 52" opacity={0.6} />
+      </g>
+    </svg>
+  )
+}

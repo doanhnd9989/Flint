@@ -1,9 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  Inbox,
-  Box,
   LayersIcon,
-  Search,
   Settings,
   PenSquare,
   ChevronDown,
@@ -12,23 +9,10 @@ import {
   Layers3,
   IterationCw,
   Ticket,
-  Goal,
-  FileText,
-  Map as MapIcon,
-  BarChart3,
-  Activity,
   Home,
-  Building2,
-  Rocket,
-  Users,
-  Megaphone,
-  CircleUser,
   Copy,
-  History,
-  Star,
-  Archive,
-  Bell,
-  Tag as TagIcon,
+  MoreHorizontal,
+  SlidersHorizontal,
   Plus,
   X,
   Pin,
@@ -40,6 +24,8 @@ import {
 import { type ReactNode } from 'react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { useAuth, useFeature } from '@/lib/auth'
+import { orderedSidebarItems, type SidebarItemDef } from '@/lib/constants'
+import { sidebarItemIcon } from './sidebarIcons'
 
 /** GitHub octocat mark (lucide dropped brand icons) — matches Linear's row. */
 function GithubMark({ size = 15 }: { size?: number }) {
@@ -67,6 +53,8 @@ function Item({
 }) {
   // Preferences → "Show counts in sidebar" (defaults on for older workspaces).
   const showCounts = useStore((s) => s.preferences.showSidebarCounts !== false)
+  // Customize sidebar → "Default badge style": a count chip or a plain dot.
+  const badgeStyle = useStore((s) => s.sidebarPrefs.badgeStyle)
   const base =
     'flex items-center gap-2 rounded-md px-2 py-1 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors w-full'
   const inner = (
@@ -76,9 +64,13 @@ function Item({
       </span>
       <span className="flex-1 truncate text-left">{label}</span>
       {badge && showCounts ? (
-        <span className="rounded bg-bg-tertiary px-1 text-[11px] text-muted">
-          {badge}
-        </span>
+        badgeStyle === 'dot' ? (
+          <span className="mr-1 h-1.5 w-1.5 rounded-full bg-accent" />
+        ) : (
+          <span className="rounded bg-bg-tertiary px-1 text-[11px] text-muted">
+            {badge}
+          </span>
+        )
       ) : null}
     </>
   )
@@ -115,6 +107,89 @@ function FlagItem({
   const enabled = useFeature(flag)
   if (!enabled) return null
   return <Item {...props} />
+}
+
+/**
+ * A configurable navigation row. Beyond the feature flag it also honours the
+ * user's Customize-sidebar choice: `hidden` rows move into the More menu and
+ * `badged` rows only appear while they carry a badge.
+ */
+function RegistryItem({ item, badge }: { item: SidebarItemDef; badge?: number }) {
+  const visibility = useStore(
+    (s) => s.sidebarPrefs.visibility[item.key] ?? item.visibility,
+  )
+  const enabled = useFeature(item.flag ?? '')
+  if (item.flag && !enabled) return null
+  if (visibility === 'hidden') return null
+  if (visibility === 'badged' && !badge) return null
+  return (
+    <Item to={item.to} icon={sidebarItemIcon(item.key)} label={item.label} badge={badge} />
+  )
+}
+
+/**
+ * Linear's "More" row at the end of the Workspace section: everything the user
+ * set to "Don't show", plus the Customize sidebar entry.
+ */
+function MoreMenu({ hidden }: { hidden: SidebarItemDef[] }) {
+  const navigate = useNavigate()
+  const openCustomize = useStore((s) => s.setCustomizeSidebarOpen)
+  return (
+    <Popover
+      align="start"
+      width={220}
+      trigger={
+        <span className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors">
+          <span className="flex h-4 w-4 items-center justify-center text-faint">
+            <MoreHorizontal size={15} />
+          </span>
+          <span className="flex-1 truncate text-left">More</span>
+        </span>
+      }
+    >
+      {(close) => (
+        <div>
+          {hidden.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => {
+                close()
+                navigate(item.to)
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+            >
+              <span className="flex h-4 w-4 items-center justify-center text-faint">
+                {sidebarItemIcon(item.key, 14)}
+              </span>
+              {item.label}
+            </button>
+          ))}
+          {hidden.length > 0 && <div className="my-1 h-px bg-border" />}
+          <button
+            type="button"
+            onClick={() => {
+              close()
+              openCustomize(true)
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+          >
+            <SlidersHorizontal size={14} className="text-faint" /> Customize sidebar
+          </button>
+        </div>
+      )}
+    </Popover>
+  )
+}
+
+/** The rows of a configurable section, in the user's saved order, with rows
+ *  whose workspace feature flag is off dropped. */
+function useSectionItems(section: 'personal' | 'workspace') {
+  const order = useStore((s) => s.sidebarPrefs.order[section])
+  const flags = useAuth((s) => s.flags)
+  return orderedSidebarItems(section, order).filter(
+    (i) => !i.flag || (flags[i.flag] ?? true),
+  )
 }
 
 /** A "Try" onboarding row: leading icon + label, click runs the action, and a
@@ -201,6 +276,8 @@ export function Sidebar() {
     users,
     onboardingDismissed,
     pinnedIssueIds,
+    drafts,
+    sidebarVisibility,
     setCreateOpen,
     dismissOnboardingStep,
     toggleSidebar,
@@ -215,6 +292,8 @@ export function Sidebar() {
     users: s.users,
     onboardingDismissed: s.onboardingDismissed,
     pinnedIssueIds: s.pinnedIssueIds,
+    drafts: s.drafts,
+    sidebarVisibility: s.sidebarPrefs.visibility,
     setCreateOpen: s.setCreateOpen,
     dismissOnboardingStep: s.dismissOnboardingStep,
     toggleSidebar: s.toggleSidebar,
@@ -224,6 +303,9 @@ export function Sidebar() {
   // rename in the admin console shows up here too.
   const backendName = useAuth((s) => s.workspace.name)
   const displayName = backendName || workspaceName
+
+  const personalItems = useSectionItems('personal')
+  const workspaceItems = useSectionItems('workspace')
 
   // Linear's "Try" getting-started section. Each step is hidden once the user
   // dismisses it (×) or completes the underlying action; the section disappears
@@ -278,6 +360,15 @@ export function Sidebar() {
   const unread = notifications.filter(
     (n) => !n.read && !(n.snoozedUntil && new Date(n.snoozedUntil).getTime() > Date.now()),
   ).length
+  // Badge counts by registry key — also decide whether a "Show when badged" row
+  // renders at all.
+  const badges: Record<string, number | undefined> = {
+    inbox: unread,
+    drafts: drafts.length,
+  }
+  const hiddenVisibility = (item: SidebarItemDef) =>
+    (sidebarVisibility[item.key] ?? item.visibility) === 'hidden'
+  const hiddenItems = [...personalItems, ...workspaceItems].filter(hiddenVisibility)
 
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-bg-sidebar">
@@ -354,12 +445,9 @@ export function Sidebar() {
 
       <div className="flex-1 overflow-y-auto px-2 pb-4">
         <div className="space-y-px">
-          <Item to="/search" icon={<Search size={15} />} label="Search" />
-          <Item to="/inbox" icon={<Inbox size={15} />} label="Inbox" badge={unread} />
-          <Item to="/my-issues" icon={<CircleDot size={15} />} label="My Issues" />
-          <Item to="/recent" icon={<History size={15} />} label="Recent" />
-          <Item to="/reminders" icon={<Bell size={15} />} label="Reminders" />
-          <Item to="/profile" icon={<CircleUser size={15} />} label="Profile" />
+          {personalItems.map((item) => (
+            <RegistryItem key={item.key} item={item} badge={badges[item.key]} />
+          ))}
         </div>
 
         {favoriteItems.length > 0 && (
@@ -379,19 +467,9 @@ export function Sidebar() {
         )}
 
         <Section title="Workspace" sectionKey="workspace">
-          <Item to="/all-issues" icon={<Layers3 size={15} />} label="All issues" />
-          <FlagItem flag="initiatives" to="/initiatives" icon={<Goal size={15} />} label="Initiatives" />
-          <FlagItem flag="projects" to="/projects" icon={<Box size={15} />} label="Projects" />
-          <FlagItem flag="customers" to="/customers" icon={<Building2 size={15} />} label="Customers" />
-          <FlagItem flag="releases" to="/releases" icon={<Rocket size={15} />} label="Releases" />
-          <FlagItem flag="members" to="/members" icon={<Users size={15} />} label="Members" />
-          <FlagItem flag="documents" to="/documents" icon={<FileText size={15} />} label="Documents" />
-          <FlagItem flag="roadmap" to="/roadmap" icon={<MapIcon size={15} />} label="Roadmap" />
-          <FlagItem flag="changelog" to="/changelog" icon={<Megaphone size={15} />} label="Changelog" />
-          <FlagItem flag="cycles" to="/cycles" icon={<IterationCw size={15} />} label="Cycles" />
-          <FlagItem flag="pulse" to="/pulse" icon={<Activity size={15} />} label="Pulse" />
-          <FlagItem flag="insights" to="/insights" icon={<BarChart3 size={15} />} label="Insights" />
-          <FlagItem flag="views" to="/views" icon={<LayersIcon size={15} />} label="Views" />
+          {workspaceItems.map((item) => (
+            <RegistryItem key={item.key} item={item} badge={badges[item.key]} />
+          ))}
           {/* Pinned saved views surface directly in the sidebar (Linear). */}
           {savedViews
             .filter((v) => v.pinned)
@@ -403,10 +481,7 @@ export function Sidebar() {
                 label={v.name}
               />
             ))}
-          <FlagItem flag="labels" to="/labels" icon={<TagIcon size={15} />} label="Labels" />
-          <Item to="/teams" icon={<Building2 size={15} />} label="Teams" />
-          <Item to="/favorites" icon={<Star size={15} />} label="Favorites" />
-          <Item to="/archive" icon={<Archive size={15} />} label="Archive" />
+          <MoreMenu hidden={hiddenItems} />
         </Section>
 
         {teams.map((team) => (

@@ -10,6 +10,7 @@ import {
   STATUS_TYPE_ORDER,
   DEFAULT_DISPLAY_PROPERTIES,
   DEFAULT_NOTIFICATION_SETTINGS,
+  DEFAULT_SIDEBAR_PREFS,
 } from './constants'
 import { parsePriority, type ImportRow } from './importExport'
 import type {
@@ -52,6 +53,10 @@ import type {
   SavedView,
   Preferences,
   Team,
+  IssueDraft,
+  SidebarBadgeStyle,
+  SidebarPrefs,
+  SidebarVisibility,
   ThemeMode,
   User,
   UserRole,
@@ -65,6 +70,12 @@ interface UIState {
   sidebarCollapsed: boolean
   /** Sidebar section keys the user has collapsed (persisted). Absent = expanded. */
   collapsedSidebarSections: string[]
+  /** Per-row visibility / order / badge style (Customize sidebar, persisted). */
+  sidebarPrefs: SidebarPrefs
+  /** Customize sidebar modal (transient). */
+  customizeSidebarOpen: boolean
+  /** Unsent New-issue drafts, newest first (persisted). */
+  drafts: IssueDraft[]
   commandOpen: boolean
   /**
    * When the command menu is opened as a row property hotkey (s/p/a/l on the
@@ -327,8 +338,8 @@ export interface Store extends WorkspaceData, UIState {
   removePullRequest: (id: string) => void
 
   // ── documents (Linear's Documents feature) ───────────────────
-  createDocument: (input?: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId'>>) => Document
-  updateDocument: (id: string, patch: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId'>>) => void
+  createDocument: (input?: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId' | 'teamId'>>) => Document
+  updateDocument: (id: string, patch: Partial<Pick<Document, 'title' | 'icon' | 'content' | 'projectId' | 'teamId'>>) => void
   restoreDocumentVersion: (id: string, versionId: string) => void
   deleteDocument: (id: string) => void
   /** Clone a document ("<title> (Copy)") and return the copy. */
@@ -375,6 +386,18 @@ export interface Store extends WorkspaceData, UIState {
   setPreference: <K extends keyof Preferences>(key: K, value: Preferences[K]) => void
   toggleSidebar: () => void
   toggleSidebarSection: (key: string) => void
+  setCustomizeSidebarOpen: (open: boolean) => void
+  setSidebarBadgeStyle: (style: SidebarBadgeStyle) => void
+  setSidebarVisibility: (key: string, visibility: SidebarVisibility) => void
+  /** Replace a Customize-sidebar section's row order (drag reorder). */
+  setSidebarOrder: (section: 'personal' | 'workspace', keys: string[]) => void
+
+  // ── drafts ───────────────────────────────────────────────────
+  /** Create or update the unsent draft with `id` (omit to create a new one). */
+  saveDraft: (
+    draft: Omit<IssueDraft, 'id' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => string
+  deleteDraft: (id: string) => void
   setCommandOpen: (open: boolean) => void
   /**
    * Open the command menu as a row property hotkey: seeds the issue context +
@@ -500,6 +523,9 @@ export const useStore = create<Store>()(
       },
       sidebarCollapsed: false,
       collapsedSidebarSections: [],
+      sidebarPrefs: DEFAULT_SIDEBAR_PREFS,
+      customizeSidebarOpen: false,
+      drafts: [],
       commandOpen: false,
       commandIssueId: null,
       commandPage: null,
@@ -2205,6 +2231,43 @@ export const useStore = create<Store>()(
             ? s.collapsedSidebarSections.filter((k) => k !== key)
             : [...s.collapsedSidebarSections, key],
         })),
+      setCustomizeSidebarOpen: (customizeSidebarOpen) => set({ customizeSidebarOpen }),
+      setSidebarBadgeStyle: (badgeStyle) =>
+        set((s) => ({ sidebarPrefs: { ...s.sidebarPrefs, badgeStyle } })),
+      setSidebarVisibility: (key, visibility) =>
+        set((s) => ({
+          sidebarPrefs: {
+            ...s.sidebarPrefs,
+            visibility: { ...s.sidebarPrefs.visibility, [key]: visibility },
+          },
+        })),
+      setSidebarOrder: (section, keys) =>
+        set((s) => ({
+          sidebarPrefs: {
+            ...s.sidebarPrefs,
+            order: { ...s.sidebarPrefs.order, [section]: keys },
+          },
+        })),
+
+      saveDraft: (draft) => {
+        const now = nowIso()
+        const id = draft.id ?? `dr_${nanoid(8)}`
+        set((s) => {
+          const existing = s.drafts.find((d) => d.id === id)
+          if (existing) {
+            return {
+              drafts: s.drafts.map((d) =>
+                d.id === id ? { ...d, ...draft, id, updatedAt: now } : d,
+              ),
+            }
+          }
+          return {
+            drafts: [{ ...draft, id, createdAt: now, updatedAt: now }, ...s.drafts],
+          }
+        })
+        return id
+      },
+      deleteDraft: (id) => set((s) => ({ drafts: s.drafts.filter((d) => d.id !== id) })),
       setCommandOpen: (commandOpen) =>
         // Closing the menu drops any row-hotkey context so a later plain ⌘K
         // opens clean.
@@ -2629,8 +2692,10 @@ export const useStore = create<Store>()(
           linkModal: _lm,
           shareIssueId: _sh,
           moveIssueId: _mv,
+          customizeSidebarOpen: _cs,
           ...rest
         } = s
+        void _cs
         void _c
         void _cr
         void _crp
@@ -2674,6 +2739,18 @@ export const useStore = create<Store>()(
             rules: Array.isArray(ns?.rules) ? ns.rules : [],
           }
         }
+        // Backfill sidebar customization + drafts (added later); a saved order
+        // that predates newer rows still works — orderedSidebarItems appends them.
+        merged.sidebarPrefs = {
+          ...DEFAULT_SIDEBAR_PREFS,
+          ...(merged.sidebarPrefs ?? {}),
+          visibility: { ...(merged.sidebarPrefs?.visibility ?? {}) },
+          order: {
+            ...DEFAULT_SIDEBAR_PREFS.order,
+            ...(merged.sidebarPrefs?.order ?? {}),
+          },
+        }
+        if (!Array.isArray(merged.drafts)) merged.drafts = []
         // Backfill issue links for workspaces persisted before they existed.
         if (!Array.isArray(merged.issueLinks)) {
           merged.issueLinks = seed.issueLinks

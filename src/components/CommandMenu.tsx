@@ -63,6 +63,8 @@ import {
   Group,
   ArrowUpDown,
   Filter,
+  PenSquare,
+  SlidersHorizontal,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { Calendar } from './DatePicker'
@@ -1365,6 +1367,20 @@ export function CommandMenu() {
         icon: <Bell size={15} />,
         keywords: 'reminders remind me snooze follow up due',
         run: () => navigate('/reminders'),
+      },
+      {
+        id: 'go-drafts',
+        label: 'Go to Drafts',
+        icon: <PenSquare size={15} />,
+        keywords: 'drafts unsent draft issue saved',
+        run: () => navigate('/drafts'),
+      },
+      {
+        id: 'customize-sidebar',
+        label: 'Customize sidebar',
+        icon: <SlidersHorizontal size={15} />,
+        keywords: 'customize sidebar navigation hide show reorder badge',
+        run: () => store.setCustomizeSidebarOpen(true),
       },
       {
         id: 'go-labels',
