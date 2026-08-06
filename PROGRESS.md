@@ -3204,3 +3204,40 @@ surfaced as **Drafts 1** and round-tripped back into the modal.
 Deliberately not built: **Agent** (Ask Linear / Skills) and **Reviews** (GitHub
 diffs) — both need a real integration; Reviews is an "Enable code access" empty
 state in the live workspace too.
+
+## Loop #101 — UI audit against Linear, property sidebar, hover previews
+
+Drove the app through the browser side by side with the real Linear workspace.
+
+**Overlap / clipping.** Wrote a DOM sweep (clipped text, elements past the
+viewport, body horizontal scroll) and ran it over 29 routes. One real defect:
+the created/updated date lived in a 40px box while "Yesterday" needs 51px, so it
+overflowed and collided with the assignee avatar on Issues, My Issues and All
+issues. Widened to 56px + shrink-proof; all 29 routes now audit clean. Also
+killed an empty bordered band above the issue metadata footer (status history
+rendered its wrapper even when it returned null).
+
+**Property sidebar.** Rebuilt in Linear's shape: no label column, muted section
+headings, rows that are icon + value, unset values reading as the action that
+sets them, and the milestone nested under its project with Linear's L-shaped
+connector. The pickers wrap their trigger in an inline-block button, so the
+rows needed a flex column to stop flowing three-to-a-line.
+
+**Destructive delete.** The issue header had a one-click trash icon — no
+confirmation, sitting next to "copy link" — that Linear doesn't have. Removed
+it, and routed every delete path through a new `ConfirmDialog` (the bulk bar
+previously used a native `confirm()`; single-issue delete had nothing).
+
+**Popovers.** Display now opens with Linear's unlabelled full-width List | Board
+segmented control. Filter rows gained leading icons and trailing ▸ chevrons, and
+the search field shows the `F` hint.
+
+**Hover previews.** Bare identifiers now auto-link like Linear's, and resting on
+one opens a preview card (status, title, snippet, priority, assignee, labels)
+that flips above the cursor when there's no room below.
+
+`tsc -b ✅ · build ✅ · route audit clean · console clean`
+
+Still different from Linear: no Agent (Ask Linear / Skills) or Reviews surface —
+both need real integrations — and IssueHistory in the GraphQL API resolves to an
+empty connection because activity is stored app-side in a different shape.
