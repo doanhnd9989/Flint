@@ -26,6 +26,7 @@ interface Group {
 }
 
 const BASE_URL = 'https://flinttask.com/api'
+const GRAPHQL_URL = 'https://flinttask.com/graphql'
 
 const GROUPS: Group[] = [
   {
@@ -173,14 +174,15 @@ export function ApiDocs() {
                 <a href={`#${g.id}`} className="text-muted hover:text-fg">{g.title}</a>
               </li>
             ))}
+            <li><a href="#graphql" className="text-muted hover:text-fg">GraphQL</a></li>
           </ul>
         </nav>
 
         <div className="min-w-0 flex-1">
           <h1 className="text-3xl font-semibold tracking-tight">API Reference</h1>
           <p className="mt-3 max-w-2xl text-muted">
-            The {name} REST API lets you read and manage issues, projects and cycles programmatically.
-            All endpoints live under{' '}
+            {name} exposes two APIs over the same data: a GraphQL endpoint (the richer one, and the one
+            most clients should use) and a REST API. The REST endpoints live under{' '}
             <code className="rounded bg-bg-tertiary px-1.5 py-0.5 text-sm">{BASE_URL}</code> and exchange JSON.
           </p>
 
@@ -235,6 +237,100 @@ export function ApiDocs() {
               </div>
             </section>
           ))}
+
+          <section id="graphql" className="mt-12 scroll-mt-24">
+            <h2 className="text-xl font-semibold tracking-tight">GraphQL</h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              The full domain is also served as a GraphQL API at{' '}
+              <code className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[13px]">{GRAPHQL_URL}</code>. It is the
+              richer of the two — one round trip can fetch an issue with its state, assignee, labels and
+              comments — and it is schema-compatible with Linear's, so a client written against their
+              reference works here by changing only the host.
+            </p>
+
+            <h3 className="mt-6 text-sm font-semibold">Authentication</h3>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              Send a personal API key as the bare <code className="rounded bg-bg-tertiary px-1 text-[13px]">Authorization</code>{' '}
+              value, or a login token with a <code className="rounded bg-bg-tertiary px-1 text-[13px]">Bearer</code> prefix.
+            </p>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-bg-tertiary p-3 text-[12px] leading-relaxed">
+{`curl ${GRAPHQL_URL} \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: <your API key>" \\
+  --data '{"query":"{ viewer { id name email } }"}'`}
+            </pre>
+
+            <h3 className="mt-6 text-sm font-semibold">Pagination</h3>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              Every list is a connection. Read it as <code className="rounded bg-bg-tertiary px-1 text-[13px]">nodes</code>{' '}
+              for the common case, or as <code className="rounded bg-bg-tertiary px-1 text-[13px]">edges</code> when you need
+              cursors. Connections accept <code className="rounded bg-bg-tertiary px-1 text-[13px]">first</code>,{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">last</code>,{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">after</code>,{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">before</code>,{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">orderBy</code> (createdAt · updatedAt),{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">includeArchived</code> and{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">filter</code>. The first 50 results come back
+              when no arguments are given.
+            </p>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-bg-tertiary p-3 text-[12px] leading-relaxed">
+{`query {
+  issues(first: 50, orderBy: updatedAt) {
+    edges { node { id identifier title } cursor }
+    pageInfo { hasNextPage endCursor }
+  }
+}`}
+            </pre>
+
+            <h3 className="mt-6 text-sm font-semibold">Filtering</h3>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              Filters are comparator objects. Every field takes{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">eq · neq · in · nin</code>; numbers and dates add{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">lt · lte · gt · gte</code>; strings add{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">contains · containsIgnoreCase · startsWith · endsWith</code>{' '}
+              and their negations; optional fields add <code className="rounded bg-bg-tertiary px-1 text-[13px]">null</code>.
+              Fields combine with AND; use <code className="rounded bg-bg-tertiary px-1 text-[13px]">or</code> for
+              alternatives. Relations nest, and many-to-many relations take{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">every</code> /{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">some</code>.
+            </p>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-bg-tertiary p-3 text-[12px] leading-relaxed">
+{`query {
+  issues(filter: {
+    state: { type: { eq: "started" } }
+    assignee: { email: { eq: "you@workspace.dev" } }
+    labels: { name: { eq: "Bug" } }
+    or: [{ priority: { eq: 1 } }, { dueDate: { lt: "2026-09-01" } }]
+  }) {
+    nodes { identifier title priorityLabel state { name } }
+  }
+}`}
+            </pre>
+
+            <h3 className="mt-6 text-sm font-semibold">Mutations</h3>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              Each mutation returns a payload carrying{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">success</code>,{' '}
+              <code className="rounded bg-bg-tertiary px-1 text-[13px]">lastSyncId</code> and the affected record.
+              Deletes return <code className="rounded bg-bg-tertiary px-1 text-[13px]">entityId</code>.
+            </p>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-bg-tertiary p-3 text-[12px] leading-relaxed">
+{`mutation IssueCreate($input: IssueCreateInput!) {
+  issueCreate(input: $input) {
+    lastSyncId
+    success
+    issue { id identifier title url branchName }
+  }
+}
+
+# variables
+{ "input": { "title": "Rate-limit the public API", "teamId": "<team id or key>", "priority": 2 } }`}
+            </pre>
+            <p className="mt-3 max-w-2xl text-sm text-muted">
+              Available: <code className="rounded bg-bg-tertiary px-1 text-[13px]">issueCreate · issueUpdate · issueDelete · issueArchive · issueUnarchive · commentCreate · commentUpdate · commentDelete · projectCreate · projectUpdate · projectDelete · cycleCreate · cycleUpdate · issueLabelCreate · issueLabelUpdate · issueLabelDelete</code>.
+              Introspection is enabled, so codegen and GraphQL IDEs work against the endpoint directly.
+            </p>
+          </section>
 
           <section id="webhooks" className="mt-12 scroll-mt-24">
             <h2 className="text-xl font-semibold tracking-tight">Webhooks</h2>

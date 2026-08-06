@@ -540,3 +540,36 @@ then Workspace: Projects · Teams · Views · **More** — which exposed three g
 Skills) and **Reviews** (GitHub PR + coding-session diffs) — both are gated on a
 real integration; Reviews renders only an "Enable code access" empty state in the
 live workspace too.
+
+### Loop #100 — GraphQL API, schema-compatible with Linear's
+
+- [x] 🔴 **GraphQL API at `/graphql`** — read Linear's own developer docs
+  (`/developers/graphql`, `/pagination`, `/filtering`) and matched the contract
+  rather than inventing one, so a client written against Linear's reference runs
+  here by swapping the host.
+  **Transport:** POST `{query, variables, operationName}`; a personal API key
+  goes in the bare `Authorization` header (Linear's convention) and a login
+  token with a `Bearer` prefix; errors come back in the GraphQL `errors` array;
+  introspection is on so codegen and GraphQL IDEs work.
+  **Pagination:** every list is a Relay connection with `nodes`, `edges { node
+  cursor }` and `pageInfo { hasNextPage hasPreviousPage startCursor endCursor }`,
+  taking `first`/`last`/`after`/`before`/`orderBy` (createdAt · updatedAt) /
+  `includeArchived`/`filter`, defaulting to 50 like Linear.
+  **Filtering:** comparator objects — `eq neq in nin null` everywhere, `lt lte
+  gt gte` on numbers/dates, `eqIgnoreCase startsWith endsWith contains
+  containsIgnoreCase` (+ negations) on strings — combining with implicit AND,
+  explicit `or`/`and`, nested relation filters (`assignee: { email: { eq } }`)
+  and `every`/`some` on many-to-many (`labels`).
+  **Types:** Organization, User, Team, WorkflowState, IssueLabel, Cycle,
+  Project, ProjectMilestone, Issue, Comment, IssueRelation, Attachment, plus
+  their connections. Issue carries Linear's computed fields — `identifier`,
+  `priorityLabel`, `branchName`, `url`, `boardOrder`, `startedAt`.
+  **Mutations:** issueCreate/Update/Delete/Archive/Unarchive,
+  commentCreate/Update/Delete, projectCreate/Update/Delete, cycleCreate/Update,
+  issueLabelCreate/Update/Delete — each returning Linear's payload shape
+  `{ lastSyncId, success, <resource> }`, deletes returning `entityId`.
+  Backed by the same workspace document as the app and the REST API, so a
+  GraphQL write shows up in the UI immediately and still fires webhooks.
+  _(Built on `graphql` alone — `makeSchema.js` binds SDL to resolvers in ~50
+  lines rather than pulling in @graphql-tools. IssueHistory resolves to an empty
+  connection: activity is stored app-side in a different shape.)_

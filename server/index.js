@@ -6,6 +6,7 @@ import { randomUUID, randomBytes } from 'node:crypto'
 import { db, seed } from './db.js'
 import { signToken, publicUser, requireAuth, requireAdmin, hashApiKey, API_KEY_PREFIX } from './auth.js'
 import { apiRouter } from './api.js'
+import { graphqlRouter } from './graphql/index.js'
 import { setupWebsocket } from './realtime.js'
 
 seed() // idempotent: creates tables' default rows + admin on first boot
@@ -238,6 +239,10 @@ app.delete('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
   db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id)
   res.json({ ok: true })
 })
+
+// GraphQL API, shaped after Linear's (see graphql/schema.js). Mounted at the
+// same path Linear uses so a client only has to swap the host.
+app.use('/graphql', graphqlRouter)
 
 // Product domain REST API (issues, projects, cycles, …) — mounted after the
 // auth/admin routes so those specific paths win.
