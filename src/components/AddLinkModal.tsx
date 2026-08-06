@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { menuOverlayOpen } from '@/lib/utils'
 import { Link as LinkIcon } from 'lucide-react'
 import { useStore } from '@/lib/store'
 
@@ -29,10 +30,12 @@ export function AddLinkModal() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && target) store.closeLinkModal()
+      if (e.key === 'Escape' && target && !menuOverlayOpen()) store.closeLinkModal()
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    // Capture phase: a picker's own Escape handler is a React one, which
+    // runs first and would unmount the menu before we could notice it.
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
   }, [target, store])
 
   if (!target || !issue) return null
@@ -51,7 +54,7 @@ export function AddLinkModal() {
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-bg-overlay pt-32 animate-fade"
-      onMouseDown={() => store.closeLinkModal()}
+      onMouseDown={() => !menuOverlayOpen() && store.closeLinkModal()}
     >
       <div
         className="w-[460px] max-w-[92vw] rounded-xl border border-border bg-bg-elevated p-5 shadow-lg animate-pop"

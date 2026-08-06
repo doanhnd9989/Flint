@@ -1,4 +1,5 @@
 import { useStore } from '@/lib/store'
+import { DATE_LOCALE } from '@/lib/utils'
 
 // ── Contribution heatmap (GitHub/Linear-style) ───────────────────────────────
 // A 7-row × ~12-column grid of day cells covering the trailing 12 weeks, each
@@ -87,7 +88,7 @@ export function MemberContributionHeatmap({ userId }: { userId: string }) {
           <div key={col} className="flex flex-col gap-[3px]">
             {week.map((d) => {
               const level = intensity(d.count)
-              const label = d.date.toLocaleDateString(undefined, {
+              const label = d.date.toLocaleDateString(DATE_LOCALE, {
                 weekday: 'short',
                 month: 'short',
                 day: 'numeric',

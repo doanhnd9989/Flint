@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { KeyRound, ArrowLeft, Plus, Trash2, Copy, Check, Loader2, TriangleAlert } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { DATE_LOCALE } from '@/lib/utils'
 
 interface ApiKey {
   id: string
@@ -147,7 +148,7 @@ export function ApiKeysView() {
                   <tr key={k.id}>
                     <td className="px-4 py-3 font-medium">{k.name}</td>
                     <td className="px-4 py-3"><code className="text-[13px] text-muted">{k.prefix}…</code></td>
-                    <td className="px-4 py-3 text-muted">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}</td>
+                    <td className="px-4 py-3 text-muted">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString(DATE_LOCALE) : 'Never'}</td>
                     <td className="px-4 py-3 text-right">
                       <button type="button" onClick={() => revoke(k)} className="text-faint hover:text-red-500" title="Revoke">
                         <Trash2 size={15} />

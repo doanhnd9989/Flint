@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { menuOverlayOpen } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { SelectMenu } from './ui/SelectMenu'
@@ -30,10 +31,12 @@ export function CreateDocumentModal() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && open) store.setCreateDocumentOpen(false)
+      if (e.key === 'Escape' && open && !menuOverlayOpen()) store.setCreateDocumentOpen(false)
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    // Capture phase: a picker's own Escape handler is a React one, which
+    // runs first and would unmount the menu before we could notice it.
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
   }, [open, store])
 
   if (!open) return null
@@ -72,7 +75,7 @@ export function CreateDocumentModal() {
     <div
       data-overlay
       className="fixed inset-0 z-50 flex items-start justify-center bg-bg-overlay pt-24 animate-fade"
-      onMouseDown={() => store.setCreateDocumentOpen(false)}
+      onMouseDown={() => !menuOverlayOpen() && store.setCreateDocumentOpen(false)}
     >
       <div
         className="w-[560px] max-w-[92vw] rounded-xl border border-border bg-bg-elevated shadow-lg animate-pop"

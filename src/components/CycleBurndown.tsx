@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { BurndownPoint } from '@/lib/selectors'
+import { DATE_LOCALE } from '@/lib/utils'
 
 /**
  * Linear-style cycle burndown: an "ideal" dashed guideline (scope → 0 across
@@ -111,7 +112,7 @@ export function CycleBurndown({
   }, [points, scope, nowMs, todayX])
 
   const fmt = (ms: number) =>
-    new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    new Date(ms).toLocaleDateString(DATE_LOCALE, { month: 'short', day: 'numeric' })
 
   return (
     <div>

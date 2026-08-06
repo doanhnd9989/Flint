@@ -66,7 +66,7 @@ export function Popover({ trigger, children, align = 'start', width = 220 }: Pro
         createPortal(
           <div
             ref={panelRef}
-            data-overlay
+            data-overlay="menu"
             className="fixed z-50 rounded-lg border border-border bg-bg-elevated p-1 shadow-lg animate-pop"
             style={{ top: pos.top, left: pos.left, width }}
           >

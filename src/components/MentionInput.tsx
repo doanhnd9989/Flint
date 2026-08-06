@@ -543,7 +543,7 @@ export function MentionInput({
       />
       {hasSelection && (
         <div
-          data-overlay
+          data-overlay="menu"
           className="absolute right-2 top-2 z-30 flex items-center gap-0.5 rounded-lg border border-border bg-bg-elevated px-1 py-0.5 shadow-lg animate-pop"
         >
           {(
@@ -590,7 +590,7 @@ export function MentionInput({
       )}
       {mentionOpen && (
         <div
-          data-overlay
+          data-overlay="menu"
           className="absolute left-2 top-full z-30 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-bg-elevated py-1 shadow-lg animate-pop"
         >
           {matches.map((u, i) => (
@@ -615,7 +615,7 @@ export function MentionInput({
       )}
       {slashOpen && (
         <div
-          data-overlay
+          data-overlay="menu"
           className="absolute left-2 top-full z-30 mt-1 max-h-72 w-64 overflow-y-auto rounded-lg border border-border bg-bg-elevated py-1 shadow-lg animate-pop"
         >
           {slashGroups.map((group, gi) => (

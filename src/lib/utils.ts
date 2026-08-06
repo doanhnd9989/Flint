@@ -43,12 +43,20 @@ export function formatDate(iso?: string): string {
     d.getFullYear() === now.getFullYear()
       ? { month: 'short', day: 'numeric' }
       : { month: 'short', day: 'numeric', year: 'numeric' }
-  return d.toLocaleDateString('en-US', opts)
+  return d.toLocaleDateString(DATE_LOCALE, opts)
 }
+
+/**
+ * The app renders dates in one language everywhere. Pin it explicitly — a bare
+ * `toLocaleDateString()` follows the browser locale, which made some surfaces
+ * (the cycle burndown axis, the changelog headings) render in the visitor's
+ * language while the rest of the UI stayed English.
+ */
+export const DATE_LOCALE = 'en-US'
 
 export function formatFullDate(iso?: string): string {
   if (!iso) return ''
-  return new Date(iso).toLocaleDateString('en-US', {
+  return new Date(iso).toLocaleDateString(DATE_LOCALE, {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
@@ -76,11 +84,27 @@ export function midSort(a: number, b: number): number {
   return (a + b) / 2
 }
 
-let now = Date.now()
-/** Monotonic ISO timestamp so seeded/created items keep a stable order. */
+let lastNow = 0
+/**
+ * Monotonic ISO timestamp so items created in the same tick keep a stable
+ * order. It still tracks the wall clock: taking `max(last + 1, Date.now())`
+ * means a long-lived tab can't drift behind real time the way a pure counter
+ * seeded at module load would (which made everything read "5m ago" forever).
+ */
 export function nowIso(): string {
-  now += 1
-  return new Date(now).toISOString()
+  lastNow = Math.max(lastNow + 1, Date.now())
+  return new Date(lastNow).toISOString()
+}
+
+/**
+ * True while a menu-level overlay (a picker, popover, mention/slash menu) is
+ * open. Menus render into a portal, so a modal can't detect them by DOM
+ * containment — they mark themselves with `data-overlay="menu"` instead.
+ * Modals use this to let Escape / an outside click dismiss the *menu* first
+ * rather than tearing down the whole modal underneath it.
+ */
+export function menuOverlayOpen(): boolean {
+  return !!document.querySelector('[data-overlay="menu"]')
 }
 
 /** Kebab-case slug from arbitrary text (for branch names / URLs). */

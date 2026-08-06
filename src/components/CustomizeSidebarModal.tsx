@@ -25,7 +25,7 @@ import {
 } from '@/lib/constants'
 import type { SidebarBadgeStyle, SidebarVisibility } from '@/lib/types'
 import { Popover } from './ui/Popover'
-import { cn } from '@/lib/utils'
+import { cn, menuOverlayOpen } from '@/lib/utils'
 import { sidebarItemIcon } from './sidebarIcons'
 
 const BADGE_STYLES: { id: SidebarBadgeStyle; label: string; glyph: ReactNode }[] = [
@@ -211,10 +211,12 @@ export function CustomizeSidebarModal() {
   useEffect(() => {
     if (!open) return
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape' && !menuOverlayOpen()) setOpen(false)
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    // Capture phase: a picker's own Escape handler is a React one, which
+    // runs first and would unmount the menu before we could notice it.
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
   }, [open, setOpen])
 
   if (!open) return null
@@ -223,7 +225,7 @@ export function CustomizeSidebarModal() {
     <div
       data-overlay
       className="fixed inset-0 z-50 flex items-start justify-center bg-bg-overlay pt-20 animate-fade"
-      onMouseDown={() => setOpen(false)}
+      onMouseDown={() => !menuOverlayOpen() && setOpen(false)}
     >
       <div
         className="max-h-[76vh] w-[420px] max-w-[92vw] overflow-y-auto rounded-xl border border-border bg-bg-elevated p-4 shadow-lg animate-pop"

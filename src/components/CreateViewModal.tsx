@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { menuOverlayOpen } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
 import { LayoutList, LayoutGrid, Group, ArrowUpDown, Filter } from 'lucide-react'
 import { useStore } from '@/lib/store'
@@ -72,10 +73,12 @@ export function CreateViewModal() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && config) store.closeViewModal()
+      if (e.key === 'Escape' && config && !menuOverlayOpen()) store.closeViewModal()
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    // Capture phase: a picker's own Escape handler is a React one, which
+    // runs first and would unmount the menu before we could notice it.
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
   }, [config, store])
 
   if (!config) return null
@@ -100,7 +103,7 @@ export function CreateViewModal() {
     <div
       data-overlay
       className="fixed inset-0 z-50 flex items-start justify-center bg-bg-overlay pt-24 animate-fade"
-      onMouseDown={() => store.closeViewModal()}
+      onMouseDown={() => !menuOverlayOpen() && store.closeViewModal()}
     >
       <div
         className="w-[480px] max-w-[92vw] rounded-xl border border-border bg-bg-elevated shadow-lg animate-pop"

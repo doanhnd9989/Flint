@@ -14,7 +14,7 @@ import {
   PROJECT_STATUS,
   PROJECT_STATUS_ORDER,
 } from '@/lib/constants'
-import { formatDate } from '@/lib/utils'
+import { formatDate, menuOverlayOpen } from '@/lib/utils'
 import type { Priority, ProjectStatus } from '@/lib/types'
 
 const chip =
@@ -102,10 +102,12 @@ export function CreateProjectModal() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && open) store.setCreateProjectOpen(false)
+      if (e.key === 'Escape' && open && !menuOverlayOpen()) store.setCreateProjectOpen(false)
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    // Capture phase: a picker's own Escape handler is a React one, which
+    // runs first and would unmount the menu before we could notice it.
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
   }, [open, store])
 
   if (!open) return null
@@ -231,7 +233,7 @@ export function CreateProjectModal() {
     <div
       data-overlay
       className="fixed inset-0 z-50 flex items-start justify-center bg-bg-overlay pt-24 animate-fade"
-      onMouseDown={() => store.setCreateProjectOpen(false)}
+      onMouseDown={() => !menuOverlayOpen() && store.setCreateProjectOpen(false)}
     >
       <div
         className="w-[600px] max-w-[92vw] rounded-xl border border-border bg-bg-elevated shadow-lg animate-pop"

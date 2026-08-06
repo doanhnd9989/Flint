@@ -23,7 +23,7 @@ import {
   teamEstimationType,
 } from '@/lib/constants'
 import { cycleState } from '@/lib/selectors'
-import { formatDate } from '@/lib/utils'
+import { formatDate, menuOverlayOpen } from '@/lib/utils'
 
 const chip =
   'flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover'
@@ -127,10 +127,12 @@ export function CreateIssueModal() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && open) dismiss()
+      if (e.key === 'Escape' && open && !menuOverlayOpen()) dismiss()
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    // Capture phase: a picker's own Escape handler is a React one, which
+    // runs first and would unmount the menu before we could notice it.
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
     // `dismiss` reads the live form through formRef, so it needs no deps here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, store])
@@ -239,7 +241,7 @@ export function CreateIssueModal() {
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-bg-overlay pt-24 animate-fade"
-      onMouseDown={() => dismiss()}
+      onMouseDown={() => !menuOverlayOpen() && dismiss()}
     >
       <div
         className="w-[640px] max-w-[92vw] rounded-xl border border-border bg-bg-elevated shadow-lg animate-pop"

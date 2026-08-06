@@ -9,7 +9,7 @@ import { StatusIcon } from '@/components/StatusIcon'
 import { Popover } from '@/components/ui/Popover'
 import { DatePicker } from '@/components/DatePicker'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
-import { cn, formatDate, isOverdue } from '@/lib/utils'
+import { cn, formatDate, isOverdue, DATE_LOCALE } from '@/lib/utils'
 import type { Issue } from '@/lib/types'
 
 /** Local time formatter ("9:00 AM") for reminder preset times. */
@@ -304,7 +304,7 @@ export function RemindersView() {
         <span
           className="shrink-0 text-[12px] tabular-nums"
           style={past ? { color: 'var(--priority-urgent)' } : undefined}
-          title={new Date(issue.remindAt).toLocaleString()}
+          title={new Date(issue.remindAt).toLocaleString(DATE_LOCALE)}
         >
           {!past ? <span className="text-muted">{formatReminder(issue.remindAt)}</span> : formatReminder(issue.remindAt)}
         </span>

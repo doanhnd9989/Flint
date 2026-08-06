@@ -24,7 +24,7 @@ import { PriorityIcon } from '@/components/PriorityIcon'
 import { StatusIcon } from '@/components/StatusIcon'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import { PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
-import { timeAgo } from '@/lib/utils'
+import { timeAgo, DATE_LOCALE } from '@/lib/utils'
 import type { Activity, ActivityKind, Issue, Priority, User, WorkflowState } from '@/lib/types'
 
 // ── Stat card (matches InsightsView's Stat) ──────────────────────────────────
@@ -277,7 +277,7 @@ function ContributionHeatmap({ weeks, total }: { weeks: HeatDay[][]; total: numb
                 {week.map((d) => (
                   <div
                     key={d.key}
-                    title={`${d.count} ${d.count === 1 ? 'contribution' : 'contributions'} on ${d.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`}
+                    title={`${d.count} ${d.count === 1 ? 'contribution' : 'contributions'} on ${d.date.toLocaleDateString(DATE_LOCALE, { weekday: 'short', month: 'short', day: 'numeric' })}`}
                     className={`h-[11px] w-[11px] rounded-[2px] ${HEAT_FILL[heatLevel(d.count)]}`}
                   />
                 ))}

@@ -7,7 +7,7 @@ import { EmptyState, CheckIllustration } from '@/components/EmptyState'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { RELEASE_STATUS } from '@/lib/constants'
-import { cn, formatFullDate, timeAgo } from '@/lib/utils'
+import { cn, formatFullDate, timeAgo, DATE_LOCALE } from '@/lib/utils'
 import type { Issue, Release, WorkflowState } from '@/lib/types'
 
 /** The header type-filter segments. */
@@ -38,7 +38,7 @@ function monthKey(iso?: string): { key: string; label: string } {
   const d = iso ? new Date(iso) : null
   if (!d || Number.isNaN(d.getTime())) return { key: '0000-00', label: 'Undated' }
   const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  const label = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  const label = d.toLocaleDateString(DATE_LOCALE, { month: 'long', year: 'numeric' })
   return { key, label }
 }
 

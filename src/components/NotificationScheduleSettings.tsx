@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Moon } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
-import { cn } from '@/lib/utils'
+import { cn, DATE_LOCALE } from '@/lib/utils'
 
 // ── Settings → Notification schedule (Linear's "Do not disturb" page) ─────────
 // All state persists through the store's generic key-value maps:
@@ -169,7 +169,7 @@ export function NotificationScheduleSettings() {
   const resume = () => setFeatureValue(DND_PAUSED_UNTIL, '')
 
   const pausedLabel = pausedDate
-    ? pausedDate.toLocaleString(undefined, {
+    ? pausedDate.toLocaleString(DATE_LOCALE, {
         weekday: 'short',
         hour: 'numeric',
         minute: '2-digit',

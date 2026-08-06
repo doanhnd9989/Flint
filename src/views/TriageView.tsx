@@ -427,6 +427,10 @@ export function TriageView() {
   return (
     <div className="relative flex h-full flex-col">
       <ViewHeader title="Triage" teamName={team.name} teamIcon={team.icon}>
+        {/* ViewHeader's slot is a plain block, so the count and the controls
+            need their own row — otherwise the count wraps above them and the
+            44px-tall header clips it. */}
+        <div className="flex items-center gap-2">
         <span className="text-[12px] tabular-nums text-faint">
           {allQueue.length}
         </span>
@@ -474,6 +478,7 @@ export function TriageView() {
             />
           </div>
         )}
+        </div>
       </ViewHeader>
       <div className="flex-1 overflow-y-auto p-4">
         {allQueue.length === 0 ? (
