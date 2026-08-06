@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { copyToClipboard } from '@/lib/toast'
+import { IssueMention } from '@/components/IssueMention'
 
 /**
  * A small, dependency-free Markdown renderer that returns React nodes (no
@@ -100,8 +101,11 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   )
 }
 
+// The trailing alternative auto-links a bare issue identifier (FLI-42), the way
+// Linear does in descriptions and comments. It is matched last so an identifier
+// inside a code span or a link label keeps its own formatting.
 const INLINE_RE =
-  /(@\[([^\]]+)\]\(([^)\s]+)\))|(!\[([^\]]*)\]\(([^)\s]+)\))|(\*\*([^*]+)\*\*)|(__([^_]+)__)|(\*([^*]+)\*)|(_([^_]+)_)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)\s]+)\))|(~~([^~]+)~~)/g
+  /(@\[([^\]]+)\]\(([^)\s]+)\))|(!\[([^\]]*)\]\(([^)\s]+)\))|(\*\*([^*]+)\*\*)|(__([^_]+)__)|(\*([^*]+)\*)|(_([^_]+)_)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)\s]+)\))|(~~([^~]+)~~)|\b([A-Z][A-Z0-9]{1,5}-\d+)\b/g
 
 function renderInline(text: string, key: string): ReactNode[] {
   const nodes: ReactNode[] = []
@@ -167,6 +171,7 @@ function renderInline(text: string, key: string): ReactNode[] {
           {m[21]}
         </del>,
       )
+    else if (m[22]) nodes.push(<IssueMention key={`${key}-${i}`} identifier={m[22]} />)
     last = m.index + m[0].length
     i++
   }

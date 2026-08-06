@@ -448,7 +448,7 @@ grep-confirmed missing features; 25 built this run, 33 remain (below).
 ### Loop #98 — Discovered, not yet built (33 verified-missing candidates)
 
 - [x] 🟢 **Description edit history with rollback** — version history panel from the description editor.
-- [ ] 🟢 **Inline issue preview on hover/mention** — quick preview card on issue mention links in comments.
+- [x] 🟢 **Inline issue preview on hover/mention** — bare identifiers (FLI-42) in descriptions and comments now auto-link the way Linear's do, and resting on one opens a preview card (identifier · project · relative time, status icon + title, a description snippet, priority · assignee · labels). Flips above the cursor when there's no room below; an identifier we don't have stays plain code. Added to the shared Markdown renderer as the last inline alternative, so identifiers inside code spans and link labels keep their own formatting.
 - [x] 🟢 **Due-date reminders with configurable lead time** — remind X days before due (1/3/7).
 - [ ] 🟢 **Quick-filter sidebar issues by assignee/status** — Mine / Assigned-to-me / Started chips on the sidebar All-Issues group.
 - [ ] 🟢 **Cycle start-date filter in FilterBar** — filter issues by their cycle's start-date range.
@@ -573,3 +573,28 @@ live workspace too.
   _(Built on `graphql` alone — `makeSchema.js` binds SDL to resolvers in ~50
   lines rather than pulling in @graphql-tools. IssueHistory resolves to an empty
   connection: activity is stored app-side in a different shape.)_
+
+### Loop #101 — UI audit against Linear + property sidebar
+
+- [x] 🔴 **Issue property sidebar rebuilt in Linear's shape** — dropped the
+  two-column label/value grid for Linear's structure: muted section headings
+  (Properties · Labels · Project · Subscribers) with rows that are just icon +
+  value, unset ones reading as the action ("Set priority", "Assign", "Set
+  cycle", "Set estimate", "Set due date", "Add label", "Add to project"), and
+  the milestone hanging off its project as a nested row with Linear's L-shaped
+  connector. Shared by the full-page detail and the peek panel.
+- [x] 🔴 **Overlap / clipping audit** — a DOM sweep over 29 routes (clipped
+  text, elements past the viewport, body h-scroll) caught the created/updated
+  date sitting in a 40px box, so "Yesterday" (51px) collided with the assignee
+  avatar on Issues / My Issues / All issues. Widened and made shrink-proof;
+  every route now audits clean. Also removed an empty bordered band above the
+  metadata footer on issues that never changed state.
+- [x] 🔴 **Destructive delete behind a confirmation** — the issue header carried
+  a one-click trash icon (no confirm, next to "copy link") that Linear doesn't
+  have at all. Removed it; Delete stays in the ⋯ menu, and every delete path
+  (⋯ menu, row context menu, bulk bar) now goes through a Linear-shaped
+  `ConfirmDialog`.
+- [x] 🟡 **Display + Filter popovers matched** — Display opens with Linear's
+  unlabelled full-width List | Board segmented control; Filter rows gained the
+  leading icons and trailing ▸ chevrons Linear shows, plus the `F` hint on the
+  search field.
