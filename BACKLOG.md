@@ -598,3 +598,27 @@ live workspace too.
   unlabelled full-width List | Board segmented control; Filter rows gained the
   leading icons and trailing ▸ chevrons Linear shows, plus the `F` hint on the
   search field.
+- [x] 🔴 **Filter chrome matched to Linear + saved-view crash fixed** — Linear
+  has no quick-filter pill row; the funnel sits top-right beside Display and
+  the filter row appears only once something is filtered (chips + `+` left,
+  `Clear`/`Save` right), with a centred footer "N issues hidden by filters ·
+  Clear Filters ✕" under the list. Wired through Issues / My Issues / All
+  Issues / saved views / search; `QuickFilterPills` deleted; submenus gained
+  Linear's faceted per-option counts. Underneath, `filterIssues` evaluated
+  every dimension eagerly, so a `FilterState` missing a newer optional array
+  (the seeded "Active" view has no `subscriberIds`) threw — silently rendering
+  `0` in the Views list and crashing `SavedViewScreen`. Dimensions are thunks
+  now.
+- [x] 🔴 **Attachment sizes are the server's truth** — `attachmentCreate` took
+  the display size from the caller's `subtitle`; it now derives size, content
+  type and kind from the stored file record when the URL is one of ours.
+  Added Linear's missing `attachmentUpdate(id, input)` mutation.
+
+## 🔍 Noticed while comparing, not yet built
+
+- [ ] 🟡 **Filter dimensions Linear has that we don't** — Relations, Links,
+  Template, Added to cycle, Customers, Auto-closed. Our data model already
+  backs most of these.
+- [ ] 🟢 **Board keyboard drag** — `IssueBoard` registers only a `PointerSensor`,
+  so a card can be focused but never moved from the keyboard. Adding dnd-kit's
+  `KeyboardSensor` would make the board match the app's keyboard-first rule.

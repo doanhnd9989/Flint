@@ -3241,3 +3241,37 @@ that flips above the cursor when there's no room below.
 Still different from Linear: no Agent (Ask Linear / Skills) or Reviews surface —
 both need real integrations — and IssueHistory in the GraphQL API resolves to an
 empty connection because activity is stored app-side in a different shape.
+
+## Filter chrome vs. Linear, and a saved-view crash
+
+Soi'd our issue list against the real Linear side by side and the filter
+affordances were in the wrong places. Linear has **no quick-filter pill row** —
+the funnel lives top-right beside Display, and the filter row only exists once
+something is filtered: chips + `+` on the left, `Clear` / `Save` on the right.
+The matched-count summary is a **footer**, centred under the list, phrased as
+what's hidden ("25 issues hidden by filters · Clear Filters ✕") rather than
+what matched. All of that now matches, `QuickFilterPills` is deleted, and the
+hidden-count denominator is threaded through every list view (Issues, My
+Issues, All Issues, saved views). Filter submenus also gained Linear's faceted
+per-option counts — the edited dimension is excluded from its own tally.
+
+**The bug underneath.** `filterIssues` built its dimension table eagerly, so
+every dimension's match expression ran even when that dimension was inactive.
+A `FilterState` persisted before a dimension existed leaves its array
+undefined, and `filters.subscriberIds!.includes(…)` threw on it — which is
+exactly the shape of the seeded "Active" view. `ViewsView` swallowed it in a
+try/catch and rendered `0`; `SavedViewScreen` had no catch, so opening that
+view blew up. Dimensions are thunks now, evaluated only when active.
+
+**Attachment sizes.** `attachmentCreate` believed whatever `subtitle` the
+caller passed, so an attachment could advertise a size its bytes don't have
+(our loader wrote "0 KB" for every sub-1KB file). When the URL points at an
+asset we stored, size/content-type/kind now come from the file record. Added
+Linear's missing `attachmentUpdate(id, input)` and repaired the bad rows.
+
+Verified as a user with the enlarged dataset (55 issues, 26 attachments, real
+uploaded bytes): 34 routes swept twice, zero console errors, no horizontal
+overflow, dark mode clean, upload → lightbox → command menu → ⌘↵ create all
+work, and the new issue round-tripped to the server.
+
+`tsc -b ✅ · build ✅ · 34-route sweep clean · console clean`
