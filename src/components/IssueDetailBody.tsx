@@ -74,13 +74,37 @@ import {
   ArrowUpRight,
   ArrowUpFromLine,
   Trash2,
+  Tag,
+  Box,
+  Users,
 } from 'lucide-react'
 
-function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * A heading in the property sidebar. Linear groups properties under plain
+ * muted headings ("Properties", "Labels", "Project") rather than labelling
+ * every row, so each row is just its icon and value.
+ */
+function PropSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-2 py-1.5">
-      <div className="w-20 shrink-0 pt-1 text-[12px] text-faint">{label}</div>
-      <div className="flex-1">{children}</div>
+    <div className="mt-5 first:mt-0">
+      <div className="mb-1 px-1.5 text-[12px] text-muted">{title}</div>
+      {/* One property per row: the pickers wrap their trigger in an
+          inline-block button, so a flex column is what keeps them stacked. */}
+      <div className="flex flex-col items-stretch">{children}</div>
+    </div>
+  )
+}
+
+/** A row that belongs to the one above it — Linear draws an L-shaped connector
+ *  (the milestone under its project, the assignee's agent under Assign). */
+function NestedRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative pl-4">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-2.5 top-0 h-3.5 w-2 rounded-bl border-b border-l border-border"
+      />
+      {children}
     </div>
   )
 }
@@ -530,261 +554,241 @@ export function IssueDetailBody({
         </div>
       </div>
 
-      {/* Right sidebar */}
+      {/* Right sidebar — Linear groups the properties under plain headings and
+          drops the per-row label column, so a row is just its icon and value;
+          anything unset reads as the action that would set it. */}
       <aside className="w-64 shrink-0 overflow-y-auto border-l border-border px-3 py-4">
-        <div className="text-[11px] font-medium uppercase tracking-wide text-faint">
-          Properties
-        </div>
-        <div className="mt-1">
-          <PropRow label="Status">
-            <StatusPicker
-              stateId={issue.stateId}
-              onChange={(id) => store.setIssueStatus(issue.id, id)}
-              trigger={
-                <span className={triggerCls}>
-                  <StatusIcon type={state.type} color={state.color} />
-                  {state.name}
-                </span>
-              }
-            />
-          </PropRow>
-          <PropRow label="Priority">
-            <PriorityPicker
-              priority={issue.priority}
-              onChange={(p) => store.setIssuePriority(issue.id, p)}
-              trigger={
-                <span className={triggerCls}>
-                  <PriorityIcon priority={issue.priority} />
-                  {PRIORITY_LABELS[issue.priority]}
-                </span>
-              }
-            />
-          </PropRow>
-          <PropRow label="Assignee">
-            <AssigneePicker
-              assigneeId={issue.assigneeId}
-              onChange={(id) => store.setIssueAssignee(issue.id, id)}
-              trigger={
-                <span className={triggerCls}>
-                  <Avatar user={assignee} size={18} />
-                  {assignee ? fmt(assignee.name) : 'Unassigned'}
-                </span>
-              }
-            />
-          </PropRow>
+        <PropSection title="Properties">
+          <StatusPicker
+            stateId={issue.stateId}
+            onChange={(id) => store.setIssueStatus(issue.id, id)}
+            trigger={
+              <span className={triggerCls}>
+                <StatusIcon type={state.type} color={state.color} />
+                {state.name}
+              </span>
+            }
+          />
+          <PriorityPicker
+            priority={issue.priority}
+            onChange={(p) => store.setIssuePriority(issue.id, p)}
+            trigger={
+              <span className={triggerCls}>
+                <PriorityIcon priority={issue.priority} />
+                {issue.priority ? (
+                  PRIORITY_LABELS[issue.priority]
+                ) : (
+                  <span className="text-faint">Set priority</span>
+                )}
+              </span>
+            }
+          />
+          <AssigneePicker
+            assigneeId={issue.assigneeId}
+            onChange={(id) => store.setIssueAssignee(issue.id, id)}
+            trigger={
+              <span className={triggerCls}>
+                <Avatar user={assignee} size={18} />
+                {assignee ? fmt(assignee.name) : <span className="text-faint">Assign</span>}
+              </span>
+            }
+          />
           {teamCycles.length > 0 && (
-            <PropRow label="Cycle">
-              <SelectMenu
-                options={[
-                  { id: '__none', label: 'No cycle', selected: !issue.cycleId },
-                  ...teamCycles.map((c) => {
-                    const cs = cycleState(c.startsAt, c.endsAt, Date.now())
-                    return {
-                      id: c.id,
-                      label: c.name ?? `Cycle ${c.number}`,
-                      keywords: String(c.number),
-                      hint:
-                        cs.status === 'active'
-                          ? 'Active'
-                          : cs.status === 'upcoming'
-                            ? 'Upcoming'
-                            : `${formatDate(c.startsAt)} – ${formatDate(c.endsAt)}`,
-                      selected: issue.cycleId === c.id,
-                    }
-                  }),
-                ]}
-                onSelect={(id) =>
-                  store.setIssueCycle(issue.id, id === '__none' ? undefined : id)
-                }
-                trigger={
-                  <span className={triggerCls}>
-                    <IterationCw size={14} className="text-faint" />
-                    {cycle ? (
-                      cycle.name ?? `Cycle ${cycle.number}`
-                    ) : (
-                      <span className="text-faint">No cycle</span>
-                    )}
-                  </span>
-                }
-              />
-            </PropRow>
-          )}
-          {teamEstimationType(team) !== 'notUsed' && (
-            <PropRow label="Estimate">
-              <SelectMenu
-                options={[
-                  { id: '0', label: 'No estimate', selected: !issue.estimate },
-                  ...estimatePoints(team)
-                    .filter((n) => n !== 0)
-                    .map((n) => ({
-                      id: String(n),
-                      label: estimateLabel(n, team),
-                      selected: issue.estimate === n,
-                    })),
-                ]}
-                onSelect={(id) =>
-                  store.setIssueEstimate(issue.id, Number(id) || undefined)
-                }
-                trigger={
-                  <span className={triggerCls}>
-                    <GitBranch size={14} className="text-faint" />
-                    {issue.estimate
-                      ? estimateLabel(issue.estimate, team)
-                      : 'No estimate'}
-                  </span>
-                }
-              />
-            </PropRow>
-          )}
-          <PropRow label="Due date">
-            <DatePicker
-              value={issue.dueDate}
-              onChange={(iso) => store.setIssueDueDate(issue.id, iso)}
-              trigger={
-                <span className={triggerCls}>
-                  <Calendar size={14} className="text-faint" />
-                  {issue.dueDate ? (
-                    <span
-                      className={cn(
-                        isOverdue(issue.dueDate)
-                          ? 'text-[var(--priority-urgent)]'
-                          : isDueSoon(issue.dueDate)
-                            ? 'text-[var(--status-started)]'
-                            : 'text-fg',
-                      )}
-                    >
-                      {formatFullDate(issue.dueDate)}
-                    </span>
-                  ) : (
-                    <span className="text-faint">Set due date</span>
-                  )}
-                </span>
-              }
-            />
-          </PropRow>
-          <PropRow label="Reminder">
-            <IssueReminders issue={issue} />
-          </PropRow>
-          <PropRow label="Snooze">
-            <IssueSnooze issue={issue} />
-          </PropRow>
-          <PropRow label="Pin">
-            <IssuePinButton issueId={issue.id} />
-          </PropRow>
-        </div>
-
-        <div className="mt-4 text-[11px] font-medium uppercase tracking-wide text-faint">
-          Labels
-        </div>
-        <LabelPicker
-          labelIds={issue.labelIds}
-          onToggle={(id) => store.toggleIssueLabel(issue.id, id)}
-          trigger={
-            <span className="mt-1 flex flex-wrap items-center gap-1 rounded-md px-1.5 py-1 hover:bg-bg-hover">
-              {issueLabels.length === 0 ? (
-                <span className="text-[13px] text-faint">Add label</span>
-              ) : (
-                issueLabels.map((l) => (
-                  <span
-                    key={l!.id}
-                    className="flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted"
-                  >
-                    <LabelDot color={l!.color} />
-                    {l!.name}
-                  </span>
-                ))
-              )}
-            </span>
-          }
-        />
-
-        <div className="mt-4 text-[11px] font-medium uppercase tracking-wide text-faint">
-          Project
-        </div>
-        <ProjectPicker
-          projectId={issue.projectId}
-          onChange={(id) => store.setIssueProject(issue.id, id)}
-          trigger={
-            <span className={triggerCls + ' mt-1'}>
-              {project ? (
-                <>
-                  <span>{project.icon}</span>
-                  {project.name}
-                </>
-              ) : (
-                <span className="text-faint">Add to project</span>
-              )}
-            </span>
-          }
-        />
-
-        {projectMilestones.length > 0 && (
-          <>
-            <div className="mt-4 text-[11px] font-medium uppercase tracking-wide text-faint">
-              Milestone
-            </div>
             <SelectMenu
               options={[
-                { id: '__none', label: 'No milestone', selected: !issue.milestoneId },
-                ...projectMilestones.map((m) => ({
-                  id: m.id,
-                  label: m.name,
-                  selected: issue.milestoneId === m.id,
-                })),
+                { id: '__none', label: 'No cycle', selected: !issue.cycleId },
+                ...teamCycles.map((c) => {
+                  const cs = cycleState(c.startsAt, c.endsAt, Date.now())
+                  return {
+                    id: c.id,
+                    label: c.name ?? `Cycle ${c.number}`,
+                    keywords: String(c.number),
+                    hint:
+                      cs.status === 'active'
+                        ? 'Active'
+                        : cs.status === 'upcoming'
+                          ? 'Upcoming'
+                          : `${formatDate(c.startsAt)} – ${formatDate(c.endsAt)}`,
+                    selected: issue.cycleId === c.id,
+                  }
+                }),
               ]}
-              onSelect={(id) =>
-                store.setIssueMilestone(issue.id, id === '__none' ? undefined : id)
-              }
+              onSelect={(id) => store.setIssueCycle(issue.id, id === '__none' ? undefined : id)}
               trigger={
-                <span className={triggerCls + ' mt-1'}>
-                  <Flag size={13} className="text-faint" />
-                  {milestone?.name ?? (
-                    <span className="text-faint">No milestone</span>
+                <span className={triggerCls}>
+                  <IterationCw size={14} className="text-faint" />
+                  {cycle ? (
+                    cycle.name ?? `Cycle ${cycle.number}`
+                  ) : (
+                    <span className="text-faint">Set cycle</span>
                   )}
                 </span>
               }
             />
-          </>
-        )}
-
-        <div className="mt-4 text-[11px] font-medium uppercase tracking-wide text-faint">
-          Subscribers
-        </div>
-        <SubscriberPicker
-          subscriberIds={issue.subscriberIds}
-          onToggle={(id) => store.toggleIssueSubscriber(issue.id, id)}
-          trigger={
-            <span className="mt-1 flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-bg-hover">
-              {subscribers.length === 0 ? (
-                <span className="text-[13px] text-faint">Add subscribers</span>
-              ) : (
-                <>
-                  <span className="flex -space-x-1">
-                    {subscribers.slice(0, 5).map((u) => (
-                      <span
-                        key={u!.id}
-                        className="rounded-full ring-1 ring-bg"
-                        title={u!.name}
-                      >
-                        <Avatar user={u!} size={20} />
-                      </span>
-                    ))}
+          )}
+          {teamEstimationType(team) !== 'notUsed' && (
+            <SelectMenu
+              options={[
+                { id: '0', label: 'No estimate', selected: !issue.estimate },
+                ...estimatePoints(team)
+                  .filter((n) => n !== 0)
+                  .map((n) => ({
+                    id: String(n),
+                    label: estimateLabel(n, team),
+                    selected: issue.estimate === n,
+                  })),
+              ]}
+              onSelect={(id) => store.setIssueEstimate(issue.id, Number(id) || undefined)}
+              trigger={
+                <span className={triggerCls}>
+                  <GitBranch size={14} className="text-faint" />
+                  {issue.estimate ? (
+                    estimateLabel(issue.estimate, team)
+                  ) : (
+                    <span className="text-faint">Set estimate</span>
+                  )}
+                </span>
+              }
+            />
+          )}
+          <DatePicker
+            value={issue.dueDate}
+            onChange={(iso) => store.setIssueDueDate(issue.id, iso)}
+            trigger={
+              <span className={triggerCls}>
+                <Calendar size={14} className="text-faint" />
+                {issue.dueDate ? (
+                  <span
+                    className={cn(
+                      isOverdue(issue.dueDate)
+                        ? 'text-[var(--priority-urgent)]'
+                        : isDueSoon(issue.dueDate)
+                          ? 'text-[var(--status-started)]'
+                          : 'text-fg',
+                    )}
+                  >
+                    {formatFullDate(issue.dueDate)}
                   </span>
-                  <span className="text-[12px] text-muted">
-                    {subscribers.length === 1
-                      ? fmt(subscribers[0]!.name)
-                      : `${subscribers.length} subscribers`}
-                  </span>
-                </>
-              )}
-            </span>
-          }
-        />
+                ) : (
+                  <span className="text-faint">Set due date</span>
+                )}
+              </span>
+            }
+          />
+          <IssueReminders issue={issue} />
+          <IssueSnooze issue={issue} />
+          <IssuePinButton issueId={issue.id} />
+        </PropSection>
 
-        {/* Status history — when this issue moved between workflow states. */}
-        <div className="mt-5 border-t border-border pt-3">
-          <IssueStatusHistory issueId={issue.id} />
-        </div>
+        <PropSection title="Labels">
+          <LabelPicker
+            labelIds={issue.labelIds}
+            onToggle={(id) => store.toggleIssueLabel(issue.id, id)}
+            trigger={
+              <span className="flex w-full flex-wrap items-center gap-1 rounded-md px-1.5 py-1 hover:bg-bg-hover">
+                {issueLabels.length === 0 ? (
+                  <>
+                    <Tag size={14} className="text-faint" />
+                    <span className="text-[13px] text-faint">Add label</span>
+                  </>
+                ) : (
+                  issueLabels.map((l) => (
+                    <span
+                      key={l!.id}
+                      className="flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[11px] text-muted"
+                    >
+                      <LabelDot color={l!.color} />
+                      {l!.name}
+                    </span>
+                  ))
+                )}
+              </span>
+            }
+          />
+        </PropSection>
+
+        <PropSection title="Project">
+          <ProjectPicker
+            projectId={issue.projectId}
+            onChange={(id) => store.setIssueProject(issue.id, id)}
+            trigger={
+              <span className={triggerCls}>
+                {project ? (
+                  <>
+                    <span>{project.icon}</span>
+                    {project.name}
+                  </>
+                ) : (
+                  <>
+                    <Box size={14} className="text-faint" />
+                    <span className="text-faint">Add to project</span>
+                  </>
+                )}
+              </span>
+            }
+          />
+          {/* Linear hangs the milestone off its project rather than giving it a
+              section of its own. */}
+          {projectMilestones.length > 0 && (
+            <NestedRow>
+              <SelectMenu
+                options={[
+                  { id: '__none', label: 'No milestone', selected: !issue.milestoneId },
+                  ...projectMilestones.map((m) => ({
+                    id: m.id,
+                    label: m.name,
+                    selected: issue.milestoneId === m.id,
+                  })),
+                ]}
+                onSelect={(id) =>
+                  store.setIssueMilestone(issue.id, id === '__none' ? undefined : id)
+                }
+                trigger={
+                  <span className={triggerCls}>
+                    <Flag size={13} className="text-faint" />
+                    {milestone?.name ?? <span className="text-faint">Set milestone</span>}
+                  </span>
+                }
+              />
+            </NestedRow>
+          )}
+        </PropSection>
+
+        <PropSection title="Subscribers">
+          <SubscriberPicker
+            subscriberIds={issue.subscriberIds}
+            onToggle={(id) => store.toggleIssueSubscriber(issue.id, id)}
+            trigger={
+              <span className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-bg-hover">
+                {subscribers.length === 0 ? (
+                  <>
+                    <Users size={14} className="text-faint" />
+                    <span className="text-[13px] text-faint">Add subscribers</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex -space-x-1">
+                      {subscribers.slice(0, 5).map((u) => (
+                        <span key={u!.id} className="rounded-full ring-1 ring-bg" title={u!.name}>
+                          <Avatar user={u!} size={20} />
+                        </span>
+                      ))}
+                    </span>
+                    <span className="text-[12px] text-muted">
+                      {subscribers.length === 1
+                        ? fmt(subscribers[0]!.name)
+                        : `${subscribers.length} subscribers`}
+                    </span>
+                  </>
+                )}
+              </span>
+            }
+          />
+        </PropSection>
+
+        {/* Status history — when this issue moved between workflow states. It
+            brings its own divider so an issue with no moves leaves no gap. */}
+        <IssueStatusHistory issueId={issue.id} />
 
         {/* Metadata footer — mirrors Linear's "opened by / updated" block at the
             bottom of the property sidebar. Each timestamp tooltips its full date. */}

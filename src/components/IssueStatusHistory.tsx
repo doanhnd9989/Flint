@@ -17,7 +17,7 @@ export function IssueStatusHistory({ issueId }: { issueId: string }) {
   if (history.length === 0) return null
 
   return (
-    <section>
+    <section className="mt-5 border-t border-border pt-3">
       <h3 className="text-[11px] font-medium uppercase text-faint mb-2">
         Status history
       </h3>
