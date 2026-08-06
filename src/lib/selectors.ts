@@ -148,59 +148,64 @@ export function filterIssues(
     if (i.snoozedUntil && new Date(i.snoozedUntil).getTime() > Date.now())
       return false
     // Each entry: [is this dimension active?, does the issue match it?, dimension key].
+    // `matches` is a thunk so an inactive dimension is never evaluated — a
+    // FilterState persisted before a dimension existed leaves its array
+    // undefined, and eager evaluation would throw on it.
     // A negated dimension excludes matching issues; otherwise it keeps only matches.
-    const dims: [boolean, boolean, keyof typeof neg][] = [
+    const dims: [boolean, () => boolean, keyof typeof neg][] = [
       [
-        filters.statusIds.length > 0,
-        filters.statusIds.includes(i.stateId),
+        !!filters.statusIds?.length,
+        () => filters.statusIds.includes(i.stateId),
         'statusIds',
       ],
       [
-        filters.assigneeIds.length > 0,
-        !!(i.assigneeId && filters.assigneeIds.includes(i.assigneeId)),
+        !!filters.assigneeIds?.length,
+        () => !!(i.assigneeId && filters.assigneeIds.includes(i.assigneeId)),
         'assigneeIds',
       ],
       [
-        filters.priorities.length > 0,
-        filters.priorities.includes(i.priority),
+        !!filters.priorities?.length,
+        () => filters.priorities.includes(i.priority),
         'priorities',
       ],
       [
-        filters.labelIds.length > 0,
-        filters.labelMatchAll
-          ? filters.labelIds.every((l) => i.labelIds.includes(l))
-          : i.labelIds.some((l) => filters.labelIds.includes(l)),
+        !!filters.labelIds?.length,
+        () =>
+          filters.labelMatchAll
+            ? filters.labelIds.every((l) => i.labelIds.includes(l))
+            : i.labelIds.some((l) => filters.labelIds.includes(l)),
         'labelIds',
       ],
       [
-        filters.projectIds.length > 0,
-        !!(i.projectId && filters.projectIds.includes(i.projectId)),
+        !!filters.projectIds?.length,
+        () => !!(i.projectId && filters.projectIds.includes(i.projectId)),
         'projectIds',
       ],
       [
         !!filters.creatorIds?.length,
-        !!filters.creatorIds?.includes(i.creatorId),
+        () => !!filters.creatorIds?.includes(i.creatorId),
         'creatorIds',
       ],
       [
         !!filters.subscriberIds?.length,
-        i.subscriberIds.some((s) => filters.subscriberIds!.includes(s)),
+        () => i.subscriberIds.some((s) => filters.subscriberIds!.includes(s)),
         'subscriberIds',
       ],
       [
         !!filters.cycleIds?.length,
-        !!(i.cycleId && filters.cycleIds!.includes(i.cycleId)),
+        () => !!(i.cycleId && filters.cycleIds!.includes(i.cycleId)),
         'cycleIds',
       ],
       [
         !!filters.milestoneIds?.length,
-        !!(i.milestoneId && filters.milestoneIds!.includes(i.milestoneId)),
+        () => !!(i.milestoneId && filters.milestoneIds!.includes(i.milestoneId)),
         'milestoneIds',
       ],
     ]
     for (const [active, matches, key] of dims) {
       if (!active) continue
-      const ok = neg[key] ? !matches : matches
+      const m = matches()
+      const ok = neg[key] ? !m : m
       if (!ok) return false
     }
     // Free-text content filter: title or description substring (case-insensitive).

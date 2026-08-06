@@ -75,11 +75,7 @@ export function ViewsView() {
   const counts = useMemo(() => {
     const map: Record<string, number> = {}
     for (const v of savedViews) {
-      try {
-        map[v.id] = filterIssues(issues, v.filters).length
-      } catch {
-        map[v.id] = 0
-      }
+      map[v.id] = filterIssues(issues, v.filters).length
     }
     return map
   }, [savedViews, issues])

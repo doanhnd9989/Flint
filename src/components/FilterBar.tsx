@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Filter,
@@ -21,13 +21,14 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
+import { filterIssues } from '@/lib/selectors'
 import { Popover } from './ui/Popover'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { PRIORITY_LABELS, PRIORITY_ORDER, STATUS_TYPE_ORDER } from '@/lib/constants'
-import type { DateField, DateFilter, FilterState, Priority } from '@/lib/types'
+import type { DateField, DateFilter, FilterState, Issue, Priority } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
 
@@ -133,6 +134,9 @@ export function hasActiveFilters(f: FilterState): boolean {
   )
 }
 
+/** Stable identity for "no options" so {@link useDimCounts}'s memo holds. */
+const EMPTY_OPTIONS: ValueOption[] = []
+
 interface ValueOption {
   id: string
   label: string
@@ -177,6 +181,30 @@ function useDimOptions(): Record<Dim, ValueOption[]> {
         icon: <Diamond size={12} className="text-faint" />,
       })),
   }
+}
+
+/**
+ * Linear annotates every option in a filter submenu with how many issues would
+ * remain if you picked it — faceted counts, so the dimension being edited is
+ * excluded from its own tally. `scope` is the view's pre-filter issue set;
+ * without one we show no counts rather than a misleading workspace-wide number.
+ */
+function useDimCounts(
+  scope: Issue[] | undefined,
+  filters: FilterState,
+  dim: Dim | null,
+  options: ValueOption[],
+): Record<string, number> | undefined {
+  return useMemo(() => {
+    if (!scope || !dim) return undefined
+    // Everything the other dimensions already narrowed down to.
+    const base = filterIssues(scope, clearDim(filters, dim))
+    const counts: Record<string, number> = {}
+    for (const o of options) {
+      counts[o.id] = filterIssues(base, setValues(clearDim(filters, dim), dim, [o.id])).length
+    }
+    return counts
+  }, [scope, filters, dim, options])
 }
 
 function valuesOf(f: FilterState, dim: Dim): string[] {
@@ -338,11 +366,14 @@ function ValueList({
   selected,
   onToggle,
   query,
+  counts,
 }: {
   options: ValueOption[]
   selected: string[]
   onToggle: (id: string) => void
   query?: string
+  /** Faceted issue counts by option id — Linear shows these beside each row. */
+  counts?: Record<string, number>
 }) {
   const q = (query ?? '').trim().toLowerCase()
   const shown = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options
@@ -359,6 +390,7 @@ function ValueList({
         >
           <span className="flex h-4 w-4 items-center justify-center">{o.icon}</span>
           <span className="flex-1 truncate">{o.label}</span>
+          {counts && <span className="tabular-nums text-[11px] text-faint">{counts[o.id] ?? 0}</span>}
           {selected.includes(o.id) && (
             <svg width="14" height="14" viewBox="0 0 16 16" className="text-accent">
               <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -381,11 +413,13 @@ function AddFilterPanel({
   onChange,
   onPicked,
   onCustom,
+  scope,
 }: {
   filters: FilterState
   onChange: (f: FilterState) => void
   onPicked: () => void
   onCustom: (req: CustomReq) => void
+  scope?: Issue[]
 }) {
   // null = root · Dim = that dimension's value list · 'dates' = date-field list ·
   // DateField = that field's relative-period list · 'text' = content text input.
@@ -395,6 +429,8 @@ function AddFilterPanel({
   // every navigation so each level starts fresh.
   const [query, setQuery] = useState('')
   const dimOptions = useDimOptions()
+  const dimNav = nav && nav in dimOptions ? (nav as Dim) : null
+  const counts = useDimCounts(scope, filters, dimNav, dimNav ? dimOptions[dimNav] : EMPTY_OPTIONS)
 
   function go(to: Dim | 'dates' | DateField | 'text' | null) {
     setQuery('')
@@ -586,6 +622,7 @@ function AddFilterPanel({
         selected={valuesOf(filters, dim)}
         onToggle={(id) => toggle(dim, id)}
         query={query}
+        counts={counts}
       />
     </div>
   )
@@ -595,15 +632,18 @@ function Chip({
   dim,
   filters,
   onChange,
+  scope,
 }: {
   dim: Dim
   filters: FilterState
   onChange: (f: FilterState) => void
+  scope?: Issue[]
 }) {
   const dimOptions = useDimOptions()
+  const opts = dimOptions[dim]
+  const counts = useDimCounts(scope, filters, dim, opts)
   const selected = valuesOf(filters, dim)
   if (selected.length === 0) return null
-  const opts = dimOptions[dim]
   const names = selected
     .map((id) => opts.find((o) => o.id === id)?.label)
     .filter(Boolean) as string[]
@@ -663,6 +703,7 @@ function Chip({
           <ValueList
             options={opts}
             selected={selected}
+            counts={counts}
             onToggle={(id) => {
               const cur = valuesOf(filters, dim)
               const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
@@ -1247,9 +1288,15 @@ function TextChip({
 export function FilterBar({
   filters,
   onChange,
+  onSave,
+  scope,
 }: {
   filters: FilterState
   onChange: (f: FilterState) => void
+  /** Adds Linear's "Save" (save these filters as a view) to the row. */
+  onSave?: () => void
+  /** The view's pre-filter issue set — powers the per-option counts. */
+  scope?: Issue[]
 }) {
   const active = hasActiveFilters(filters)
   const [custom, setCustom] = useState<CustomReq | null>(null)
@@ -1266,20 +1313,31 @@ export function FilterBar({
     setCustom(null)
   }
 
+  // Linear only shows this row once something is filtered; until then the
+  // funnel in the view header ({@link FilterTrigger}) is the way in.
+  if (!active) return null
+
   return (
     <div className="flex items-center gap-2 border-b border-border px-4 py-1.5">
+      {DIMS.map((d) => (
+        <Chip key={d.id} dim={d.id} filters={filters} onChange={onChange} scope={scope} />
+      ))}
+
+      <TextChip filters={filters} onChange={onChange} />
+
+      {(filters.dates ?? []).map((_, i) => (
+        <DateChip key={i} index={i} filters={filters} onChange={onChange} onCustom={setCustom} />
+      ))}
+
       <Popover
         align="start"
         width={200}
         trigger={
           <span
-            className={cn(
-              'flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover',
-              active && 'text-fg',
-            )}
+            title="Add filter"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg"
           >
-            {active ? <Plus size={13} /> : <Filter size={13} />}
-            Filter
+            <Plus size={14} />
           </span>
         }
       >
@@ -1289,33 +1347,88 @@ export function FilterBar({
             onChange={onChange}
             onPicked={close}
             onCustom={setCustom}
+            scope={scope}
           />
         )}
       </Popover>
 
-      {DIMS.map((d) => (
-        <Chip key={d.id} dim={d.id} filters={filters} onChange={onChange} />
-      ))}
-
-      <TextChip filters={filters} onChange={onChange} />
-
-      {(filters.dates ?? []).map((_, i) => (
-        <DateChip key={i} index={i} filters={filters} onChange={onChange} onCustom={setCustom} />
-      ))}
-
-      {active && (
+      <div className="ml-auto flex items-center gap-1">
         <button
           type="button"
           onClick={() => onChange(emptyFilters())}
-          className="text-[12px] text-faint hover:text-fg"
+          className="rounded px-1.5 py-0.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg"
         >
           Clear
         </button>
-      )}
+        {onSave && (
+          <button
+            type="button"
+            onClick={onSave}
+            className="rounded px-1.5 py-0.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg"
+          >
+            Save
+          </button>
+        )}
+      </div>
 
       {custom && (
         <CustomDateModal req={custom} onApply={applyCustom} onClose={() => setCustom(null)} />
       )}
     </div>
+  )
+}
+
+/**
+ * The funnel in a view header. Linear's only filter affordance when nothing is
+ * filtered yet; once a filter exists the row below takes over.
+ */
+export function FilterTrigger({
+  filters,
+  onChange,
+  scope,
+}: {
+  filters: FilterState
+  onChange: (f: FilterState) => void
+  /** The view's pre-filter issue set — powers the per-option counts. */
+  scope?: Issue[]
+}) {
+  const [custom, setCustom] = useState<CustomReq | null>(null)
+
+  function applyCustom(op: 'before' | 'after' | 'in', value: string) {
+    onChange({ ...filters, dates: [...(filters.dates ?? []), { field: custom!.field, op, value }] })
+    setCustom(null)
+  }
+
+  return (
+    <>
+      <Popover
+        align="end"
+        width={200}
+        trigger={
+          <span
+            title="Filter"
+            className={cn(
+              'flex h-6 w-6 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg',
+              hasActiveFilters(filters) && 'text-fg',
+            )}
+          >
+            <Filter size={14} />
+          </span>
+        }
+      >
+        {(close) => (
+          <AddFilterPanel
+            filters={filters}
+            onChange={onChange}
+            onPicked={close}
+            onCustom={setCustom}
+            scope={scope}
+          />
+        )}
+      </Popover>
+      {custom && (
+        <CustomDateModal req={custom} onApply={applyCustom} onClose={() => setCustom(null)} />
+      )}
+    </>
   )
 }

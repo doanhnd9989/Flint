@@ -37,7 +37,7 @@ import type {
 import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { IssueBoard } from '@/components/IssueBoard'
 import { DisplayMenu } from '@/components/DisplayMenu'
-import { FilterBar, emptyFilters } from '@/components/FilterBar'
+import { FilterBar, FilterTrigger, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
 import { ViewHeader } from '@/components/ViewHeader'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
@@ -184,6 +184,7 @@ export function MyIssues() {
                 <Columns3 size={15} />
               </button>
             </div>
+            <FilterTrigger filters={filters} onChange={setFilters} />
             <DisplayMenu
               layout={layout}
               groupBy={groupBy}
@@ -273,7 +274,7 @@ function IssueTab({
   // Nesting only makes sense in the list view with sub-issues shown.
   const nested = layout === 'list' && showSubIssues && nestedSubIssues
 
-  const { groups, childrenByParent, rows, stats } = useMemo(() => {
+  const { groups, childrenByParent, rows, stats, scopedCount, scopedIssues } = useMemo(() => {
     const me = data.currentUserId
     let scoped = data.issues.filter((i) => {
       if (i.triage) return false
@@ -285,6 +286,8 @@ function IssueTab({
 
     if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
 
+    const scopedCount = scoped.length
+    const scopedIssues = scoped
     const filtered = filterIssues(scoped, filters)
 
     // At-a-glance workload counts over the same scoped+filtered set the list
@@ -349,7 +352,7 @@ function IssueTab({
       layout === 'board' && subGroupBy !== 'none'
         ? groupIssues(forGrouping, subGroupBy, data, true, dn)
         : undefined
-    return { groups, childrenByParent, rows, stats }
+    return { groups, childrenByParent, rows, stats, scopedCount, scopedIssues }
   }, [
     data,
     tab,
@@ -393,7 +396,7 @@ function IssueTab({
 
   return (
     <>
-      <FilterBar filters={filters} onChange={onFilters} />
+      <FilterBar filters={filters} onChange={onFilters} scope={scopedIssues} />
       <SummaryStrip stats={stats} />
       {layout === 'list' && dueSoon.length > 0 && <DueSoon issues={dueSoon} />}
       {layout === 'board' ? (
@@ -409,6 +412,9 @@ function IssueTab({
           groupBy={groupBy}
           subGroupBy={subGroupBy}
           childrenByParent={nested ? childrenByParent : undefined}
+          totalCount={scopedCount}
+          hasActiveFilters={hasActiveFilters(filters)}
+          onClearFilters={() => onFilters(emptyFilters())}
           empty={EMPTY[tab]}
           onReorder={(id, sortOrder) => {
             data.setIssueSortOrder(id, sortOrder)

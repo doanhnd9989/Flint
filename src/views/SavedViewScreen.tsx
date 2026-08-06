@@ -6,7 +6,7 @@ import type { GroupBy, Issue, OrderDir } from '@/lib/types'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { IssueBoard } from '@/components/IssueBoard'
 import { DisplayMenu } from '@/components/DisplayMenu'
-import { FilterBar, hasActiveFilters } from '@/components/FilterBar'
+import { FilterBar, FilterTrigger, hasActiveFilters } from '@/components/FilterBar'
 import { ViewHeader } from '@/components/ViewHeader'
 import { StarButton } from '@/components/StarButton'
 
@@ -30,21 +30,31 @@ export function SavedViewScreen() {
   const nested =
     view?.layout === 'list' && showSubIssues && nestedSubIssues
 
-  const { groups, childrenByParent, rows } = useMemo(() => {
-    if (!view) return { groups: [], childrenByParent: undefined, rows: undefined }
+  const { groups, childrenByParent, rows, scopedCount, scopedIssues } = useMemo(() => {
+    if (!view)
+      return {
+        groups: [],
+        childrenByParent: undefined,
+        rows: undefined,
+        scopedCount: 0,
+        scopedIssues: [],
+      }
 
     let scoped = data.issues
     if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
 
-    let filtered = filterIssues(scoped, view.filters)
-    // "Show completed issues" display option.
+    // "Show completed issues" display option. Applied before filtering so
+    // `scopedCount` is the honest denominator for "N issues hidden by filters".
     if (data.hideCompleted) {
       const typeOf = new Map(data.states.map((s) => [s.id, s.type]))
-      filtered = filtered.filter((i) => {
+      scoped = scoped.filter((i) => {
         const t = typeOf.get(i.stateId)
         return t !== 'completed' && t !== 'canceled'
       })
     }
+    const scopedCount = scoped.length
+    const scopedIssues = scoped
+    const filtered = filterIssues(scoped, view.filters)
     const sorted = sortIssues(
       filtered,
       view.orderBy,
@@ -94,7 +104,7 @@ export function SavedViewScreen() {
       view.layout === 'board' && subGroupBy !== 'none'
         ? groupIssues(forGrouping, subGroupBy, data, true, dn)
         : undefined
-    return { groups, childrenByParent, rows }
+    return { groups, childrenByParent, rows, scopedCount, scopedIssues }
   }, [
     data,
     view,
@@ -121,6 +131,11 @@ export function SavedViewScreen() {
         right={
           <div className="flex items-center gap-1">
             <StarButton type="view" id={view.id} />
+            <FilterTrigger
+              filters={view.filters}
+              onChange={(filters) => updateView(view.id, { filters })}
+              scope={scopedIssues}
+            />
             <DisplayMenu
               layout={view.layout}
               groupBy={view.groupBy}
@@ -147,6 +162,7 @@ export function SavedViewScreen() {
       <FilterBar
         filters={view.filters}
         onChange={(filters) => updateView(view.id, { filters })}
+        scope={scopedIssues}
       />
       {view.layout === 'board' ? (
         <IssueBoard
@@ -161,6 +177,7 @@ export function SavedViewScreen() {
           groupBy={view.groupBy}
           subGroupBy={subGroupBy}
           childrenByParent={nested ? childrenByParent : undefined}
+          totalCount={scopedCount}
           hasActiveFilters={hasActiveFilters(view.filters)}
           onReorder={(id, sortOrder) => {
             data.setIssueSortOrder(id, sortOrder)

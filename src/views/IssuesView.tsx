@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Bookmark } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
 import type { GroupBy, Issue, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
@@ -8,8 +7,7 @@ import { GroupedIssueList } from '@/components/GroupedIssueList'
 import { IssueBoard } from '@/components/IssueBoard'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { ViewHeader } from '@/components/ViewHeader'
-import { FilterBar, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
-import { QuickFilterPills } from '@/components/QuickFilterPills'
+import { FilterBar, FilterTrigger, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
 import { cn } from '@/lib/utils'
 
 type Tab = 'active' | 'backlog' | 'all'
@@ -35,7 +33,7 @@ export function IssuesView() {
   // Nesting only makes sense in the list view with sub-issues shown.
   const nested = layout === 'list' && showSubIssues && nestedSubIssues
 
-  const { groups, childrenByParent, rows } = useMemo(() => {
+  const { groups, childrenByParent, rows, scopedCount, scopedIssues } = useMemo(() => {
     const statesByType = new Map(data.states.map((s) => [s.id, s.type]))
     let scoped = data.issues.filter((i) => i.teamId === team.id && !i.triage)
     if (tab === 'active')
@@ -48,13 +46,17 @@ export function IssuesView() {
 
     if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
 
-    let filtered = filterIssues(scoped, filters)
     // "Show completed issues" display option — hide completed/canceled issues.
+    // Applied before filtering so `scopedCount` is the honest denominator for
+    // "N issues hidden by filters".
     if (data.hideCompleted)
-      filtered = filtered.filter((i) => {
+      scoped = scoped.filter((i) => {
         const t = statesByType.get(i.stateId)
         return t !== 'completed' && t !== 'canceled'
       })
+    const scopedCount = scoped.length
+    const scopedIssues = scoped
+    const filtered = filterIssues(scoped, filters)
     const sorted = sortIssues(
       filtered,
       orderBy,
@@ -104,7 +106,7 @@ export function IssuesView() {
       layout === 'board' && subGroupBy !== 'none'
         ? groupIssues(forGrouping, subGroupBy, data, true, dn)
         : undefined
-    return { groups, childrenByParent, rows }
+    return { groups, childrenByParent, rows, scopedCount, scopedIssues }
   }, [
     data,
     team.id,
@@ -121,6 +123,21 @@ export function IssuesView() {
     showEmptyGroups,
   ])
 
+  /** "Save" in the filter row — turns the current filters into a saved view. */
+  function saveView() {
+    const name = prompt('Save view as…')
+    if (!name?.trim()) return
+    const view = data.createView({
+      name: name.trim(),
+      icon: 'layers',
+      layout,
+      groupBy,
+      orderBy,
+      filters,
+    })
+    navigate(`/view/${view.id}`)
+  }
+
   return (
     <div className="flex h-full flex-col">
       <ViewHeader
@@ -129,25 +146,7 @@ export function IssuesView() {
         teamIcon={team.icon}
         right={
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const name = prompt('Save view as…')
-                if (!name?.trim()) return
-                const view = data.createView({
-                  name: name.trim(),
-                  icon: 'layers',
-                  layout,
-                  groupBy,
-                  orderBy,
-                  filters,
-                })
-                navigate(`/view/${view.id}`)
-              }}
-              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover"
-            >
-              <Bookmark size={13} /> Save view
-            </button>
+            <FilterTrigger filters={filters} onChange={setFilters} scope={scopedIssues} />
             <DisplayMenu
               layout={layout}
               groupBy={groupBy}
@@ -188,10 +187,7 @@ export function IssuesView() {
         </div>
       </ViewHeader>
 
-      <FilterBar filters={filters} onChange={setFilters} />
-
-      {/* Quick-filter pill bar — smart presets that toggle real FilterState. */}
-      <QuickFilterPills filters={filters} onChange={setFilters} />
+      <FilterBar filters={filters} onChange={setFilters} onSave={saveView} scope={scopedIssues} />
 
       {layout === 'board' ? (
         <IssueBoard
@@ -206,6 +202,7 @@ export function IssuesView() {
           groupBy={groupBy}
           subGroupBy={subGroupBy}
           childrenByParent={nested ? childrenByParent : undefined}
+          totalCount={scopedCount}
           hasActiveFilters={hasActiveFilters(filters)}
           onClearFilters={() => setFilters(emptyFilters())}
           onReorder={(id, sortOrder) => {

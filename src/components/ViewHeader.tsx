@@ -22,7 +22,9 @@ export function ViewHeader({ title, teamName, teamIcon, children, right }: Props
         )}
         <span className="font-medium text-fg">{title}</span>
       </div>
-      <div className="ml-2 flex-1">{children}</div>
+      {/* Flex so callers can pass sibling controls (a count plus an `ml-auto`
+          control group) and still sit on one line. */}
+      <div className="ml-2 flex flex-1 items-center gap-2">{children}</div>
       {right}
     </header>
   )

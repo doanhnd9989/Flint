@@ -17,7 +17,7 @@ import { filterIssues } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
 import { LabelDot } from '@/components/LabelChip'
 import { Avatar } from '@/components/Avatar'
-import { FilterBar, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
+import { FilterBar, FilterTrigger, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
 import { projectProgress } from '@/lib/selectors'
 import { EmptyState, SearchIllustration } from '@/components/EmptyState'
 import { timeAgo, cn } from '@/lib/utils'
@@ -522,6 +522,7 @@ export function SearchView() {
             <X size={16} />
           </button>
         )}
+        <FilterTrigger filters={filters} onChange={setFilters} />
       </header>
 
       <FilterBar filters={filters} onChange={setFilters} />

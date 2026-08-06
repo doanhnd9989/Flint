@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Circle,
   ChevronsDownUp,
+  X,
 } from 'lucide-react'
 import {
   DndContext,
@@ -260,27 +261,23 @@ export function GroupedIssueList({
   const matchedCount = groups.reduce((n, g) => n + g.count, 0)
   const filteredOut =
     totalCount != null && totalCount > matchedCount ? totalCount - matchedCount : 0
-  const showSummary = !!hasActiveFilters && matchedCount > 0
+  // Linear puts this under the list, centred, and phrases it as what's hidden
+  // rather than what matched — the matched count is already the list itself.
+  const showSummary = !!hasActiveFilters && matchedCount > 0 && filteredOut > 0
   const summaryBar = showSummary ? (
-    <div className="flex items-center gap-1.5 px-4 pt-2 pb-1 text-[12px] text-faint">
+    <div className="flex items-center justify-center gap-2 py-4 text-[12px] text-faint">
       <span>
-        {matchedCount} {matchedCount === 1 ? 'issue' : 'issues'}
+        <span className="text-muted">{filteredOut}</span>{' '}
+        {filteredOut === 1 ? 'issue' : 'issues'} hidden by filters
       </span>
-      {filteredOut > 0 && (
-        <>
-          <span aria-hidden className="text-border-strong">
-            ·
-          </span>
-          <span>{filteredOut} filtered out</span>
-        </>
-      )}
       {onClearFilters && (
         <button
           type="button"
           onClick={onClearFilters}
-          className="ml-1 text-accent hover:underline"
+          className="flex items-center gap-1 rounded px-1 py-0.5 text-muted hover:bg-bg-hover hover:text-fg"
         >
-          Clear
+          Clear Filters
+          <X size={12} />
         </button>
       )}
     </div>
@@ -294,8 +291,8 @@ export function GroupedIssueList({
     if (!summaryBar) return <VirtualIssueList groups={groups} groupBy={groupBy} />
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
-        {summaryBar}
         <VirtualIssueList groups={groups} groupBy={groupBy} />
+        {summaryBar}
       </div>
     )
   }
@@ -358,7 +355,6 @@ export function GroupedIssueList({
 
   const body = (
     <div className="flex-1 overflow-y-auto">
-      {summaryBar}
       {!subGrouped && groups.length > 1 && (
         <div className="flex items-center px-4 py-1.5">
           <button
@@ -573,6 +569,7 @@ export function GroupedIssueList({
           </div>
         )
       })}
+      {summaryBar}
     </div>
   )
 
