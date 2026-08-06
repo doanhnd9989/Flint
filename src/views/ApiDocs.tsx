@@ -327,7 +327,7 @@ export function ApiDocs() {
 { "input": { "title": "Rate-limit the public API", "teamId": "<team id or key>", "priority": 2 } }`}
             </pre>
             <p className="mt-3 max-w-2xl text-sm text-muted">
-              Available: <code className="rounded bg-bg-tertiary px-1 text-[13px]">issueCreate · issueUpdate · issueDelete · issueArchive · issueUnarchive · commentCreate · commentUpdate · commentDelete · projectCreate · projectUpdate · projectDelete · cycleCreate · cycleUpdate · issueLabelCreate · issueLabelUpdate · issueLabelDelete · attachmentCreate · attachmentDelete · fileUpload</code>.
+              Available: <code className="rounded bg-bg-tertiary px-1 text-[13px]">issueCreate · issueUpdate · issueDelete · issueArchive · issueUnarchive · commentCreate · commentUpdate · commentDelete · projectCreate · projectUpdate · projectDelete · cycleCreate · cycleUpdate · issueLabelCreate · issueLabelUpdate · issueLabelDelete · attachmentCreate · attachmentUpdate · attachmentDelete · fileUpload</code>.
               Introspection is enabled, so codegen and GraphQL IDEs work against the endpoint directly.
             </p>
 

@@ -624,6 +624,12 @@ export const typeDefs = /* GraphQL */ `
     metadata: JSONObject
   }
 
+  input AttachmentUpdateInput {
+    title: String
+    subtitle: String
+    metadata: JSONObject
+  }
+
   # ── root ────────────────────────────────────────────────────────────────────
   type Query {
     "The currently authenticated user."
@@ -737,6 +743,7 @@ export const typeDefs = /* GraphQL */ `
     issueLabelDelete(id: String!): DeletePayload!
 
     attachmentCreate(input: AttachmentCreateInput!): AttachmentPayload!
+    attachmentUpdate(id: String!, input: AttachmentUpdateInput!): AttachmentPayload!
     attachmentDelete(id: String!): DeletePayload!
 
     "Request a URL to upload a file to. PUT the bytes to uploadUrl, then use assetUrl to reference it."

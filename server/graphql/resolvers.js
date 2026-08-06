@@ -6,7 +6,7 @@ import { GraphQLScalarType, GraphQLError } from 'graphql'
 import { getWorkspace, saveWorkspace, getMeta } from '../workspace.js'
 import { fireEvent } from '../webhooks.js'
 import { connect, sortRows, matchFilter } from './pagination.js'
-import { createFileRecord, MAX_UPLOAD_BYTES } from '../files.js'
+import { createFileRecord, fileIdFromUrl, getFileRecord, MAX_UPLOAD_BYTES } from '../files.js'
 
 /** Coarse attachment kind, from the mime type we uploaded with or the extension. */
 function kindForUrl(url, metadata) {
@@ -19,6 +19,15 @@ function kindForUrl(url, metadata) {
   if (['fig', 'sketch', 'xd'].includes(ext)) return 'design'
   if (/figma\.com|sketch\.com/.test(String(url))) return 'design'
   return 'file'
+}
+
+/** Human-readable byte size, matching the client's formatBytes(). */
+function formatBytes(bytes) {
+  if (!bytes) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const n = bytes / 1024 ** i
+  return `${n >= 10 || i === 0 ? Math.round(n) : n.toFixed(1)} ${units[i]}`
 }
 
 const COLLECTIONS = [
@@ -767,17 +776,41 @@ export const resolvers = {
       if (!w.issues.some((i) => i.id === input.issueId)) {
         throw userError(`No issue with id "${input.issueId}"`)
       }
+      // When the URL points at an asset we stored, we know its real size and
+      // type — use them rather than trusting whatever the caller passed, so an
+      // attachment can never advertise a size its bytes don't have. `subtitle`
+      // stays free-form (as in Linear) and still wins when the caller sets it.
+      const rec = getFileRecord(fileIdFromUrl(input.url) ?? '')
       const att = {
         id: input.id || randomUUID(),
         issueId: input.issueId,
         name: input.title,
-        kind: kindForUrl(input.url, input.metadata),
+        kind: kindForUrl(input.url, {
+          ...input.metadata,
+          contentType: input.metadata?.contentType || rec?.content_type,
+        }),
         url: input.url,
-        size: input.subtitle || undefined,
+        size: input.subtitle || (rec ? formatBytes(rec.size) : undefined),
+        sizeBytes: rec ? rec.size : undefined,
+        contentType: rec ? rec.content_type : undefined,
         creatorId: ctx.viewerId(w),
         createdAt: now(),
       }
       w.attachments.push(att)
+      const lastSyncId = commit(w, ctx.clientId)
+      return { lastSyncId, success: true, attachment: att }
+    },
+
+    attachmentUpdate: (_r, { id, input }, ctx) => {
+      const w = doc()
+      const att = w.attachments.find((a) => a.id === id)
+      if (!att) throw userError(`No attachment with id "${id}"`)
+      if (input.title != null) att.name = input.title
+      if (input.subtitle != null) att.size = input.subtitle || undefined
+      if (input.metadata?.contentType) {
+        att.contentType = input.metadata.contentType
+        att.kind = kindForUrl(att.url, input.metadata)
+      }
       const lastSyncId = commit(w, ctx.clientId)
       return { lastSyncId, success: true, attachment: att }
     },

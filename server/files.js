@@ -82,6 +82,20 @@ export function createFileRecord({ filename, contentType, size, userId }) {
   }
 }
 
+/**
+ * The stored record for an uploaded asset, or null. Lets other modules resolve
+ * an `/api/files/<id>/...` URL back to its real byte size and content type.
+ */
+export function getFileRecord(id) {
+  return db.prepare('SELECT * FROM files WHERE id = ?').get(id) ?? null
+}
+
+/** The file id embedded in an `/api/files/<id>[/name]` URL, or null. */
+export function fileIdFromUrl(url) {
+  const m = String(url || '').match(/^\/api\/files\/([0-9a-f]{32})(?:\/|$)/)
+  return m ? m[1] : null
+}
+
 export function writeFileBytes(id, buf) {
   const row = db.prepare('SELECT * FROM files WHERE id = ?').get(id)
   if (!row) return null
