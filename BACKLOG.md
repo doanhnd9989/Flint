@@ -1082,3 +1082,40 @@ saved as a board. Coverage and the unverified list live in
 - [ ] 🟡 **`ProjectsBoard.tsx` is a second, untouched board implementation** —
   the fixes in this run went to `IssueBoard.tsx` only. The projects board very
   likely has the same dead right-click and no multi-select.
+
+### From the `search-and-docs` pass (`/search` vs Linear's)
+
+Read off Linear's live search screen, read-only. The `Display options` popover,
+the `All`-tab count bug, the `Include archived` plumbing and the `?q=`/`?type=`
+URL sync were built in that run; these are what is left. Full control-by-control
+table in `.audit/controls/search-and-docs.md`.
+
+- [ ] 🔴 **Search results are grouped; Linear's are one flat list.** Ours renders
+      `Projects · 3` / `Documents · 2` / `Issues · 75` section headers with each
+      type in its own block. Linear renders a single relevance-ranked interleaved
+      list with no headers at all: each row is `[type column] [icon] [title]
+      [› parent breadcrumb] … [relative age, right-aligned]`, where the type
+      column reads `Project` / `Document` for those, and the issue identifier for
+      issues. Same class as the triage two-pane rewrite — it changes the result
+      body, the keyboard flattening and the per-group offsets together.
+- [ ] 🟡 **The search filter menu is not tab-aware.** Ours offers the same 12
+      issue facets whatever tab is selected. Linear's `All` tab offers 7
+      cross-type entries (`Advanced filter`, `Team`, `Status type`,
+      `Assignee / Lead`, `Creator`, `Updated date`, `Created date`) because the
+      tab mixes issues, projects and documents; its `Issues` tab swaps in the
+      full 26-entry issue menu. Ours currently offers issue-only facets on a tab
+      that lists projects and documents.
+- [ ] 🟢 **Linear's search tabs carry no counts, and there is no `People` tab.**
+      Ours has five tabs each with a count badge. Kept deliberately for now —
+      dropping the People tab would lose working people-search — but it is a
+      visible difference from Linear's four bare tabs.
+- [ ] 🟢 **Linear has no `N results` headline and no `Assigned to me` /
+      `Created by me` pills on search.** Both are ours only.
+- [ ] 🟢 **Our search `✕` clear button is unlabeled.** Linear's is
+      `Clear search`. Two icon buttons in the `/documents` header are unlabeled
+      the same way.
+- [ ] 🟡 **`/documents` and the document editor were never crawled.** Only the
+      `/documents` header was inventoried this run (search input, `All projects`,
+      `Last updated`, two unlabeled icon buttons, `New document`). The editor,
+      outline / table of contents and document sharing — the other half of the
+      `search-and-docs` area — are still unaudited. Next run starts here.

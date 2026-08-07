@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Search as SearchIcon,
   Clock,
@@ -11,8 +11,10 @@ import {
   Bookmark,
   Users,
   Save,
+  SlidersHorizontal,
+  ChevronDown,
 } from 'lucide-react'
-import { useStore } from '@/lib/store'
+import { useStore, useStoreShallow } from '@/lib/store'
 import { filterIssues } from '@/lib/selectors'
 import { IssueRow } from '@/components/IssueRow'
 import { LabelDot } from '@/components/LabelChip'
@@ -20,10 +22,68 @@ import { Avatar } from '@/components/Avatar'
 import { FilterBar, FilterTrigger, emptyFilters, hasActiveFilters } from '@/components/FilterBar'
 import { projectProgress } from '@/lib/selectors'
 import { EmptyState, SearchIllustration } from '@/components/EmptyState'
+import { Popover } from '@/components/ui/Popover'
+import { SelectMenu, type SelectOption } from '@/components/ui/SelectMenu'
+import { Toggle } from '@/components/ui/Toggle'
 import { timeAgo, cn } from '@/lib/utils'
 
 /** Entity-type filter for the search results (Linear's segmented tabs). */
 type SearchTab = 'all' | 'issues' | 'projects' | 'documents' | 'people'
+
+/**
+ * The `type=` value each tab writes to the URL. Linear's is singular
+ * (`/search?q=a&type=issue`, observed directly), so ours is too. `all` is the
+ * default and writes no param at all, exactly as Linear does.
+ */
+const TAB_PARAM: Record<Exclude<SearchTab, 'all'>, string> = {
+  issues: 'issue',
+  projects: 'project',
+  documents: 'document',
+  people: 'people',
+}
+
+const TAB_FROM_PARAM: Record<string, SearchTab> = {
+  issue: 'issues',
+  project: 'projects',
+  document: 'documents',
+  people: 'people',
+}
+
+/**
+ * Linear's search Display options offers exactly three orderings, in this order,
+ * with "Most relevant" as the default.
+ */
+type SearchOrdering = 'relevance' | 'updated' | 'created'
+
+const ORDERING_LABELS: Record<SearchOrdering, string> = {
+  relevance: 'Most relevant',
+  updated: 'Last updated',
+  created: 'Last created',
+}
+
+const ORDERING_ORDER: SearchOrdering[] = ['relevance', 'updated', 'created']
+
+/** Anything a result row can be sorted by. Most entities carry only one of these. */
+type Stamped = { updatedAt?: string; createdAt?: string }
+
+/** The timestamp an ordering sorts on. Rows missing it fall back, then sort last. */
+function stampOf(o: Stamped, ordering: SearchOrdering): string {
+  return ordering === 'updated' ? (o.updatedAt ?? o.createdAt ?? '') : (o.createdAt ?? '')
+}
+
+/**
+ * Sort one result group by the chosen ordering. "Most relevant" is the identity —
+ * it keeps the match order each result list already produces. `T` is deliberately
+ * unconstrained: half the entities we search (cycles, labels, teams, people) carry
+ * neither timestamp, and they must still round-trip through here with their own
+ * type intact rather than being widened or dropped.
+ */
+function orderRows<T>(rows: T[], ordering: SearchOrdering): T[] {
+  if (ordering === 'relevance') return rows
+  return [...rows].sort((a, b) =>
+    stampOf(b as Stamped, ordering).localeCompare(stampOf(a as Stamped, ordering)),
+  )
+}
 
 export function SearchView() {
   const navigate = useNavigate()
@@ -31,32 +91,63 @@ export function SearchView() {
   const addRecentSearch = useStore((s) => s.addRecentSearch)
   const clearRecentSearches = useStore((s) => s.clearRecentSearches)
   const createView = useStore((s) => s.createView)
+  // Linear's search Display options exposes a single display property, `ID`.
+  // It shares the workspace-wide display config every other list uses.
+  const { displayProperties, toggleDisplayProperty } = useStoreShallow((s) => ({
+    displayProperties: s.displayProperties,
+    toggleDisplayProperty: s.toggleDisplayProperty,
+  }))
 
-  const [query, setQuery] = useState('')
+  // Linear keeps the query and the active tab in the URL (`/search?q=…&type=issue`),
+  // so a search survives a reload and can be pasted to someone else. Seed both
+  // pieces of state from the URL once, then mirror them back on every change.
+  const [searchParams] = useSearchParams()
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
   const [filters, setFilters] = useState(emptyFilters())
-  const [tab, setTab] = useState<SearchTab>('all')
+  const [tab, setTab] = useState<SearchTab>(() => {
+    const t = searchParams.get('type')
+    return (t ? TAB_FROM_PARAM[t] : undefined) ?? 'all'
+  })
   const q = query.trim().toLowerCase()
 
-  const issueResults = useMemo(() => {
+  // Display options (Linear's search variant: ordering + archived, nothing else).
+  const [ordering, setOrdering] = useState<SearchOrdering>('relevance')
+  const [includeArchived, setIncludeArchived] = useState(false)
+
+  // Write `q` / `type` back to the URL. Guarded against re-navigating to the
+  // search string we're already on — without that the effect would fire on its
+  // own history entry forever.
+  useEffect(() => {
+    const next = new URLSearchParams()
+    if (query.trim()) next.set('q', query.trim())
+    if (tab !== 'all') next.set('type', TAB_PARAM[tab])
+    const search = next.toString()
+    if (search !== window.location.search.replace(/^\?/, '')) {
+      navigate({ pathname: '/search', search: search ? `?${search}` : '' }, { replace: true })
+    }
+  }, [query, tab, navigate])
+
+  const issueMatches = useMemo(() => {
     if (!q && !hasActiveFilters(filters)) return []
     let matched = data.issues.filter(
       (i) =>
         !i.triage &&
+        (includeArchived || !i.archivedAt) &&
         (i.identifier.toLowerCase().includes(q) ||
           i.title.toLowerCase().includes(q) ||
           i.description.toLowerCase().includes(q)),
     )
-    matched = filterIssues(matched, filters)
+    matched = filterIssues(matched, filters, includeArchived)
     return matched.slice(0, 50)
-  }, [data, q, filters])
+  }, [data, q, filters, includeArchived])
 
   // Issues whose *comments* match the query — Linear's full-text search also
   // covers discussion, surfacing the parent issue with a snippet of the
   // matching comment. We exclude issues already matched on title/description so
   // every result appears once, and apply the same filter chips.
-  const commentResults = useMemo(() => {
+  const commentMatches = useMemo(() => {
     if (!q) return []
-    const alreadyMatched = new Set(issueResults.map((i) => i.id))
+    const alreadyMatched = new Set(issueMatches.map((i) => i.id))
     const seen = new Set<string>()
     const out: { issue: (typeof data.issues)[number]; snippet: string }[] = []
     for (const c of data.comments) {
@@ -65,7 +156,8 @@ export function SearchView() {
       if (alreadyMatched.has(c.issueId) || seen.has(c.issueId)) continue
       const issue = data.issues.find((i) => i.id === c.issueId && !i.triage)
       if (!issue) continue
-      if (filterIssues([issue], filters).length === 0) continue
+      if (!includeArchived && issue.archivedAt) continue
+      if (filterIssues([issue], filters, includeArchived).length === 0) continue
       seen.add(c.issueId)
       // Build a short snippet centred on the match.
       const start = Math.max(0, idx - 30)
@@ -76,18 +168,19 @@ export function SearchView() {
       out.push({ issue, snippet })
     }
     return out.slice(0, 25)
-  }, [data, q, filters, issueResults])
+  }, [data, q, filters, issueMatches, includeArchived])
 
-  const projectResults = useMemo(() => {
+  const projectMatches = useMemo(() => {
     if (!q) return []
     return data.projects.filter(
       (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.description ?? '').toLowerCase().includes(q),
+        (includeArchived || !p.archivedAt) &&
+        (p.name.toLowerCase().includes(q) ||
+          (p.description ?? '').toLowerCase().includes(q)),
     )
-  }, [data, q])
+  }, [data, q, includeArchived])
 
-  const documentResults = useMemo(() => {
+  const documentMatches = useMemo(() => {
     if (!q) return []
     return data.documents.filter(
       (d) =>
@@ -98,7 +191,7 @@ export function SearchView() {
 
   // Workspace members matched by name or email — Linear's search also surfaces
   // people, jumping to the member directory on select.
-  const peopleResults = useMemo(() => {
+  const peopleMatches = useMemo(() => {
     if (!q) return []
     return data.users.filter(
       (u) =>
@@ -109,7 +202,7 @@ export function SearchView() {
 
   // Cycles matched by their name or their "Cycle N" label — Linear's search
   // reaches every entity type, jumping to the team's cycles screen on select.
-  const cycleResults = useMemo(() => {
+  const cycleMatches = useMemo(() => {
     if (!q) return []
     return data.cycles.filter(
       (c) =>
@@ -119,13 +212,15 @@ export function SearchView() {
   }, [data, q])
 
   // Initiatives matched by name — a roadmap-level grouping of projects.
-  const initiativeResults = useMemo(() => {
+  const initiativeMatches = useMemo(() => {
     if (!q) return []
-    return data.initiatives.filter((i) => i.name.toLowerCase().includes(q))
-  }, [data, q])
+    return data.initiatives.filter(
+      (i) => (includeArchived || !i.archivedAt) && i.name.toLowerCase().includes(q),
+    )
+  }, [data, q, includeArchived])
 
   // Customers matched by name or domain — Linear's CRM-lite records.
-  const customerResults = useMemo(() => {
+  const customerMatches = useMemo(() => {
     if (!q) return []
     return data.customers.filter(
       (c) =>
@@ -135,13 +230,13 @@ export function SearchView() {
   }, [data, q])
 
   // Saved views matched by name — the user's pinned issue queries.
-  const viewResults = useMemo(() => {
+  const viewMatches = useMemo(() => {
     if (!q) return []
     return data.savedViews.filter((v) => v.name.toLowerCase().includes(q))
   }, [data, q])
 
   // Labels matched by name (skipping group containers, which aren't routable).
-  const labelResults = useMemo(() => {
+  const labelMatches = useMemo(() => {
     if (!q) return []
     return data.labels.filter(
       (l) => !l.isGroup && l.name.toLowerCase().includes(q),
@@ -149,13 +244,65 @@ export function SearchView() {
   }, [data, q])
 
   // Teams matched by name or key (e.g. "ENG").
-  const teamResults = useMemo(() => {
+  const teamMatches = useMemo(() => {
     if (!q) return []
     return data.teams.filter(
       (t) =>
-        t.name.toLowerCase().includes(q) || t.key.toLowerCase().includes(q),
+        (includeArchived || !t.archivedAt) &&
+        (t.name.toLowerCase().includes(q) || t.key.toLowerCase().includes(q)),
     )
-  }, [data, q])
+  }, [data, q, includeArchived])
+
+  // Apply the chosen ordering to every group at once. Destructuring back into the
+  // original `*Results` names keeps the rest of the screen — offsets, counts,
+  // keyboard flattening, JSX — reading exactly as it did.
+  const {
+    issueResults,
+    commentResults,
+    projectResults,
+    documentResults,
+    peopleResults,
+    cycleResults,
+    initiativeResults,
+    customerResults,
+    viewResults,
+    labelResults,
+    teamResults,
+  } = useMemo(
+    () => ({
+      issueResults: orderRows(issueMatches, ordering),
+      // Comment hits sort by their parent issue's stamp, not the comment's.
+      commentResults:
+        ordering === 'relevance'
+          ? commentMatches
+          : [...commentMatches].sort((a, b) =>
+              stampOf(b.issue, ordering).localeCompare(stampOf(a.issue, ordering)),
+            ),
+      projectResults: orderRows(projectMatches, ordering),
+      documentResults: orderRows(documentMatches, ordering),
+      peopleResults: orderRows(peopleMatches, ordering),
+      cycleResults: orderRows(cycleMatches, ordering),
+      initiativeResults: orderRows(initiativeMatches, ordering),
+      customerResults: orderRows(customerMatches, ordering),
+      viewResults: orderRows(viewMatches, ordering),
+      labelResults: orderRows(labelMatches, ordering),
+      teamResults: orderRows(teamMatches, ordering),
+    }),
+    [
+      ordering,
+      issueMatches,
+      commentMatches,
+      projectMatches,
+      documentMatches,
+      peopleMatches,
+      cycleMatches,
+      initiativeMatches,
+      customerMatches,
+      viewMatches,
+      labelMatches,
+      teamMatches,
+    ],
+  )
 
   const active = q.length > 0 || hasActiveFilters(filters)
 
@@ -328,11 +475,12 @@ export function SearchView() {
     {
       id: 'all',
       label: 'All',
-      count:
-        issueResults.length +
-        commentResults.length +
-        projectResults.length +
-        documentResults.length,
+      // Must equal what the All tab actually renders. It renders every entity
+      // type — including people and the long tail (cycles, initiatives,
+      // customers, views, labels, teams) — so counting only issues + projects +
+      // documents made the badge disagree both with the rows below it and with
+      // the headline tally beside the input.
+      count: totalResults,
     },
     {
       id: 'issues',
@@ -343,6 +491,17 @@ export function SearchView() {
     { id: 'documents', label: 'Documents', count: documentResults.length },
     { id: 'people', label: 'People', count: peopleResults.length },
   ]
+
+  // Ordering options, in Linear's Display-menu order.
+  const orderingOptions = useMemo<SelectOption[]>(
+    () =>
+      ORDERING_ORDER.map((k) => ({
+        id: k,
+        label: ORDERING_LABELS[k],
+        selected: ordering === k,
+      })),
+    [ordering],
+  )
 
   // Me-scope pills toggle the current user into the assignee / creator filters —
   // Linear's "Assigned to me" / "Created by me" quick scopes. Active state is
@@ -523,6 +682,68 @@ export function SearchView() {
           </button>
         )}
         <FilterTrigger filters={filters} onChange={setFilters} />
+        {/* Display options — Linear's search variant, to the right of "Add
+            filter": `Ordering`, an `Include archived` switch, then a single
+            `Display properties` chip for the issue ID. Deliberately much thinner
+            than the issue list's Display menu; the search results mix entity
+            types, so layout and grouping have nothing to act on. */}
+        <Popover
+          align="end"
+          width={268}
+          label="Display options"
+          trigger={
+            <span className="flex size-[26px] items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg">
+              <SlidersHorizontal size={15} />
+            </span>
+          }
+        >
+          {() => (
+            <div className="px-1 py-0.5">
+              <div className="flex items-center justify-between gap-2 py-1.5">
+                <span className="text-[13px] text-fg">Ordering</span>
+                <SelectMenu
+                  width={190}
+                  align="end"
+                  options={orderingOptions}
+                  onSelect={(id) => setOrdering(id as SearchOrdering)}
+                  placeholder="Order by…"
+                  trigger={
+                    <span className="flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg">
+                      {ORDERING_LABELS[ordering]}
+                      <ChevronDown size={12} className="shrink-0 text-faint" />
+                    </span>
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2 py-1.5">
+                <span className="text-[13px] text-fg">Include archived</span>
+                <Toggle
+                  size="sm"
+                  checked={includeArchived}
+                  onChange={setIncludeArchived}
+                  aria-label="Include archived"
+                />
+              </div>
+              <div className="my-1 h-px bg-border" />
+              <div className="px-0.5 py-1 text-[12px] text-muted">
+                Display properties
+              </div>
+              <div className="flex flex-wrap gap-1 px-0.5 pb-1">
+                <button
+                  onClick={() => toggleDisplayProperty('id')}
+                  className={cn(
+                    'rounded-md border px-1.5 py-0.5 text-[12px]',
+                    displayProperties.id
+                      ? 'border-border bg-bg-selected text-fg'
+                      : 'border-border text-muted hover:bg-bg-hover hover:text-fg',
+                  )}
+                >
+                  ID
+                </button>
+              </div>
+            </div>
+          )}
+        </Popover>
       </header>
 
       <FilterBar filters={filters} onChange={setFilters} />
@@ -722,9 +943,14 @@ export function SearchView() {
                           />
                           <span className="min-w-0">
                             <span className="flex items-center gap-2">
-                              <span className="shrink-0 font-mono text-[11px] text-faint">
-                                {issue.identifier}
-                              </span>
+                              {/* Same `ID` display property the issue rows above
+                                  obey — otherwise turning it off left the
+                                  comment matches still showing identifiers. */}
+                              {displayProperties.id && (
+                                <span className="shrink-0 font-mono text-[11px] text-faint">
+                                  {issue.identifier}
+                                </span>
+                              )}
                               <span className="truncate text-[13px] text-fg">
                                 {issue.title}
                               </span>

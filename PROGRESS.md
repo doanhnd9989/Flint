@@ -4132,3 +4132,72 @@ context menu re-verified after the shared-helper move · checked at dark +
 (menu clamped 8→240, flyout 12→286, document scrollWidth 420) · lint 106,
 exactly the baseline — the one purity error this run introduced was removed by
 folding the snooze test into the queue's own pass rather than relocating it`
+
+## `search-and-docs` — the All tab lied about its own count, and Linear's Display menu was missing entirely
+
+Rotation area #12. Read the logs first: typecheck green, both servers up, lint
+106 — exactly the recorded baseline. Poured in 30 more issues, 6 sub-issues, 25
+comments and 8 attachments (3.6 MB of real bytes), then swept all 37 routes:
+console-clean, no empty renders, no real horizontal overflow (the sweep's
+`overflow` hits are `truncate` elements doing their job and one `overflow-x-auto`
+code block in `/api-docs`).
+
+**The All tab disagreed with itself.** Searching `a` gave a header reading
+`96 results`, an `All` badge reading `80`, and type tabs summing to `85` — three
+different numbers on one screen. The badge counted issues + comments + projects +
+documents, but the All tab *renders* people and the whole long tail as well
+(cycles, initiatives, customers, views, labels, teams). It now counts what it
+renders, and all three numbers agree at 96.
+
+**Linear's search `Display options` didn't exist here at all.** Linear puts a
+sliders icon immediately right of `Add filter` holding exactly three things:
+`Ordering` (`Most relevant ✓ / Last updated / Last created`), an
+`Include archived` switch, and a `Display properties` section with a single `ID`
+chip. Built all three with Linear's wording and order, reusing the same
+`Popover` + `SelectMenu` + `Toggle` shape the Triage display menu already uses.
+Ordering re-sorts for real — `Last created` moved the head of the list from
+CLA-16/17/18 to ENG-20/CLA-57/CLA-56 and `Most relevant` put it back.
+
+**`Include archived` was cosmetic until it wasn't.** The switch flipped and
+nothing moved, because `filterIssues()` in `selectors.ts` drops archived issues
+unconditionally — line one of the predicate — so the search's own
+`includeArchived` check was overruled two calls later. Gave `filterIssues` an
+opt-in third parameter defaulting to today's behaviour, so no other caller
+changes. Proved it end to end by archiving CLA-16 through the issue menu
+(`⌘⇧⌫`): off → `No results`, on → `1 result` with CLA-16, off → `No results`.
+Unarchived it again afterwards; the workspace is back as it was.
+
+**The ID chip half-worked.** Turning it off dropped the identifier from 75 issue
+rows but left it on the 25 comment-match rows, which render their own. They obey
+the property now too.
+
+**A search is finally linkable.** Ours kept the query and the tab in component
+state only, so a reload lost both. Linear's is `?q=a&type=issue`; ours now
+matches, singular `type` value included, with `all` writing no param at all. A
+cold load of `/search?q=a&type=issue` restores the query, selects the Issues tab
+and renders only that group.
+
+**Logged, not built.** The big one is that Linear's results are a single flat
+relevance-ranked list — type column, parent breadcrumb, right-aligned age, no
+group headers — where ours are grouped by type. Filed 🔴 with the full control
+table in `.audit/controls/search-and-docs.md`, along with Linear's tab-aware
+filter menu (7 cross-type entries on `All`, 26 on `Issues`; ours is a fixed 12),
+its countless four-tab row, and the `/documents` editor half of this area, which
+was never crawled and is where the next run starts.
+
+**Deliberately not Linear.** The `People` tab, the tab count badges, the
+`N results` headline, `Save as view` and the `Assigned to me` / `Created by me`
+pills are all ours only. Kept — dropping them would remove working search — but
+each is logged as a visible difference rather than left unsaid.
+
+**Linear stayed read-only.** Only `Display options`, its `Ordering` select and
+the `Add filter` menu on the `All` and `Issues` tabs were opened and dismissed
+with Escape. Nothing was selected, typed, submitted or created, so what Linear's
+filter entries actually do is recorded as unverified.
+
+`tsc -b ✅ · build ✅ · 37-route sweep console-clean, no empty renders · every
+control on the search screen driven and read back (5 tabs, both me-pills, all 3
+orderings, the archived switch round-tripped against a really-archived issue, the
+ID chip) with zero console errors · menu on-screen and unclipped at dark,
+--font-scale 1.4 (bottom 185→214) and a 420px viewport (clamped 144→412,
+document scrollWidth 420) · lint 106, unchanged baseline`

@@ -137,12 +137,18 @@ function matchesDate(i: Issue, f: DateFilter): boolean {
 export function filterIssues(
   issues: Issue[],
   filters: FilterState,
+  /**
+   * Keep archived issues in the result. Only search's "Include archived" switch
+   * passes this; every other list hides them, so it defaults to off and no
+   * existing caller changes behaviour.
+   */
+  includeArchived = false,
 ): Issue[] {
   const neg = filters.negate ?? {}
   const dateFilters = filters.dates ?? []
   return issues.filter((i) => {
     // Archived issues never appear in active lists — they live in /archive only.
-    if (i.archivedAt) return false
+    if (i.archivedAt && !includeArchived) return false
     // Snoozed issues (snoozedUntil still in the future) are hidden from active
     // lists until the snooze elapses — Linear's snooze behaviour.
     if (i.snoozedUntil && new Date(i.snoozedUntil).getTime() > Date.now())
