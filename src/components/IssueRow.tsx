@@ -118,6 +118,7 @@ export function IssueRow({
         ? estimateLabel(issue.estimate, team)
         : String(issue.estimate)
       : null
+  const parent = issue.parentId ? issues.find((i) => i.id === issue.parentId) : undefined
   const children = issues.filter((i) => i.parentId === issue.id)
   const childDone = children.filter((i) => {
     const st = states.find((s) => s.id === i.stateId)
@@ -245,7 +246,20 @@ export function IssueRow({
         />
       )}
 
-      <span className="flex-1 truncate text-[13px] text-fg">{issue.title}</span>
+      <span className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="truncate text-[13px] text-fg">{issue.title}</span>
+        {/* Linear trails a sub-issue's row with `› parent title`, so you can see
+            what a sub-issue belongs to without opening it. Hidden when the
+            parent is already the row above (nested mode indents instead). */}
+        {parent && depth === 0 && (
+          <>
+            <ChevronRight size={12} className="shrink-0 text-faint" />
+            <span className="max-w-[40%] truncate text-[13px] text-muted">
+              {parent.title}
+            </span>
+          </>
+        )}
+      </span>
 
       <div className="flex items-center gap-1.5 shrink-0">
         <BlockIndicator issue={issue} />

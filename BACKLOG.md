@@ -646,3 +646,31 @@ live workspace too.
   burn-up's scope line is flat and there is no started series. An
   `addedToCycleAt` (and a started timestamp) would make the chart match
   Linear's three lines.
+- [ ] 🟡 **Issue-list header is one row; Linear's is two** — Linear puts the
+  breadcrumb (`VC Squad › Issues`) on row 1 at y≈18 and the
+  `Active / Backlog / All issues` tabs on row 2 at y≈60, with `Add filter`,
+  `Display options` and `Open details` right-aligned on the *tab* row. Ours
+  packs breadcrumb, tabs, filter and Display onto a single 36px row.
+- [ ] 🟢 **`Add new view` `+` beside the issue-list tabs** — Linear has a `+`
+  immediately after `All issues` (x≈550, same row) that creates a view scoped to
+  the team. We have no control there; `Save` lives in the filter bar instead.
+- [ ] 🟢 **`Open details` toggle on the issue list** — Linear's far-right button
+  on the tab row opens the right-hand detail panel. We have no counterpart.
+- [ ] 🟢 **`Add to favorites` star next to the issue-list breadcrumb** — Linear
+  puts it inline at x≈503, right after `VC Squad`. Ours has no per-view favourite
+  control in the header.
+- [ ] 🟢 **`Setup team notifications` on the issue-list header** — far right of
+  Linear's row 1. No counterpart on our side.
+- [ ] 🟢 **Row keeps its status icon when grouped by status** — Linear still
+  draws the status glyph in every row inside a status group (the `Testing` group's
+  rows each carry the green check). Ours passes `showStatus={groupBy !== 'status'}`
+  and drops it, so the row loses a column of information the group header doesn't
+  replace.
+- [ ] 🟢 **Windowed group headers don't stick** — the plain list's headers are
+  `sticky top-0`; the virtualized list can't be, because the `translateY` wrapper
+  creates a containing block that kills `position: sticky`. Linear's stay pinned
+  at every list length. Needs the header hoisted out of the transformed layer.
+- [ ] 🟢 **Hover actions Linear doesn't have** — our rows carry four always-built
+  hover buttons (`Copy issue URL`, `Open in peek`, `Open full page`,
+  `More options`). Linear's list rows have none; everything is right-click or
+  keyboard. Worth deciding whether to keep this as a deliberate difference.

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
 import type { GroupBy, Issue, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
@@ -12,11 +12,25 @@ import { cn } from '@/lib/utils'
 
 type Tab = 'active' | 'backlog' | 'all'
 
+/** Linear's exact tab labels, in Linear's order. */
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'active', label: 'Active' },
+  { key: 'backlog', label: 'Backlog' },
+  { key: 'all', label: 'All issues' },
+]
+
 export function IssuesView() {
   const { teamKey } = useParams()
+  const { pathname } = useLocation()
   const navigate = useNavigate()
   const data = useStore()
-  const [tab, setTab] = useState<Tab>('active')
+  // The tab lives in the URL — `/team/ENG/backlog`, as Linear does it — so it
+  // survives a reload, can be linked, and sits in the back stack.
+  const tab: Tab = pathname.endsWith('/backlog')
+    ? 'backlog'
+    : pathname.endsWith('/all')
+      ? 'all'
+      : 'active'
   const [layout, setLayout] = useState<ViewLayout>('list')
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
   const [subGroupBy, setSubGroupBy] = useState<GroupBy>('none')
@@ -171,18 +185,17 @@ export function IssuesView() {
         }
       >
         <div className="flex items-center gap-1">
-          {(['active', 'backlog', 'all'] as Tab[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
+          {TABS.map((t) => (
+            <Link
+              key={t.key}
+              to={`/team/${team.key}/${t.key}`}
               className={cn(
-                'rounded-md px-2.5 py-1 text-[12px] capitalize text-muted hover:bg-bg-hover',
-                tab === t && 'bg-bg-selected text-fg font-medium',
+                'rounded-md px-2.5 py-1 text-[12px] text-muted hover:bg-bg-hover',
+                tab === t.key && 'bg-bg-selected text-fg font-medium',
               )}
             >
-              {t === 'all' ? 'All issues' : t}
-            </button>
+              {t.label}
+            </Link>
           ))}
         </div>
       </ViewHeader>

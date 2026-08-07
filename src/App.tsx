@@ -265,7 +265,11 @@ export default function App() {
           <Route path="/team/:teamKey/overview" element={<TeamOverviewView />} />
           <Route path="/team/:teamKey/documents" element={<TeamDocumentsView />} />
           <Route path="/team/:teamKey/members" element={<TeamMembersView />} />
+          {/* Linear puts the Active / Backlog / All issues tab in the URL, so
+              each one is linkable, reloadable and in the back stack. */}
           <Route path="/team/:teamKey/active" element={<IssuesView />} />
+          <Route path="/team/:teamKey/backlog" element={<IssuesView />} />
+          <Route path="/team/:teamKey/all" element={<IssuesView />} />
           <Route path="/team/:teamKey/triage" element={<TriageView />} />
           <Route path="/team/:teamKey/cycles" element={<CyclesView />} />
           <Route path="/team/:teamKey/cycle/:cycleRef" element={<CycleDetailView />} />

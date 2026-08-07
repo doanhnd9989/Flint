@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayersIcon,
   Search,
@@ -114,6 +114,7 @@ function Item({
   badge,
   onClick,
   indent,
+  alsoActive,
 }: {
   to?: string
   icon: ReactNode
@@ -122,7 +123,11 @@ function Item({
   onClick?: () => void
   /** Nested one level under a team, the way Linear indents a team's rows. */
   indent?: boolean
+  /** Extra paths that should keep this row lit — the Issues row stays selected
+   *  across the Active / Backlog / All issues tabs, as it does in Linear. */
+  alsoActive?: string[]
 }) {
+  const { pathname } = useLocation()
   // Preferences → "Show counts in sidebar" (defaults on for older workspaces).
   const showCounts = useStore((s) => s.preferences.showSidebarCounts !== false)
   // Customize sidebar → "Default badge style": a count chip or a plain dot.
@@ -153,7 +158,11 @@ function Item({
       <NavLink
         to={to}
         className={({ isActive }) =>
-          cn(base, isActive && 'bg-bg-selected text-fg font-medium')
+          cn(
+            base,
+            (isActive || alsoActive?.includes(pathname)) &&
+              'bg-bg-selected text-fg font-medium',
+          )
         }
       >
         {inner}
@@ -680,7 +689,13 @@ export function Sidebar() {
               />
               <Item
                 indent
-                to={`/team/${team.key}/active`}
+                // Linear's sidebar Issues row lands on the All issues tab, and
+                // stays lit while you move between the three tabs.
+                to={`/team/${team.key}/all`}
+                alsoActive={[
+                  `/team/${team.key}/active`,
+                  `/team/${team.key}/backlog`,
+                ]}
                 icon={<Layers3 size={15} />}
                 label="Issues"
               />

@@ -3436,3 +3436,62 @@ way to drive it.
 
 `tsc -b ✅ · build ✅ · 10 routes console-clean, no overflow at 900px, dark, or
 font-scale 1.6 · lint 118 → 115 with both real errors gone`
+
+---
+
+## Audit run — `issue-list` (rotation area 2)
+
+Read the logs first: typecheck green, servers up, lint 113 (down from 115, all
+in the two known react-hooks families — nothing new). Poured in another
+24 issues / 6 sub-issues / 18 comments / 8 real attachments, then swept all 37
+routes: **zero console errors, zero page-level horizontal overflow**. The only
+`overflow` hits the sweep reported were `truncate` elements whose `scrollWidth`
+legitimately exceeds their box; `documentElement.scrollWidth === clientWidth`
+everywhere.
+
+Then the control crawl on `/team/CLA/all`, diffed against
+`linear.app/…/team/VC/all`. Five findings, all fixed:
+
+- **The windowed list threw away every group-header control.** Above 50 rows the
+  list swaps in `VirtualIssueList`, and its group header was a bare
+  `div` — icon, label, count, nothing else. No collapse, no select-all, no `⋯`,
+  no `+`. The plain list has all four, so the controls silently vanished exactly
+  when the list got big enough to need them, which is to say: always, at real
+  data volume. Linear's group header keeps `Collapse group` and `Create new
+  issue` at any length. Extracted `IssueGroupHeader` and both paths now render
+  the same component; the windowed path also honours collapse now.
+- **The Active / Backlog / All issues tabs weren't in the URL.** They were
+  `<button>`s driving `useState`, so the tab was lost on reload, couldn't be
+  linked, and back/forward skipped straight past it. Worse, `/team/CLA/all` was
+  not a route at all — it fell through and rendered the **Active** tab under an
+  All-issues URL. Exactly the "whole screens have been the wrong screen" trap,
+  and it looked plausible enough to survive this long. Linear's are `<a href>`s
+  to `/team/VC/{active,backlog,all}`; ours are now `<Link>`s to real routes.
+- **`All Issues` should read `All issues`.** A `capitalize` class was doing the
+  work of title-casing `active`/`backlog`, and title-cased Linear's exact string
+  along with them. Labels are now literals in Linear's wording.
+- **Sub-issue rows didn't say whose sub-issue they were.** Linear trails the row
+  with `› parent title` in muted text, so `Sub-task 2 of CLA-45` now carries its
+  parent instead of standing alone.
+- **Every windowed row was clipped.** `BASE_ITEM_H = 36` × the font scale sized
+  the slot, but a row's natural height is floored at ~42.4px by fixed chrome —
+  the 20px picker buttons plus `py-1.5` plus the border — which no font scale
+  shrinks. So the slot was under the row at *every* size and the bottom border
+  was cut. Floored `ITEM_H` at 43. Re-measured at all six font steps × 1280 and
+  760px: worst overflow now 0.59px.
+
+The lesson from the sidebar run held again: the bug was invisible to a
+screenshot. `/team/CLA/all` rendered a perfectly plausible issue list — right
+rows, right chrome — while showing the wrong tab, and the group header looked
+fine until you asked it what controls it had and the answer was "none". Both
+were found by enumerating controls, not by looking.
+
+Also: the HMR failure mid-edit (`Identifier 'prefillFor' has already been
+declared`) left the *old* `GroupedIssueList` live against the *new*
+`VirtualIssueList`, which threw `Cannot read properties of undefined (reading
+'s_todo')` — a required prop the old caller didn't pass. Worth remembering that
+a stale console after a failed HMR reload is not evidence of a real bug; a hard
+reload and a fresh hook is.
+
+`tsc -b ✅ · build ✅ · 37 routes console-clean · no page overflow at 1280 or
+760px, dark, or font-scale 1.6 · lint 113, unchanged`

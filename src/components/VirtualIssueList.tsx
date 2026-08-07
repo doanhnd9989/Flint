@@ -2,55 +2,50 @@ import { useEffect, useRef, useState } from 'react'
 import type { IssueGroup } from '@/lib/selectors'
 import type { GroupBy, Issue } from '@/lib/types'
 import { IssueRow } from './IssueRow'
-import { StatusIcon } from './StatusIcon'
-import { PriorityIcon } from './PriorityIcon'
-import { Avatar } from './Avatar'
-import { LabelDot } from './LabelChip'
-import { useStore } from '@/lib/store'
+import { IssueGroupHeader } from './IssueGroupHeader'
 import { useFontScale } from '@/lib/useTheme'
 
 /** Row height at the default font size; scaled by the Font size preference. */
 const BASE_ITEM_H = 36
+/**
+ * A row never gets shorter than its fixed chrome: the 20px picker buttons plus
+ * `py-1.5` and the bottom border measure ~42.4px however small the type gets.
+ * The scaled height only overtakes that from the "larger" step up, so without
+ * this floor every windowed row is a few px short of its own content and loses
+ * its bottom border — the JS-sizing trap, in its quiet form.
+ */
+const MIN_ITEM_H = 43
 const OVERSCAN = 8
 
 type Row =
   | { kind: 'header'; group: IssueGroup }
   | { kind: 'issue'; issue: Issue }
 
-function HeaderGlyph({ group, groupBy }: { group: IssueGroup; groupBy: GroupBy }) {
-  const states = useStore((s) => s.states)
-  const users = useStore((s) => s.users)
-  if (groupBy === 'status') {
-    const st = states.find((s) => s.id === group.stateId)
-    return st ? <StatusIcon type={st.type} color={st.color} /> : null
-  }
-  if (groupBy === 'priority')
-    return <PriorityIcon priority={Number(group.key) as 0 | 1 | 2 | 3 | 4} />
-  if (groupBy === 'assignee')
-    return <Avatar user={users.find((x) => x.id === group.key)} size={16} />
-  if (groupBy === 'project') return <span className="text-[13px]">{group.icon ?? '○'}</span>
-  if (groupBy === 'label') return group.color ? <LabelDot color={group.color} /> : null
-  return null
-}
-
 /**
  * Windowed renderer for large grouped issue lists — only the rows visible in the
  * viewport are mounted, so a list with thousands of issues stays smooth.
  * Fixed row height keeps the math exact; used in place of the dnd list above a
- * size threshold (so reorder/collapse drop out, which is the right trade-off
- * for very large lists).
+ * size threshold (so drag-to-reorder drops out, which is the right trade-off
+ * for very large lists). The group header is the shared one: Linear keeps its
+ * collapse / select-all / `⋯` / `+` controls at every list size, so a long list
+ * must not degrade into bare labels.
  */
 export function VirtualIssueList({
   groups,
   groupBy,
+  collapsed,
+  setCollapsed,
 }: {
   groups: IssueGroup[]
   groupBy: GroupBy
+  collapsed: Record<string, boolean>
+  setCollapsed: (fn: (c: Record<string, boolean>) => Record<string, boolean>) => void
 }) {
   const rows: Row[] = []
   for (const group of groups) {
     rows.push({ kind: 'header', group })
-    for (const issue of group.issues) rows.push({ kind: 'issue', issue })
+    if (!collapsed[group.key])
+      for (const issue of group.issues) rows.push({ kind: 'issue', issue })
   }
 
   const ref = useRef<HTMLDivElement>(null)
@@ -59,7 +54,7 @@ export function VirtualIssueList({
   // The rows are sized in JS, so they can't inherit the font scale from CSS the
   // way the rest of the list does — without this the text grows and the row
   // doesn't, and every title gets its descenders clipped.
-  const ITEM_H = Math.round(BASE_ITEM_H * useFontScale())
+  const ITEM_H = Math.max(MIN_ITEM_H, Math.round(BASE_ITEM_H * useFontScale()))
 
   useEffect(() => {
     const el = ref.current
@@ -86,15 +81,22 @@ export function VirtualIssueList({
         <div style={{ transform: `translateY(${start * ITEM_H}px)` }}>
           {visible.map((row, i) =>
             row.kind === 'header' ? (
-              <div
+              <IssueGroupHeader
                 key={`h-${row.group.key}-${start + i}`}
-                className="flex items-center gap-2 border-b border-border bg-bg-secondary px-4"
-                style={{ height: ITEM_H }}
-              >
-                <HeaderGlyph group={row.group} groupBy={groupBy} />
-                <span className="text-[13px] font-medium text-fg">{row.group.label}</span>
-                <span className="text-[12px] text-faint">{row.group.count}</span>
-              </div>
+                group={row.group}
+                groupBy={groupBy}
+                collapsed={!!collapsed[row.group.key]}
+                onToggleCollapsed={() =>
+                  setCollapsed((c) => ({ ...c, [row.group.key]: !c[row.group.key] }))
+                }
+                onCollapse={() =>
+                  setCollapsed((c) => ({ ...c, [row.group.key]: true }))
+                }
+                height={ITEM_H}
+                // The header is absolutely positioned inside the window, so a
+                // sticky header would detach from its group as you scroll.
+                sticky={false}
+              />
             ) : (
               <div key={row.issue.id} style={{ height: ITEM_H }} className="overflow-hidden">
                 <IssueRow issue={row.issue} showStatus={groupBy !== 'status'} />
