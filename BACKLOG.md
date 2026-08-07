@@ -752,3 +752,42 @@ Each row below is one of the missing ones, sized by what it actually needs.
   filters on `opacity`, which is always 0 in a backgrounded pane, and it leaves
   popovers stacked between presses. Three false findings this run; worth fixing
   the reference script itself.
+
+### From the `board-and-layouts` pass (`/team/CLA/all` board vs Linear's `team/VC/all`)
+
+Linear's Display popover was read control-by-control in **List** mode. Its
+**board** mode could not be read: switching layout rewrites the user's saved
+view preference, which the read-only rule forbids, and none of their views is
+saved as a board. Coverage and the unverified list live in
+`.audit/controls/board-and-layouts.md`.
+
+- [ ] 🔴 **`Completed issues` is a dropdown in Linear, a toggle in ours** —
+  Linear renders `combobox "Completed issues"` reading `All`; we render a
+  boolean `Show completed issues`. This is the control that governs how much of
+  the board's Done column is drawn, so it belongs to this area, not just to the
+  filter chrome. Needs a new store field (the current `hideCompleted` boolean
+  can't carry a time window) plus the option list, which is still unread —
+  only the current value `All` was visible without opening the combobox.
+- [ ] 🟡 **`Show triage issues` toggle is missing entirely** — Linear has it
+  between `Show sub-issues` and the `List options` divider.
+- [ ] 🟡 **Grouping has no direction control** — Linear puts a
+  `button "Group ordering"` beside the Grouping combobox, mirroring the
+  `button "Direction"` beside Ordering. On the board this is what reorders the
+  *columns*. We have the Ordering arrow but nothing for Grouping.
+- [ ] 🟡 **Display-property chips: wrong order, three missing, one extra** —
+  Linear's order runs `… Project, Due date, Milestone, Cycle, Estimate, …`;
+  ours runs `… Project, Cycle, Estimate, Due date, Milestone, …`. Missing:
+  `Customers`, `Customer revenue`, `Pull requests and commits`. Extra: our
+  `Creator` chip, which Linear's list does not offer. `Customers` is the cheap
+  one — `IssueCustomers.tsx` and the `/customers` route already exist.
+- [ ] 🟢 **Popover footer is one button, Linear's is two** — Linear ends with
+  `Reset` and `Set default for everyone` side by side; ours has a single
+  full-width `Reset to default`. Wording and count both differ.
+- [ ] 🟡 **Board cards have no visible selection affordance** — ⌘/Shift-click
+  now select (this run), but a card shows no checkbox on hover the way a list
+  row does. Linear's board card behaviour here is **unverified** — do not build
+  a checkbox on assumption; read it first from a board that can be opened
+  read-only.
+- [ ] 🟡 **`ProjectsBoard.tsx` is a second, untouched board implementation** —
+  the fixes in this run went to `IssueBoard.tsx` only. The projects board very
+  likely has the same dead right-click and no multi-select.

@@ -139,12 +139,41 @@ function BlockIndicator({ issue }: { issue: Issue }) {
   )
 }
 
-function Card({ issue, dragging }: { issue: Issue; dragging?: boolean }) {
+/**
+ * The card a Shift-click ranges *from*, in board order. Mirrors the list's
+ * `lastSelectedIdentifier` — module-level because the anchor has to outlive the
+ * card that set it (the range's other end is a different component).
+ */
+let lastBoardSelectedId: string | null = null
+
+function Card({
+  issue,
+  dragging,
+  columnIds,
+}: {
+  issue: Issue
+  dragging?: boolean
+  /** This column's card ids, in render order — the span a Shift-click covers. */
+  columnIds?: string[]
+}) {
   const setPeek = useStore((s) => s.setPeek)
   // The board card honors the same Display-properties toggles as list rows, so
   // showing/hiding a property is consistent across views.
-  const { users, labels, states, projects, milestones, cycles, teams, displayProperties } =
-    useStoreShallow((s) => ({
+  const {
+    users,
+    labels,
+    states,
+    projects,
+    milestones,
+    cycles,
+    teams,
+    displayProperties,
+    selectedIssueIds,
+    toggleSelectIssue,
+    setSelectedIssues,
+    openContextMenu,
+    setFocusedIssue,
+  } = useStoreShallow((s) => ({
       users: s.users,
       labels: s.labels,
       states: s.states,
@@ -153,7 +182,13 @@ function Card({ issue, dragging }: { issue: Issue; dragging?: boolean }) {
       cycles: s.cycles,
       teams: s.teams,
       displayProperties: s.displayProperties,
+      selectedIssueIds: s.selectedIssueIds,
+      toggleSelectIssue: s.toggleSelectIssue,
+      setSelectedIssues: s.setSelectedIssues,
+      openContextMenu: s.openContextMenu,
+      setFocusedIssue: s.setFocusedIssue,
     }))
+  const selected = selectedIssueIds.includes(issue.id)
   const dp = displayProperties
   const assignee = users.find((u) => u.id === issue.assigneeId)
   const state = states.find((s) => s.id === issue.stateId)
@@ -186,11 +221,42 @@ function Card({ issue, dragging }: { issue: Issue; dragging?: boolean }) {
     issue.subscriberIds.length > 1
   return (
     <div
+      data-issue-focus={issue.identifier}
       // A plain click peeks the issue in the right-side panel; a drag is
-      // suppressed by dnd-kit so it won't fire this click handler.
-      onClick={() => setPeek(issue.id)}
+      // suppressed by dnd-kit so it won't fire this click handler. ⌘/Ctrl-click
+      // and Shift-click select instead, so the bulk bar is reachable from the
+      // board the same way it is from the list.
+      onClick={(e) => {
+        if (e.metaKey || e.ctrlKey) {
+          toggleSelectIssue(issue.id)
+          lastBoardSelectedId = issue.id
+          return
+        }
+        // Shift extends from the last selected card through this one, within
+        // this column — the board's equivalent of the list's range select.
+        if (e.shiftKey && lastBoardSelectedId && columnIds?.length) {
+          const a = columnIds.indexOf(lastBoardSelectedId)
+          const b = columnIds.indexOf(issue.id)
+          if (a !== -1 && b !== -1) {
+            const [lo, hi] = a < b ? [a, b] : [b, a]
+            setSelectedIssues(
+              Array.from(new Set([...selectedIssueIds, ...columnIds.slice(lo, hi + 1)])),
+            )
+            return
+          }
+        }
+        setPeek(issue.id)
+      }}
+      onMouseEnter={() => setFocusedIssue(issue.identifier)}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        openContextMenu(issue.id, e.clientX, e.clientY)
+      }}
       className={cn(
-        'rounded-lg border border-border bg-bg p-2.5 shadow-sm cursor-pointer hover:border-border-strong',
+        'rounded-lg border bg-bg p-2.5 shadow-sm cursor-pointer',
+        selected
+          ? 'border-accent bg-accent-subtle'
+          : 'border-border hover:border-border-strong',
         dragging && 'opacity-50',
       )}
     >
@@ -272,14 +338,14 @@ function Card({ issue, dragging }: { issue: Issue; dragging?: boolean }) {
   )
 }
 
-function DraggableCard({ issue }: { issue: Issue }) {
+function DraggableCard({ issue, columnIds }: { issue: Issue; columnIds?: string[] }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: issue.id,
     data: { issue },
   })
   return (
     <div ref={setNodeRef} {...attributes} {...listeners}>
-      <Card issue={issue} dragging={isDragging} />
+      <Card issue={issue} dragging={isDragging} columnIds={columnIds} />
     </div>
   )
 }
@@ -300,6 +366,9 @@ function CardStack({ issues, dropId }: { issues: Issue[]; dropId: string }) {
   const [expanded, setExpanded] = useState(false)
   const capped = issues.length > COLUMN_CAP
   const visible = capped && !expanded ? issues.slice(0, COLUMN_CAP) : issues
+  // Only the rendered cards can anchor a Shift-range — a collapsed tail has no
+  // card to click.
+  const visibleIds = visible.map((i) => i.id)
   return (
     <div
       ref={setNodeRef}
@@ -309,7 +378,7 @@ function CardStack({ issues, dropId }: { issues: Issue[]; dropId: string }) {
       )}
     >
       {visible.map((issue) => (
-        <DraggableCard key={issue.id} issue={issue} />
+        <DraggableCard key={issue.id} issue={issue} columnIds={visibleIds} />
       ))}
       {capped && (
         <button

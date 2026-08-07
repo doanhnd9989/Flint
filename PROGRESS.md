@@ -3642,3 +3642,56 @@ does nothing is worse than no submenu.
 `tsc -b ✅ · build ✅ · 37-route sweep console-clean, no page overflow · filter
 menu verified at 1600px and 760px, dark, and font-scale `huge` (nothing
 clipped, panel fully on-screen) · lint 109 (baseline)`
+
+## Audit pass — `board-and-layouts` (rotation area #5)
+
+Read the logs first: typecheck green, both servers up, lint 109 — exactly the
+recorded baseline, no new families. Seeded another 24 issues / 6 sub-issues /
+18 comments / 8 real attachments (3496 KB) on top, to 259 issues. The 37-route
+sweep was console-clean before and after the change; the only `overflow` hits
+are `truncate` elements reporting `scrollWidth > clientWidth`, which is what
+`text-overflow: ellipsis` does by definition — the document itself never
+scrolled sideways, at 1600px or at 760px.
+
+**The gap that mattered: board cards were interaction-dead.** `IssueRow.tsx`
+has carried `onContextMenu → openContextMenu` and ⌘/Shift multi-select for a
+long time. `IssueBoard.tsx`'s `Card` had one handler — `onClick → setPeek`.
+So on the board, right-click fell through to Chrome's native menu, and there
+was no way to reach the `BulkActionBar` at all, even though it is mounted
+app-wide in `App.tsx:130`. Both are now wired: right-click opens the same
+30-row `IssueContextMenu` the list opens, ⌘/Ctrl-click toggles selection, and
+Shift-click ranges *within the column* (the board's honest analogue of the
+list's `navIssueIds` range — a board has no single linear order). The range
+anchor is a module-level `let`, matching how `IssueRow` already does it. Only
+the rendered slice can anchor a range, since a card behind `Show N more` has
+nothing to click.
+
+Also fixed: the layout switcher is now a real `role="tablist"` with
+`role="tab"` and `aria-selected`, which is what Linear's accessibility tree
+reports (`tablist` → `tab "List"` / `tab "Board"`). It was two loose buttons.
+
+**What this run could not verify, and did not guess at.** Linear's board-mode
+Display panel and board column header stay unread: reaching them means
+clicking `tab "Board"`, which rewrites the user's saved layout preference for
+that view, and every view in their workspace is saved as List. So the board
+column header's `+`/`⋯`, the "Board options" section, and Linear's board card
+anatomy are all recorded as **unverified** rather than assumed. That is also
+why no checkbox affordance was added to our board cards — the selection
+behaviour is now correct, but inventing a hover checkbox Linear may not have
+would be guessing. Listed in `BACKLOG.md` with that caveat attached.
+
+The List-mode Display popover *was* read control-by-control, and it is where
+the remaining gaps are: `Completed issues` is a `combobox` in Linear and a
+boolean toggle in ours, `Show triage issues` is missing outright, Grouping has
+no `Group ordering` direction button, the display-property chips are in the
+wrong order with three missing and one invented (`Creator`), and the footer is
+one `Reset to default` where Linear has `Reset` + `Set default for everyone`.
+
+Verified by hand on the board: column collapse (rail keeps its drop target),
+per-column and per-swimlane `Add issue` prefill, `Show 83 more` / `Show less`,
+sub-grouping at `assignee` producing 6 swimlanes plus a "17 more" hidden-rows
+bar, and the new selection reaching the bulk bar (`3 selected` after a
+⌘-click then Shift-click down the Backlog column).
+
+`tsc -b ✅ · build ✅ · 37-route sweep console-clean · board verified at 1600px
+and 760px (no document-level horizontal scroll) · lint 109 (baseline)`

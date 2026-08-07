@@ -221,8 +221,10 @@ export function DisplayMenu({
       {() => (
         <div>
           {/* Linear opens the popover with an unlabelled, full-width List | Board
-              segmented control rather than a labelled row. */}
-          <div className="mb-1 flex gap-1">
+              segmented control rather than a labelled row. It is a real tablist
+              (role="tablist" / role="tab" / aria-selected), so screen readers and
+              ←/→ announce it as a layout choice rather than two loose buttons. */}
+          <div role="tablist" aria-label="Layout" className="mb-1 flex gap-1">
             {([
               { id: 'list', label: 'List', icon: LayoutList },
               { id: 'board', label: 'Board', icon: Columns3 },
@@ -230,6 +232,8 @@ export function DisplayMenu({
               <button
                 key={id}
                 type="button"
+                role="tab"
+                aria-selected={layout === id}
                 onClick={() => onLayout(id)}
                 className={cn(
                   'flex flex-1 items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-[12px] transition-colors',
