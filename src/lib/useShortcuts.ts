@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore, type Store } from './store'
+import { useAuth } from './auth'
 import type { Issue, RelationPickerKind } from './types'
 import { copyToClipboard, copyToast, toast } from './toast'
 import { issueUrl } from './utils'
@@ -80,6 +81,15 @@ export function useShortcuts() {
       if ((e.metaKey || e.ctrlKey) && key === 'k') {
         e.preventDefault()
         store.setCommandOpen(!store.commandOpen)
+        return
+      }
+
+      // ⌥⇧Q — log out, the chord Linear prints next to the menu item. Option
+      // rewrites e.key on macOS, so match the physical key instead.
+      if (e.altKey && e.shiftKey && e.code === 'KeyQ') {
+        e.preventDefault()
+        useAuth.getState().logout()
+        navigate('/')
         return
       }
 

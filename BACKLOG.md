@@ -616,6 +616,11 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+- [ ] 🟢 **Workspace menu is missing "Switch workspace"** — Linear's has it with
+  an `O then W` chord and a submenu of the user's workspaces. We model a single
+  workspace, so this needs a workspace concept before the row means anything.
+- [ ] 🟢 **Workspace menu is missing "Download desktop app"** — Linear's third
+  row. Left out rather than shipped as a dead button; there is no desktop build.
 - [ ] 🟡 **Filter dimensions Linear has that we don't** — Relations, Links,
   Template, Added to cycle, Customers, Auto-closed. Our data model already
   backs most of these.

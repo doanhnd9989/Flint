@@ -21,6 +21,7 @@ import {
   Shield,
   LogOut,
   KeyRound,
+  UserPlus,
 } from 'lucide-react'
 import { type ReactNode } from 'react'
 import { useStore, useStoreShallow } from '@/lib/store'
@@ -38,6 +39,32 @@ function GithubMark({ size = 15 }: { size?: number }) {
 }
 import { Popover } from './ui/Popover'
 import { cn } from '@/lib/utils'
+
+/** A row in one of the sidebar's popover menus, with Linear's right-aligned
+ *  shortcut hint. */
+function MenuRow({
+  icon,
+  label,
+  hint,
+  onClick,
+}: {
+  icon: ReactNode
+  label: string
+  hint?: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+    >
+      {icon}
+      <span className="flex-1 truncate">{label}</span>
+      {hint && <span className="text-[11px] text-faint">{hint}</span>}
+    </button>
+  )
+}
 
 function Item({
   to,
@@ -321,6 +348,7 @@ export function Sidebar() {
   // rename in the admin console shows up here too.
   const backendName = useAuth((s) => s.workspace.name)
   const displayName = backendName || workspaceName
+  const logout = useAuth((s) => s.logout)
 
   const personalItems = useSectionItems('personal')
   const workspaceItems = useSectionItems('workspace')
@@ -409,36 +437,38 @@ export function Sidebar() {
             }
           >
             {(close) => (
+              // Linear's workspace menu: Settings, member management, then Log
+              // out at the bottom. It deliberately does not list teams — those
+              // live in the sidebar body below.
               <div>
-                <div className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-faint">
-                  Teams
-                </div>
-                {teams.map((team) => (
-                  <button
-                    key={team.id}
-                    type="button"
-                    onClick={() => {
-                      close()
-                      navigate(`/team/${team.key}/active`)
-                    }}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
-                  >
-                    <span>{team.icon}</span>
-                    <span className="flex-1 truncate">{team.name}</span>
-                    <span className="text-[11px] text-faint">{team.key}</span>
-                  </button>
-                ))}
-                <div className="my-1 h-px bg-border" />
-                <button
-                  type="button"
+                <MenuRow
+                  icon={<Settings size={14} className="text-faint" />}
+                  label="Settings"
+                  hint="G then S"
                   onClick={() => {
                     close()
                     navigate('/settings')
                   }}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
-                >
-                  <Settings size={14} className="text-faint" /> Settings
-                </button>
+                />
+                <MenuRow
+                  icon={<UserPlus size={14} className="text-faint" />}
+                  label="Invite and manage members"
+                  onClick={() => {
+                    close()
+                    navigate('/members')
+                  }}
+                />
+                <div className="my-1 h-px bg-border" />
+                <MenuRow
+                  icon={<LogOut size={14} className="text-faint" />}
+                  label="Log out"
+                  hint="⌥⇧Q"
+                  onClick={() => {
+                    close()
+                    logout()
+                    navigate('/')
+                  }}
+                />
               </div>
             )}
           </Popover>
