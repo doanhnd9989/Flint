@@ -4450,3 +4450,68 @@ content column driven and read back · menu placement measured at `--font-scale`
 inside the viewport, and at 300px tall the font-size menu clamps to 138px and
 scrolls to all five items · all 10 issue-detail property pickers re-verified
 after the `SelectMenu` layout change · lint 106, unchanged baseline`
+
+## Audit run — `sidebar`, second lap (right-click menus)
+
+Rotation wrapped from #15 back to area #1. `collect.sh` came back green
+(typecheck PASS, api UP, lint 106 — the documented baseline, unchanged by this
+run); vite was DOWN and was started with the preview tool. `seed-bulk.mjs`
+added 24 issues (+6 sub), 18 comments and 8 attachments (3496 KB of real
+bytes). The 37-route sweep was clean before any change: zero console errors,
+zero horizontal overflow, zero empty renders.
+
+**What was red.** Nothing in the logs. The finding came from the control
+crawl: `.audit/controls/sidebar.md` had left right-click unpressed on every
+sidebar row except the team row, and **all eleven of them opened nothing**.
+A control that opens nothing is a bug, not a gap, so it was fixed in this run.
+
+**What Linear does.** Read on `linear.app/thehumaninc`, read-only — each menu
+right-clicked open, itemised, then Escaped. Four distinct shapes:
+
+| row | Linear's menu |
+|---|---|
+| `Inbox` | `Mark all as read` · `Visibility ▸` / `Badge ▸` / `Customize sidebar` · `Copy link` |
+| `My issues`, `Projects`, `Teams`, `Views` | `Visibility ▸` / `Customize sidebar` · `Copy link` |
+| a team's `Home`/`Triage`/`Issues`/`Cycles`/`Projects`/`Views` | `Copy link`, and only that |
+| the `Workspace ▾` / `Your teams ▾` section headers | `Customize sidebar`, and only that |
+
+with `Visibility ▸` = `Always show` ✓ / `Don't show`, and `Badge ▸` =
+`Default (Count)` ✓ / `Count` / `Dot` / `None` behind a filter box.
+
+**What was built.** A new `SidebarContextMenu` covering all four shapes, wired
+into `Item`, `SubItem`, the `Section` header and `RegistryItem`. The depth gap
+was `Badge ▸`: we had one workspace-wide `badgeStyle` and no per-row override
+at all, so `SidebarPrefs` gained `badges: Record<string, SidebarRowBadge>` with
+a `setSidebarRowBadge` action, and `Item` now prefers a row's own override over
+the workspace style. "Default" *clears* the override rather than storing a
+third value, so a row that is left alone keeps following the workspace setting.
+The persisted-state merge backfills `badges` for workspaces saved before it
+existed — the schema-evolution trap this file already documents.
+
+`Visibility ▸` reuses the gating already written into `constants.ts`:
+`Show when badged` only appears where a badge can actually arrive, and
+`Don't show` is dropped on `alwaysAvailable` rows. That is why Inbox offers
+`Always show` / `Show when badged` while `Projects` offers Linear's exact
+`Always show` / `Don't show`.
+
+**A second bug fell out of it.** `copyToClipboard` never awaited
+`writeText`, so on a denied clipboard the rejection escaped as an uncaught
+promise error *and* the toast still claimed "Link copied". It is a shared
+helper — `TeamContextMenu`'s `Copy URL` and every issue copy action ran through
+the same lie. Now awaited, with a truthful failure toast.
+
+**Linear stayed read-only.** Six menus and two flyouts were opened, read and
+dismissed with Escape (`Inbox`, `My issues`, `Projects`, a team's `Issues`, the
+`Workspace` header, plus `Visibility ▸` and `Badge ▸`). Nothing was selected,
+toggled, typed, submitted or created. The reference workspace has no Favorites
+or Pinned section, so a favourite row's Linear menu could not be read — ours
+was built as a plain `Copy link` row and is recorded as **unverified**.
+
+`tsc -b ✅ · build ✅ · 12-route re-sweep console-clean, zero overflow, zero
+empty renders · all four menu shapes verified by DOM probe against Linear's
+inventory · `Badge ▸` round-tripped Dot → None → Count → Default with the
+override cleared back to `{}` on Default · `Visibility ▸ → Don't show` moved
+`Teams` into `More` at its registry position and Customize sidebar brought it
+back · zero unhandled rejections across three `Copy link` presses · menu clamps
+fully inside a 420×760 viewport (document scrollWidth 420) and resolves dark
+tokens · lint 106, unchanged baseline`

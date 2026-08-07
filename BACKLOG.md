@@ -616,6 +616,30 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `sidebar` pass, second lap (right-click menus)
+
+The eleven dead right-click targets were fixed in that run — every sidebar row
+now opens Linear's menu. Full control-by-control table in
+`.audit/controls/sidebar.md`. What is left:
+
+- [ ] 🟡 **No sidebar resize handle.** Linear drags the sidebar to any width and
+      remembers it; ours is a fixed `w-60` that only collapses (`[`). Needs a
+      drag handle on the right border, a persisted width, and a min/max clamp.
+      Medium.
+- [ ] 🟢 **`More` has no right-click menu.** Every other row in the Workspace
+      section now has one. Linear's counterpart was not inventoried, so the
+      shape needs reading before it is built. Small.
+- [ ] 🟢 **Favourite and pinned rows offer only `Copy link`.** That is the plain
+      -row shape we matched, but Linear's reference workspace had no Favorites
+      or Pinned section to read, so a favourite's real menu (Linear has at least
+      an unfavourite) is **unverified**. Seed a favourite on Linear's side — or
+      find a workspace that has one — before assuming parity. Small.
+- [ ] 🟢 **The flyout parents (`Visibility ▸`, `Badge ▸`) are `<span>`s.** They
+      open on hover only, so they cannot be reached by keyboard, and they carry
+      no `role="menuitem"`. This matches the existing `TeamContextMenu` and
+      `SwitchWorkspaceRow` pattern, so fixing it means fixing all three
+      together. Small.
+
 ### From the `theme-and-density` pass (Preferences → Interface and theme)
 
 The dead `Customize` control, the font-size steps, the theme card's shape and

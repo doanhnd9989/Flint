@@ -45,10 +45,21 @@ export function toast(toast: string | Omit<Toast, 'id'>) {
   useToasts.getState().add(typeof toast === 'string' ? { message: toast } : toast)
 }
 
-/** Copy text to the clipboard and confirm with a Linear-style toast. */
-export function copyToClipboard(text: string, message: string) {
-  navigator.clipboard?.writeText(text)
-  toast(message)
+/**
+ * Copy text to the clipboard and confirm with a Linear-style toast.
+ *
+ * `writeText` rejects whenever the page lacks clipboard permission (an
+ * unfocused tab, a denied prompt, plain http). Awaiting it keeps that rejection
+ * from escaping as an uncaught promise error, and lets the toast tell the truth
+ * about whether the copy actually landed — Linear reports the failure too.
+ */
+export async function copyToClipboard(text: string, message: string) {
+  try {
+    await navigator.clipboard?.writeText(text)
+    toast(message)
+  } catch {
+    toast('Could not copy to clipboard')
+  }
 }
 
 /** Messages copied verbatim from Linear's own copy toasts. */

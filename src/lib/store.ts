@@ -57,6 +57,7 @@ import type {
   IssueDraft,
   SidebarBadgeStyle,
   SidebarPrefs,
+  SidebarRowBadge,
   SidebarVisibility,
   ThemeMode,
   User,
@@ -422,6 +423,8 @@ export interface Store extends WorkspaceData, UIState {
   setCustomizeSidebarOpen: (open: boolean) => void
   setSidebarBadgeStyle: (style: SidebarBadgeStyle) => void
   setSidebarVisibility: (key: string, visibility: SidebarVisibility) => void
+  /** Per-row badge override; `undefined` restores "Default". */
+  setSidebarRowBadge: (key: string, badge: SidebarRowBadge | undefined) => void
   /** Replace a Customize-sidebar section's row order (drag reorder). */
   setSidebarOrder: (section: 'personal' | 'workspace', keys: string[]) => void
 
@@ -2404,6 +2407,15 @@ export const useStore = create<Store>()(
             visibility: { ...s.sidebarPrefs.visibility, [key]: visibility },
           },
         })),
+      setSidebarRowBadge: (key, badge) =>
+        set((s) => {
+          const badges = { ...s.sidebarPrefs.badges }
+          // "Default" clears the override rather than storing a third value, so
+          // the row keeps following the workspace-wide badge style.
+          if (badge) badges[key] = badge
+          else delete badges[key]
+          return { sidebarPrefs: { ...s.sidebarPrefs, badges } }
+        }),
       setSidebarOrder: (section, keys) =>
         set((s) => ({
           sidebarPrefs: {
@@ -2919,6 +2931,7 @@ export const useStore = create<Store>()(
           ...DEFAULT_SIDEBAR_PREFS,
           ...(merged.sidebarPrefs ?? {}),
           visibility: { ...(merged.sidebarPrefs?.visibility ?? {}) },
+          badges: { ...(merged.sidebarPrefs?.badges ?? {}) },
           order: {
             ...DEFAULT_SIDEBAR_PREFS.order,
             ...(merged.sidebarPrefs?.order ?? {}),

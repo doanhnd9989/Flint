@@ -760,11 +760,19 @@ export type SidebarVisibility = 'always' | 'badged' | 'hidden'
 /** Linear's "Default badge style" — a number or a plain dot. */
 export type SidebarBadgeStyle = 'count' | 'dot'
 
+/**
+ * A single row's badge override — Linear's `Badge ▸` submenu on a right-clicked
+ * row. Absent means "Default", which follows `SidebarPrefs.badgeStyle`.
+ */
+export type SidebarRowBadge = 'count' | 'dot' | 'none'
+
 /** Persisted sidebar customization (Customize sidebar modal). */
 export interface SidebarPrefs {
   badgeStyle: SidebarBadgeStyle
   /** Item key → visibility. Missing keys fall back to the item's default. */
   visibility: Record<string, SidebarVisibility>
+  /** Item key → badge override. Missing keys follow `badgeStyle`. */
+  badges: Record<string, SidebarRowBadge>
   /** Ordered item keys per section. Unknown/new keys append in registry order. */
   order: Record<'personal' | 'workspace', string[]>
 }

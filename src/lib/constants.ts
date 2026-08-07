@@ -380,6 +380,7 @@ export const SIDEBAR_VISIBILITY_LABELS: Record<SidebarVisibility, string> = {
 export const DEFAULT_SIDEBAR_PREFS: SidebarPrefs = {
   badgeStyle: 'count',
   visibility: {},
+  badges: {},
   order: {
     personal: SIDEBAR_ITEMS.filter((i) => i.section === 'personal').map((i) => i.key),
     workspace: SIDEBAR_ITEMS.filter((i) => i.section === 'workspace').map((i) => i.key),

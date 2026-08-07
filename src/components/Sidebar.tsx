@@ -33,6 +33,7 @@ import { orderedSidebarItems, type SidebarItemDef } from '@/lib/constants'
 import type { Team } from '@/lib/types'
 import { sidebarItemIcon } from './sidebarIcons'
 import { TeamContextMenu } from './TeamContextMenu'
+import { SidebarContextMenu } from './SidebarContextMenu'
 
 /** GitHub octocat mark (lucide dropped brand icons) — matches Linear's row. */
 function GithubMark({ size = 15 }: { size?: number }) {
@@ -107,6 +108,15 @@ function SwitchWorkspaceRow() {
   )
 }
 
+/** What a row's right-click menu should offer — see `SidebarContextMenu`. */
+type RowMenu = {
+  itemKey?: string
+  badgeable?: boolean
+  alwaysAvailable?: boolean
+  markAllRead?: boolean
+  customize?: boolean
+}
+
 function Item({
   to,
   icon,
@@ -115,6 +125,7 @@ function Item({
   onClick,
   indent,
   alsoActive,
+  menu,
 }: {
   to?: string
   icon: ReactNode
@@ -126,12 +137,21 @@ function Item({
   /** Extra paths that should keep this row lit — the Issues row stays selected
    *  across the Active / Backlog / All issues tabs, as it does in Linear. */
   alsoActive?: string[]
+  /** Right-click menu shape. Every row gets one; a plain link row's menu is
+   *  Linear's single `Copy link`. */
+  menu?: RowMenu
 }) {
   const { pathname } = useLocation()
   // Preferences → "Show counts in sidebar" (defaults on for older workspaces).
   const showCounts = useStore((s) => s.preferences.showSidebarCounts !== false)
   // Customize sidebar → "Default badge style": a count chip or a plain dot.
   const badgeStyle = useStore((s) => s.sidebarPrefs.badgeStyle)
+  // …which this row's own `Badge ▸` override beats when it has one.
+  const rowBadge = useStore((s) =>
+    menu?.itemKey ? s.sidebarPrefs.badges[menu.itemKey] : undefined,
+  )
+  const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null)
+  const style = rowBadge ?? badgeStyle
   const base = cn(
     'flex items-center gap-2 rounded-md py-1 pr-2 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors w-full',
     indent ? 'pl-[25px]' : 'pl-2',
@@ -142,8 +162,8 @@ function Item({
         {icon}
       </span>
       <span className="flex-1 truncate text-left">{label}</span>
-      {badge && showCounts ? (
-        badgeStyle === 'dot' ? (
+      {badge && showCounts && style !== 'none' ? (
+        style === 'dot' ? (
           <span className="mr-1 h-1.5 w-1.5 rounded-full bg-accent" />
         ) : (
           <span className="rounded bg-bg-tertiary px-1 text-[11px] text-muted">
@@ -153,26 +173,50 @@ function Item({
       ) : null}
     </>
   )
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setCtx({ x: e.clientX, y: e.clientY })
+  }
+  const contextMenu = ctx && (
+    <SidebarContextMenu
+      x={ctx.x}
+      y={ctx.y}
+      onClose={() => setCtx(null)}
+      href={to}
+      itemKey={menu?.itemKey}
+      badgeable={menu?.badgeable}
+      alwaysAvailable={menu?.alwaysAvailable}
+      markAllRead={menu?.markAllRead}
+      customize={menu?.customize}
+    />
+  )
   if (to) {
     return (
-      <NavLink
-        to={to}
-        className={({ isActive }) =>
-          cn(
-            base,
-            (isActive || alsoActive?.includes(pathname)) &&
-              'bg-bg-selected text-fg font-medium',
-          )
-        }
-      >
-        {inner}
-      </NavLink>
+      <>
+        <NavLink
+          to={to}
+          onContextMenu={onContextMenu}
+          className={({ isActive }) =>
+            cn(
+              base,
+              (isActive || alsoActive?.includes(pathname)) &&
+                'bg-bg-selected text-fg font-medium',
+            )
+          }
+        >
+          {inner}
+        </NavLink>
+        {contextMenu}
+      </>
     )
   }
   return (
-    <button type="button" onClick={onClick} className={base}>
-      {inner}
-    </button>
+    <>
+      <button type="button" onClick={onClick} onContextMenu={onContextMenu} className={base}>
+        {inner}
+      </button>
+      {contextMenu}
+    </>
   )
 }
 
@@ -200,18 +244,28 @@ function FlagItem({
  * which is how Linear aligns them.
  */
 function SubItem({ to, label }: { to: string; label: string }) {
+  const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null)
   return (
-    <NavLink
-      to={to}
-      className={({ isActive }) =>
-        cn(
-          'flex items-center rounded-md py-1 pl-[49px] pr-2 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors',
-          isActive && 'bg-bg-selected text-fg font-medium',
-        )
-      }
-    >
-      <span className="truncate">{label}</span>
-    </NavLink>
+    <>
+      <NavLink
+        to={to}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setCtx({ x: e.clientX, y: e.clientY })
+        }}
+        className={({ isActive }) =>
+          cn(
+            'flex items-center rounded-md py-1 pl-[49px] pr-2 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors',
+            isActive && 'bg-bg-selected text-fg font-medium',
+          )
+        }
+      >
+        <span className="truncate">{label}</span>
+      </NavLink>
+      {ctx && (
+        <SidebarContextMenu x={ctx.x} y={ctx.y} onClose={() => setCtx(null)} href={to} />
+      )}
+    </>
   )
 }
 
@@ -232,7 +286,20 @@ function RegistryItem({ item, badge }: { item: SidebarItemDef; badge?: number })
   // again. Honour the choice only where a badge can actually arrive.
   if (visibility === 'badged' && item.badgeable && !badge) return null
   return (
-    <Item to={item.to} icon={sidebarItemIcon(item.key)} label={item.label} badge={badge} />
+    <Item
+      to={item.to}
+      icon={sidebarItemIcon(item.key)}
+      label={item.label}
+      badge={badge}
+      menu={{
+        itemKey: item.key,
+        badgeable: item.badgeable,
+        alwaysAvailable: item.alwaysAvailable,
+        // Linear puts "Mark all as read" above Inbox's menu and nowhere else.
+        markAllRead: item.key === 'inbox',
+        customize: true,
+      }}
+    />
   )
 }
 
@@ -353,6 +420,7 @@ function Section({
 }) {
   const collapsed = useStore((s) => s.collapsedSidebarSections)
   const toggle = useStore((s) => s.toggleSidebarSection)
+  const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null)
   const open = !collapsed.includes(sectionKey)
   return (
     <div className="mt-4">
@@ -361,6 +429,10 @@ function Section({
       <button
         type="button"
         onClick={() => toggle(sectionKey)}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setCtx({ x: e.clientX, y: e.clientY })
+        }}
         className="group flex w-full items-center gap-1 py-1 pl-[13px] pr-1 text-[12px] font-medium text-faint hover:text-muted"
       >
         {title}
@@ -373,6 +445,10 @@ function Section({
         />
       </button>
       {open && <div className="mt-0.5 space-y-px">{children}</div>}
+      {/* Linear's section headers offer exactly one item. */}
+      {ctx && (
+        <SidebarContextMenu x={ctx.x} y={ctx.y} onClose={() => setCtx(null)} customize />
+      )}
     </div>
   )
 }
