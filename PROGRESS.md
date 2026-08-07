@@ -3352,3 +3352,38 @@ Two places our data can't reach Linear's:
   lie. `Started` is shown as a current value in the stat rail, not a series.
 
 `tsc -b ✅ · build ✅ · 6 cycle routes clean · dark + 900px wide, no overflow`
+
+## The routine now walks controls, not screens
+
+Reviewing font sizes turned up three boxes sized in **JavaScript**, where CSS
+can't reach them: `VirtualIssueList`'s 36px row (the clipped issue titles),
+`ProjectsTimeline`'s row/bar/name column, and `RoadmapView`'s project bar. All
+three go through a new `useFontScale()`. `/insights` was worse — a 9px count
+label inside an `h-2` (8px) track, clipped at *every* font size, not just the
+large ones. Twenty routes at scale 1.6: no clipped text, no sideways scroll.
+
+Then the real lesson. Eyeballing screens has been missing things that a person
+looking at the two apps side by side spots immediately — a missing `+`, a menu
+with half the items. So `/linear-audit` step 4 is no longer "compare the
+screen". It is:
+
+1. `reference/control-crawl.js` presses **every control on our screen**, one at
+   a time, and records what each produced — navigated, opened a layer (with all
+   its items, in order), changed content, or *did nothing*.
+2. `reference/linear-probe.js` takes the same inventory on real Linear through
+   the Chrome extension. It has no click function on purpose: on Linear you may
+   open a menu, read it, and press Escape. Nothing else. It is the user's real
+   workspace.
+3. The two lists get diffed on five axes — presence, position, wording,
+   behaviour, and **depth**, which is where this app is weakest: the top-level
+   buttons exist and the submenus under them are thin.
+4. Coverage lands in `.audit/controls/<area>.md`, so the next run starts at the
+   first control nobody has pressed instead of re-walking the same header.
+
+First thing the new protocol caught: **Teams had no way to create a team.** Now
+there's a `+` in the header and a "New team" command in ⌘K, both opening
+Linear's dialog — name, an identifier derived from the name but editable
+(`Design Systems` → `DS`, deduped against existing keys), and the private
+switch. Creating drops you into the new team, as Linear does.
+
+`tsc -b ✅ · build ✅ · create-team verified end to end, no console errors`

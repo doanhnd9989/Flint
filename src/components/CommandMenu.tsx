@@ -497,6 +497,13 @@ export function CommandMenu() {
           run: () => store.setCreateProjectOpen(true),
         },
         {
+          id: 'cr-team',
+          label: 'New team',
+          icon: <Users size={15} />,
+          keywords: 'new team create squad group',
+          run: () => store.setCreateTeamOpen(true),
+        },
+        {
           id: 'cr-document',
           label: 'New document',
           icon: <FileText size={15} />,

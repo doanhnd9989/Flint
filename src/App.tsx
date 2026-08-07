@@ -13,6 +13,7 @@ import { CommandMenu } from '@/components/CommandMenu'
 import { CreateIssueModal } from '@/components/CreateIssueModal'
 import { CreateInitiativeModal } from '@/components/CreateInitiativeModal'
 import { CreateProjectModal } from '@/components/CreateProjectModal'
+import { CreateTeamModalHost } from '@/components/CreateTeamModal'
 import { CreateDocumentModal } from '@/components/CreateDocumentModal'
 import { CreateViewModal } from '@/components/CreateViewModal'
 import { CustomizeSidebarModal } from '@/components/CustomizeSidebarModal'
@@ -119,6 +120,7 @@ function Shell() {
       <CreateIssueModal />
       <CreateInitiativeModal />
       <CreateProjectModal />
+      <CreateTeamModalHost />
       <CreateDocumentModal />
       <CreateViewModal />
       <CustomizeSidebarModal />

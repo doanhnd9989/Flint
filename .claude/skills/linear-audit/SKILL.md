@@ -78,25 +78,73 @@ Then do what a sweep cannot: **use the app.** At minimum, each run —
 
 Every console error, mis-rendered row, or dead control is a finding. Fix it.
 
-## 4. Close one parity gap
+## 4. Close one parity gap — control by control
 
 Open `reference/parity-map.md`, take the area **after** the one printed as
-`last audited area`, and compare it against the real Linear tab the user keeps
-open — the same screen, side by side.
+`last audited area`, and work that one screen. **Not by eye.** Press every
+control, on both sides, and diff the two inventories.
 
-Rules for that comparison:
+### 4a. Inventory ours
 
-- The user's real Linear workspace is **read-only**. Open menus and views to
-  look; never create, edit, or delete anything there.
-- Never touch a Linear API key. Compare API surface against Linear's **public
-  docs**, never by calling their live API.
-- Only local dev credentials (`avery@workspace.dev` / `demo1234`), only
-  against localhost.
+Paste `reference/control-crawl.js` into `javascript_tool`, then:
 
-Record differences in *position, order, wording, density, and behavior*, not
-just presence. Linear's chrome is opinionated — a control on the wrong side of
-a header is a real gap. Fix what you can in the run; log the rest under
-"🔍 Noticed while comparing, not yet built" in `BACKLOG.md` with a size.
+```
+window.__ctl.list()        // every control on the screen
+window.__ctl.sweep(0, 8)   // press them in batches of ~8 (30s tool timeout)
+window.__ctl.report()      // what each one opened
+```
+
+For each control it records: did it navigate, open a layer, change content in
+place, or **do nothing at all** — and when a menu opens, every item in it, in
+order. Controls whose label looks destructive are listed but not pressed.
+
+### 4b. Inventory Linear's
+
+Same screen on real Linear, through the **Chrome extension**
+(`mcp__claude-in-chrome__*` — load them with one batched `ToolSearch` call).
+`read_page` gives the accessibility tree with refs; paste
+`reference/linear-probe.js` into the extension's `javascript_tool` for the
+matching inventory shape, and use `window.__lin.open()` after opening a menu to
+itemise it.
+
+**Linear is read-only, and that is not negotiable.** You may click a control
+that *opens* something — a menu, a popover, a tab — read it, and press Escape.
+You may not choose an item, submit, confirm, toggle, type into a field, or
+create anything. It is the user's real workspace with their real data. If a
+control's behaviour can only be learned by mutating something, don't: write
+down that it's unverified and move on.
+
+Never touch a Linear API key. API surface is compared against Linear's **public
+docs**, never by calling their live API. Our side uses only the local dev
+credentials (`avery@workspace.dev` / `demo1234`), only against localhost.
+
+### 4c. Diff, then fix
+
+Put the two lists side by side and look for all five:
+
+| | what a gap looks like |
+|---|---|
+| **Presence** | Linear has a control we don't — or we have one Linear doesn't |
+| **Position** | same control, different corner / different order in the row |
+| **Wording** | "New cycle" vs "Create cycle"; Linear's exact string wins |
+| **Behaviour** | our button opens a dialog where Linear opens an inline menu |
+| **Depth** | the menu opens, but Linear's has 9 items and ours has 5 |
+
+A control that opens *nothing* is a bug, not a gap — fix it in this run. Depth
+is where this app has been weakest: the top-level buttons exist, the submenus
+under them are thin. Chase every menu down to its leaves.
+
+Fix what you can in the run. Log the rest under "🔍 Noticed while comparing,
+not yet built" in `BACKLOG.md` with a size — and write the finding as the
+concrete control ("Teams header has no `+` to create a team"), never as a mood
+("Teams page feels sparse").
+
+### 4d. Record coverage
+
+Append what you actually pressed to `.audit/controls/<area>.md` — one line per
+control, its Linear counterpart, and verdict (`same` / `fixed` / `logged`).
+Next run starts from the first control not in that file, so the crawl advances
+instead of re-walking the same header every time.
 
 ## 5. Definition of done
 
@@ -133,3 +181,11 @@ and commit with a message naming the area. Release the lock.
 - **dnd-kit drags cannot be simulated** with `left_click_drag` or synthetic
   pointer events. Verify drag by reading state, or by hand.
 - **The real DB is `server/data/flint.db`**, not `server/data.db`.
+- **Sizes computed in JS don't get the font scale.** CSS reaches text through
+  `--font-scale`, but a row height written in JavaScript (a virtualized list, a
+  timeline pitch) does not — run it through `useFontScale()` or the text
+  outgrows its row and gets clipped.
+- **Whole screens have been the wrong screen.** `/cycles` was the cycle *detail*
+  view sitting on the *index* URL for months and nobody noticed, because the
+  page looked plausible. Check the URL shape against Linear's, not just the
+  pixels.

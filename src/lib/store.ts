@@ -100,6 +100,7 @@ interface UIState {
   createInitiativeOpen: boolean
   /** New-project modal (transient). */
   createProjectOpen: boolean
+  createTeamOpen: boolean
   /** New-document modal (transient). */
   createDocumentOpen: boolean
   /** Pending saved-view draft for the "Save view" naming modal (transient). */
@@ -308,6 +309,11 @@ export interface Store extends WorkspaceData, UIState {
   setTeamCyclesEnabled: (teamId: string, enabled: boolean) => void
   /** Update a team's general settings (name / color / timezone / privacy). */
   updateTeam: (teamId: string, patch: Partial<Pick<Team, 'name' | 'color' | 'icon' | 'timezone' | 'private'>>) => void
+  /** Creates a team, deriving a unique identifier from the name if none given. */
+  createTeam: (
+    name: string,
+    opts?: Partial<Pick<Team, 'key' | 'icon' | 'color' | 'private'>>,
+  ) => Team
   archiveTeam: (teamId: string) => void
   unarchiveTeam: (teamId: string) => void
 
@@ -421,6 +427,7 @@ export interface Store extends WorkspaceData, UIState {
   setCreateMore: (on: boolean) => void
   setCreateInitiativeOpen: (open: boolean) => void
   setCreateProjectOpen: (open: boolean) => void
+  setCreateTeamOpen: (open: boolean) => void
   setCreateDocumentOpen: (open: boolean) => void
   /** Open the "Save view" naming modal seeded with the current view config. */
   openViewModal: (config: Omit<SavedView, 'id' | 'name' | 'icon'>) => void
@@ -542,6 +549,7 @@ export const useStore = create<Store>()(
       createMore: false,
       createInitiativeOpen: false,
       createProjectOpen: false,
+      createTeamOpen: false,
       createDocumentOpen: false,
       viewModalConfig: null,
       helpOpen: false,
@@ -1736,6 +1744,40 @@ export const useStore = create<Store>()(
           teams: s.teams.map((t) => (t.id === teamId ? { ...t, ...patch } : t)),
         })),
 
+      createTeam: (name, opts) => {
+        const trimmed = name.trim() || 'New team'
+        // Linear derives the identifier from the name and keeps it unique —
+        // initials for multi-word names, the first letters otherwise.
+        const base =
+          (opts?.key?.trim() ||
+            (trimmed.includes(' ')
+              ? trimmed
+                  .split(/\s+/)
+                  .map((w) => w[0])
+                  .join('')
+              : trimmed.slice(0, 3)))
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '')
+            .slice(0, 5) || 'TEA'
+        const taken = new Set(get().teams.map((t) => t.key))
+        let key = base
+        for (let n = 2; taken.has(key); n++) key = `${base}${n}`
+
+        const team: Team = {
+          id: `t_${nanoid(8)}`,
+          name: trimmed,
+          key,
+          icon: opts?.icon ?? '📋',
+          color: opts?.color ?? '#5e6ad2',
+          private: opts?.private || undefined,
+          // The creator joins their own team, as in Linear.
+          memberIds: [get().currentUserId],
+          cyclesEnabled: true,
+        }
+        set((s) => ({ teams: [...s.teams, team] }))
+        return team
+      },
+
       archiveTeam: (teamId) =>
         set((s) => ({
           teams: s.teams.map((t) =>
@@ -2304,6 +2346,7 @@ export const useStore = create<Store>()(
       setCreateInitiativeOpen: (createInitiativeOpen) =>
         set({ createInitiativeOpen }),
       setCreateProjectOpen: (createProjectOpen) => set({ createProjectOpen }),
+      setCreateTeamOpen: (createTeamOpen) => set({ createTeamOpen }),
       setCreateDocumentOpen: (createDocumentOpen) =>
         set({ createDocumentOpen }),
       openViewModal: (viewModalConfig) => set({ viewModalConfig }),
@@ -2701,6 +2744,7 @@ export const useStore = create<Store>()(
           createPrefill: _crp,
           createInitiativeOpen: _ci,
           createProjectOpen: _cpo,
+          createTeamOpen: _cto,
           createDocumentOpen: _cdo,
           viewModalConfig: _vmc,
           helpOpen: _h,

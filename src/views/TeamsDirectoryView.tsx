@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ViewHeader } from '@/components/ViewHeader'
+import { CreateTeamButton } from '@/components/CreateTeamModal'
 import { Avatar } from '@/components/Avatar'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import { cn } from '@/lib/utils'
@@ -221,9 +222,12 @@ export function TeamsDirectoryView() {
       <ViewHeader
         title="Teams"
         right={
-          <span className="text-[12px] text-muted">
-            {summary.teams} team{summary.teams === 1 ? '' : 's'}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-[12px] text-muted">
+              {summary.teams} team{summary.teams === 1 ? '' : 's'}
+            </span>
+            <CreateTeamButton />
+          </div>
         }
       />
 
