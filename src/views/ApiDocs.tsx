@@ -148,8 +148,11 @@ export function ApiDocs() {
   const accent = workspace.accentColor || '#5e6ad2'
   const name = workspace.name || 'Flint Task'
 
+  // w-full, not w-screen: 100vw counts the vertical scrollbar, so a page tall
+  // enough to scroll ends up ~10px wider than its own viewport and the whole
+  // document picks up a horizontal scrollbar.
   return (
-    <div className="min-h-screen w-screen overflow-x-hidden bg-bg text-fg" style={{ ['--accent' as string]: accent }}>
+    <div className="min-h-screen w-full overflow-x-hidden bg-bg text-fg" style={{ ['--accent' as string]: accent }}>
       <header className="sticky top-0 z-10 border-b border-border bg-bg/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2 font-semibold">

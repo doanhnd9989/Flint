@@ -3886,3 +3886,74 @@ menu, snooze flyout, filter facets and ⋯ menu each driven and read back ·
 verified at dark + --font-scale 1.4 and at a 420px viewport (no h-scroll) ·
 lint 110 (was 111; the two known react-hooks families only, none in the files
 touched)`
+
+---
+
+## 2026-08-07 — `projects-initiatives`
+
+Rotation area 9. Compared `/projects` against `linear.app/<ws>/projects/all`,
+read-only through the Chrome extension. Full control crawl in
+`.audit/controls/projects-initiatives.md`.
+
+**Two bugs found before the parity work, both from volume, both fixed.**
+
+- **Every `PUT /api/workspace` was returning 413.** `server/index.js` mounted a
+  bare `express.json()`, whose default body limit is 100kb; the workspace
+  document is the *whole* app state and the seeded workspace serialises to
+  **321kb**. So every mutation looked fine — the optimistic store update
+  rendered, the UI never complained — and the server dropped all of it. The
+  parser now uses the same `MAX_UPLOAD_BYTES` ceiling as file upload; a 321kb
+  PUT returns 200 with a bumped version where it used to 413. This is exactly
+  the failure the skill warns about: it cannot appear on an empty workspace, and
+  it is silent because nothing surfaces the rejected write.
+- **`/api-docs` and `/` scrolled sideways by 10px.** Both roots used
+  `w-screen`, and `100vw` counts the vertical scrollbar — so any page tall
+  enough to scroll is ~10px wider than its own viewport. `w-full` on both.
+
+**The parity gap: the project row menu was 4 rows against Linear's 17.**
+Same shape as the last two runs — the top-level control exists, the depth under
+it doesn't. Built `ProjectContextMenu.tsx` to Linear's order and wording:
+`Status ▸` (P then S) · `Priority ▸` (P then P) · `Project lead ▸` (P then A) ·
+`Members ▸` (P then M) · `Start date…` (⌃⌥S) · `Target date…` (⌃⌥D) ·
+`Teams ▸` (P then T) · `More properties ▸` · `Copy ▸` · `Move ▸` · `Favorite`
+(⌥F) · `Subscribe` (⇧S) · `New comment…` (N then C) · `Delete`. The two date
+rows carry their current value right-aligned, like Linear's. `Copy ▸` has all
+four of Linear's leaves with its shortcut hints; `Move ▸` has all four and
+greys out exactly when Linear does (list not manually ordered, or the row is
+already at that end) — backed by a new `moveProject` store action that
+renumbers `sortOrder` across the list so the order survives sparse legacy
+values. `More properties ▸` carries `Dependencies ▸` (real, on `dependsOn`) and
+`Rename…` (⇧R, inline dialog).
+
+**A React bug this surfaced, worth naming.** `SubRow` started out declared
+inside the menu component. That makes it a fresh component *type* on every
+render, so each `sub` change remounted every row — and the `mouseenter` that
+should have moved the flyout from `Copy` to `Move` was swallowed by the
+remount: the highlight followed the cursor but the flyout stayed on `Copy`.
+Hoisting `SubRow` to module scope fixed it. This is the `react-hooks/
+static-components` lint ("Cannot create components during render") doing real
+damage, not a style note — there are 10 more of these in the codebase.
+
+**Flyout placement at a narrow viewport.** At 420px neither side has room for
+menu (258) + flyout (264), so `left-full` ran off the right edge and a plain
+flip ran off the left. The offset is now computed: right if it fits, flipped
+left if that fits, otherwise clamped to 8px so it overlays the menu but stays
+reachable. Verified on screen at 420px with no horizontal scroll.
+
+**Deliberate differences,** each because the alternative is a dead row:
+`Labels ▸` (`Project` has no `labelIds`), the Jira / Slack / customer-request /
+update-schedule entries under More properties (no such models or integrations),
+`Remind me ▸` (no project reminder field), and `Open in desktop app` (same call
+as the inbox pass). `Subscribe` is a single toggle where Linear has five
+independent event checkboxes. All logged in `BACKLOG.md` as the model changes
+they actually are.
+
+**Linear stayed read-only.** Only menus and flyouts were opened and Escaped;
+nothing was selected, typed, submitted or created, so what each of Linear's
+items *does* is recorded as unverified.
+
+`tsc -b ✅ · build ✅ · 37-route sweep console-clean, zero document h-scroll
+(was 1) · context menu, all three flyouts, Move reorder and the Priority picker
+each driven and read back · 321kb workspace PUT verified 200 · checked at dark
++ --font-scale 1.4 (no clipping) and at a 420px viewport · lint 110, unchanged,
+none in the files touched`

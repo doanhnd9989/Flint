@@ -263,6 +263,12 @@ export interface Store extends WorkspaceData, UIState {
   setProjectInitiative: (projectId: string, initiativeId?: string) => void
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
   updateProject: (id: string, patch: Partial<Project>) => void
+  /**
+   * Manual reorder of the projects list — Linear's `Move ▸` row (Move to top /
+   * up / down / to bottom). Renumbers `sortOrder` across the whole list so the
+   * result is stable no matter how sparse the existing values were.
+   */
+  moveProject: (id: string, to: 'top' | 'up' | 'down' | 'bottom') => void
   /** Delete a project; detaches its issues, milestones, updates and dependency links. */
   deleteProject: (id: string) => void
   /** Add `dependsOnId` as a project this project is blocked by (cycle-guarded). */
@@ -1363,6 +1369,32 @@ export const useStore = create<Store>()(
             p.id === id ? { ...p, ...patch } : p,
           ),
         })),
+
+      moveProject: (id, to) =>
+        set((s) => {
+          const ordered = [...s.projects].sort((a, b) => a.sortOrder - b.sortOrder)
+          const from = ordered.findIndex((p) => p.id === id)
+          if (from < 0) return {}
+          const target =
+            to === 'top'
+              ? 0
+              : to === 'bottom'
+                ? ordered.length - 1
+                : to === 'up'
+                  ? from - 1
+                  : from + 1
+          if (target === from || target < 0 || target >= ordered.length) return {}
+          const [moved] = ordered.splice(from, 1)
+          ordered.splice(target, 0, moved)
+          // Renumber every row so the new order survives sparse legacy values.
+          const rank = new Map(ordered.map((p, i) => [p.id, (i + 1) * 100]))
+          return {
+            projects: s.projects.map((p) => ({
+              ...p,
+              sortOrder: rank.get(p.id) ?? p.sortOrder,
+            })),
+          }
+        }),
 
       deleteProject: (id) =>
         set((s) => ({

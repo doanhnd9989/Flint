@@ -1,5 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { Fragment, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronRight,
@@ -9,10 +8,6 @@ import {
   Columns2,
   ChevronDown,
   MoreHorizontal,
-  Link2,
-  Hash,
-  Star,
-  Trash2,
   Plus,
   Activity,
 } from 'lucide-react'
@@ -37,15 +32,9 @@ import {
 } from '@/components/ProjectsDisplayMenu'
 import { ProjectsBoard } from '@/components/ProjectsBoard'
 import { ProjectsTimeline } from '@/components/ProjectsTimeline'
+import { ProjectContextMenu } from '@/components/ProjectContextMenu'
 import { formatDate, cn } from '@/lib/utils'
-import { copyToClipboard } from '@/lib/toast'
 import type { Project, ProjectHealth } from '@/lib/types'
-
-/** Full URL to a project, mirroring issueUrl() for issues. */
-function projectUrl(id: string): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  return `${origin}/project/${id}`
-}
 
 const HEALTH_LABEL: Record<ProjectHealth, string> = {
   'on-track': 'On track',
@@ -618,10 +607,11 @@ export function ProjectsView() {
         )}
       </div>
       {rowMenu && (
-        <ProjectRowMenu
+        <ProjectContextMenu
           projectId={rowMenu.id}
           x={rowMenu.x}
           y={rowMenu.y}
+          manualOrdering={orderBy === 'manual'}
           onClose={() => setRowMenu(null)}
         />
       )}
@@ -716,135 +706,6 @@ function InlineHealthEdit({
         </span>
       }
     />
-  )
-}
-
-/**
- * Per-row context menu for the Projects list — Linear's project-row actions.
- * Opened by right-click (anchored at the cursor) or the hover ⋯ button
- * (anchored under the trigger). Portal-rendered with a full-screen backdrop
- * that closes on outside click / Escape, mirroring IssueContextMenu.
- */
-function ProjectRowMenu({
-  projectId,
-  x,
-  y,
-  onClose,
-}: {
-  projectId: string
-  x: number
-  y: number
-  onClose: () => void
-}) {
-  const store = useStore()
-  const project = store.projects.find((p) => p.id === projectId)
-  const starred = store.favorites.some(
-    (f) => f.type === 'project' && f.id === projectId,
-  )
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  if (!project) return null
-
-  const MENU_W = 220
-  const left = Math.min(x, window.innerWidth - MENU_W - 8)
-  const top = Math.min(y, window.innerHeight - 180)
-
-  const rowCls =
-    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover'
-
-  function Row({
-    icon,
-    label,
-    onClick,
-    danger,
-  }: {
-    icon: ReactNode
-    label: string
-    onClick: () => void
-    danger?: boolean
-  }) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={cn(rowCls, danger && 'hover:text-[var(--priority-urgent)]')}
-      >
-        <span className="flex h-4 w-4 items-center justify-center text-faint">
-          {icon}
-        </span>
-        <span className="flex-1 truncate">{label}</span>
-      </button>
-    )
-  }
-
-  return createPortal(
-    <div
-      data-overlay
-      className="fixed inset-0 z-50"
-      onMouseDown={onClose}
-      onContextMenu={(e) => {
-        e.preventDefault()
-        onClose()
-      }}
-    >
-      <div
-        className="absolute rounded-lg border border-border bg-bg-elevated p-1 shadow-lg animate-pop"
-        style={{ top, left, width: MENU_W }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <Row
-          icon={<Link2 size={14} />}
-          label="Copy project link"
-          onClick={() => {
-            copyToClipboard(projectUrl(project.id), 'Project URL copied to clipboard')
-            onClose()
-          }}
-        />
-        <Row
-          icon={<Hash size={14} />}
-          label="Copy project ID"
-          onClick={() => {
-            copyToClipboard(project.id, `"${project.id}" copied to clipboard`)
-            onClose()
-          }}
-        />
-        <div className="my-1 h-px bg-border" />
-        <Row
-          icon={
-            <Star
-              size={14}
-              fill={starred ? 'currentColor' : 'none'}
-              className={starred ? 'text-[var(--status-started)]' : ''}
-            />
-          }
-          label={starred ? 'Unfavorite' : 'Favorite'}
-          onClick={() => {
-            store.toggleFavorite('project', project.id)
-            onClose()
-          }}
-        />
-        <div className="my-1 h-px bg-border" />
-        <Row
-          icon={<Trash2 size={14} />}
-          label="Delete project"
-          danger
-          onClick={() => {
-            if (confirm(`Delete project "${project.name}"? This cannot be undone.`)) {
-              store.deleteProject(project.id)
-            }
-            onClose()
-          }}
-        />
-      </div>
-    </div>,
-    document.body,
   )
 }
 

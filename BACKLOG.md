@@ -616,6 +616,57 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `projects-initiatives` pass (`/projects` vs Linear's `/projects/all`)
+
+Read off Linear's live projects list, read-only. The row context menu was
+rebuilt in that run (4 rows → 14); these are what is left. Full control-by-control
+table in `.audit/controls/projects-initiatives.md`.
+
+- [ ] 🔴 **Projects `Filter` opens a flat value panel, not Linear's dimension
+      menu.** Ours lists Status / Health / Lead / Initiative values directly;
+      Linear opens 20 rows (`AI filter`, `Advanced filter`, then `Status ▸`
+      `Status type ▸` `Priority ▸` `Labels ▸` `Teams ▸` `Lead ▸` `Members ▸`
+      `Creator ▸` `Health ▸` `Activity ▸` `Dates ▸` `Initiatives ▸`
+      `Milestones ▸` `Relations ▸` `Customers ▸` `Template ▸`
+      `Title & summary ▸` `Specific project ▸`), each a flyout of values. — L
+- [ ] 🔴 **`/projects` list has no column headers.** Linear renders a table:
+      `Name · Health · Priority · Lead · Target date · Issues · Status`, each
+      header a sort control (`Order by Name`, …) with an ascending/descending
+      arrow on the active one. Ours is an unheadered row list. — L
+- [ ] 🟡 **No right-hand summary panel.** Linear's projects list carries a
+      collapsible panel with `Health` / `Teams` / `Leads` tabs and a counted
+      breakdown (`On track 40`, `At risk 2`, …), toggled by a `Close sidebar`
+      button in the view bar. — M
+- [ ] 🟡 **Filter/Display sit in the top bar; Linear puts them in a second view
+      bar row** alongside an `All projects` view tab and an `Add new view` `+`.
+      Linear's top bar holds only the title and a bare `+` (aria "New project");
+      ours has a wide `New project` text button plus `Compare`. — M
+- [ ] 🟡 **Display menu is 6 display properties; Linear's is 18.** Missing:
+      Milestones, Summary, Priority, Teams, Dependencies, Start date, Created,
+      Updated, Completed, Customers, Customer revenue, Labels. Also missing
+      `Show closed projects` (All / …), the ordering direction toggle, and the
+      `Reset` · `Set default for everyone` footer. — M
+- [ ] 🟡 **`Project` has no `labelIds`, so Linear's `Labels ▸` row (P then L)
+      can't be built** in the project context menu or as a filter dimension.
+      Model change, not a UI one. — M
+- [ ] 🟡 **Project subscription is one boolean; Linear's `Subscribe ▸` is five
+      independent events** — "An issue is added to the project", "An issue is
+      marked completed or canceled", "Comments and changes to project
+      description", "A customer request is added", "New project update is
+      posted". Needs a per-event set on `Project`. — M
+- [ ] 🟢 **No project reminders.** Linear's row menu has `Remind me ▸` (⇧H) with
+      `An hour from now` / `Tomorrow` / `Next week` / `A month from now` /
+      `Custom…`, each showing the resolved moment. Only issues carry
+      `reminderAt` here. — S
+- [ ] 🟢 **`Compare` is ours only** — Linear's projects list has no such button.
+      Decide whether to keep it as a deliberate extra or drop it. — S
+- [ ] 🟢 **Property pickers open under the trigger, Linear opens them to the
+      right of the menu.** Applies to every context menu (`SelectMenu` is
+      shared with `IssueContextMenu`), so it is one change in the picker, not
+      in each menu. — M
+- [ ] 🟢 **`/projects` vs Linear's `/projects/all`.** Linear redirects the bare
+      path to a named view segment; our route has no view segment at all. — S
+
 ### From the `inbox-notifications` pass (`/inbox` vs Linear's `/inbox`)
 
 Read off Linear's live inbox, read-only. Everything cheap enough to build was

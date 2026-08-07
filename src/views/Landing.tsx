@@ -36,8 +36,9 @@ export function Landing() {
 
   const primaryCta = user ? { to: '/', label: 'Open app' } : { to: '/register', label: 'Get started' }
 
+  // w-full, not w-screen — see ApiDocs: 100vw includes the scrollbar.
   return (
-    <div className="min-h-screen w-screen overflow-x-hidden bg-bg text-fg" style={{ ['--accent' as string]: accent }}>
+    <div className="min-h-screen w-full overflow-x-hidden bg-bg text-fg" style={{ ['--accent' as string]: accent }}>
       {/* ───── Nav ───── */}
       <header className="sticky top-0 z-20 border-b border-border bg-bg/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
