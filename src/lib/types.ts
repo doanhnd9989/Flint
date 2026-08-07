@@ -76,6 +76,8 @@ export interface Team {
   estimationAllowZero?: boolean
   /** Whether cycles are enabled for this team. Optional (defaults to true). */
   cyclesEnabled?: boolean
+  /** Members subscribed to the team's activity. Absent on older workspaces. */
+  subscriberIds?: string[]
   /** Set when the team is archived; archived teams are hidden from active lists. */
   archivedAt?: string
 }
@@ -688,6 +690,7 @@ export type FavoriteType =
   | 'document'
   | 'customer'
   | 'release'
+  | 'team'
 
 export interface Favorite {
   type: FavoriteType

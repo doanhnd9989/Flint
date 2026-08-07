@@ -22,12 +22,17 @@ import {
   LogOut,
   KeyRound,
   UserPlus,
+  Monitor,
+  ArrowLeftRight,
+  Check,
 } from 'lucide-react'
-import { type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { useAuth, useFeature } from '@/lib/auth'
 import { orderedSidebarItems, type SidebarItemDef } from '@/lib/constants'
+import type { Team } from '@/lib/types'
 import { sidebarItemIcon } from './sidebarIcons'
+import { TeamContextMenu } from './TeamContextMenu'
 
 /** GitHub octocat mark (lucide dropped brand icons) — matches Linear's row. */
 function GithubMark({ size = 15 }: { size?: number }) {
@@ -66,25 +71,66 @@ function MenuRow({
   )
 }
 
+/**
+ * "Switch workspace ▸" in the workspace menu — a hover flyout listing every
+ * workspace with a check beside the current one, then Linear's "Create or join
+ * a workspace" at the foot. This build is single-workspace, so the list has one
+ * entry; the shape is Linear's so a second workspace slots straight in.
+ */
+function SwitchWorkspaceRow() {
+  const workspaceName = useStore((s) => s.workspaceName)
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <span className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover">
+        <ArrowLeftRight size={14} className="text-faint" />
+        <span className="flex-1 truncate">Switch workspace</span>
+        <span className="text-[11px] text-faint">O then W</span>
+      </span>
+      {open && (
+        <div className="absolute left-full top-0 ml-1 w-[220px] rounded-lg border border-border bg-bg-elevated p-1 shadow-lg">
+          <span className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-fg hover:bg-bg-hover">
+            <span className="flex h-4 w-4 items-center justify-center rounded bg-accent text-[10px] font-bold text-white">
+              {workspaceName.slice(0, 1)}
+            </span>
+            <span className="flex-1 truncate">{workspaceName}</span>
+            <Check size={13} className="text-faint" />
+          </span>
+          <div className="my-1 h-px bg-border" />
+          <span className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted hover:bg-bg-hover">
+            <Plus size={14} className="text-faint" />
+            <span className="flex-1 truncate">Create or join a workspace</span>
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Item({
   to,
   icon,
   label,
   badge,
   onClick,
+  indent,
 }: {
   to?: string
   icon: ReactNode
   label: string
   badge?: number
   onClick?: () => void
+  /** Nested one level under a team, the way Linear indents a team's rows. */
+  indent?: boolean
 }) {
   // Preferences → "Show counts in sidebar" (defaults on for older workspaces).
   const showCounts = useStore((s) => s.preferences.showSidebarCounts !== false)
   // Customize sidebar → "Default badge style": a count chip or a plain dot.
   const badgeStyle = useStore((s) => s.sidebarPrefs.badgeStyle)
-  const base =
-    'flex items-center gap-2 rounded-md px-2 py-1 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors w-full'
+  const base = cn(
+    'flex items-center gap-2 rounded-md py-1 pr-2 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors w-full',
+    indent ? 'pl-[25px]' : 'pl-2',
+  )
   const inner = (
     <>
       <span className="flex h-4 w-4 items-center justify-center text-faint">
@@ -131,20 +177,26 @@ function FlagItem({
   to: string
   icon: ReactNode
   label: string
+  indent?: boolean
 }) {
   const enabled = useFeature(flag)
   if (!enabled) return null
   return <Item {...props} />
 }
 
-/** An indented child row (Linear nests Current / Upcoming under Cycles). */
+/**
+ * An indented child row (Linear nests Current / Upcoming under Cycles). It has
+ * no icon, so its padding is the indented row's plus the icon column (16px) and
+ * gap (8px) — that lands the label on the same x as its icon-bearing siblings,
+ * which is how Linear aligns them.
+ */
 function SubItem({ to, label }: { to: string; label: string }) {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
         cn(
-          'flex items-center rounded-md py-1 pl-8 pr-2 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors',
+          'flex items-center rounded-md py-1 pl-[49px] pr-2 text-[13px] text-muted hover:bg-bg-hover hover:text-fg transition-colors',
           isActive && 'bg-bg-selected text-fg font-medium',
         )
       }
@@ -292,18 +344,70 @@ function Section({
   const open = !collapsed.includes(sectionKey)
   return (
     <div className="mt-4">
+      {/* Linear's section header: sentence case, and the caret sits *after* the
+          label, appearing on hover — not as a leading chevron. */}
       <button
         type="button"
         onClick={() => toggle(sectionKey)}
-        className="flex w-full items-center gap-1 px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-faint hover:text-muted"
+        className="group flex w-full items-center gap-1 py-1 pl-[13px] pr-1 text-[12px] font-medium text-faint hover:text-muted"
       >
+        {title}
         <ChevronDown
           size={12}
-          className={cn('transition-transform', !open && '-rotate-90')}
+          className={cn(
+            'transition-transform opacity-0 group-hover:opacity-100',
+            !open && '-rotate-90 opacity-100',
+          )}
         />
-        {title}
       </button>
       {open && <div className="mt-0.5 space-y-px">{children}</div>}
+    </div>
+  )
+}
+
+/**
+ * One team in the sidebar's "Your teams" section. Unlike a Section header the
+ * team is a full row — icon, name in sentence case, caret on hover — and its
+ * children are indented one level under it, as Linear nests them.
+ */
+function TeamGroup({ team, children }: { team: Team; children: ReactNode }) {
+  const collapsed = useStore((s) => s.collapsedSidebarSections)
+  const toggle = useStore((s) => s.toggleSidebarSection)
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const key = `team:${team.id}`
+  const open = !collapsed.includes(key)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => toggle(key)}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setMenu({ x: e.clientX, y: e.clientY })
+        }}
+        className="group flex w-full items-center gap-2 rounded-md px-2 py-1 text-[13px] font-medium text-fg hover:bg-bg-hover"
+      >
+        <span className="flex h-4 w-4 items-center justify-center text-[13px]">
+          {team.icon}
+        </span>
+        <span className="flex-1 truncate text-left">{team.name}</span>
+        <ChevronDown
+          size={12}
+          className={cn(
+            'text-faint transition-transform opacity-0 group-hover:opacity-100',
+            !open && '-rotate-90 opacity-100',
+          )}
+        />
+      </button>
+      {open && <div className="mt-px space-y-px">{children}</div>}
+      {menu && (
+        <TeamContextMenu
+          teamId={team.id}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   )
 }
@@ -390,6 +494,10 @@ export function Sidebar() {
         const p = projects.find((x) => x.id === f.id)
         return p ? { to: `/project/${p.id}`, icon: <span className="text-[13px]">{p.icon}</span>, label: p.name } : null
       }
+      if (f.type === 'team') {
+        const t = teams.find((x) => x.id === f.id)
+        return t ? { to: `/team/${t.key}/active`, icon: <span className="text-[13px]">{t.icon}</span>, label: t.name } : null
+      }
       const v = savedViews.find((x) => x.id === f.id)
       return v ? { to: `/view/${v.id}`, icon: <LayersIcon size={15} />, label: v.name } : null
     })
@@ -437,9 +545,10 @@ export function Sidebar() {
             }
           >
             {(close) => (
-              // Linear's workspace menu: Settings, member management, then Log
-              // out at the bottom. It deliberately does not list teams — those
-              // live in the sidebar body below.
+              // Linear's workspace menu, in its exact order and grouping:
+              // Settings · Invite and manage members / Download desktop app /
+              // Switch workspace ▸ · Log out. It deliberately does not list
+              // teams — those live in the sidebar body below.
               <div>
                 <MenuRow
                   icon={<Settings size={14} className="text-faint" />}
@@ -459,6 +568,16 @@ export function Sidebar() {
                   }}
                 />
                 <div className="my-1 h-px bg-border" />
+                <MenuRow
+                  icon={<Monitor size={14} className="text-faint" />}
+                  label="Download desktop app"
+                  onClick={() => {
+                    close()
+                    navigate('/releases')
+                  }}
+                />
+                <div className="my-1 h-px bg-border" />
+                <SwitchWorkspaceRow />
                 <MenuRow
                   icon={<LogOut size={14} className="text-faint" />}
                   label="Log out"
@@ -541,49 +660,59 @@ export function Sidebar() {
           <MoreMenu hidden={hiddenItems} />
         </Section>
 
-        {teams.map((team) => (
-          <Section key={team.id} title={team.name} sectionKey={`team:${team.id}`}>
-            <Item
-              to={`/team/${team.key}/overview`}
-              icon={<Home size={15} />}
-              label="Home"
-            />
-            <Item
-              to={`/team/${team.key}/triage`}
-              icon={<Ticket size={15} />}
-              label="Triage"
-              badge={issues.filter((i) => i.teamId === team.id && i.triage && !i.archivedAt).length}
-            />
-            <Item
-              to={`/team/${team.key}/active`}
-              icon={<Layers3 size={15} />}
-              label="Issues"
-            />
-            {(team.cyclesEnabled ?? true) && (
-              <>
-                <FlagItem
-                  flag="cycles"
-                  to={`/team/${team.key}/cycles`}
-                  icon={<IterationCw size={15} />}
-                  label="Cycles"
-                />
-                {/* Linear nests Current / Upcoming under a team's Cycles. */}
-                <SubItem to={`/team/${team.key}/cycle/current`} label="Current" />
-                <SubItem to={`/team/${team.key}/cycle/upcoming`} label="Upcoming" />
-              </>
-            )}
-            <Item
-              to={`/team/${team.key}/projects`}
-              icon={<FolderKanban size={15} />}
-              label="Projects"
-            />
-            <Item
-              to={`/team/${team.key}/views`}
-              icon={<LayersIcon size={15} />}
-              label="Views"
-            />
-          </Section>
-        ))}
+        {/* Linear groups every team under one "Your teams" header, with each
+            team a row of its own rather than another section header. */}
+        <Section title="Your teams" sectionKey="teams">
+          {teams.map((team) => (
+            <TeamGroup key={team.id} team={team}>
+              <Item
+                indent
+                to={`/team/${team.key}/overview`}
+                icon={<Home size={15} />}
+                label="Home"
+              />
+              <Item
+                indent
+                to={`/team/${team.key}/triage`}
+                icon={<Ticket size={15} />}
+                label="Triage"
+                badge={issues.filter((i) => i.teamId === team.id && i.triage && !i.archivedAt).length}
+              />
+              <Item
+                indent
+                to={`/team/${team.key}/active`}
+                icon={<Layers3 size={15} />}
+                label="Issues"
+              />
+              {(team.cyclesEnabled ?? true) && (
+                <>
+                  <FlagItem
+                    flag="cycles"
+                    indent
+                    to={`/team/${team.key}/cycles`}
+                    icon={<IterationCw size={15} />}
+                    label="Cycles"
+                  />
+                  {/* Linear nests Current / Upcoming under a team's Cycles. */}
+                  <SubItem to={`/team/${team.key}/cycle/current`} label="Current" />
+                  <SubItem to={`/team/${team.key}/cycle/upcoming`} label="Upcoming" />
+                </>
+              )}
+              <Item
+                indent
+                to={`/team/${team.key}/projects`}
+                icon={<FolderKanban size={15} />}
+                label="Projects"
+              />
+              <Item
+                indent
+                to={`/team/${team.key}/views`}
+                icon={<LayersIcon size={15} />}
+                label="Views"
+              />
+            </TeamGroup>
+          ))}
+        </Section>
 
         {trySteps.length > 0 && (
           <Section title="Try" sectionKey="try">

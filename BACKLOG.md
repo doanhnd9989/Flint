@@ -616,11 +616,22 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
-- [ ] 🟢 **Workspace menu is missing "Switch workspace"** — Linear's has it with
-  an `O then W` chord and a submenu of the user's workspaces. We model a single
-  workspace, so this needs a workspace concept before the row means anything.
-- [ ] 🟢 **Workspace menu is missing "Download desktop app"** — Linear's third
-  row. Left out rather than shipped as a dead button; there is no desktop build.
+- [x] 🟢 **Workspace menu is missing "Switch workspace"** — shipped with the
+  `O then W` hint and Linear's flyout shape: the workspace list with a check on
+  the current one, then "Create or join a workspace". One entry today, but the
+  shape is Linear's so a second workspace slots straight in.
+- [x] 🟢 **Workspace menu is missing "Download desktop app"** — shipped in
+  Linear's position (its own group between the member rows and Switch
+  workspace); it points at `/releases` rather than being a dead button.
+- [ ] 🟡 **Sidebar has no resize handle** — Linear's sidebar drags to any width
+  (the reference workspace sits at 330px); ours is a fixed `w-60`. Needs a drag
+  handle on the right border plus a persisted width.
+- [ ] 🟡 **Linear's `Reviews` and `Agent` top-level rows** — two rows above the
+  Workspace section that we have no equivalent for. Both are whole features, not
+  just rows.
+- [ ] 🟢 **Context menus on the other sidebar rows** — the team row now has
+  Linear's; `Views`, `Projects` and a favourite row still open nothing on
+  right-click. Not yet inventoried against Linear.
 - [ ] 🟡 **Filter dimensions Linear has that we don't** — Relations, Links,
   Template, Added to cycle, Customers, Auto-closed. Our data model already
   backs most of these.

@@ -3387,3 +3387,52 @@ Linear's dialog — name, an identifier derived from the name but editable
 switch. Creating drops you into the new team, as Linear does.
 
 `tsc -b ✅ · build ✅ · create-team verified end to end, no console errors`
+
+## The sidebar, control by control
+
+First run of the new crawl protocol against a real Linear workspace, and the
+rotation wrapped back to area 1. Two things were red before the comparison even
+started. `BulkActionBar` called `useState` **after** `if (count === 0) return
+null` — a hook behind an early return, so the first time you selected a row
+React was asked to render more hooks than the previous pass. It never surfaced
+in the sweep because the sweep never selects anything. The hook moved above the
+bail-out. `store.ts` also had four omit-by-destructuring keys with no matching
+`void`, which is what the lint rule was actually complaining about.
+
+Then the sidebar. Pressing every control and reading Linear's beside it found
+gaps that months of looking at screenshots did not:
+
+- **A team row opened nothing on right-click.** Linear's has seven items in
+  four groups. That is a dead control, not a gap, so `TeamContextMenu` shipped
+  this run — Favorite `⌥F`, Team settings, Copy URL `⌘⇧,`, Open archive, a
+  Subscribe flyout, Slack notifications, and `Leave team…` greyed out the way
+  Linear greys it rather than hiding it.
+- **Teams had no grouping header.** Linear puts every team under one
+  `Your teams ▾`, a sibling of `Workspace ▾`. We went straight from the
+  workspace rows to a team name with nothing between them.
+- **Every team was a section header, not a row.** Ours rendered `CLAUDE TEST
+  APP` — uppercase, 11px, faint. Linear renders `VC Squad`: a real row, team
+  icon, sentence case, 13px, caret on hover. `TeamGroup` replaces it.
+- **Nothing under a team was indented.** Measuring text-left rather than
+  eyeballing: Linear puts team children at x=57 and top-level rows at x=40.
+  Ours had both at 40, so the tree was flat. The nicest detail is `Current` /
+  `Upcoming` — they carry no icon, and Linear pads them so their *labels* line
+  up with their icon-bearing siblings' labels, not with their siblings' icons.
+  Both now land on 57, to the pixel.
+- **The workspace menu was two rows short.** Linear's is Settings · Invite and
+  manage members / Download desktop app / Switch workspace `O then W` ▸ · Log
+  out — five rows in three groups. Ours had three. Both missing rows were
+  already sitting in the backlog as "needs a workspace concept first"; the
+  flyout shape works fine with one workspace and a check beside it.
+
+Measuring instead of comparing screenshots is what made this run different.
+`textLeft` on both apps turned "the nesting looks a bit flat" into three exact
+numbers, and every one of them now matches.
+
+Also worth recording: the crawler's own indices drift the moment a press
+navigates, so a `sweep(0,8)` after a navigation presses the wrong controls and
+reports them all as inert. Pressing by label instead of index is the reliable
+way to drive it.
+
+`tsc -b ✅ · build ✅ · 10 routes console-clean, no overflow at 900px, dark, or
+font-scale 1.6 · lint 118 → 115 with both real errors gone`

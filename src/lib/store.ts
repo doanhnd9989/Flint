@@ -309,6 +309,8 @@ export interface Store extends WorkspaceData, UIState {
   setTeamCyclesEnabled: (teamId: string, enabled: boolean) => void
   /** Update a team's general settings (name / color / timezone / privacy). */
   updateTeam: (teamId: string, patch: Partial<Pick<Team, 'name' | 'color' | 'icon' | 'timezone' | 'private'>>) => void
+  /** Subscribe/unsubscribe the current user to a team's activity. */
+  toggleTeamSubscription: (teamId: string) => void
   /** Creates a team, deriving a unique identifier from the name if none given. */
   createTeam: (
     name: string,
@@ -1744,6 +1746,21 @@ export const useStore = create<Store>()(
           teams: s.teams.map((t) => (t.id === teamId ? { ...t, ...patch } : t)),
         })),
 
+      toggleTeamSubscription: (teamId) =>
+        set((s) => ({
+          teams: s.teams.map((t) => {
+            if (t.id !== teamId) return t
+            // Absent on workspaces saved before teams carried subscribers.
+            const subs = t.subscriberIds ?? []
+            return {
+              ...t,
+              subscriberIds: subs.includes(s.currentUserId)
+                ? subs.filter((id) => id !== s.currentUserId)
+                : [...subs, s.currentUserId],
+            }
+          }),
+        })),
+
       createTeam: (name, opts) => {
         const trimmed = name.trim() || 'New team'
         // Linear derives the identifier from the name and keeps it unique —
@@ -2763,6 +2780,10 @@ export const useStore = create<Store>()(
         void _pu
         void _cs
         void _c
+        void _cmi
+        void _cmp
+        void _rp
+        void _cto
         void _cr
         void _crp
         void _ci

@@ -52,6 +52,9 @@ export function BulkActionBar() {
   const fmt = useDisplayName()
   const ids = selectedIssueIds
   const count = ids.length
+  // Must sit above the `count === 0` bail-out — a hook after an early return
+  // changes hook order the moment the bar appears.
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     if (count === 0) return
@@ -102,7 +105,6 @@ export function BulkActionBar() {
     return iss?.subscriberIds.includes(currentUserId)
   })
   const allFavorited = ids.every((id) => favorites.some((f) => f.type === 'issue' && f.id === id))
-  const [confirmDelete, setConfirmDelete] = useState(false)
 
   return createPortal(
     <>
