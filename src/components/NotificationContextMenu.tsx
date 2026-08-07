@@ -21,13 +21,16 @@ import {
   X,
 } from 'lucide-react'
 import { DatePicker } from '@/components/DatePicker'
+import { morning, stamp } from '@/lib/dateOptions'
 import { useStore } from '@/lib/store'
 import { copyToClipboard, copyToast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import type { Notification } from '@/lib/types'
 
 const MENU_W = 232
-const SUB_W = 248
+// Same snooze flyout as Triage's, and it needs the same room: at 248 both
+// "An hour from now" and its stamp were clipped.
+const SUB_W = 280
 
 const rowCls =
   'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover'
@@ -111,25 +114,6 @@ function Flyout({
       )}
     </div>
   )
-}
-
-/**
- * Linear renders a snooze preset's resolved moment on the right of the row
- * ("Sat, 8 Aug, 9:00"). Same shape here — day-first, short month, 24h clock.
- */
-function stamp(d: Date) {
-  const day = d.toLocaleDateString('en-US', { weekday: 'short' })
-  // en-US keeps September as "Sep"; en-GB renders "Sept", which Linear doesn't.
-  const month = d.toLocaleDateString('en-US', { month: 'short' })
-  return `${day}, ${d.getDate()} ${month}, ${d.getHours()}:${String(
-    d.getMinutes(),
-  ).padStart(2, '0')}`
-}
-
-/** 9am on the given day — Linear's snooze presets all land on the morning. */
-function morning(d: Date) {
-  d.setHours(9, 0, 0, 0)
-  return d
 }
 
 /**

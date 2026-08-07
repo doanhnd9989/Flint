@@ -616,6 +616,45 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `triage-and-intake` pass (`/team/:key/triage` vs Linear's)
+
+Read off Linear's live triage queue, read-only. The row context menu, the
+snooze flyout, `Show snoozed`, the ordering wording and the `1`/`2`/`3`
+shortcuts were built in that run; these are what is left. Full control-by-control
+table in `.audit/controls/triage-and-intake.md`.
+
+- [ ] 🔴 **The triage screen is the wrong shape.** Linear's Triage is a
+      **two-pane split**: a ~280px left list of compact two-line rows (title,
+      identifier, requester avatar + email, age, priority icon) and a right
+      pane holding the **full issue detail view** — description, property rail
+      (`Triage` status, `Set priority`, requester, `Set estimate`,
+      `Add to cycle`, `Add label`, `Project`) — with `Accept` · `Decline` ·
+      `Mark as duplicate` · `Snooze` as four top-level buttons in that pane's
+      header. Ours is a single centred column of large cards, each carrying its
+      own `Accept` / `Decline` / ⋯. Same class as the cycle-detail item above.
+      Large.
+- [ ] 🟠 **Triage has no Filter menu.** Linear's triage header carries the full
+      `Add filter` menu — 21 rows: AI filter · Advanced filter · Assignee ·
+      Agent · Agent Session · Creator · Priority · Estimate · Labels ·
+      Relations · Suggested label · Dates · Project · Project properties ·
+      Cycle · Added to cycle · Customers · Subscribers · External source ·
+      Auto-closed · Content · Links · Template. Ours has a single
+      `All priorities ▾` select. Medium — the filter machinery already exists
+      on the issue list; this is wiring it to the triage queue.
+- [ ] 🟡 **Triage header has no `Add to favorites` star.** Linear puts one
+      immediately right of the `Triage` title. Needs a team-scoped view
+      favorite type we don't model — same blocker as the Cycles page star.
+      Small.
+- [ ] 🟡 **No `Create triage issue` action.** Linear's empty right pane offers
+      `+ Create triage issue`, which files an issue straight into the queue.
+      Ours has no way to put an issue into triage from the UI at all. Small.
+- [ ] 🟢 **Snooze has no natural-language input.** Linear's snooze surface is a
+      command palette: the issue identifier as a header, then an input hinted
+      `Try: 4 pm, 2 days, in 5 weeks…` above the six presets. Ours has the six
+      presets and `Custom…`'s date picker but no free-text parse. Small.
+- [ ] 🟢 **Display options has no `Display properties` row.** Linear's triage
+      Display menu ends with toggle chips `ID` and `Due date`. Small.
+
 ### From the `cycles` pass (`/team/:key/cycles` + `/cycle/:ref` vs Linear's)
 
 Read off Linear's live cycles list and cycle detail, read-only. The cycle row

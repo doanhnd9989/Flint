@@ -4036,3 +4036,99 @@ round-tripped through the store into a live sidebar row · checked at dark +
 --font-scale 1.4 (no clipped rows) and at a 420px viewport (menu 8→266,
 flyout clamped to 12→278, no h-scroll) · lint 106, unchanged, none in the
 files touched`
+
+## `triage-and-intake` — the queue rows had no right-click, and Snooze offered three of Linear's six
+
+Rotation area #11. Ours `/team/ENG/triage` against Linear's
+`/team/VC/triage`, control by control rather than by eye. The URL shape was
+already right — `/team/:key/triage` on both sides — but the two screens are not
+the same screen.
+
+**The queue needed volume before any of this was visible.** `buildSeed()` makes
+exactly two triage issues and both had been accepted away by earlier passes, so
+Triage rendered its empty state. `seed-bulk.mjs` can't reach the flag (it writes
+through GraphQL; the triage bit lives in the workspace document), and editing
+`localStorage` is pointless — `hydrateWorkspace()` overwrites it from the server
+on every boot. Flagging 14 issues per team through `PUT /api/workspace` was the
+only route that stuck. Worth remembering the next time a screen looks empty.
+
+**The finding that mattered: triage rows had no context menu at all.** Linear's
+is five rows with shortcut hints — `Accept… 1` · `Decline… 2` ·
+`Mark as duplicate… 3` · — · `Snooze H ▸` · `Copy URL ⌘⇧,`. Ours had a ⋯
+popover with three rows and nothing on right-click. New `TriageContextMenu`
+serves both now, so the two can't drift; `Move to team ▸` stays as ours-only
+below the divider, because re-homing a mis-filed report is the commonest thing
+done to a row here.
+
+**Snooze was less than half of Linear's.** Ours: `Later today` / `Tomorrow` /
+`Next week`, bare labels. Linear's: `An hour from now` · `Tomorrow` ·
+`Next week` · `A month from now` · `Next cycle` · `Custom…`, each with its
+resolved moment on the right. The inbox pass had already built exactly that
+flyout and left it sitting in `NotificationContextMenu` — so `stamp()`,
+`morning()` and the four fixed presets moved into `lib/dateOptions.ts` (which
+exists to stop precisely this drift) and both menus now read from one list. The
+stamps come out identical to Linear's to the minute: `Tomorrow → Sun, 9 Aug,
+9:00`, `Next week → Mon, 10 Aug, 9:00`, `A month from now → Tue, 8 Sep, 9:00`.
+`Next cycle` greys out when the team has nothing upcoming, as Linear's does —
+verified on ENG, which has none.
+
+**Snoozing was a one-way door.** A snoozed issue left the queue with no way
+back — it read as deleted. Linear's Display menu has a `Show snoozed` switch, so
+ours does too, and the header's Display control is now the one thing that stays
+visible on an empty queue: hiding it when everything is snoozed would strand
+you. Snoozed rows carry their wake date as a badge, which is the only thing
+telling them apart.
+
+**Ordering was renamed rather than invented.** Ours said
+`Newest / Oldest / Priority high→low` in a standalone sort select; Linear says
+`Added to triage ✓ / Priority / Due date` inside `Display options ▸ Ordering`.
+Adopted Linear's three, its wording, and its home.
+
+**Keyboard.** Linear binds `1` accept, `2` decline, `3` mark as duplicate, `H`
+snooze. We had `A`/`D`/`H`. Added `1`/`2`/`3` alongside the mnemonics rather
+than instead of them, and updated the on-screen hint row. All four driven and
+read back: `1` took the queue 13→12, `2` 12→11, `j` then `H` snoozed the
+*second* card and left the head alone.
+
+**Two bugs found while verifying, both fixed.** The snooze flyout clipped
+`An hour from now` and `A month from now` against their stamps at `SUB_W = 248`
+— it needed 280, and the inbox's identical flyout had been clipping the same
+two rows since that pass. And the new snooze badge squeezed the identifier until
+`ENG–14` broke across two lines; `shrink-0` on everything except the title.
+
+**Deliberately not Linear.** `Speedrun` (ours only, kept) and `Move to team ▸`
+(Linear does this from the issue's own ⋯). The header breadcrumb keeps the team
+name; Linear's says only `Triage`.
+
+**The big one is logged, not built.** Linear's Triage is a two-pane split — a
+narrow list on the left, the *full issue detail view* on the right with
+`Accept` · `Decline` · `Mark as duplicate` · `Snooze` as four header buttons.
+Ours is a centred column of cards. Same class as the cycle-detail rewrite, too
+big to land safely in one pass; filed 🔴 with the full control table in
+`.audit/controls/triage-and-intake.md`, along with the missing 21-entry filter
+menu, the favorites star, `Create triage issue`, and the natural-language
+snooze input.
+
+**Linear stayed read-only.** Only the display menu, the ordering select, the
+filter menu, a row's right-click menu and its snooze flyout were opened and
+dismissed by clicking blank space; nothing was selected, typed, submitted or
+created. What Linear's `Accept` / `Decline` / `Mark as duplicate` actually *do*
+is recorded as unverified, because learning it would have meant mutating the
+user's real workspace.
+
+**A note on the tooling.** The first control-crawl pass reported every menu as
+"nothing visible changed" and the SelectMenu positioned at `-313px`. Both were
+the same artifact: the preview tab hadn't rendered, so `window.innerWidth` and
+`innerHeight` were `0` and every `getBoundingClientRect()` was garbage. Forcing
+a screenshot first makes the measurements real. The crawl also can't dismiss our
+menus — `SelectMenu` and `Popover` close on `mousedown`, which a synthetic
+`.click()` never fires — so the harness has to dispatch one itself.
+
+`tsc -b ✅ · build ✅ · 30-route sweep console-clean, zero horizontal overflow,
+no empty renders · both menus and the snooze flyout driven and read back ·
+snooze round-tripped out of the queue and back via `Show snoozed` · Inbox
+context menu re-verified after the shared-helper move · checked at dark +
+--font-scale 1.4 (no clipped rows, menu fully on screen) and at a 420px viewport
+(menu clamped 8→240, flyout 12→286, document scrollWidth 420) · lint 106,
+exactly the baseline — the one purity error this run introduced was removed by
+folding the snooze test into the queue's own pass rather than relocating it`

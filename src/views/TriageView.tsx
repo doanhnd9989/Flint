@@ -1,22 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
-  ArrowDownUp,
   Check,
   ChevronDown,
   ChevronRight,
   Clock,
-  Copy,
   Inbox,
   IterationCw,
   MoreHorizontal,
-  MoveRight,
+  SlidersHorizontal,
   X,
   Zap,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { cycleState } from '@/lib/selectors'
-import { timeAgo } from '@/lib/utils'
+import { formatDate, timeAgo } from '@/lib/utils'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CheckIllustration } from '@/components/EmptyState'
 import { StatusIcon } from '@/components/StatusIcon'
@@ -26,60 +24,33 @@ import { LabelDot } from '@/components/LabelChip'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { Popover } from '@/components/ui/Popover'
+import { Toggle } from '@/components/ui/Toggle'
+import { TriageContextMenu } from '@/components/TriageContextMenu'
 import {
   StatusPicker,
   PriorityPicker,
   AssigneePicker,
   LabelPicker,
 } from '@/components/pickers'
+import { snoozePresets } from '@/lib/dateOptions'
 import { PRIORITY_LABELS, PRIORITY_ORDER, PRIORITY_SORT } from '@/lib/constants'
 import type { Priority } from '@/lib/types'
 
 const chip =
   'flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover'
 
-/** Ordering options for the Triage queue (local-only). */
-type SortKey = 'newest' | 'oldest' | 'priority'
+/**
+ * Ordering options for the Triage queue, in Linear's Display menu wording and
+ * order. `Added to triage` is Linear's default and means newest-first — the
+ * moment an issue entered the queue.
+ */
+type SortKey = 'added' | 'priority' | 'due'
 const SORT_LABELS: Record<SortKey, string> = {
-  newest: 'Newest',
-  oldest: 'Oldest',
-  priority: 'Priority high→low',
+  added: 'Added to triage',
+  priority: 'Priority',
+  due: 'Due date',
 }
-
-/** Snooze presets — each resolves to an ISO timestamp relative to now. Snoozing
- * sets issue.snoozedUntil, which hides the card from active lists and pulls it
- * out of the immediate triage focus until the chosen moment. */
-const SNOOZE_PRESETS: { id: string; label: string; resolve: () => string }[] = [
-  {
-    id: 'later',
-    label: 'Later today',
-    resolve: () => {
-      const d = new Date()
-      d.setHours(d.getHours() + 4, 0, 0, 0)
-      return d.toISOString()
-    },
-  },
-  {
-    id: 'tomorrow',
-    label: 'Tomorrow',
-    resolve: () => {
-      const d = new Date()
-      d.setDate(d.getDate() + 1)
-      d.setHours(9, 0, 0, 0)
-      return d.toISOString()
-    },
-  },
-  {
-    id: 'next-week',
-    label: 'Next week',
-    resolve: () => {
-      const d = new Date()
-      d.setDate(d.getDate() + 7)
-      d.setHours(9, 0, 0, 0)
-      return d.toISOString()
-    },
-  },
-]
+const SORT_ORDER: SortKey[] = ['added', 'priority', 'due']
 
 export function TriageView() {
   const { teamKey } = useParams()
@@ -100,25 +71,34 @@ export function TriageView() {
     [store.cycles, team.id],
   )
 
-  // Local-only header controls: a priority filter ('all' or a Priority value)
-  // and a sort order. They compose — filter narrows, then sort orders.
+  // Local-only header controls: a priority filter ('all' or a Priority value),
+  // a sort order, and Linear's `Show snoozed`. They compose — filter narrows,
+  // then sort orders.
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
-  const [sort, setSort] = useState<SortKey>('newest')
+  const [sort, setSort] = useState<SortKey>('added')
+  // Snoozing hides a card until its moment arrives. Without a way back it looks
+  // like the issue was deleted, so Linear puts a `Show snoozed` switch in the
+  // Display menu; off by default, exactly as there.
+  const [showSnoozed, setShowSnoozed] = useState(false)
 
-  // The full triage queue for this team (also the count shown in the header).
-  const allQueue = useMemo(
-    () =>
-      store.issues.filter(
-        (i) =>
-          i.teamId === team.id &&
-          i.triage &&
-          !i.archivedAt &&
-          // Snoozed issues (snoozedUntil still in the future) drop out of the
-          // immediate triage focus until the snooze elapses — like active lists.
-          !(i.snoozedUntil && new Date(i.snoozedUntil).getTime() > Date.now()),
-      ),
-    [store.issues, team.id],
-  )
+  // The full triage queue for this team (also the count shown in the header),
+  // plus the ids that are snoozed *right now*. Both come out of one pass so the
+  // list and the row badge can never disagree about what "snoozed" means, and
+  // so "now" is read once per recompute rather than once per rendered row.
+  const { allQueue, snoozedIds } = useMemo(() => {
+    const now = Date.now()
+    const snoozed = new Set<string>()
+    const rows = store.issues.filter((i) => {
+      if (i.teamId !== team.id || !i.triage || i.archivedAt) return false
+      const isSnoozed =
+        !!i.snoozedUntil && new Date(i.snoozedUntil).getTime() > now
+      if (isSnoozed) snoozed.add(i.id)
+      // Snoozed issues drop out of the immediate triage focus until the snooze
+      // elapses — like active lists — unless `Show snoozed` is on.
+      return showSnoozed || !isSnoozed
+    })
+    return { allQueue: rows, snoozedIds: snoozed }
+  }, [store.issues, team.id, showSnoozed])
 
   // Apply the priority filter, then the chosen sort order.
   const queue = useMemo(() => {
@@ -129,8 +109,9 @@ export function TriageView() {
     const sorted = [...filtered]
     if (sort === 'priority') {
       sorted.sort((a, b) => PRIORITY_SORT[a.priority] - PRIORITY_SORT[b.priority])
-    } else if (sort === 'oldest') {
-      sorted.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    } else if (sort === 'due') {
+      // Issues without a due date sort last, as they do everywhere else.
+      sorted.sort((a, b) => (a.dueDate ?? '￿').localeCompare(b.dueDate ?? '￿'))
     } else {
       sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     }
@@ -154,6 +135,16 @@ export function TriageView() {
   )
   // The archive section starts collapsed — it's a reference, not the focus.
   const [archiveOpen, setArchiveOpen] = useState(false)
+
+  // Right-click (and the card's ⋯) open the same menu, at a point. Linear's
+  // triage rows carry a full context menu; ours had none at all.
+  const [menu, setMenu] = useState<{
+    id: string
+    x: number
+    y: number
+    /** Stamped here, in the handler, so the menu itself stays pure. */
+    nowMs: number
+  } | null>(null)
 
   // ── Keyboard-driven queue navigation (Linear's signature Triage workflow) ──
   // A single "active" card is highlighted; j/k (or arrows) move it, Enter opens
@@ -300,19 +291,34 @@ export function TriageView() {
       store.setPeek(cur.id)
       return
     }
-    // Accept — A acts on the whole selection when one exists, otherwise on the
-    // active card (which leaves the queue, so the cursor lands on the next one).
-    if (e.code === 'KeyA') {
+    // Accept — Linear binds this to `1`; `A` stays as the mnemonic this app
+    // shipped with. Acts on the whole selection when one exists, otherwise on
+    // the active card (which leaves the queue, so the cursor lands on the next).
+    if (e.code === 'KeyA' || e.key === '1') {
       own()
       if (selected.size) acceptSelected()
       else if (cur) store.acceptTriage(cur.id)
       return
     }
-    // Decline (D / ⌫) — same selection-aware behaviour as Accept.
-    if (e.code === 'KeyD' || e.key === 'Backspace' || e.key === 'Delete') {
+    // Decline — `2` in Linear; `D` / ⌫ keep working. Same selection awareness.
+    if (
+      e.code === 'KeyD' ||
+      e.key === '2' ||
+      e.key === 'Backspace' ||
+      e.key === 'Delete'
+    ) {
       own()
       if (selected.size) declineSelected()
       else if (cur) store.declineTriage(cur.id)
+      return
+    }
+    // Mark as duplicate (`3`) — opens the relation picker on the active card.
+    // Bulk has no meaning here (a duplicate points at one issue), so this one
+    // always acts on the cursor.
+    if (e.key === '3') {
+      if (!cur) return
+      own()
+      store.openRelationPicker(cur.id, 'duplicateOf')
       return
     }
     // Snooze (H) — push the issue out of triage focus until tomorrow (Linear's
@@ -320,7 +326,8 @@ export function TriageView() {
     // active card, which leaves the queue so the cursor lands on the next one.
     if (e.code === 'KeyH') {
       own()
-      const iso = SNOOZE_PRESETS[1].resolve()
+      // presets[1] is `Tomorrow` — Linear's default when H is pressed bare.
+      const iso = snoozePresets()[1].at.toISOString()
       if (selected.size) {
         selectedIssues.forEach((i) => snoozeIssue(i.id, iso))
         setSelected(new Set())
@@ -390,32 +397,15 @@ export function TriageView() {
     [priorityFilter],
   )
 
-  // Sort options, in menu order.
+  // Ordering options, in Linear's Display-menu order.
   const sortOptions = useMemo<SelectOption[]>(
     () =>
-      (['newest', 'oldest', 'priority'] as SortKey[]).map((k) => ({
+      SORT_ORDER.map((k) => ({
         id: k,
         label: SORT_LABELS[k],
         selected: sort === k,
       })),
     [sort],
-  )
-
-  // "Move to team" targets — every other team, in name order. Picking one calls
-  // the store's moveIssueToTeam (which re-keys the identifier) and re-homes the
-  // issue out of this team's triage queue, mirroring Linear's row action.
-  const moveTeamOptions = useMemo<SelectOption[]>(
-    () =>
-      store.teams
-        .filter((t) => t.id !== team.id)
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((t) => ({
-          id: t.id,
-          label: t.name,
-          icon: <span className="text-[13px] leading-none">{t.icon}</span>,
-          keywords: t.key,
-        })),
-    [store.teams, team.id],
   )
 
   // Label for the priority-filter trigger chip.
@@ -434,21 +424,20 @@ export function TriageView() {
         <span className="text-[12px] tabular-nums text-faint">
           {allQueue.length}
         </span>
-        {/* Header controls — priority filter + sort, both local-only. Hidden
-            when there's nothing in the queue at all. */}
-        {allQueue.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
-            {/* Speedrun — enter a focused, one-card-at-a-time triage mode driven
-                entirely by the keyboard (A accept / D decline). */}
-            {queue.length > 0 && (
-              <button
-                onClick={enterSpeedrun}
-                className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg"
-              >
-                <Zap size={13} className="shrink-0 text-faint" />
-                Speedrun
-              </button>
-            )}
+        <div className="ml-auto flex items-center gap-2">
+          {/* Speedrun and the priority filter only mean something with a queue
+              to work through. Display options stays — it holds `Show snoozed`,
+              and hiding it when everything is snoozed would strand you. */}
+          {queue.length > 0 && (
+            <button
+              onClick={enterSpeedrun}
+              className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg"
+            >
+              <Zap size={13} className="shrink-0 text-faint" />
+              Speedrun
+            </button>
+          )}
+          {allQueue.length > 0 && (
             <SelectMenu
               width={200}
               align="end"
@@ -462,22 +451,48 @@ export function TriageView() {
                 </span>
               }
             />
-            <SelectMenu
-              width={200}
-              align="end"
-              options={sortOptions}
-              onSelect={(id) => setSort(id as SortKey)}
-              placeholder="Sort by…"
-              trigger={
-                <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
-                  <ArrowDownUp size={13} className="shrink-0 text-faint" />
-                  <span className="max-w-[120px] truncate">{SORT_LABELS[sort]}</span>
-                  <ChevronDown size={13} className="shrink-0 text-faint" />
-                </span>
-              }
-            />
-          </div>
-        )}
+          )}
+          {/* Display options — Linear's icon-only trigger, holding `Ordering`
+              and the `Show snoozed` switch in that order. */}
+          <Popover align="end" width={268} label="Display options"
+            trigger={
+              <span className="flex size-[26px] items-center justify-center rounded-md border border-border bg-bg-tertiary text-muted hover:text-fg">
+                <SlidersHorizontal size={13} />
+              </span>
+            }
+          >
+            {() => (
+              <div className="px-1 py-0.5">
+                <div className="flex items-center justify-between gap-2 py-1.5">
+                  <span className="text-[13px] text-fg">Ordering</span>
+                  <SelectMenu
+                    width={190}
+                    align="end"
+                    options={sortOptions}
+                    onSelect={(id) => setSort(id as SortKey)}
+                    placeholder="Order by…"
+                    trigger={
+                      <span className="flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg">
+                        {SORT_LABELS[sort]}
+                        <ChevronDown size={12} className="shrink-0 text-faint" />
+                      </span>
+                    }
+                  />
+                </div>
+                <div className="my-1 h-px bg-border" />
+                <div className="flex items-center justify-between gap-2 py-1.5">
+                  <span className="text-[13px] text-fg">Show snoozed</span>
+                  <Toggle
+                    size="sm"
+                    checked={showSnoozed}
+                    onChange={setShowSnoozed}
+                    aria-label="Show snoozed"
+                  />
+                </div>
+              </div>
+            )}
+          </Popover>
+        </div>
         </div>
       </ViewHeader>
       <div className="flex-1 overflow-y-auto p-4">
@@ -511,6 +526,16 @@ export function TriageView() {
                     cardRefs.current[i] = el
                   }}
                   onMouseDown={() => setCursor(i)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    setCursor(i)
+                    setMenu({
+                      id: issue.id,
+                      x: e.clientX,
+                      y: e.clientY,
+                      nowMs: Date.now(),
+                    })
+                  }}
                   className={`group rounded-xl border bg-bg-secondary p-4 transition-colors ${
                     isSelected
                       ? 'border-accent ring-1 ring-accent bg-accent/5'
@@ -541,9 +566,23 @@ export function TriageView() {
                       onClick={() => store.setPeek(issue.id)}
                       className="flex-1 text-left"
                     >
+                      {/* `shrink-0` on everything but the title: without it the
+                          identifier and the snooze badge get squeezed and break
+                          mid-word, while the title is the one thing that should
+                          wrap. */}
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-[11px] text-faint">{issue.identifier}</span>
+                        <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-faint">
+                          {issue.identifier}
+                        </span>
                         <span className="text-[14px] font-medium text-fg">{issue.title}</span>
+                        {/* Only reachable with `Show snoozed` on, and then it's
+                            the one thing that tells these rows apart. */}
+                        {snoozedIds.has(issue.id) && (
+                          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-border px-1.5 py-px text-[11px] text-faint">
+                            <Clock size={11} />
+                            {formatDate(issue.snoozedUntil!)}
+                          </span>
+                        )}
                       </div>
                       {issue.description && (
                         <p className="mt-1 line-clamp-2 text-[12px] text-muted">
@@ -564,79 +603,24 @@ export function TriageView() {
                       >
                         <X size={13} /> Decline
                       </button>
-                      {/* Overflow "…" — extra Linear triage actions that don't
-                          warrant their own button: move the issue to another
-                          team, or mark it as a duplicate of an existing one. */}
-                      <Popover
-                        align="end"
-                        width={180}
-                        trigger={
-                          <span
-                            className="flex size-[28px] items-center justify-center rounded-md border border-border text-muted hover:bg-bg-hover hover:text-fg"
-                            aria-label="More triage actions"
-                          >
-                            <MoreHorizontal size={14} />
-                          </span>
-                        }
+                      {/* Overflow "…" — the same menu a right-click opens, so
+                          the two can't drift apart. Anchored under the button
+                          rather than at the pointer. */}
+                      <button
+                        aria-label="More triage actions"
+                        onClick={(e) => {
+                          const r = e.currentTarget.getBoundingClientRect()
+                          setMenu({
+                            id: issue.id,
+                            x: r.left,
+                            y: r.bottom + 4,
+                            nowMs: Date.now(),
+                          })
+                        }}
+                        className="flex size-[28px] items-center justify-center rounded-md border border-border text-muted hover:bg-bg-hover hover:text-fg"
                       >
-                        {(close) => (
-                          <div className="text-[13px] text-fg">
-                            {/* Move to team — only when there's another team to
-                                move into; declining is implicit (the issue
-                                leaves this team's triage queue). */}
-                            {moveTeamOptions.length > 0 && (
-                              <SelectMenu
-                                width={200}
-                                options={moveTeamOptions}
-                                placeholder="Move to team…"
-                                onSelect={(teamId) => {
-                                  store.moveIssueToTeam(issue.id, teamId)
-                                  close()
-                                }}
-                                trigger={
-                                  <span className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-bg-hover">
-                                    <MoveRight size={14} className="text-faint" />
-                                    Move to team…
-                                  </span>
-                                }
-                              />
-                            )}
-                            {/* Snooze — pick a preset to push this issue out of
-                                the immediate triage focus until later. */}
-                            <SelectMenu
-                              width={200}
-                              options={SNOOZE_PRESETS.map((p) => ({
-                                id: p.id,
-                                label: p.label,
-                              }))}
-                              placeholder="Snooze until…"
-                              onSelect={(id) => {
-                                const preset = SNOOZE_PRESETS.find(
-                                  (p) => p.id === id,
-                                )
-                                if (preset) snoozeIssue(issue.id, preset.resolve())
-                                close()
-                              }}
-                              trigger={
-                                <span className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-bg-hover">
-                                  <Clock size={14} className="text-faint" />
-                                  Snooze…
-                                </span>
-                              }
-                            />
-                            <button
-                              onClick={() => {
-                                store.openRelationPicker(issue.id, 'duplicateOf')
-                                close()
-                              }}
-                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-bg-hover"
-                            >
-                              <Copy size={14} className="text-faint" />
-                              Mark as duplicate…
-                            </button>
-                          </div>
-                        )}
-                      </Popover>
+                        <MoreHorizontal size={14} />
+                      </button>
                     </div>
                   </div>
 
@@ -731,10 +715,13 @@ export function TriageView() {
                 <Kbd>J</Kbd> <Kbd>K</Kbd> navigate
               </span>
               <span>
-                <Kbd>A</Kbd> accept
+                <Kbd>1</Kbd> accept
               </span>
               <span>
-                <Kbd>D</Kbd> decline
+                <Kbd>2</Kbd> decline
+              </span>
+              <span>
+                <Kbd>3</Kbd> duplicate
               </span>
               <span>
                 <Kbd>X</Kbd> select
@@ -804,6 +791,17 @@ export function TriageView() {
           </div>
         )}
       </div>
+
+      {/* Right-click / ⋯ menu for a queue row — Linear's five actions. */}
+      {menu && (
+        <TriageContextMenu
+          issueId={menu.id}
+          x={menu.x}
+          y={menu.y}
+          nowMs={menu.nowMs}
+          onClose={() => setMenu(null)}
+        />
+      )}
 
       {/* Floating bulk-action bar — shown only while a selection is active.
           Accept / Decline apply to the whole batch; the count mirrors Linear. */}
