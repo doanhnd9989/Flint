@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -6,6 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { placePanel } from '@/lib/anchor'
 import { cn } from '@/lib/utils'
 
 export interface SelectOption {
@@ -48,7 +50,20 @@ export function SelectMenu({
   const [active, setActive] = useState(0)
   const anchorRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  const reposition = useCallback(() => {
+    if (menuRef.current && anchorRef.current)
+      placePanel(anchorRef.current, menuRef.current, { align, width })
+  }, [align, width])
+
+  /** Ref callback: position the menu in the commit that mounts it. */
+  const place = useCallback(
+    (menu: HTMLDivElement | null) => {
+      menuRef.current = menu
+      if (menu) reposition()
+    },
+    [reposition],
+  )
 
   const filtered = options.filter((o) => {
     if (!query) return true
@@ -59,16 +74,24 @@ export function SelectMenu({
     )
   })
 
+  // Typing in the search box changes how many rows render, so the menu has to
+  // be re-placed as it shrinks and grows — otherwise a menu that flipped above
+  // its trigger stays anchored to the height it had when it opened.
   useLayoutEffect(() => {
-    if (!open || !anchorRef.current) return
-    const r = anchorRef.current.getBoundingClientRect()
-    const left = align === 'end' ? r.right - width : r.left
-    const maxLeft = window.innerWidth - width - 8
-    setPos({
-      top: Math.min(r.bottom + 4, window.innerHeight - 320),
-      left: Math.max(8, Math.min(left, maxLeft)),
-    })
-  }, [open, align, width])
+    if (open) reposition()
+  }, [open, filtered.length, reposition])
+
+  // A fixed panel does not move with the page. Follow the trigger on scroll
+  // (capture, so inner scroll containers count) and on resize.
+  useEffect(() => {
+    if (!open) return
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
+    return () => {
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
+    }
+  }, [open, reposition])
 
   useEffect(() => {
     if (!open) return
@@ -127,13 +150,12 @@ export function SelectMenu({
         {trigger}
       </button>
       {open &&
-        pos &&
         createPortal(
           <div
-            ref={menuRef}
+            ref={place}
             data-overlay="menu"
-            className="fixed z-50 rounded-lg border border-border bg-bg-elevated shadow-lg animate-pop overflow-hidden"
-            style={{ top: pos.top, left: pos.left, width }}
+            className="fixed z-50 flex flex-col rounded-lg border border-border bg-bg-elevated shadow-lg animate-pop overflow-hidden"
+            style={{ width }}
             onKeyDown={onKey}
           >
             <input
@@ -144,10 +166,12 @@ export function SelectMenu({
                 setActive(0)
               }}
               placeholder={placeholder}
-              className="w-full border-b border-border bg-transparent px-3 py-2 text-[13px] outline-none text-fg"
+              className="w-full shrink-0 border-b border-border bg-transparent px-3 py-2 text-[13px] outline-none text-fg"
             />
             {header}
-            <div className="max-h-64 overflow-y-auto py-1">
+            {/* `min-h-0 flex-1` lets the list give way when placePanel caps the
+                panel's height, so the rows scroll instead of being clipped. */}
+            <div className="max-h-64 min-h-0 flex-1 overflow-y-auto py-1">
               {filtered.length === 0 && (
                 <div className="px-3 py-2 text-[13px] text-faint">
                   No results

@@ -328,6 +328,13 @@ export interface SidebarItemDef {
   visibility: SidebarVisibility
   /** Rows that can never be hidden only offer Always show / Show when badged. */
   alwaysAvailable?: boolean
+  /**
+   * Whether the row can carry a badge. Only badgeable rows offer "Show when
+   * badged" — on any other row that choice hides it for good, since no badge
+   * is ever coming to bring it back. Linear gates the option the same way:
+   * its Workspace rows offer Always show / Don't show and nothing else.
+   */
+  badgeable?: boolean
   /** Workspace feature flag that must be enabled for the row to exist. */
   flag?: string
 }
@@ -336,9 +343,9 @@ export const SIDEBAR_ITEMS: SidebarItemDef[] = [
   // Personal — Linear ships Inbox · My issues · Drafts. Search lives in the
   // header magnifier, not a row; Recent / Reminders / Profile are ours and stay
   // one click away under "More".
-  { key: 'inbox', label: 'Inbox', to: '/inbox', section: 'personal', visibility: 'always', alwaysAvailable: true },
-  { key: 'my-issues', label: 'My Issues', to: '/my-issues', section: 'personal', visibility: 'always' },
-  { key: 'drafts', label: 'Drafts', to: '/drafts', section: 'personal', visibility: 'badged' },
+  { key: 'inbox', label: 'Inbox', to: '/inbox', section: 'personal', visibility: 'always', alwaysAvailable: true, badgeable: true },
+  { key: 'my-issues', label: 'My issues', to: '/my-issues', section: 'personal', visibility: 'always' },
+  { key: 'drafts', label: 'Drafts', to: '/drafts', section: 'personal', visibility: 'badged', badgeable: true },
   { key: 'search', label: 'Search', to: '/search', section: 'personal', visibility: 'hidden' },
   { key: 'recent', label: 'Recent', to: '/recent', section: 'personal', visibility: 'hidden' },
   { key: 'reminders', label: 'Reminders', to: '/reminders', section: 'personal', visibility: 'hidden' },

@@ -725,8 +725,8 @@ export interface Preferences {
   convertEmoticons: boolean
   /** Which key press submits a comment. */
   sendCommentOn: 'enter' | 'mod-enter'
-  /** Font scale across the app. */
-  fontSize: 'small' | 'default' | 'large' | 'larger' | 'largest' | 'huge'
+  /** Font scale across the app. Linear's five steps, in order. */
+  fontSize: 'smaller' | 'small' | 'default' | 'large' | 'larger'
   /** Pointer cursor on interactive elements. */
   pointerCursors: boolean
   /** Theme to use for light system appearance. */

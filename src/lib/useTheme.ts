@@ -12,7 +12,9 @@ export function useThemeEffect() {
     const apply = () => {
       let dark: boolean
       if (theme === 'system') {
-        // System appearance picks which sub-theme to apply (Light / Dark rows).
+        // System appearance picks which palette to apply. Both default to the
+        // matching scheme, so today this simply follows the OS; the mapping
+        // stays because named palettes will need it again.
         const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches
         dark = (sysDark ? darkTheme : lightTheme) === 'dark'
       } else {
@@ -35,12 +37,26 @@ export function useThemeEffect() {
  * spacing by the same factor, so rows grow with the type inside them.
  */
 const FONT_SCALE: Record<Preferences['fontSize'], number> = {
+  smaller: 0.8,
   small: 0.9,
   default: 1,
   large: 1.15,
   larger: 1.3,
-  largest: 1.45,
-  huge: 1.6,
+}
+
+/**
+ * Steps this app used to offer above Linear's `larger`. A value persisted
+ * before the list was trimmed still names one of them, so map it onto the
+ * nearest surviving step rather than silently falling back to Default.
+ */
+const RETIRED_STEPS: Record<string, Preferences['fontSize']> = {
+  largest: 'larger',
+  huge: 'larger',
+}
+
+/** The scale for a persisted value, including ones no longer offered. */
+function scaleFor(fontSize: string): number {
+  return FONT_SCALE[fontSize as Preferences['fontSize']] ?? FONT_SCALE[RETIRED_STEPS[fontSize]] ?? 1
 }
 
 /**
@@ -51,7 +67,7 @@ const FONT_SCALE: Record<Preferences['fontSize'], number> = {
  */
 export function useFontScale(): number {
   const fontSize = useStore((s) => s.preferences.fontSize)
-  return FONT_SCALE[fontSize] ?? 1
+  return scaleFor(fontSize)
 }
 
 /** Applies font-size and pointer-cursor preferences to <html>. */
@@ -65,7 +81,7 @@ export function usePreferenceEffect() {
     const root = document.documentElement
     // A persisted preference from an older build may name a step that no longer
     // exists — fall back rather than writing NaN into the scale.
-    const scale = FONT_SCALE[fontSize] ?? 1
+    const scale = scaleFor(fontSize)
     root.style.setProperty('--font-scale', String(scale))
     root.style.fontSize = scale === 1 ? '' : `${(16 * scale).toFixed(2)}px`
     root.classList.toggle('pointer-cursors', pointerCursors)

@@ -227,7 +227,10 @@ function RegistryItem({ item, badge }: { item: SidebarItemDef; badge?: number })
   const enabled = useFeature(item.flag ?? '')
   if (item.flag && !enabled) return null
   if (visibility === 'hidden') return null
-  if (visibility === 'badged' && !badge) return null
+  // "Show when badged" was once offered on rows that never badge, so a saved
+  // preference can name it for one of them — that row would then never render
+  // again. Honour the choice only where a badge can actually arrive.
+  if (visibility === 'badged' && item.badgeable && !badge) return null
   return (
     <Item to={item.to} icon={sidebarItemIcon(item.key)} label={item.label} badge={badge} />
   )

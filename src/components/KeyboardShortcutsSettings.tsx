@@ -34,7 +34,7 @@ const SECTIONS: { title: string; items: Shortcut[] }[] = [
     title: 'Navigation',
     items: [
       { keys: <><Kbd>G</Kbd> <Kbd>I</Kbd></>, label: 'Go to Inbox' },
-      { keys: <><Kbd>G</Kbd> <Kbd>M</Kbd></>, label: 'Go to My Issues' },
+      { keys: <><Kbd>G</Kbd> <Kbd>M</Kbd></>, label: 'Go to My issues' },
       { keys: <><Kbd>G</Kbd> <Kbd>B</Kbd></>, label: 'Go to Issues' },
       { keys: <><Kbd>G</Kbd> <Kbd>C</Kbd></>, label: 'Go to Cycles' },
       { keys: <><Kbd>G</Kbd> <Kbd>T</Kbd></>, label: 'Go to Triage' },

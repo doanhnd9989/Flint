@@ -264,18 +264,35 @@ function ThemeSwatch({ dark }: { dark: boolean }) {
   )
 }
 
+/**
+ * Linear's Interface theme menu. Ours carries the three schemes this app
+ * actually renders; Linear's list also names four palettes we have not built
+ * (Pure Light, Magic Blue, Classic Dark, Custom) — see BACKLOG.
+ */
 const THEME_OPTIONS: DropOption[] = [
+  {
+    value: 'system',
+    label: 'System preference',
+    swatch: <ThemeSwatch dark={false} />,
+  },
   { value: 'light', label: 'Light', swatch: <ThemeSwatch dark={false} /> },
   { value: 'dark', label: 'Dark', swatch: <ThemeSwatch dark /> },
 ]
 
 // ── individual setting pages ─────────────────────────────────────────────────
 function PreferencesPage() {
-  const { theme, setTheme, preferences, setPreference } = useStoreShallow((s) => ({
+  const {
+    theme,
+    setTheme,
+    preferences,
+    setPreference,
+    setCustomizeSidebarOpen,
+  } = useStoreShallow((s) => ({
     theme: s.theme,
     setTheme: s.setTheme,
     preferences: s.preferences,
     setPreference: s.setPreference,
+    setCustomizeSidebarOpen: s.setCustomizeSidebarOpen,
   }))
   const p = preferences
   const set = <K extends keyof Preferences>(key: K) => (v: Preferences[K]) =>
@@ -361,7 +378,13 @@ function PreferencesPage() {
             title="App sidebar"
             description="Customize sidebar item visibility, ordering, and badge style"
             control={
-              <span className="text-[13px] font-medium text-muted">Customize</span>
+              <button
+                type="button"
+                onClick={() => setCustomizeSidebarOpen(true)}
+                className="rounded-md px-1.5 py-1 text-[13px] font-medium text-fg hover:bg-bg-hover"
+              >
+                Customize
+              </button>
             }
           />
           <PrefRow
@@ -372,12 +395,11 @@ function PreferencesPage() {
                 value={p.fontSize}
                 onSelect={(v) => set('fontSize')(v as Preferences['fontSize'])}
                 options={[
+                  { value: 'smaller', label: 'Smaller' },
                   { value: 'small', label: 'Small' },
                   { value: 'default', label: 'Default' },
                   { value: 'large', label: 'Large' },
                   { value: 'larger', label: 'Larger' },
-                  { value: 'largest', label: 'Largest' },
-                  { value: 'huge', label: 'Huge' },
                 ]}
               />
             }
@@ -420,10 +442,9 @@ function PreferencesPage() {
               />
             }
           />
-        </PrefCard>
-
-        <div className="mt-3" />
-        <PrefCard>
+          {/* Last row of the same card, as in Linear — not a card of its own.
+              Linear has no "Light" / "Dark" sub-rows either; System preference
+              follows the OS directly. */}
           <PrefRow
             title="Interface theme"
             description="Select or customize your interface color scheme"
@@ -431,40 +452,6 @@ function PreferencesPage() {
               <PrefDropdown
                 value={theme}
                 onSelect={(v) => setTheme(v as ThemeMode)}
-                options={[
-                  {
-                    value: 'system',
-                    label: 'System preference',
-                    swatch: <ThemeSwatch dark={false} />,
-                  },
-                  {
-                    value: 'light',
-                    label: 'Light',
-                    swatch: <ThemeSwatch dark={false} />,
-                  },
-                  { value: 'dark', label: 'Dark', swatch: <ThemeSwatch dark /> },
-                ]}
-              />
-            }
-          />
-          <PrefRow
-            title="Light"
-            description="Theme to use for light system appearance"
-            control={
-              <PrefDropdown
-                value={p.lightTheme}
-                onSelect={(v) => set('lightTheme')(v as Preferences['lightTheme'])}
-                options={THEME_OPTIONS}
-              />
-            }
-          />
-          <PrefRow
-            title="Dark"
-            description="Theme to use for dark system appearance"
-            control={
-              <PrefDropdown
-                value={p.darkTheme}
-                onSelect={(v) => set('darkTheme')(v as Preferences['darkTheme'])}
                 options={THEME_OPTIONS}
               />
             }

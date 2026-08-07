@@ -388,7 +388,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: 'Navigation',
     items: [
       { keys: ['G', 'I'], then: true, label: 'Go to Inbox' },
-      { keys: ['G', 'M'], then: true, label: 'Go to My Issues' },
+      { keys: ['G', 'M'], then: true, label: 'Go to My issues' },
       { keys: ['G', 'B'], then: true, label: 'Go to Board (active)' },
       { keys: ['G', 'C'], then: true, label: 'Go to Cycles' },
       { keys: ['G', 'P'], then: true, label: 'Go to Projects' },
@@ -886,7 +886,7 @@ export function ProfileView() {
                       onClick={() => navigate('/my-issues/assigned')}
                       className="mt-2 px-2 text-[12px] text-accent hover:underline"
                     >
-                      View all {activeIssues.total} in My Issues
+                      View all {activeIssues.total} in My issues
                     </button>
                   )}
                 </>

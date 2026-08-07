@@ -95,12 +95,16 @@ function ItemRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.key })
-  // Rows that can't be hidden (Inbox) drop the "Don't show" option, like Linear.
-  const options = (
-    item.alwaysAvailable
-      ? (['always', 'badged'] as const)
-      : (['always', 'badged', 'hidden'] as const)
-  ).map((v) => ({ id: v, label: SIDEBAR_VISIBILITY_LABELS[v] }))
+  // Linear's menu is built from what the row can actually do: "Show when
+  // badged" only where a badge exists (Inbox, Drafts), "Don't show" only where
+  // the row may be hidden at all (everything but Inbox).
+  const options = (['always', 'badged', 'hidden'] as const)
+    .filter(
+      (v) =>
+        (v !== 'badged' || item.badgeable) &&
+        (v !== 'hidden' || !item.alwaysAvailable),
+    )
+    .map((v) => ({ id: v, label: SIDEBAR_VISIBILITY_LABELS[v] }))
 
   return (
     <div

@@ -616,6 +616,31 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `theme-and-density` pass (Preferences → Interface and theme)
+
+The dead `Customize` control, the font-size steps, the theme card's shape and
+the viewport-overflowing menus were fixed in that run; these are what is left.
+Full control-by-control table in `.audit/controls/theme-and-density.md`.
+
+- [ ] 🔴 **Only three interface themes.** Linear's `Interface theme` menu has
+      seven entries in this order: `System preference` · `Light` · `Pure Light`
+      · `Dark` · `Magic Blue` · `Classic Dark` · `Custom`. Ours has the first,
+      second and fourth. Each missing palette is a full token set in
+      `index.css` (bg / fg / border / accent families), and `Custom` needs a
+      colour picker that writes them. Restoring them also brings back a reason
+      for the `Light` / `Dark` sub-rows this run removed, since with seven
+      palettes `System preference` has to map an appearance onto one of them —
+      the `lightTheme` / `darkTheme` preferences are still persisted and still
+      read by `useThemeEffect` for exactly that. Large.
+- [ ] 🟡 **`Reviews` and `Agent` are missing from the sidebar's Personal
+      section.** Linear's Customize-sidebar dialog lists Inbox · Reviews · My
+      issues · Agent · Drafts; we have three of the five. Both are whole
+      features (code review queue, AI agent), not rows. Large.
+- [ ] 🟢 **`SelectMenu`'s inner list is capped at a literal `max-h-64`.** The
+      cap does not go through `useFontScale()`, so at `--font-scale: 1.3` the
+      list shows proportionally fewer rows than at Default. It scrolls, so
+      nothing is clipped — but the menu's height stops tracking its type. Small.
+
 ### From the `settings` pass (`/settings` vs Linear's)
 
 `Usage & limits`, `Import & export` and the Preferences/back-link wording were

@@ -4362,3 +4362,91 @@ uncaught errors · every control on both rebuilt screens driven and read back
 `New passkey` / `New API key` / `Add key` each confirmed to change the page) ·
 verified at dark, at a 420px viewport and at `--font-scale: 1.15`, document
 scrollWidth never exceeding the viewport · lint 106, unchanged baseline`
+
+## `theme-and-density` — the Customize button pressed nothing, and every menu in the app could open off the bottom of the screen
+
+`bash scripts/audit/collect.sh` came back green on the two that matter —
+typecheck PASS, lint 106 (the documented baseline, unchanged by this run) — with
+vite DOWN, started through the preview tool. `node scripts/audit/seed-bulk.mjs`
+added 24 issues (+6 sub-issues), 18 comments and 8 attachments (3496 KB of real
+bytes) across the three teams. Rotation pointer said `api-and-data`, so this run
+took **`theme-and-density`**: Preferences → Interface and theme, and the layer
+primitives every menu in the app is built from.
+
+**The crawl found a bug the eye never would.** `window.__ctl.list()` reported 64
+controls on `/settings`, and the "Customize" affordance next to `App sidebar`
+was not among them — because it was a `<span>`, not a control. Linear's is a
+button that opens a `Customize sidebar` dialog. Ours already *had* that dialog,
+fully built and wired to `setCustomizeSidebarOpen`, reachable only from the
+sidebar's `More` menu; the Preferences row that advertises it had simply never
+been connected. One button, and a screen that had been half-dead for as long as
+the row has existed now works.
+
+**And one that affects every screen, not just this one.** Sweeping the theme
+dropdowns showed the font-size menu opening at y=668 in a 720px viewport —
+147px of it, two of its six options, below the fold and unreachable, because a
+`position: fixed` panel cannot be scrolled into view. `ui/Popover` placed every
+menu at `anchor.bottom + 4` with no vertical bound at all, and `ui/SelectMenu`
+clamped to a hardcoded `innerHeight - 320` that guessed at a height it never
+measured. This belongs to this area precisely because it gets worse with type:
+the menu grows with `--font-scale` while the viewport does not, so the bug is
+mildest at Default and worst at the step a low-vision user would pick.
+
+Both now go through `lib/anchor.ts`, which measures the panel and places it:
+below when it fits, flipped above the trigger when it doesn't, and clamped to
+the roomier side with the content scrolling when neither fits. It runs from a
+ref callback rather than positioning state, so the panel lands correctly in the
+commit that mounts it instead of flashing through a wrong position first — and
+it re-runs on scroll (capture phase, so inner scroll containers count) and on
+resize, which also fixes menus staying stranded mid-screen when the page
+scrolled underneath them. `SelectMenu`'s panel became `flex flex-col` with a
+`min-h-0 flex-1` list so it gives way to the cap instead of being clipped by it.
+
+**The rest of the diff.** Font size offered `Small · Default · Large · Larger ·
+Largest · Huge`; Linear offers `Smaller · Small · Default · Large · Larger`, so
+ours now matches step for step and name for name (a persisted `largest`/`huge`
+maps onto `larger` rather than silently falling back to Default). `Interface
+theme` sat in a card of its own with `Light` and `Dark` sub-rows under it;
+Linear has it as the last row of the same `Interface and theme` card with no
+sub-rows, so the second card is gone. Inside the Customize dialog, `My Issues`
+became `My issues` (Linear's casing — also in the view header and the shortcut
+list), and `Show when badged` stopped being offered on rows that can never
+badge: only `inbox` and `drafts` produce a badge count, so choosing it on any
+other row hid that row permanently with nothing ever coming to bring it back.
+`Sidebar` also now ignores a `badged` preference saved against a non-badgeable
+row, so anyone who already fell into that trap gets their row back.
+
+**Logged, not built.** Linear's theme menu has seven entries; ours has three.
+`Pure Light`, `Magic Blue`, `Classic Dark` and `Custom` are each a full token
+set in `index.css`, and `Custom` needs a picker — filed Large. Building them is
+also what would earn the `Light` / `Dark` sub-rows back, so `lightTheme` /
+`darkTheme` stay persisted and still read by `useThemeEffect`. Also filed:
+Linear's Personal sidebar section has `Reviews` and `Agent`, which are whole
+features rather than rows; and `SelectMenu`'s inner list is capped at a literal
+`max-h-64` that never sees `useFontScale()`, so it shows fewer rows as type
+grows (it scrolls, so nothing is clipped).
+
+**Deliberately not Linear.** `Reduce motion`, `Enable spell check` and `Show
+counts in sidebar` have no counterpart in Linear's card and were kept anyway —
+the first two are accessibility affordances Linear handles elsewhere, and
+removing working controls to match an absence is not parity worth having. They
+sit after the four rows Linear does have, so Linear's own order is intact and
+`Interface theme` still ends the card.
+
+**Linear stayed read-only.** `/settings/account/preferences` was opened by
+navigation, and six menus were opened, read and dismissed with Escape:
+`Interface theme`, `Font size`, `App sidebar → Customize` (a dialog), and inside
+it `Default badge style` plus the `Inbox`, `Projects` and `Drafts` visibility
+menus. Nothing was selected, toggled, typed, submitted or created. Their font
+scale could only be read at its current value, since every other step would have
+meant changing their setting — our multipliers are recorded as unverified
+against theirs and keep the values this app already used.
+
+`tsc -b ✅ · build ✅ · 37-route sweep console-clean, zero empty renders, zero
+uncaught errors (the only overflow hits are `truncate` elements and
+`overflow-x-auto` scroll containers, both by design) · every control in the
+content column driven and read back · menu placement measured at `--font-scale`
+1.0 and 1.3 across 1280×800, 1280×300 and 420×760 — every menu lands fully
+inside the viewport, and at 300px tall the font-size menu clamps to 138px and
+scrolls to all five items · all 10 issue-detail property pickers re-verified
+after the `SelectMenu` layout change · lint 106, unchanged baseline`

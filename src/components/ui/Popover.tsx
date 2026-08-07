@@ -1,11 +1,12 @@
 import {
+  useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { placePanel } from '@/lib/anchor'
 
 interface Props {
   trigger: ReactNode
@@ -25,16 +26,32 @@ export function Popover({ trigger, children, align = 'start', width = 220, label
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
-  useLayoutEffect(() => {
-    if (!open || !anchorRef.current) return
-    const r = anchorRef.current.getBoundingClientRect()
-    const left = align === 'end' ? r.right - width : r.left
-    setPos({
-      top: r.bottom + 4,
-      left: Math.max(8, Math.min(left, window.innerWidth - width - 8)),
-    })
+  /** Ref callback: position the panel in the commit that mounts it. */
+  const place = useCallback(
+    (panel: HTMLDivElement | null) => {
+      panelRef.current = panel
+      if (panel && anchorRef.current)
+        placePanel(anchorRef.current, panel, { align, width })
+    },
+    [align, width],
+  )
+
+  // Scrolling moves the trigger but not a fixed panel, which would leave the
+  // menu stranded mid-screen. Re-place on scroll (capture, so inner scroll
+  // containers count) and on resize.
+  useEffect(() => {
+    if (!open) return
+    const reposition = () => {
+      if (panelRef.current && anchorRef.current)
+        placePanel(anchorRef.current, panelRef.current, { align, width })
+    }
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
+    return () => {
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
+    }
   }, [open, align, width])
 
   useEffect(() => {
@@ -70,13 +87,12 @@ export function Popover({ trigger, children, align = 'start', width = 220, label
         {trigger}
       </button>
       {open &&
-        pos &&
         createPortal(
           <div
-            ref={panelRef}
+            ref={place}
             data-overlay="menu"
-            className="fixed z-50 rounded-lg border border-border bg-bg-elevated p-1 shadow-lg animate-pop"
-            style={{ top: pos.top, left: pos.left, width }}
+            className="fixed z-50 overflow-y-auto rounded-lg border border-border bg-bg-elevated p-1 shadow-lg animate-pop"
+            style={{ width }}
           >
             {children(() => setOpen(false))}
           </div>,

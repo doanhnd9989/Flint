@@ -112,7 +112,7 @@ export function MyIssues() {
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="My Issues" />
+      <ViewHeader title="My issues" />
 
       {/* Tabs (Linear-style pill sub-nav) + Display options on the right */}
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-1.5">
