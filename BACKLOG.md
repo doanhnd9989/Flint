@@ -616,6 +616,46 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `settings` pass (`/settings` vs Linear's)
+
+`Usage & limits`, `Import & export` and the Preferences/back-link wording were
+built in that run; these are what is left. Full control-by-control table in
+`.audit/controls/settings.md`.
+
+- [ ] 🔴 **Every settings screen shares one URL.** Linear gives each its own
+      path — `/settings/account/preferences`, `/settings/usage`,
+      `/settings/usage/spend-limits`, `/settings/import-export`,
+      `/settings/teams/:key`. Ours is a single `/settings` route with a
+      `?page=` param, so no settings screen is linkable the way Linear's is and
+      the browser Back button walks query strings instead of screens. Large —
+      it is a routing change, not a page change.
+- [ ] 🔴 **No icons in the settings sidebar.** Linear puts a 16px icon left of
+      every one of its ~35 nav rows and every team under `Your teams`; ours has
+      none, which is why our nav reads as a plain list where Linear's reads as
+      a product surface. Medium.
+- [ ] 🟠 **Estimates, Cycles and Triage are workspace settings here, team
+      settings in Linear.** Linear's workspace `Issues` group holds exactly
+      three items — `Labels`, `Templates`, `SLAs`; cycle length, estimation
+      type and triage routing live under `/settings/teams/:key`. Ours puts all
+      six at workspace level, so a per-team cycle length has nowhere to live.
+      Medium.
+- [ ] 🟡 **`Your teams` has no trailing action.** Linear closes the group with
+      `+ Join or create a team`; ours ends on the last team. Small.
+- [ ] 🟡 **The settings shell has no narrow-viewport behaviour.** The 240px nav
+      never collapses, so at a 420px viewport the content pane is 170px wide
+      and every settings page — not just the new ones — scrolls sideways inside
+      it (preferences 274px of content in 170px, members 452px, usage 334px).
+      The document itself never scrolls horizontally, so the route sweep does
+      not catch this. Medium.
+- [ ] 🟢 **Settings nav footer differs.** Linear puts a `?` help button in the
+      bottom-left corner; ours puts the workspace name there. Small.
+- [ ] 🟢 **`SelectMenu` exposes no ARIA roles.** Its portal has
+      `data-overlay="menu"` but no `role="menu"`/`role="option"`, so neither
+      assistive tech nor the control crawl can see a menu it opened — the crawl
+      reported "nothing opened" for a select that works. Affects every screen,
+      not just settings. Small.
+- [ ] 🟢 **Settings nav width.** Linear's is 330px, ours 240px. Small.
+
 ### From the `triage-and-intake` pass (`/team/:key/triage` vs Linear's)
 
 Read off Linear's live triage queue, read-only. The row context menu, the

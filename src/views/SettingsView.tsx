@@ -9,7 +9,6 @@ import { LabelsSettings } from '@/components/LabelsSettings'
 import { StatesSettings } from '@/components/StatesSettings'
 import { TemplatesSettings } from '@/components/TemplatesSettings'
 import { TeamsSettings } from '@/components/TeamsSettings'
-import { ImportExportSettings } from '@/components/ImportExportSettings'
 import { NotificationsSettings } from '@/components/NotificationsSettings'
 import { IntegrationsSettings } from '@/components/IntegrationsSettings'
 import { BillingSettings } from '@/components/BillingSettings'
@@ -43,6 +42,7 @@ import { KeyboardShortcutsSettings } from '@/components/KeyboardShortcutsSetting
 import { EmailSignatureSettings } from '@/components/EmailSignatureSettings'
 import { AccentColorSettings } from '@/components/AccentColorSettings'
 import { SavedViewsSettings } from '@/components/SavedViewsSettings'
+import { UsageLimitsSettings } from '@/components/UsageLimitsSettings'
 import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
 import { ESTIMATION_TYPES, TIMEZONES } from '@/lib/constants'
@@ -106,6 +106,10 @@ const NAV: NavGroup[] = [
     ],
   },
   {
+    // Linear's Administration order is Workspace → Teams → Members → Security →
+    // API → Applications → Billing → Usage & limits → Import & export. Our
+    // extras (Accent color, Features, Views, Audit log) slot next to the item
+    // they belong with without breaking that relative order.
     header: 'Administration',
     items: [
       { id: 'workspace', label: 'Workspace' },
@@ -114,12 +118,13 @@ const NAV: NavGroup[] = [
       { id: 'teams', label: 'Teams' },
       { id: 'saved-views', label: 'Views' },
       { id: 'members', label: 'Members' },
-      { id: 'import', label: 'Import' },
-      { id: 'audit-log', label: 'Audit log' },
       { id: 'security', label: 'Security' },
+      { id: 'audit-log', label: 'Audit log' },
       { id: 'api', label: 'API' },
       { id: 'applications', label: 'Applications' },
       { id: 'billing', label: 'Billing' },
+      { id: 'usage', label: 'Usage & limits' },
+      { id: 'import', label: 'Import & export' },
     ],
   },
 ]
@@ -332,8 +337,8 @@ function PreferencesPage() {
             }
           />
           <PrefRow
-            title="Send comment on..."
-            description="Choose which key press is used to submit a comment"
+            title="Send comments on…"
+            description="Choose which key press is used to submit comments"
             control={
               <PrefDropdown
                 value={p.sendCommentOn}
@@ -386,7 +391,7 @@ function PreferencesPage() {
           />
           <PrefRow
             title="Underline links"
-            description="Show an underline beneath links in issue and document content"
+            description="Always underline links in text content"
             control={
               <Toggle on={!!p.underlineLinks} onChange={set('underlineLinks')} />
             }
@@ -591,9 +596,8 @@ function WorkspacePage() {
           className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] text-fg outline-none focus:border-accent"
         />
       </Section>
-      <Section title="Import & export">
-        <ImportExportSettings />
-      </Section>
+      {/* Linear keeps import/export off the Workspace page — it has its own
+          Administration entry, and that is where ours lives now too. */}
       <Section title="Danger zone">
         <button
           onClick={() => {
@@ -843,6 +847,8 @@ function SettingsContent({ page }: { page: string }) {
       return <CyclesSettings />
     case 'triage':
       return <TriageSettings />
+    case 'usage':
+      return <UsageLimitsSettings />
     case 'import':
       return <ImportSettings />
     case 'audit-log':
@@ -927,7 +933,7 @@ export function SettingsView() {
             className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] font-medium text-muted hover:text-fg"
           >
             <ChevronLeft size={16} />
-            Settings
+            Back to app
           </button>
         </div>
         <div className="px-3 pb-2">

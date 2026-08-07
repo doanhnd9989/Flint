@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Check, ChevronDown, Loader2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { toast } from '@/lib/toast'
 import { Popover } from './ui/Popover'
@@ -33,6 +33,7 @@ export function ImportExportSettings() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [result, setResult] = useState<string | null>(null)
   const [pending, setPending] = useState<'csv' | 'json' | null>(null)
+  const [privateTeams, setPrivateTeams] = useState<'none' | 'mine' | 'all'>('none')
   const myEmail = useStore(
     (s) => s.users.find((u) => u.id === s.currentUserId)?.email ?? '',
   )
@@ -179,6 +180,45 @@ export function ImportExportSettings() {
               )}
             </Popover>
             )}
+          </Row>
+          {/* Linear's second export row — which private teams the file covers. */}
+          <Row label="Include private teams">
+            <Popover
+              align="end"
+              width={200}
+              label="Include private teams"
+              trigger={
+                <span className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[13px] text-muted hover:bg-bg-hover hover:text-fg">
+                  {privateTeams === 'all' ? 'All' : privateTeams === 'mine' ? 'My teams' : 'None'}
+                  <ChevronDown size={13} className="text-faint" />
+                </span>
+              }
+            >
+              {(close) => (
+                <div className="flex flex-col">
+                  {(
+                    [
+                      ['none', 'None'],
+                      ['mine', 'My teams'],
+                      ['all', 'All'],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => {
+                        setPrivateTeams(value)
+                        close()
+                      }}
+                      className="flex items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+                    >
+                      {label}
+                      {privateTeams === value && <Check size={13} />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Popover>
           </Row>
         </div>
       </div>

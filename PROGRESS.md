@@ -4201,3 +4201,87 @@ orderings, the archived switch round-tripped against a really-archived issue, th
 ID chip) with zero console errors · menu on-screen and unclipped at dark,
 --font-scale 1.4 (bottom 185→214) and a 420px viewport (clamped 144→412,
 document scrollWidth 420) · lint 106, unchanged baseline`
+
+## `settings` — the Administration group was missing a whole page, and Import had a duplicate row
+
+Rotation area #13. Read the logs first: typecheck green, both servers up, lint
+106 — exactly the recorded baseline. Poured in 30 more issues, 6 sub-issues, 25
+comments and 6 attachments (2.3 MB of real bytes), then swept all 37 routes:
+console-clean, no empty renders, no real horizontal overflow (the sweep's
+`overflow` hits are `truncate` elements doing their job and one `overflow-x-auto`
+code block in `/api-docs`).
+
+**Linear's Administration group has nine entries; ours had seven of them.**
+Reading Linear's settings sidebar off the live app gave the exact order —
+`Workspace · Teams · Members · Security · API · Applications · Billing ·
+Usage & limits · Import & export`. We had no `Usage & limits` at all, and our
+`Import` sat between Members and Audit log where Linear's `Import & export` is
+last. Reordered so all nine now hold Linear's relative order, with our four
+extras (Accent color, Features, Views, Audit log) slotted beside the item they
+belong with.
+
+**Built `Usage & limits`, all three screens.** Linear stacks a usage overview,
+`Spend limits` behind its chevron row, and `Overrides` behind that one's. The
+overview carries `AI credits` (`Workspace credits`, `Automatic reload` with its
+`● Disabled - …` dot line, `Spend limits ›`), an `Analytics` block with a
+`Day / Week / Month` select, `‹ ›` range arrows, the dashed `$0`–`$4` spend
+chart and a `Feature` / `Usage (8/2 – 8/8)` table of `Coding sessions` and
+`Loops`, then `Dashboard` with `All sessions ›` and the `No usage this week`
+empty state. Every string is Linear's. The clone consumes no credits, so the
+numbers are honest zeroes — the same empty shape Linear draws for a workspace
+that has never run a coding session.
+
+**The sub-screens went into the URL, after the first version got it wrong.**
+The first cut held `screen` in component state, and clicking the nav item
+`Usage & limits` while sitting on `Spend limits` did nothing — the component
+never remounts. Linear's are separate paths, so a nav click lands back on the
+overview. Ours now carries a `section` param: `?page=usage&section=limits` and
+`&section=overrides` are linkable, survive a reload, and the nav click resets.
+
+**`Import` became `Import & export` and lost a duplicate row.** Linear's page is
+three sections — `Import assistant` (tiles: Asana, Shortcut, GitHub, Jira,
+Linear), `CLI import` (one row, `Open ↗`), then `Export`. Ours had the tiles
+only, under the wrong title, while the export controls were buried in a section
+of the *Workspace* page. Rebuilt to Linear's shape and moved the export half
+here, which is also where Linear's `Include private teams → None` row belongs;
+that row now exists. The tile list itself had a real bug: `Asana` appeared twice
+under the same `id`, so it rendered a duplicate row on a duplicate React key.
+Deduped and reordered to Linear's order, with `Linear` added as the fifth tile.
+
+**Three strings were wrong on Preferences and the back link.** Ours said
+`Send comment on...` / "Choose which key press is used to submit a comment"
+where Linear says `Send comments on…` / "…to submit comments"; `Underline links`
+described itself as "Show an underline beneath links in issue and document
+content" where Linear says "Always underline links in text content"; and the
+settings back button read `Settings` where Linear's reads `Back to app`.
+
+**Logged, not built.** The big one is that every settings screen shares one URL
+— Linear gives each a real path (`/settings/account/preferences`,
+`/settings/usage/spend-limits`), so none of ours is linkable the way Linear's is.
+Filed 🔴 with the full control table in `.audit/controls/settings.md`, along with
+the missing per-row icons in the settings sidebar, the fact that Linear keeps
+Estimates / Cycles / Triage as *team* settings rather than workspace ones, and
+the settings shell's lack of any narrow-viewport behaviour — the 240px nav never
+collapses, so at 420px *every* settings page scrolls sideways inside a 170px
+pane, ours no worse than the ones that were already there.
+
+**Deliberately not Linear.** `Email signature`, `Notification schedule`,
+`Keyboard shortcuts`, `Accent color`, `Features`, `Views`, `Audit log`, the
+CSV/JSON file import and the `Reduce motion` / `Enable spell check` /
+`Show counts in sidebar` preferences are all ours only. Kept — each is a working
+surface — but each is logged as a visible difference rather than left unsaid.
+
+**Linear stayed read-only.** Only the settings sidebar, `/settings/usage`,
+`/settings/usage/spend-limits` and `/settings/import-export` were opened by
+navigation, plus three selects (`Week ⌄`, both `Weekly ⌄` reset-frequency rows)
+opened and dismissed with Escape. Nothing was selected, typed, submitted or
+created, so what Linear's `Add credits`, `Manage`, `Edit` and `Set limit`
+controls actually do is recorded as unverified.
+
+`tsc -b ✅ · build ✅ · 38-route sweep console-clean, no empty renders · every
+control on all three Usage & limits screens and the rebuilt Import & export page
+driven and read back (period select all 3 values, both range arrows, Manage
+round-tripped, a $25 limit set and cleared, both reset-frequency selects, the
+schedule popover, all 3 breadcrumbs) with zero console errors · verified at
+dark and at a 420px viewport, document scrollWidth 420 · lint 106, unchanged
+baseline`
