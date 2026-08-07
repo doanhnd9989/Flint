@@ -3567,3 +3567,78 @@ every render — `react-hooks/static-components`) took lint *below* the baseline
 `tsc -b ✅ · build ✅ · 48 route visits console-clean, zero warnings · no page
 overflow · menu + submenus verified at 1600 and 760px, dark, and font-scale 1.6
 (nothing ellipsised, nothing off-screen) · lint 109 (was 113)`
+
+## Audit pass — `filters-display` (2026-08-07)
+
+Rotation area #4. Screen: `/team/CLA/active` at 229 issues; Linear's counterpart
+read on `linear.app/thehumaninc/team/VC/active`, read-only throughout (menus
+opened with a click, submenus on hover, then Escape — nothing chosen, typed or
+submitted). Full control ledger in `.audit/controls/filters-display.md`.
+
+### Nothing was red going in
+
+`collect.sh`: typecheck PASS, lint 109 — exactly the recorded baseline and no
+new families. Vite was DOWN and was started with the preview tool. The 37-route
+sweep came back with **zero console errors, zero empty renders**; the only
+overflow hits were `truncate` elements (`scrollWidth > clientWidth` is what
+`truncate` *is*) and `document.scrollWidth - clientWidth` was 0 everywhere.
+
+### The area: our filter menu had 11 dimensions, Linear's has 25
+
+The gap closed this run is **`Estimate`**, plus the wording and ordering fixes
+that made the rest of the menu read like Linear's:
+
+- **`Estimate` filter dimension, built end to end** — `FilterState.estimates`
+  (string[], `'none'` for Linear's "No estimate" row), a predicate in
+  `filterIssues`, options built from the union of the teams' own scales via the
+  existing `estimatePoints()`, and Linear's exact wording: `No estimate`,
+  `1 Point`, `2 Points`. It rides the generic `Dim` machinery, so faceted
+  counts, the negation operator, the chip and `hasActiveFilters` all came free.
+  Verified live: counts 38/12/26/1/12/11, and picking `2 Points` narrowed the
+  Todo group 44 → 22 with the chip reading `Estimate · is · 2 Points`.
+- **Menu order is Linear's** — Dates and Content were appended after the
+  dimension loop, so they always sank to the bottom. They're now rows in one
+  ordered list: Dates between Labels and Project, Content after Subscribers.
+- **Wording** — `Label` → `Labels`, search placeholder `Filter…` → `Add Filter…`.
+- **Both triggers were anonymous.** The filter funnel reached the accessibility
+  tree with *no name at all* (the control crawl inventoried it as `""`) because
+  `Popover` renders its own `<button>` and only the inner `<span>` carried a
+  `title`. `Popover` now takes a `label` prop and sets `aria-label` +
+  `aria-expanded`; the two triggers use Linear's own strings, `Add filter` and
+  `Display options`.
+- **The font-scale trap, hit again.** `FilterTrigger` passed `width={200}` to
+  `Popover` — JS pixels, so `--font-scale` never reached it and the panel kept
+  its 200px while its contents grew. Now `BASE_FILTER_W * useFontScale()`:
+  200 → 314 at the `huge` step, where every row previously crowded the edge.
+
+### Three "findings" that were the harness, not the app
+
+Each looked real and cost a check to disprove; recorded so the next run doesn't
+re-report them:
+
+- **`ref`-based clicks land at 2× the intended point** in the in-app browser.
+  That is the only reason the login page's `Đăng nhập bằng mật khẩu` button
+  looked dead. Click by `coordinate`, at half the pixel in the screenshot.
+- **`innerText` on a panel hides `<input>`s.** The `Content` filter drilled into
+  what read as an empty panel — the "a control that opens nothing is a bug"
+  case. It renders a text input; the panel was fine.
+- **`innerText` on a `<select>` dumps every `<option>`.** Our Display menu read
+  as ~40 flat rows, which looked like we'd built Linear's three compact
+  dropdowns as inline radio lists. They are real `<select>`s
+  (`DisplayMenu.tsx:136`) and already match Linear.
+
+### What the comparison surfaced but did not build
+
+14 filter dimensions (Relations, Status type, Links, Project properties,
+Auto-closed, Added to cycle, AI/Advanced filter, Agent, Agent Session, Suggested
+label, Customers, External source, Template), three missing toolbar buttons
+(`Add new view`, `Open details`, the notifications bell), the display-property
+chip order plus three missing chips, and Linear's `"42 issues"` count wording.
+All sized in `BACKLOG.md`. The honest blocker on Relations: blocked/blocking/
+duplicate live outside `Issue`, so `filterIssues` can't see them without a
+relation index threaded through nine call sites — half a submenu that silently
+does nothing is worse than no submenu.
+
+`tsc -b ✅ · build ✅ · 37-route sweep console-clean, no page overflow · filter
+menu verified at 1600px and 760px, dark, and font-scale `huge` (nothing
+clipped, panel fully on-screen) · lint 109 (baseline)`

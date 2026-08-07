@@ -18,16 +18,23 @@ import {
   Box,
   Flag,
   Users,
+  Gauge,
   type LucideIcon,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
+import { useFontScale } from '@/lib/useTheme'
 import { filterIssues } from '@/lib/selectors'
 import { Popover } from './ui/Popover'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
-import { PRIORITY_LABELS, PRIORITY_ORDER, STATUS_TYPE_ORDER } from '@/lib/constants'
+import {
+  PRIORITY_LABELS,
+  PRIORITY_ORDER,
+  STATUS_TYPE_ORDER,
+  estimatePoints,
+} from '@/lib/constants'
 import type { DateField, DateFilter, FilterState, Issue, Priority } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
@@ -37,21 +44,29 @@ type Dim =
   | 'assigneeIds'
   | 'creatorIds'
   | 'priorities'
+  | 'estimates'
   | 'labelIds'
   | 'projectIds'
   | 'cycleIds'
   | 'milestoneIds'
   | 'subscriberIds'
 
+/**
+ * In Linear's own order. Linear's full list also carries dimensions we don't
+ * model yet (Status type, Agent, Relations, Links, Customers, Template …) —
+ * those are tracked in BACKLOG.md; the ones we do have sit where Linear puts
+ * them, so the menu reads the same top to bottom.
+ */
 const DIMS: { id: Dim; label: string; icon: LucideIcon }[] = [
   { id: 'statusIds', label: 'Status', icon: CircleDashed },
   { id: 'assigneeIds', label: 'Assignee', icon: UserIcon },
   { id: 'creatorIds', label: 'Creator', icon: PenLine },
   { id: 'priorities', label: 'Priority', icon: SignalHigh },
-  { id: 'labelIds', label: 'Label', icon: TagIcon },
+  { id: 'estimates', label: 'Estimate', icon: Gauge },
+  { id: 'labelIds', label: 'Labels', icon: TagIcon },
   { id: 'projectIds', label: 'Project', icon: Box },
-  { id: 'cycleIds', label: 'Cycle', icon: IterationCw },
   { id: 'milestoneIds', label: 'Milestone', icon: Flag },
+  { id: 'cycleIds', label: 'Cycle', icon: IterationCw },
   { id: 'subscriberIds', label: 'Subscribers', icon: Users },
 ]
 
@@ -122,6 +137,7 @@ export function emptyFilters(): FilterState {
     subscriberIds: [],
     cycleIds: [],
     milestoneIds: [],
+    estimates: [],
     dates: [],
   }
 }
@@ -137,6 +153,16 @@ export function hasActiveFilters(f: FilterState): boolean {
 /** Stable identity for "no options" so {@link useDimCounts}'s memo holds. */
 const EMPTY_OPTIONS: ValueOption[] = []
 
+/** Filter popover width at font-scale 1 — scaled in {@link FilterTrigger}. */
+const BASE_FILTER_W = 200
+
+/**
+ * Where the filter popover is pointed: null = root · Dim = that dimension's
+ * value list · 'dates' = date-field list · DateField = that field's
+ * relative-period list · 'text' = the content text input.
+ */
+type Nav = Dim | 'dates' | DateField | 'text' | null
+
 interface ValueOption {
   id: string
   label: string
@@ -151,8 +177,25 @@ function useDimOptions(): Record<Dim, ValueOption[]> {
   const projects = useStore((s) => s.projects)
   const cycles = useStore((s) => s.cycles)
   const milestones = useStore((s) => s.milestones)
+  const teams = useStore((s) => s.teams)
+
+  // Linear's Estimate submenu: "No estimate" first, then every point value on
+  // the scale, worded "1 Point" / "2 Points". A view can span teams, so we
+  // offer the union of their scales rather than picking one team's arbitrarily.
+  const estimateOptions = useMemo(() => {
+    const points = [...new Set(teams.flatMap((t) => estimatePoints(t)))].sort((a, b) => a - b)
+    return [
+      { id: 'none', label: 'No estimate', icon: <Gauge size={14} className="text-faint" /> },
+      ...points.map((p) => ({
+        id: String(p),
+        label: `${p} ${p === 1 ? 'Point' : 'Points'}`,
+        icon: <Gauge size={14} className="text-faint" />,
+      })),
+    ]
+  }, [teams])
 
   return {
+    estimates: estimateOptions,
     statusIds: [...states]
       .sort((a, b) => STATUS_TYPE_ORDER[a.type] - STATUS_TYPE_ORDER[b.type] || a.position - b.position)
       .map((st) => ({ id: st.id, label: st.name, icon: <StatusIcon type={st.type} color={st.color} /> })),
@@ -421,9 +464,7 @@ function AddFilterPanel({
   onCustom: (req: CustomReq) => void
   scope?: Issue[]
 }) {
-  // null = root · Dim = that dimension's value list · 'dates' = date-field list ·
-  // DateField = that field's relative-period list · 'text' = content text input.
-  const [nav, setNav] = useState<Dim | 'dates' | DateField | 'text' | null>(null)
+  const [nav, setNav] = useState<Nav>(null)
   // Type-to-filter query, shared by the root dimension menu and each value list
   // (Linear's filter popover always opens focused on this input). Cleared on
   // every navigation so each level starts fresh.
@@ -432,7 +473,7 @@ function AddFilterPanel({
   const dimNav = nav && nav in dimOptions ? (nav as Dim) : null
   const counts = useDimCounts(scope, filters, dimNav, dimNav ? dimOptions[dimNav] : EMPTY_OPTIONS)
 
-  function go(to: Dim | 'dates' | DateField | 'text' | null) {
+  function go(to: Nav) {
     setQuery('')
     setNav(to)
   }
@@ -447,61 +488,47 @@ function AddFilterPanel({
   // Root menu — type-to-filter across every dimension (incl. Dates).
   if (nav === null) {
     const q = query.trim().toLowerCase()
-    const dims = q ? DIMS.filter((d) => d.label.toLowerCase().includes(q)) : DIMS
-    const showDates = !q || 'dates'.includes(q)
-    const showText = !q || 'content'.includes(q) || 'text'.includes(q)
+    // Dates and Content are navigation targets rather than value dimensions,
+    // but Linear lists them inline among the rest — Dates between Labels and
+    // Project, Content after Subscribers — so they're rendered from one
+    // ordered list instead of being appended at the bottom.
+    const rows: { key: string; label: string; icon: LucideIcon; dim?: Dim; to: Nav }[] = [
+      ...DIMS.map((d) => ({ key: d.id, label: d.label, icon: d.icon, dim: d.id, to: d.id as Nav })),
+    ]
+    const datesRow = { key: 'dates', label: 'Dates', icon: CalendarDays, to: 'dates' as Nav }
+    const textRow = { key: 'text', label: 'Content', icon: Type, to: 'text' as Nav }
+    rows.splice(DIMS.findIndex((d) => d.id === 'projectIds'), 0, datesRow)
+    rows.push(textRow)
+
+    const shown = q ? rows.filter((r) => r.label.toLowerCase().includes(q)) : rows
     return (
       <div className="relative">
         <input
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Filter…"
+          placeholder="Add Filter…"
           className="w-full bg-transparent px-2 py-1.5 pr-7 text-[13px] text-fg outline-none placeholder:text-faint"
         />
         {/* Linear puts the shortcut that opens this menu on the search field. */}
         <span className="pointer-events-none absolute right-3 top-2 text-[11px] text-faint">F</span>
         <div className="-mx-1 mb-1 border-t border-border" />
-        {dims.map((d) => (
+        {shown.map((r) => (
           <button
-            key={d.id}
+            key={r.key}
             type="button"
-            onClick={() => go(d.id)}
+            onClick={() => go(r.to)}
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
           >
-            <d.icon size={14} className="shrink-0 text-faint" />
-            <span className="flex-1 truncate">{d.label}</span>
-            {valuesOf(filters, d.id).length > 0 && (
-              <span className="text-[11px] text-faint">{valuesOf(filters, d.id).length}</span>
+            <r.icon size={14} className="shrink-0 text-faint" />
+            <span className="flex-1 truncate">{r.label}</span>
+            {r.dim && valuesOf(filters, r.dim).length > 0 && (
+              <span className="text-[11px] text-faint">{valuesOf(filters, r.dim).length}</span>
             )}
             <ChevronRight size={13} className="shrink-0 text-faint" />
           </button>
         ))}
-        {showText && (
-          <button
-            type="button"
-            onClick={() => go('text')}
-            className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
-          >
-            <span className="flex flex-1 items-center gap-2">
-              <Type size={14} className="text-faint" /> Content
-            </span>
-            <ChevronRight size={13} className="shrink-0 text-faint" />
-          </button>
-        )}
-        {showDates && (
-          <button
-            type="button"
-            onClick={() => go('dates')}
-            className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
-          >
-            <span className="flex flex-1 items-center gap-2">
-              <CalendarDays size={14} className="text-faint" /> Dates
-            </span>
-            <ChevronRight size={13} className="shrink-0 text-faint" />
-          </button>
-        )}
-        {dims.length === 0 && !showDates && !showText && (
+        {shown.length === 0 && (
           <div className="px-2 py-3 text-center text-[12px] text-faint">No results</div>
         )}
       </div>
@@ -1393,6 +1420,9 @@ export function FilterTrigger({
   scope?: Issue[]
 }) {
   const [custom, setCustom] = useState<CustomReq | null>(null)
+  // JS pixels, so CSS's `--font-scale` never reaches them: at the larger steps
+  // the popover kept its 200px while its contents grew, and the panel overflowed.
+  const panelW = Math.round(BASE_FILTER_W * useFontScale())
 
   function applyCustom(op: 'before' | 'after' | 'in', value: string) {
     onChange({ ...filters, dates: [...(filters.dates ?? []), { field: custom!.field, op, value }] })
@@ -1403,7 +1433,8 @@ export function FilterTrigger({
     <>
       <Popover
         align="end"
-        width={200}
+        width={panelW}
+        label="Add filter"
         trigger={
           <span
             title="Filter"

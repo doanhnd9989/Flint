@@ -12,10 +12,16 @@ interface Props {
   children: (close: () => void) => ReactNode
   align?: 'start' | 'end'
   width?: number
+  /**
+   * Accessible name for the trigger. Icon-only triggers render no text, so
+   * without this the button reaches assistive tech — and our control crawl —
+   * unnamed. Linear labels every one of them ("Add filter", "Display options").
+   */
+  label?: string
 }
 
 /** Generic click-anchored popover rendered in a portal. */
-export function Popover({ trigger, children, align = 'start', width = 220 }: Props) {
+export function Popover({ trigger, children, align = 'start', width = 220, label }: Props) {
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -56,6 +62,8 @@ export function Popover({ trigger, children, align = 'start', width = 220 }: Pro
       <button
         ref={anchorRef}
         type="button"
+        aria-label={label}
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center"
       >

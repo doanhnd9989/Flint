@@ -576,6 +576,12 @@ export interface FilterState {
   subscriberIds?: string[]
   cycleIds?: string[]
   milestoneIds?: string[]
+  /**
+   * Estimate dimension (Linear's "Estimate" filter). Point values as strings so
+   * the dimension rides the same string[] machinery as every other one;
+   * `'none'` is Linear's "No estimate" row. Optional for back-compat.
+   */
+  estimates?: string[]
   /** Date filters (Linear's "Dates" dimension). Optional for back-compat. */
   dates?: DateFilter[]
   /** Free-text content filter — matches issue title + description (substring, case-insensitive). Optional for back-compat. */

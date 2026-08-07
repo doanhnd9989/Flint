@@ -201,6 +201,13 @@ export function filterIssues(
         () => !!(i.milestoneId && filters.milestoneIds!.includes(i.milestoneId)),
         'milestoneIds',
       ],
+      [
+        !!filters.estimates?.length,
+        // Only an *unset* estimate is "No estimate"; 0 is its own row on teams
+        // that allow zero, which is how Linear's submenu lists them.
+        () => filters.estimates!.includes(i.estimate === undefined ? 'none' : String(i.estimate)),
+        'estimates',
+      ],
     ]
     for (const [active, matches, key] of dims) {
       if (!active) continue

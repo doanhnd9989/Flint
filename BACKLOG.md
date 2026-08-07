@@ -616,6 +616,48 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `filters-display` pass (`/team/CLA/active` vs Linear's `team/VC/active`)
+
+Our filter menu carries 12 top-level dimensions after this run; Linear's has 25.
+Each row below is one of the missing ones, sized by what it actually needs.
+
+- [ ] 🔴 **`Relations` filter dimension** — Linear's submenu has 7 leaves: Parent
+  issues, Sub-issues, Blocked issues, Blocking issues, Recurring issues, Issues
+  with relations, Duplicates. Blocked/blocking/duplicate live in the separate
+  `relations` store slice, so `filterIssues(issues, filters)` cannot see them —
+  this needs a relation index threaded through as a third argument (9 call
+  sites, one of which passes a single issue: `SearchView.tsx:68`). The parent /
+  sub-issue leaves alone are cheap, but shipping only those would make the
+  submenu look complete while five of seven leaves do nothing.
+- [ ] 🟡 **`Status type` filter dimension** — filter by state *category*
+  (Backlog / Unstarted / Started / Completed / Canceled) rather than by named
+  state. `STATUS_TYPE_ORDER` already exists; this is a small one.
+- [ ] 🟡 **`Links` filter dimension** — `IssueLink` is stored outside `Issue`, so
+  same indexing problem as Relations, at smaller scale.
+- [ ] 🟡 **`Project properties` submenu** — Linear nests Milestone (and project
+  status/health) one level under this; ours has Milestone at top level.
+- [ ] 🟢 **`Auto-closed`** — the one leaf row in Linear's list with no submenu.
+- [ ] 🟢 **`Added to cycle`** — filters on cycle-membership date, not cycle id.
+- [ ] 🟡 **Faceted counts should read "42 issues" / "1 issue"** — Linear words
+  the count and hides it at zero; ours renders a bare right-aligned number.
+  Verified on Linear's `Estimate` submenu.
+- [ ] 🟢 **Toolbar is missing `Add new view` (+)** — Linear puts an icon-only
+  28px `+` immediately after the `Active / Backlog / All issues` tabs.
+- [ ] 🟡 **Toolbar is missing `Open details`** — the far-right toggle for
+  Linear's right-hand detail pane. The pane itself is the real work.
+- [ ] 🟢 **`Display` still renders its text label** — Linear's is icon-only
+  (28px, `aria-label="Display options"`), matching the filter funnel beside it.
+  Ours now has the aria-label but keeps the visible word.
+- [ ] 🟢 **Display properties: chip order and 3 missing chips** — Linear orders
+  them ID, Status, Assignee, Priority, Project, Due date, Milestone, Cycle,
+  Estimate, Labels, Links, Customers, Customer revenue, Time in status, Created,
+  Updated, Pull requests and commits. Ours puts Cycle/Estimate before Due
+  date/Milestone, lacks Customers, Customer revenue and Pull requests and
+  commits, and adds a Creator chip Linear does not have here.
+- [ ] ⚪ **Linear-only features with no equivalent yet** — `AI filter`,
+  `Advanced filter`, `Agent`, `Agent Session`, `Suggested label`, `Customers`,
+  `External source`, `Template`. Each is a product surface, not a menu row.
+
 - [x] 🟢 **Workspace menu is missing "Switch workspace"** — shipped with the
   `O then W` hint and Linear's flyout shape: the workspace list with a check on
   the current one, then "Create or join a workspace". One entry today, but the

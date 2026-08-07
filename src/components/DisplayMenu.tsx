@@ -210,6 +210,7 @@ export function DisplayMenu({
     <Popover
       width={272}
       align="end"
+      label="Display options"
       trigger={
         <span className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover">
           <SlidersHorizontal size={13} />
