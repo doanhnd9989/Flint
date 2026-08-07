@@ -4,12 +4,13 @@
 // (issues, projects, …) is NOT stored here — it stays in the SPA's localStorage.
 import Database from 'better-sqlite3'
 import bcrypt from 'bcryptjs'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, randomBytes } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const IS_PROD = process.env.NODE_ENV === 'production'
 const DATA_DIR = process.env.DATA_DIR || join(__dirname, 'data')
 mkdirSync(DATA_DIR, { recursive: true })
 
@@ -81,6 +82,25 @@ const DEFAULT_FLAGS = [
   ['views', 'Saved Views', 'Custom saved filtered views', 1, 130],
 ]
 
+/**
+ * A secret that must survive restarts but must never be a value someone can
+ * read out of this repository. Env wins when set; otherwise we mint 32 random
+ * bytes once and keep them in the workspace table.
+ *
+ * The old code fell back to a constant string committed here, which meant
+ * anyone holding the source could forge an admin JWT without a password.
+ */
+export function getOrCreateSecret(key) {
+  const fromEnv = process.env[key]
+  if (fromEnv) return fromEnv
+  const stored = db.prepare('SELECT value FROM workspace WHERE key = ?').get(`secret:${key}`)
+  if (stored) return stored.value
+  const minted = randomBytes(32).toString('hex')
+  db.prepare('INSERT INTO workspace (key, value) VALUES (?, ?)').run(`secret:${key}`, minted)
+  console.warn(`[db] ${key} was not set — generated a random one and stored it in the database.`)
+  return minted
+}
+
 const DEFAULT_WORKSPACE = [
   ['name', 'Flint Task'],
   ['tagline', 'The issue tracker built for speed.'],
@@ -113,9 +133,13 @@ export function seed() {
      VALUES (@id, @name, @email, @password_hash, @avatar_color, @role, @status, @created_at)`,
   )
 
-  // System admin — credentials come from env so production isn't hardcoded.
+  // System admin. No literal fallback password: unset env mints a random one and
+  // prints it once, so an unconfigured box is inaccessible rather than open.
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@flinttask.com').toLowerCase()
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin1234'
+  const generatedAdminPassword = process.env.ADMIN_PASSWORD
+    ? null
+    : randomBytes(12).toString('base64url')
+  const adminPassword = process.env.ADMIN_PASSWORD || generatedAdminPassword
   insUser.run({
     id: randomUUID(),
     name: process.env.ADMIN_NAME || 'System Admin',
@@ -126,19 +150,62 @@ export function seed() {
     status: 'active',
     created_at: now,
   })
+  if (generatedAdminPassword) {
+    console.warn(
+      `[db] ADMIN_PASSWORD not set. If ${adminEmail} was created just now, its password is: ${generatedAdminPassword}`,
+    )
+  }
 
-  const demoPassword = process.env.DEMO_PASSWORD || 'demo1234'
-  for (const u of DEMO_USERS) {
-    insUser.run({
-      id: randomUUID(),
-      name: u.name,
-      email: u.email.toLowerCase(),
-      password_hash: bcrypt.hashSync(demoPassword, 10),
-      avatar_color: u.color,
-      role: u.role,
-      status: 'active',
-      created_at: now,
-    })
+  // The insert above is INSERT OR IGNORE, so on every boot after the first it
+  // does nothing — which used to mean that setting ADMIN_PASSWORD later had no
+  // effect at all and the account silently kept whatever it was seeded with.
+  // When the env var is set, it is the authority: reconcile the stored hash.
+  if (process.env.ADMIN_PASSWORD) {
+    const existing = db.prepare('SELECT * FROM users WHERE email = ?').get(adminEmail)
+    if (existing && !bcrypt.compareSync(process.env.ADMIN_PASSWORD, existing.password_hash)) {
+      db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(
+        bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10),
+        existing.id,
+      )
+      console.warn(`[db] Reset ${adminEmail} to match ADMIN_PASSWORD.`)
+    }
+  }
+
+  // Demo accounts share one password and one of them is an admin, so they are a
+  // development convenience only. Production has to ask for them explicitly.
+  const wantDemoUsers = IS_PROD ? process.env.SEED_DEMO_USERS === '1' : true
+  if (wantDemoUsers) {
+    const demoPassword = process.env.DEMO_PASSWORD || 'demo1234'
+    for (const u of DEMO_USERS) {
+      insUser.run({
+        id: randomUUID(),
+        name: u.name,
+        email: u.email.toLowerCase(),
+        password_hash: bcrypt.hashSync(demoPassword, 10),
+        avatar_color: u.color,
+        role: u.role,
+        status: 'active',
+        created_at: now,
+      })
+    }
+  }
+
+  // Seeding is skipped from now on, but a box seeded before this change still
+  // carries those accounts — and `avery@workspace.dev` is an admin. Say so on
+  // every boot until someone deals with it.
+  if (IS_PROD) {
+    const leftovers = db
+      .prepare(
+        `SELECT email, role FROM users WHERE email IN (${DEMO_USERS.map(() => '?').join(',')})`,
+      )
+      .all(...DEMO_USERS.map((u) => u.email.toLowerCase()))
+    if (leftovers.length) {
+      console.warn(
+        `[db] SECURITY: seeded demo accounts exist in production: ${leftovers
+          .map((u) => `${u.email} (${u.role})`)
+          .join(', ')}. They share a known password — reset or remove them.`,
+      )
+    }
   }
 
   return { adminEmail }

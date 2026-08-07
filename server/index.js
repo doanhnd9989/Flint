@@ -230,6 +230,22 @@ app.patch('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
   res.json({ user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)) })
 })
 
+/** Admin password reset. Separate from PATCH so a role edit can never carry a
+ *  credential change by accident, and so this one line is easy to audit. */
+app.post('/api/admin/users/:id/password', requireAuth, requireAdmin, (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
+  if (!user) return res.status(404).json({ error: 'User not found' })
+  const next = String(req.body?.password || '')
+  if (next.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters' })
+  }
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(
+    bcrypt.hashSync(next, 10),
+    user.id,
+  )
+  res.json({ ok: true })
+})
+
 app.delete('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
   if (!user) return res.status(404).json({ error: 'User not found' })

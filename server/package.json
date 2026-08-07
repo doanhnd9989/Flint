@@ -6,8 +6,8 @@
   "description": "Auth + system-management API for the Flint workspace (users, feature flags, workspace config).",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "seed": "node db.js --seed"
+    "start": "node --env-file-if-exists=.env index.js",
+    "seed": "node --env-file-if-exists=.env db.js --seed"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

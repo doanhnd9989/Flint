@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { Key, Monitor, Smartphone } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { api } from '@/lib/api'
+import { useToasts } from '@/lib/toast'
 import { Toggle as UIToggle } from './ui/Toggle'
 
 const genId = () => Math.random().toString(36).slice(2, 9)
@@ -22,6 +24,76 @@ function Row({ left, control }: { left: ReactNode; control: ReactNode }) {
     <div className="flex items-center justify-between gap-4 px-4 py-3.5">
       {left}
       {control}
+    </div>
+  )
+}
+
+/**
+ * Changing your own password. The endpoint has existed since the auth work
+ * landed but nothing in the app called it, so the only way to rotate a
+ * credential was curl.
+ */
+function ChangePassword() {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const addToast = useToasts((s) => s.add)
+
+  const submit = async () => {
+    setError(null)
+    if (next.length < 6) return setError('New password must be at least 6 characters')
+    if (next !== confirm) return setError('The two new passwords do not match')
+    setBusy(true)
+    try {
+      await api('/auth/change-password', { method: 'POST', body: { current, next } })
+      setCurrent('')
+      setNext('')
+      setConfirm('')
+      addToast({ message: 'Password changed' })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not change the password')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const field = (
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    autoComplete: string,
+  ) => (
+    <label className="block">
+      <span className="mb-1.5 block text-[12px] text-muted">{label}</span>
+      <input
+        type="password"
+        value={value}
+        autoComplete={autoComplete}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && void submit()}
+        className="w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-[13px] text-fg outline-none focus:border-accent"
+      />
+    </label>
+  )
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border p-4">
+      {field('Current password', current, setCurrent, 'current-password')}
+      {field('New password', next, setNext, 'new-password')}
+      {field('Confirm new password', confirm, setConfirm, 'new-password')}
+      {error && (
+        <p className="rounded-md bg-red-500/10 px-3 py-2 text-[12px] text-red-500">{error}</p>
+      )}
+      <button
+        type="button"
+        onClick={() => void submit()}
+        disabled={busy || !current || !next}
+        className="rounded-md bg-accent px-3 py-1.5 text-[13px] text-accent-text hover:bg-accent-hover disabled:opacity-50"
+      >
+        {busy ? 'Changing…' : 'Change password'}
+      </button>
     </div>
   )
 }
@@ -70,6 +142,12 @@ export function SecurityAccessSettings() {
       </p>
 
       <div className="mt-7 space-y-9">
+        {/* Password */}
+        <section>
+          <h2 className="mb-3 text-[13px] font-semibold text-fg">Password</h2>
+          <ChangePassword />
+        </section>
+
         {/* Two-factor */}
         <section>
           <h2 className="mb-3 text-[13px] font-semibold text-fg">Two-factor authentication</h2>

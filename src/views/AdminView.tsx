@@ -5,6 +5,7 @@ import {
   Loader2,
   Plus,
   Trash2,
+  KeyRound,
   ArrowLeft,
   ToggleLeft,
   ToggleRight,
@@ -164,6 +165,20 @@ function UsersTab() {
     }
   }
 
+  /** Set someone else's password — the only way to close out an account that was
+   *  seeded with a shared or default credential. */
+  async function resetPassword(u: AuthUser) {
+    const next = prompt(`New password for ${u.email} (at least 6 characters):`)
+    if (next === null) return
+    setError(null)
+    try {
+      await api(`/admin/users/${u.id}/password`, { method: 'POST', body: { password: next } })
+      alert(`Password updated for ${u.email}.`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Password reset failed')
+    }
+  }
+
   async function remove(u: AuthUser) {
     if (!confirm(`Delete ${u.name}? This cannot be undone.`)) return
     setError(null)
@@ -240,16 +255,26 @@ function UsersTab() {
                   </button>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {u.id !== me?.id && (
+                  <div className="flex items-center justify-end gap-3">
                     <button
                       type="button"
-                      onClick={() => remove(u)}
-                      className="text-faint hover:text-red-500"
-                      title="Delete user"
+                      onClick={() => resetPassword(u)}
+                      className="text-faint hover:text-fg"
+                      title="Reset password"
                     >
-                      <Trash2 size={15} />
+                      <KeyRound size={15} />
                     </button>
-                  )}
+                    {u.id !== me?.id && (
+                      <button
+                        type="button"
+                        onClick={() => remove(u)}
+                        className="text-faint hover:text-red-500"
+                        title="Delete user"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

@@ -1,19 +1,17 @@
 // JWT + bcrypt helpers and Express middleware.
 import jwt from 'jsonwebtoken'
 import { createHash } from 'node:crypto'
-import { db } from './db.js'
+import { db, getOrCreateSecret } from './db.js'
 
 export const API_KEY_PREFIX = 'flint_'
 export function hashApiKey(key) {
   return createHash('sha256').update(key).digest('hex')
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me'
+// Never a literal: unset env means a random secret minted once and persisted,
+// so no key that exists in this repo can sign a token.
+const JWT_SECRET = getOrCreateSecret('JWT_SECRET')
 const JWT_TTL = '7d'
-
-if (!process.env.JWT_SECRET) {
-  console.warn('[auth] JWT_SECRET not set — using insecure dev secret. Set it in production.')
-}
 
 export function signToken(user) {
   return jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_TTL })
