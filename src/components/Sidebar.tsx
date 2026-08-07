@@ -620,7 +620,7 @@ export function Sidebar() {
         </button>
         <button
           type="button"
-          title="Collapse sidebar (⌘/)"
+          title="Collapse sidebar ([)"
           onClick={toggleSidebar}
           className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-bg-hover hover:text-fg"
         >

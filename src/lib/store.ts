@@ -2797,6 +2797,7 @@ export const useStore = create<Store>()(
         void _cdo
         void _vmc
         void _h
+        void _hm
         void _p
         void _sel
         void _nav

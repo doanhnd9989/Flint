@@ -104,7 +104,7 @@ function Shell() {
       {!inSettings && sidebarCollapsed && (
         <button
           type="button"
-          title="Expand sidebar (⌘/)"
+          title="Expand sidebar ([)"
           onClick={() => useStore.getState().toggleSidebar()}
           className="absolute left-1.5 top-2.5 z-30 flex h-7 w-7 items-center justify-center rounded-md bg-bg-secondary text-muted hover:bg-bg-hover hover:text-fg"
         >

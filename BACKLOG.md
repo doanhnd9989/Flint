@@ -616,6 +616,38 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `inbox-notifications` pass (`/inbox` vs Linear's `/inbox`)
+
+Read off Linear's live inbox, read-only. Everything cheap enough to build was
+built in that run; these are what is left.
+
+- [ ] 🔴 **`Notification` has no `documentId`, so Linear's `Document` filter
+  dimension cannot exist** — Linear's inbox filters on Document alongside Team
+  and Project, and its `Notification type` facet includes `Document changes`.
+  Our model only ever links a notification to an issue. Needs `documentId?` on
+  `Notification`, a document-change notification producer, and the eighth filter
+  row. (M)
+- [ ] 🟡 **The `Inbox` / `Read` tab strip is ours, not Linear's** — Linear has no
+  tab strip in the inbox at all; the single list plus the display menu's
+  `Show read` toggle is the whole read/unread control. Removing the tabs means
+  moving the "mark as unread" affordance into the row context menu (already
+  built) and making sure snoozed rows stay reachable via `Show snoozed`. (S)
+- [ ] 🟡 **The `Select all` bar above the list is ours, not Linear's** — Linear
+  shows no master checkbox and no select-all row. Multi-select in Linear's inbox
+  was not verified (verifying it would have meant mutating the user's real
+  workspace), so this stays logged rather than deleted. (S)
+- [ ] 🟡 **`+N more` thread folding is ours, not Linear's** — Linear lists every
+  event on an issue as its own row (163 rows, many on the same project). Decide
+  whether to keep the fold as a deliberate improvement or drop it for parity. (S)
+- [ ] 🟢 **Snooze has no natural-language box** — Linear's snooze flyout opens
+  with a text field (`Try: 4 pm, 2 days, in 5 weeks…`) that parses free text
+  above the six presets. Ours has the presets and a calendar, no parser. (M)
+- [ ] 🟢 **Filter dimension submenus have no `Filter…` search box** — Linear puts
+  one at the top of every value list; ours lists values directly. Matters once a
+  workspace has more than a screenful of users or projects. (S)
+- [ ] 🟢 **`Open in desktop app` (Ctrl ⌘ ,)** — the last row of Linear's row
+  context menu. Omitted deliberately; revisit only if a desktop build exists. (S)
+
 ### From the `command-menu` pass (⌘K on `/team/CLA/all` vs Linear's `team/VC/all`)
 
 Linear's root palette lists 98 rows across 21 sections. After this run ours

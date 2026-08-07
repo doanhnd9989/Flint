@@ -3824,3 +3824,65 @@ wording and key, and `.audit/controls/keyboard.md` says so.
 `tsc -b ✅ · build ✅ · 23-route sweep console-clean, zero overflow · drawer
 verified at dark + --font-scale 1.4 and at a 420px viewport (clamps to 92vw,
 labels ellipsise, no page h-scroll) · lint 109 (baseline)`
+
+## `inbox-notifications` — the row was the wrong shape and right-click did nothing
+
+Rotation area 8. Compared `/inbox` against `linear.app/<ws>/inbox`, read-only
+through the Chrome extension. Full control crawl in
+`.audit/controls/inbox-notifications.md`.
+
+**The headline: an inbox row had no context menu at all.** Linear's right-click
+menu is seven rows deep with two flyouts under it; ours opened nothing. Built
+`NotificationContextMenu.tsx` to Linear's order and wording — `Mark as read` (U)
+· `Delete notification` (⌫) · `Snooze` (H) ▸ · `Subscribe` (⇧S) / `Favorite`
+(⌥F) · `Copy` ▸. The Snooze flyout carries Linear's six presets with the
+resolved moment right-aligned on each row (`Next week — Mon, 10 Aug, 9:00`,
+verified against Linear's own render of the same day), and `Next cycle` resolves
+against the issue's team and greys out when that team has nothing upcoming. The
+Copy flyout carries all six of Linear's rows. On a folded thread the menu acts
+on every member at once, like the row's other actions already did.
+
+**Depth, the second time it bit:**
+
+- **⋯ menu 2 rows → 4.** Linear: `Mark all as read` ⌥U / — / `Delete all` ·
+  `Delete all read` ⇧⌫ · `Delete all read for completed issues`. Ours had the
+  first and third and printed no shortcut hints. All four now, hints included;
+  the "for completed issues" sweep is the narrow one Linear means.
+- **Filter menu 5 dimensions → 7, with faceted counts.** Linear has eight
+  (Notification type · Subscription · From · Team · Project · Document · Issue
+  priority · Issue status type) and prints `N notifications` beside every option,
+  folding the zero-count ones behind an `N options not matching any
+  notifications` footer. Ours listed five, in the wrong order, with no counts and
+  no footer. Added Subscription and Team, reordered to Linear's, and every value
+  list now runs through `ValueList` for the count + footer behaviour.
+  `Notification type`'s labels are now Linear's strings too (`Comments and
+  replies`, not `Comments`; `Subscriptions`, not `Subscribed updates`).
+
+**Row anatomy rebuilt from Linear's, not from memory.** The unread dot moved
+from the far left to between the avatar and the title; the avatar picked up the
+corner glyph naming the event; line 1 now ends with the issue's own status glyph
+and line 2 with the age (we had the age on line 1 and nothing on line 2); and
+the uppercase `MENTIONED` / `ASSIGNED` chip is gone — Linear carries the reason
+in the sentence, not in a pill. The reading pane's placeholder lost its
+illustration and heading for Linear's single line of text.
+
+**Deliberate differences,** each because the alternative is a lie rather than a
+gap: `Open in desktop app` is omitted (there is no desktop build to hand off to),
+and the `Document` filter dimension is not built (`Notification` carries no
+`documentId`, so the facet could never match — logged in `BACKLOG.md` as the
+model change it actually is).
+
+Also fixed while here: the sidebar toggle still advertised `⌘/` in its tooltip,
+which the `keyboard` pass had reassigned to the shortcut sheet — it is `[` now,
+in both the collapsed and expanded buttons. And `store.ts` was leaking a
+`no-unused-vars` error on `_hm` from that same pass.
+
+**Linear stayed read-only.** Only menus were opened and Escaped; nothing was
+selected, typed, submitted or created, so what each of Linear's items *does* is
+recorded as unverified.
+
+`tsc -b ✅ · build ✅ · 37-route sweep console-clean, zero overflow · context
+menu, snooze flyout, filter facets and ⋯ menu each driven and read back ·
+verified at dark + --font-scale 1.4 and at a 420px viewport (no h-scroll) ·
+lint 110 (was 111; the two known react-hooks families only, none in the files
+touched)`
