@@ -2,58 +2,19 @@ import type { Issue } from '@/lib/types'
 import { useStore } from '@/lib/store'
 import { Popover } from './ui/Popover'
 import { cn, formatDate, isOverdue } from '@/lib/utils'
+import {
+  atTime,
+  beforeDue,
+  formatTime,
+  inHours,
+  nextMonday,
+  thisEvening,
+} from '@/lib/dateOptions'
 import { Bell, BellPlus, X } from 'lucide-react'
-
-/** Local time formatter ("9:00 AM") for reminder times. */
-function formatTime(d: Date): string {
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-}
 
 /** "Tomorrow, 9:00 AM" — Linear's reminder label (relative date + local time). */
 function formatReminder(iso: string): string {
   return `${formatDate(iso)}, ${formatTime(new Date(iso))}`
-}
-
-/** now + n hours, as a fresh Date. */
-function inHours(n: number): Date {
-  const d = new Date()
-  d.setHours(d.getHours() + n)
-  return d
-}
-
-/** Today (or `dayOffset` days from now) at a given local hour:minute. */
-function atTime(dayOffset: number, hour: number, minute = 0): Date {
-  const d = new Date()
-  d.setDate(d.getDate() + dayOffset)
-  d.setHours(hour, minute, 0, 0)
-  return d
-}
-
-/** Next Monday at 09:00 local. */
-function nextMonday(hour = 9): Date {
-  const d = new Date()
-  // 0 = Sun … 1 = Mon. Days until the *next* Monday (always ≥ 1).
-  const delta = ((1 - d.getDay() + 7) % 7) || 7
-  d.setDate(d.getDate() + delta)
-  d.setHours(hour, 0, 0, 0)
-  return d
-}
-
-function thisEvening(): Date {
-  const evening = atTime(0, 18)
-  // If 18:00 already passed today, roll to tomorrow evening.
-  return evening.getTime() <= Date.now() ? atTime(1, 18) : evening
-}
-
-/**
- * `dueDate` minus `leadDays`, pinned to 09:00 local on that day — the moment
- * we'd nudge you "N days before this is due". Returns a fresh Date.
- */
-function beforeDue(dueIso: string, leadDays: number): Date {
-  const d = new Date(dueIso)
-  d.setDate(d.getDate() - leadDays)
-  d.setHours(9, 0, 0, 0)
-  return d
 }
 
 const triggerCls =

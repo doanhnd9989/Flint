@@ -674,3 +674,39 @@ live workspace too.
   hover buttons (`Copy issue URL`, `Open in peek`, `Open full page`,
   `More options`). Linear's list rows have none; everything is right-click or
   keyboard. Worth deciding whether to keep this as a deliberate difference.
+- [ ] 🟢 **`Add customer request…` ⌃R and `Add document…` on the issue ⋯ menu** —
+  Linear's first group has both, right under `Add link…`. We have customers and
+  documents as features; neither is reachable from an issue.
+- [ ] 🟢 **`Convert to ▸ Recurring issue…`** — the third leaf of Linear's
+  `Convert to`. No recurrence model on `Issue`, so it needs a schedule field
+  before the row means anything.
+- [ ] 🟢 **`Add to favorites` sits at the wrong end of the issue header** —
+  Linear puts the ☆ inline immediately after the breadcrumb title (x≈682) with
+  `⋯` right beside it (x≈706). Ours strands it at the far right (x≈1364).
+- [ ] 🟢 **Linear's issue-detail icon row is on the content column, not the app
+  header** — `Copy issue URL`, `Copy issue ID`, `Copy branch name` and a
+  `Work on issue` split-button sit top-right *above the Properties rail*. Ours
+  puts two of them in the top app bar and has no counterpart for the other two.
+- [ ] 🟢 **Property rail order: Linear is estimate-then-cycle, ours is
+  cycle-then-estimate** — Linear's rail reads Status, Priority, Assignee,
+  `Set estimate`, `Cycle 14`. Ours swaps the last two.
+- [ ] 🟢 **Subscribers is a rail row for us, an activity-header control for
+  Linear** — Linear has `Subscribe to issue` + `Change subscribers` at the top
+  right of the Activity block; ours is the last row of the Properties rail.
+- [ ] 🟢 **Label chips have no per-chip menu** — Linear renders each label as a
+  chip with its own ▾ (open that label's menu) plus a trailing `+` to add. Ours
+  is one button opening a multi-select for the whole set.
+- [ ] 🟢 **`Sub-issue of ‹parent›` belongs under the title** — Linear puts the
+  parent line directly beneath the issue title with the parent's progress
+  (`0/8`). Ours shows a `Blocked by 1 issue` chip *above* the title instead.
+- [ ] 🟢 **`MoveIssueModal` is now unreferenced** — the ⋯ menu's `Move to team…`
+  became Linear's inline `Team ▸` flyout, and `store.openMoveIssue` has no other
+  caller. Either wire it to ⌘⇧M or delete the modal.
+- [ ] 🟢 **`Development` section header opens nothing** — verdict unresolved: the
+  seed has no issue with a linked branch or PR, so it may simply be empty rather
+  than dead. Needs an issue with development data to judge.
+- [ ] 🟢 **`control-crawl.js` can't see our submenus** — it itemises `button,a`,
+  but `SubRow` triggers are `div`s, so any flyout inventories as absent. It also
+  filters on `opacity`, which is always 0 in a backgrounded pane, and it leaves
+  popovers stacked between presses. Three false findings this run; worth fixing
+  the reference script itself.

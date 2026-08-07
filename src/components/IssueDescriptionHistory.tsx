@@ -23,10 +23,6 @@ function previewOf(body: string): string {
  * issue has at least one prior version.
  */
 export function IssueDescriptionHistory({ issue }: { issue: Issue }) {
-  const restoreIssueDescription = useStore((s) => s.restoreIssueDescription)
-  const users = useStore((s) => s.users)
-  const fmt = useDisplayName()
-
   const history = issue.descriptionHistory ?? []
   if (history.length === 0) return null
 
@@ -44,48 +40,74 @@ export function IssueDescriptionHistory({ issue }: { issue: Issue }) {
         </span>
       }
     >
-      {(close) => (
-        <div className="max-h-80 overflow-y-auto">
-          <div className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-faint">
-            Description history
-          </div>
-          {history.map((v, i) => {
-            const author = users.find((u) => u.id === v.userId)
-            return (
-              <div
-                key={`${v.at}-${i}`}
-                className="group/ver flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-bg-hover"
-              >
-                <Avatar user={author} size={18} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 text-[12px]">
-                    <span className="text-fg">
-                      {author ? fmt(author.name) : 'Someone'}
-                    </span>
-                    <span className="text-faint" title={formatFullDate(v.at)}>
-                      {timeAgo(v.at)}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 truncate text-[11px] text-muted">
-                    {previewOf(v.body)}
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    restoreIssueDescription(issue.id, i)
-                    close()
-                  }}
-                  className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted opacity-0 hover:bg-bg-tertiary hover:text-fg group-hover/ver:opacity-100"
-                  title="Restore this version"
-                >
-                  <RotateCcw size={11} />
-                  Restore
-                </button>
-              </div>
-            )
-          })}
+      {(close) => <DescriptionHistoryList issue={issue} onRestore={close} />}
+    </Popover>
+  )
+}
+
+/**
+ * The version list itself, without the trigger — so the issue ⋯ menu's
+ * "Show description history" row can present the same content from a surface
+ * that has no inline History affordance.
+ */
+export function DescriptionHistoryList({
+  issue,
+  onRestore,
+}: {
+  issue: Issue
+  onRestore: () => void
+}) {
+  const restoreIssueDescription = useStore((s) => s.restoreIssueDescription)
+  const users = useStore((s) => s.users)
+  const fmt = useDisplayName()
+
+  const history = issue.descriptionHistory ?? []
+
+  return (
+    <div className="max-h-80 overflow-y-auto">
+      <div className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-faint">
+        Description history
+      </div>
+      {history.length === 0 && (
+        <div className="px-2 pb-2 text-[12px] text-faint">
+          This description has not been edited yet.
         </div>
       )}
-    </Popover>
+      {history.map((v, i) => {
+        const author = users.find((u) => u.id === v.userId)
+        return (
+          <div
+            key={`${v.at}-${i}`}
+            className="group/ver flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-bg-hover"
+          >
+            <Avatar user={author} size={18} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 text-[12px]">
+                <span className="text-fg">
+                  {author ? fmt(author.name) : 'Someone'}
+                </span>
+                <span className="text-faint" title={formatFullDate(v.at)}>
+                  {timeAgo(v.at)}
+                </span>
+              </div>
+              <div className="mt-0.5 truncate text-[11px] text-muted">
+                {previewOf(v.body)}
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                restoreIssueDescription(issue.id, i)
+                onRestore()
+              }}
+              className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted opacity-0 hover:bg-bg-tertiary hover:text-fg group-hover/ver:opacity-100"
+              title="Restore this version"
+            >
+              <RotateCcw size={11} />
+              Restore
+            </button>
+          </div>
+        )
+      })}
+    </div>
   )
 }

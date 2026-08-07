@@ -3495,3 +3495,75 @@ reload and a fresh hook is.
 
 `tsc -b ✅ · build ✅ · 37 routes console-clean · no page overflow at 1280 or
 760px, dark, or font-scale 1.6 · lint 113, unchanged`
+
+## Audit pass — `issue-detail` (2026-08-07)
+
+Rotation area #3. Read the logs (typecheck green, both servers up, lint 113 at
+its documented baseline), poured in 30 issues / 6 sub-issues / 40 comments / 12
+real attachments, swept 37 routes, then took the issue detail control by control
+against `linear.app/thehumaninc/issue/VC-804`.
+
+### The area: Linear's issue ⋯ menu is 16 rows and 8 submenus; ours was 20 rows
+### and 4
+
+Depth again, exactly where the protocol says this app is weakest. The top-level
+buttons existed; the tree under them was thin, and the grouping was our own.
+Rebuilt `IssueOptionsMenu` to Linear's structure:
+
+- **`Copy` ▸ 4 → 9**, Linear's exact strings and shortcuts: `Copy ID ⌘.`,
+  `Copy URL ⌘⇧,`, `Copy title ⌘⇧'`, `Copy title as link ⌘C`,
+  `Copy description as Markdown`, `Copy content as Markdown ⌘⌥C`,
+  `Copy git branch name ⌘⇧.`, `Copy as prompt ⌘⌥P`, `Make a copy…`. Our old
+  `Copy issue ID` / `Copy issue URL` were wrong strings, and `Duplicate` was a
+  top-level row where Linear keeps it as `Make a copy…` at the foot of Copy.
+- **`Due date` ⇧D ▸ and `Remind me` ⇧H ▸ did not exist at all** — both are
+  Linear top-level rows. Built with Linear's leaves and its right-aligned
+  resolved dates.
+- **`Remove` ▸ did not exist.** Lists the issue's own parent and relations,
+  named from this issue's side — `Blocking CLA-17` but `Blocked by CLA-21`,
+  because `blocks` is the one directional relation type.
+- **`Team` ⌘⇧M ▸** — ours was `Move to team…` opening a modal; Linear expands
+  the team list inline with a check on the current one.
+- **`Convert to` ▸** — ours was two conditional flat rows; now a submenu
+  (`Project…`, `Template…`). `Recurring issue…` is logged, not built.
+- **`Show description history`** — the version list existed but was reachable
+  only from the small `History` chip under the description.
+- Group order is now Linear's six groups in Linear's sequence.
+
+### Three "bugs" that were the harness, not the app
+
+Worth writing down, because each one looked real:
+
+- **A real Escape key press never reaches the page** through this browser tool.
+  A probe listener recorded zero keydowns for it. That made `AddLinkModal` and
+  every `SelectMenu` look like they ignored Escape. They don't — Escape has to be
+  dispatched at `document.activeElement`, which is where a real key press lands;
+  `document.dispatchEvent` alone bypasses React `onKeyDown` handlers bound to a
+  panel.
+- **The pane is backgrounded, so CSS animations never advance.** Every
+  `animate-pop` popover sits at `opacity: 0` forever, so the crawl's visibility
+  filter threw away menus that had opened. Three property pickers "opened
+  nothing" until the opacity check came out.
+- **`control-crawl` cannot see our submenus.** It itemises `button,a`; our
+  `SubRow` triggers are `div`s. The ⋯ menu inventoried as 9 items when it had 20.
+
+### Two real bugs, both in the new code, both found by using it
+
+- **Nested submenus could never open.** `Due date ▸ Custom…` sets the open-submenu
+  id, which un-set the parent it lives inside, so the calendar unmounted the
+  frame it appeared in. A single id can't express a chain; it's an open *path*
+  now, and a `SubRow` at depth *d* truncates to *d* so siblings close while
+  ancestors stay.
+- **The menu ignored the font scale.** `MENU_W`/`SUB_W` are JS pixels, so
+  `--font-scale` never reached them — the codebase's documented trap, hit again.
+  At `huge`, `Copy description as Markdown` ellipsised. Both widths go through
+  `useFontScale()` now. Also widened the flyout 232 → 268, since two Copy leaves
+  truncated even at scale 1.
+
+Hoisting `SubRow`/`DateRow` out of the render body (they were being recreated
+every render — `react-hooks/static-components`) took lint *below* the baseline,
+113 → 109.
+
+`tsc -b ✅ · build ✅ · 48 route visits console-clean, zero warnings · no page
+overflow · menu + submenus verified at 1600 and 760px, dark, and font-scale 1.6
+(nothing ellipsised, nothing off-screen) · lint 109 (was 113)`
