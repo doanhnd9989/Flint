@@ -616,6 +616,46 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `issue-list` pass, second lap (multi-select and the `⌥` family)
+
+The clipped bulk bar, `⌘⌥A`, `T` and `⌥T` were fixed in that run. Full
+control-by-control table in `.audit/controls/issue-list.md`. What is left:
+
+- [ ] 🔴 **The whole `⌥` reorder family is dead**, and our own help overlay
+      advertises all six: `⌥↑` / `⌥↓` (move one position), `⌥⇧↑` / `⌥⇧↓` (move
+      to top / bottom of the group), `⌥←` / `⌥→` (move to the left / right
+      column). `useShortcuts.ts:167` discards every `altKey` event, and even
+      once that is lifted there is nothing to call — manual ordering only exists
+      through dnd-kit's `onReorder`, which the windowed path drops entirely.
+      Needs a store-level `moveIssueWithinGroup(id, delta)` acting on
+      `sortOrder`, wired to both the keyboard and the drag handler. Medium.
+- [ ] 🟡 **Drag-to-reorder is gone above 50 rows.** `GroupedIssueList` swaps in
+      `VirtualIssueList` past the threshold and never passes `onReorder`, so the
+      longer the list the less it behaves like Linear — which reorders at any
+      length. Same fix as above: once reordering is a store action rather than a
+      dnd-kit callback, the windowed path can offer it too. Medium.
+- [ ] 🟢 **The group header carries two numbers Linear does not.** Ours renders
+      `Todo 254 554 0%` — count, then `EstimateBadge`, then
+      `GroupCompletionBadge`. Linear's reads `Testing 2` / `In Progress 20`,
+      count only, on `linear.app/thehumaninc/team/VC/all`. Ours may simply be
+      deeper, but their workspace has estimates enabled, so the extras are
+      likely gated behind a Display option we render unconditionally. Read
+      Linear's Display menu before removing anything. Small.
+- [ ] 🟢 **`Collapse all` / `Expand all` is missing from the windowed path.**
+      The bar renders in `GroupedIssueList` but the windowed branch returns
+      before it, so a list over 50 rows loses the control — the same class of
+      gap as the group header that was fixed last lap. `⌥T` now covers it from
+      the keyboard, but the button is still absent. Small.
+- [ ] 🟢 **Sub-grouping is a native `<select>`.** Display → Grouping /
+      Sub-grouping / Ordering all render real `<select>` elements, so they pop
+      the OS dropdown instead of Linear's styled menu, and they inventory as
+      unnamed controls. Belongs to `filters-display`. Small.
+- [ ] 🟢 **The Display menu's five toggles have no accessible name.** `Show
+      completed issues`, `Show sub-issues`, `Nested sub-issues`, `Show empty
+      groups` and `Order completed by recency` are `<button>`s containing only
+      the knob `<span>`, so a control crawl sees five blank buttons. Belongs to
+      `filters-display`. Small.
+
 ### From the `sidebar` pass, second lap (right-click menus)
 
 The eleven dead right-click targets were fixed in that run — every sidebar row

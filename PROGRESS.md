@@ -2,6 +2,85 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-08-08 — Audit: `issue-list`, second lap (multi-select, bulk bar, the `⌥` family)
+
+**Where it started.** `collect.sh`: typecheck PASS, lint 106 (unchanged
+baseline), api UP, vite DOWN → started with the preview tool. `seed-bulk.mjs`
+added 24 issues (+6 sub), 18 comments and 8 attachments (3496 KB of real bytes),
+putting `/team/CLA/all` at 269 rows — over the 50-row windowing threshold.
+`issue-list` already had a coverage file, so this lap started at the first
+controls *not* in it: multi-select, the bulk bar, sub-grouping, and the
+hidden-count footer.
+
+**What was red.** Nothing in the logs. Four findings came out of pressing
+things, three of them fixed here.
+
+**The bulk bar was clipping its own controls.** The bar measures 1132px and is
+`position: fixed`, so it can never push a page scrollbar — which is exactly why
+five audits of "zero horizontal overflow" never saw it. At a 900px viewport it
+hung 116px off *both* edges: the `N selected` chip and its clear `×` were
+off-screen left, `Archive` and `Delete` off-screen right, all four unreachable.
+Capped to `max-w-[calc(100vw-2rem)]`, actions moved into an `overflow-x-auto`
+strip with `[&>*]:shrink-0`, count chip pinned outside it. Verified at 900px and
+420px: bar fully inside the viewport, chip visible, `Delete` reachable.
+
+**Three keyboard shortcuts our own help overlay advertises did nothing.** Read
+against Linear's shortcut overlay (`⌘/`, a read surface — see below), the
+selection model is `X` / `⌘⌥A` / `⌘A` / `Esc` / `⇧Click` / `⌥↑` `⌥↓`. Ours:
+
+- `⌘⌥A` "Select all items in a group" fell through to the plain `⌘A` branch,
+  which has no `altKey` guard, and selected the **whole list** — 269 instead of
+  the focused group's 254. Now group-scoped, and plain `⌘A` still takes all 269.
+- `T` "Collapse/expand row" had no handler at all.
+- `⌥T` "Collapse/expand all rows" never reached one: `useShortcuts.ts:167` bails
+  on every `altKey` event before the list keys are read.
+
+Making `T` / `⌥T` work meant group collapse could no longer be React state
+private to `GroupedIssueList`, so it moved into the store (`collapsedGroups` +
+`toggleGroupCollapsed` / `setGroupsCollapsed`), and the list now publishes its
+group structure as `navGroups` the same way it already published `navIssueIds` —
+with the same no-op guard, since both are written from a render effect and a
+fresh array every time would loop forever. `VirtualIssueList` swapped its
+`setCollapsed` updater prop for `onToggleCollapsed` / `onCollapse` callbacks.
+Sub-grouped lists publish the *sub*-group key, so `T` folds the innermost group
+the row is actually inside (verified 269 → 227 on the 42-row "You" sub-group).
+
+**What Linear does, and how it was read.** `linear.app/thehumaninc/team/VC/all`,
+read-only. **No row was ever selected on Linear** — a live selection puts a real
+workspace one keystroke away from a bulk mutation, so the selection model was
+read from the keyboard-shortcut overlay instead, which is a pure read surface.
+That means Linear's own bulk-bar chrome is **unverified**: whether it has a
+floating bar at all, and what sits in it, could not be learned without
+selecting. Ours is recorded as an addition, not a matched control. Linear's
+group headers were read directly and show **count only** (`Testing 2`,
+`In Progress 20`) where ours shows `Todo 254 554 0%` — logged, not changed,
+because their workspace has estimates enabled and the extras are probably gated
+behind a Display option we render unconditionally.
+
+**Also walked.** All eight bulk-bar `SelectMenu`s open with correct contents
+(none dead). `Esc` layering is correct on real key events — closes the menu,
+keeps the selection. The hidden-count footer reads `186 issues hidden by
+filters` under `Priority is Urgent` (269 − 83); its action was Title-Cased
+`Clear Filters` while the filtered-empty state said `Clear filters` — fixed to
+sentence case.
+
+**Two notes on the audit tooling itself**, both of which inflate past results:
+`browser-sweep.js`'s overflow check reports **0 for every route when the preview
+pane is hidden**, because every `clientWidth` is then 0 and its `> 200` guard
+never fires — so a "zero overflow" sweep proves nothing unless the pane is
+fronted. And with the pane visible it counts `truncate` ellipsis spans as
+overflow; the 9–11 hits on `/all-issues` and `/team/CLA/*` are all
+`text-overflow: ellipsis` by design, with `document.scrollWidth == clientWidth
+== 1280` (no sideways scroll).
+
+`tsc -b ✅ · build ✅ · 14-route re-sweep console-clean, zero empty renders, no
+"Maximum update depth" · `⌘⌥A` 254 vs `⌘A` 269 · `T` 23 → 15 rows · `⌥T`
+round-tripped 0 → 23 · sub-group collapse 269 → 227 → 269 · bulk bar inside the
+viewport at 900px and 420px with `Delete` reachable · lint 107 (+1 vs the 106
+baseline: one `react-hooks/exhaustive-deps` warning on the new `navGroups`
+effect, the allowed family and structurally identical to the `flatOrder` effect
+above it — serializing the key is what prevents the loop)`
+
 ## 2026-06-27 — Loop #98: 25 features (5 waves) + 3 bug fixes + Members-area polish
 
 The backlog was fully checked off, so this run **replenished empirically**: a

@@ -34,12 +34,14 @@ export function VirtualIssueList({
   groups,
   groupBy,
   collapsed,
-  setCollapsed,
+  onToggleCollapsed,
+  onCollapse,
 }: {
   groups: IssueGroup[]
   groupBy: GroupBy
   collapsed: Record<string, boolean>
-  setCollapsed: (fn: (c: Record<string, boolean>) => Record<string, boolean>) => void
+  onToggleCollapsed: (key: string) => void
+  onCollapse: (key: string) => void
 }) {
   const rows: Row[] = []
   for (const group of groups) {
@@ -86,12 +88,8 @@ export function VirtualIssueList({
                 group={row.group}
                 groupBy={groupBy}
                 collapsed={!!collapsed[row.group.key]}
-                onToggleCollapsed={() =>
-                  setCollapsed((c) => ({ ...c, [row.group.key]: !c[row.group.key] }))
-                }
-                onCollapse={() =>
-                  setCollapsed((c) => ({ ...c, [row.group.key]: true }))
-                }
+                onToggleCollapsed={() => onToggleCollapsed(row.group.key)}
+                onCollapse={() => onCollapse(row.group.key)}
                 height={ITEM_H}
                 // The header is absolutely positioned inside the window, so a
                 // sticky header would detach from its group as you scroll.

@@ -77,7 +77,12 @@ export function GroupedIssueList({
   const setCreateOpen = useStore((s) => s.setCreateOpen)
   const openCreateWith = useStore((s) => s.openCreateWith)
   const setNavIssueIds = useStore((s) => s.setNavIssueIds)
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const setNavGroups = useStore((s) => s.setNavGroups)
+  // Collapse lives in the store rather than local state so `T` / `⌥T` can fold
+  // a group from the keyboard without this component being on the call path.
+  const collapsed = useStore((s) => s.collapsedGroups)
+  const toggleGroupCollapsed = useStore((s) => s.toggleGroupCollapsed)
+  const setGroupsCollapsed = useStore((s) => s.setGroupsCollapsed)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const subGrouped = subGroupBy !== 'none'
   const nested = !!childrenByParent
@@ -108,6 +113,22 @@ export function GroupedIssueList({
   useEffect(() => {
     setNavIssueIds(flatOrder)
   }, [flatOrder.join('\n'), setNavIssueIds])
+
+  // …and the same order broken down by group, so `⌘⌥A` / `T` can resolve which
+  // group the focused row sits in. Sub-groups are published as their own keys —
+  // `T` on a sub-grouped row folds the sub-group it is actually inside.
+  const groupOrder = groups.flatMap((g) =>
+    g.subGroups
+      ? g.subGroups.map((sg) => ({
+          key: `${g.key}::${sg.key}`,
+          identifiers: visibleOrder(sg.issues),
+        }))
+      : [{ key: g.key, identifiers: visibleOrder(g.issues) }],
+  )
+  const groupOrderKey = groupOrder.map((g) => `${g.key}:${g.identifiers.join(',')}`).join('\n')
+  useEffect(() => {
+    setNavGroups(groupOrder)
+  }, [groupOrderKey, setNavGroups])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -187,7 +208,7 @@ export function GroupedIssueList({
           onClick={onClearFilters}
           className="flex items-center gap-1 rounded px-1 py-0.5 text-muted hover:bg-bg-hover hover:text-fg"
         >
-          Clear Filters
+          Clear filters
           <X size={12} />
         </button>
       )}
@@ -205,7 +226,8 @@ export function GroupedIssueList({
         groups={groups}
         groupBy={groupBy}
         collapsed={collapsed}
-        setCollapsed={setCollapsed}
+        onToggleCollapsed={toggleGroupCollapsed}
+        onCollapse={(key) => setGroupsCollapsed([key], true)}
       />
     )
     if (!summaryBar) return windowed
@@ -265,13 +287,10 @@ export function GroupedIssueList({
   // "All collapsed" only counts the top-level groups currently on screen.
   const allCollapsed = groups.length > 0 && groups.every((g) => collapsed[g.key])
   const toggleAll = () =>
-    setCollapsed((c) => {
-      const next = { ...c }
-      groups.forEach((g) => {
-        next[g.key] = !allCollapsed
-      })
-      return next
-    })
+    setGroupsCollapsed(
+      groups.map((g) => g.key),
+      !allCollapsed,
+    )
 
   const body = (
     <div className="flex-1 overflow-y-auto">
@@ -299,10 +318,8 @@ export function GroupedIssueList({
               group={group}
               groupBy={groupBy}
               collapsed={!!isCollapsed}
-              onToggleCollapsed={() =>
-                setCollapsed((c) => ({ ...c, [group.key]: !c[group.key] }))
-              }
-              onCollapse={() => setCollapsed((c) => ({ ...c, [group.key]: true }))}
+              onToggleCollapsed={() => toggleGroupCollapsed(group.key)}
+              onCollapse={() => setGroupsCollapsed([group.key], true)}
             />
             {!isCollapsed &&
               (group.subGroups ? (
@@ -314,9 +331,7 @@ export function GroupedIssueList({
                       <div className="group flex items-center gap-2 px-4 py-1.5 pl-7">
                         <button
                           type="button"
-                          onClick={() =>
-                            setCollapsed((c) => ({ ...c, [subKey]: !c[subKey] }))
-                          }
+                          onClick={() => toggleGroupCollapsed(subKey)}
                           className="flex items-center gap-2"
                         >
                           <ChevronDown

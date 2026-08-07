@@ -118,14 +118,21 @@ export function BulkActionBar() {
           bulkDelete(ids)
         }}
       />
-    <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 animate-pop">
+    <div className="fixed bottom-6 left-1/2 z-40 max-w-[calc(100vw-2rem)] -translate-x-1/2 animate-pop">
+      {/* The bar is wider than a narrow window, and being `fixed` it cannot push
+          a page scrollbar — so without a cap it silently hangs off both edges
+          and takes the count chip and Delete with it. Cap it to the viewport and
+          scroll the actions instead; the count and its clear button stay put. */}
       <div className="flex items-center gap-1 rounded-xl border border-border bg-bg-elevated px-2 py-1.5 shadow-lg">
-        <span className="flex items-center gap-2 rounded-md bg-accent px-2.5 py-1.5 text-[12px] font-medium text-white">
+        <span className="flex shrink-0 items-center gap-2 rounded-md bg-accent px-2.5 py-1.5 text-[12px] font-medium text-white">
           {count} selected
           <button onClick={clearSelection} className="hover:opacity-80" title="Clear (Esc)">
             <X size={13} />
           </button>
         </span>
+        {/* `[&>*]:shrink-0` keeps each action at its natural width so the strip
+            scrolls rather than squeezing every label into an ellipsis. */}
+        <div className="flex min-w-0 items-center gap-1 overflow-x-auto [&>*]:shrink-0">
 
         <SelectMenu
           options={statusOptions}
@@ -203,6 +210,7 @@ export function BulkActionBar() {
         >
           <Trash2 size={14} /> Delete
         </button>
+        </div>
       </div>
     </div>
     </>,

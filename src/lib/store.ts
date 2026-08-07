@@ -121,6 +121,15 @@ interface UIState {
    */
   navIssueIds: string[]
   /**
+   * The visible group structure of that same list — group key plus the issue
+   * identifiers under it, in render order. Published alongside `navIssueIds` so
+   * the keyboard layer can act on "the focused issue's group" (Linear's `⌘⌥A`
+   * select-all-in-group and `T` collapse-row). Transient.
+   */
+  navGroups: { key: string; identifiers: string[] }[]
+  /** Group keys the user has folded in the list on screen. Transient. */
+  collapsedGroups: Record<string, boolean>
+  /**
    * Keyboard-focused issue *identifier* in the list the user is browsing
    * (Linear's `j`/`k` row focus). Transient; lives over `navIssueIds`.
    */
@@ -459,6 +468,11 @@ export interface Store extends WorkspaceData, UIState {
   setHelpMenuOpen: (open: boolean) => void
   setPeek: (id: string | null) => void
   setNavIssueIds: (ids: string[]) => void
+  setNavGroups: (groups: { key: string; identifiers: string[] }[]) => void
+  /** Fold/unfold one group of the list on screen (Linear's `T`). */
+  toggleGroupCollapsed: (key: string) => void
+  /** Fold/unfold every listed group at once (Linear's `⌥T`). */
+  setGroupsCollapsed: (keys: string[], collapsed: boolean) => void
   /** Set (or clear) the keyboard-focused issue by identifier. */
   setFocusedIssue: (identifier: string | null) => void
   /** Move keyboard focus by `dir` (+1 next / −1 prev) through `navIssueIds`. */
@@ -581,6 +595,8 @@ export const useStore = create<Store>()(
       peekIssueId: null,
       selectedIssueIds: [],
       navIssueIds: [],
+      navGroups: [],
+      collapsedGroups: {},
       focusedIssueId: null,
       contextMenu: null,
       linkModal: null,
@@ -2475,6 +2491,32 @@ export const useStore = create<Store>()(
             ? s
             : { navIssueIds },
         ),
+      // Same no-op guard as `setNavIssueIds`: this is published from a render
+      // effect, so returning a fresh array every time would loop forever.
+      setNavGroups: (navGroups) =>
+        set((s) =>
+          s.navGroups.length === navGroups.length &&
+          s.navGroups.every(
+            (g, i) =>
+              g.key === navGroups[i].key &&
+              g.identifiers.length === navGroups[i].identifiers.length &&
+              g.identifiers.every((v, j) => v === navGroups[i].identifiers[j]),
+          )
+            ? s
+            : { navGroups },
+        ),
+      toggleGroupCollapsed: (key) =>
+        set((s) => ({
+          collapsedGroups: { ...s.collapsedGroups, [key]: !s.collapsedGroups[key] },
+        })),
+      setGroupsCollapsed: (keys, collapsed) =>
+        set((s) => {
+          const next = { ...s.collapsedGroups }
+          keys.forEach((k) => {
+            next[k] = collapsed
+          })
+          return { collapsedGroups: next }
+        }),
       setFocusedIssue: (focusedIssueId) => set({ focusedIssueId }),
       moveFocus: (dir) =>
         set((s) => {
@@ -2866,6 +2908,8 @@ export const useStore = create<Store>()(
           peekIssueId: _p,
           selectedIssueIds: _sel,
           navIssueIds: _nav,
+          navGroups: _ng,
+          collapsedGroups: _cg,
           focusedIssueId: _foc,
           contextMenu: _cm,
           linkModal: _lm,
@@ -2877,6 +2921,8 @@ export const useStore = create<Store>()(
         } = s
         void _pu
         void _cs
+        void _ng
+        void _cg
         void _c
         void _cmi
         void _cmp

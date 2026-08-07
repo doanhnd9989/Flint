@@ -101,14 +101,33 @@ export function useShortcuts() {
         return
       }
 
-      // ⌘A — select every issue in the list being browsed (Linear's select all).
+      // ⌘A — select every issue in the list being browsed (Linear's select all);
+      // ⌘⌥A narrows that to the focused row's own group. Without the `altKey`
+      // guard the group chord fell through to plain select-all and quietly
+      // selected the whole list.
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && key === 'a') {
         if (isTyping(e.target) || !store.navIssueIds.length) return
         e.preventDefault()
-        const ids = store.navIssueIds
+        const idents = e.altKey
+          ? (store.navGroups.find((g) => g.identifiers.includes(store.focusedIssueId ?? ''))
+              ?.identifiers ?? [])
+          : store.navIssueIds
+        if (!idents.length) return
+        const ids = idents
           .map((ident) => store.issues.find((i) => i.identifier === ident)?.id)
           .filter((id): id is string => !!id)
         store.setSelectedIssues(ids)
+        return
+      }
+
+      // ⌥T — fold/unfold every group at once. Lives above the blanket altKey
+      // bail-out below, which is what made this and its siblings dead keys.
+      if (e.altKey && !e.metaKey && !e.ctrlKey && key === 't') {
+        if (isTyping(e.target) || !store.navGroups.length) return
+        e.preventDefault()
+        const keys = store.navGroups.map((g) => g.key)
+        const allCollapsed = keys.every((k) => store.collapsedGroups[k])
+        store.setGroupsCollapsed(keys, !allCollapsed)
         return
       }
 
@@ -213,6 +232,18 @@ export function useShortcuts() {
             if (key === 'x') {
               e.preventDefault()
               store.toggleSelectIssue(focused.id)
+              return
+            }
+            // `T` folds the group the focused row sits in (Linear's
+            // "Collapse/expand row"). Sub-grouped lists publish the sub-group,
+            // so this folds the innermost group the row is actually inside.
+            if (key === 't') {
+              const group = store.navGroups.find((g) =>
+                g.identifiers.includes(focused.identifier),
+              )
+              if (!group) return
+              e.preventDefault()
+              store.toggleGroupCollapsed(group.key)
               return
             }
             // Linear splits these: Space peeks, Enter opens the issue.
