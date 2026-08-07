@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { Toggle as UIToggle } from './ui/Toggle'
 
 /** A bordered settings card grouping related rows. */
 function Card({ children }: { children: ReactNode }) {
@@ -34,26 +35,8 @@ function Row({
 }
 
 /** Linear-style pill toggle. */
-function Toggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      onClick={() => onChange(!on)}
-      className={cn(
-        'relative h-[18px] w-[30px] rounded-full transition-colors',
-        on ? 'bg-accent' : 'bg-bg-tertiary',
-      )}
-    >
-      <span
-        className={cn(
-          'absolute left-0.5 top-0.5 h-[14px] w-[14px] rounded-full bg-white transition-transform',
-          on && 'translate-x-[14px]',
-        )}
-      />
-    </button>
-  )
+function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return <UIToggle checked={on} onChange={onChange} />
 }
 
 const CADENCES = ['Monthly', 'Quarterly'] as const

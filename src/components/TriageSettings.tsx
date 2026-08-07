@@ -1,38 +1,11 @@
 import type { ReactNode } from 'react'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { Toggle as UIToggle } from './ui/Toggle'
 
 /** Linear-style pill toggle switch. */
-function Toggle({
-  on,
-  onChange,
-  disabled,
-}: {
-  on: boolean
-  onChange: (v: boolean) => void
-  disabled?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      disabled={disabled}
-      onClick={() => onChange(!on)}
-      className={cn(
-        'relative h-[18px] w-[30px] rounded-full transition-colors',
-        on ? 'bg-accent' : 'bg-[var(--border)]',
-        disabled && 'cursor-not-allowed opacity-50',
-      )}
-    >
-      <span
-        className={cn(
-          'absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-transform',
-          on ? 'translate-x-[14px]' : 'translate-x-[2px]',
-        )}
-      />
-    </button>
-  )
+function Toggle({ on, onChange, disabled }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  return <UIToggle checked={on} onChange={onChange} disabled={disabled} />
 }
 
 /** Bordered, divided settings card. */

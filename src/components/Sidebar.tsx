@@ -538,8 +538,8 @@ export function Sidebar() {
                   label="Cycles"
                 />
                 {/* Linear nests Current / Upcoming under a team's Cycles. */}
-                <SubItem to={`/team/${team.key}/cycles?c=current`} label="Current" />
-                <SubItem to={`/team/${team.key}/cycles?c=upcoming`} label="Upcoming" />
+                <SubItem to={`/team/${team.key}/cycle/current`} label="Current" />
+                <SubItem to={`/team/${team.key}/cycle/upcoming`} label="Upcoming" />
               </>
             )}
             <Item

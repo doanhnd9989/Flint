@@ -36,6 +36,7 @@ import { AllIssuesView } from '@/views/AllIssuesView'
 import { RemindersView } from '@/views/RemindersView'
 import { LabelsDirectoryView } from '@/views/LabelsDirectoryView'
 import { CyclesView } from '@/views/CyclesView'
+import { CycleDetailView } from '@/views/CycleDetailView'
 import { TriageView } from '@/views/TriageView'
 import { IssueDetail } from '@/views/IssueDetail'
 import { MyIssues } from '@/views/MyIssues'
@@ -265,6 +266,7 @@ export default function App() {
           <Route path="/team/:teamKey/active" element={<IssuesView />} />
           <Route path="/team/:teamKey/triage" element={<TriageView />} />
           <Route path="/team/:teamKey/cycles" element={<CyclesView />} />
+          <Route path="/team/:teamKey/cycle/:cycleRef" element={<CycleDetailView />} />
           <Route path="/team/:teamKey/projects" element={<ProjectsView />} />
           <Route path="/team/:teamKey/views" element={<ViewsView />} />
           <Route path="/issue/:identifier" element={<IssueDetail />} />

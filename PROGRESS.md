@@ -3306,3 +3306,49 @@ its window, so the tabs scroll and the controls stay pinned. Swept 14 routes at
 Huge: zero console errors, zero horizontal overflow.
 
 `tsc -b ✅ · build ✅ · 14-route sweep at Huge clean`
+
+## One Toggle, and Cycles rebuilt as Linear's timeline
+
+**The toggle knob sat outside its track.** Reported from Settings → Preferences,
+and it was everywhere: 23 of the app's 26 switches gave the knob `absolute
+top-[2px]` with no `left`. With `left: auto` an absolutely-positioned box falls
+back to its *static* position, and inside a `<button>` that is the centre of the
+line box — so every knob started half a track to the right and, when on, hung
+13px past the end of the pill.
+
+The travel was wrong too. The two rest positions were written as absolute
+offsets (`translate-x-[2px]` / `translate-x-[14px]`) rather than a distance, and
+the smaller variants used rem-based spacing (`translate-x-3.5`, `left-0.5`) —
+which, since the Font size preference scales the root font-size, drifted away
+from the px-sized track as soon as the preference left Default.
+
+Rather than patch 26 copies, they are now one component: `components/ui/Toggle`
+— `sm` / `md`, every dimension an explicit px value, knob anchored at
+`left-[2px]` with a real 12px travel, plus the focus ring and `disabled` support
+the copies never had. Measured at font scale 1.6: 2px inset on both sides, both
+states, all nine switches on the Preferences screen.
+
+**Cycles was a different page than Linear's.** We had the *cycle detail* screen
+sitting on the *cycles index* URL: a left rail listing every cycle next to one
+big burndown pane. Linear's `/team/:key/cycles` is a timeline — a date gutter
+down the left, one row per cycle newest-first (icon, number, goal, status chip,
+capacity donut, scope), and the in-flight cycle expanded inline into its
+burn-up. The per-cycle screen lives at `/team/:key/cycle/:ref`.
+
+So the old view moved to `CycleDetailView` and picked up Linear's addressing —
+`current`, `upcoming`, or a cycle number, with the legacy `?c=` query still
+honoured — and `CyclesView` is now the timeline, with `CycleTimelineChart` for
+the expanded row. Sidebar Current/Upcoming point at the cycle page, as in Linear.
+
+Two places our data can't reach Linear's:
+
+- **"% of capacity"** — Linear sums each member's configured availability. We
+  have no capacity field, so it is scope points against a documented flat
+  budget (`POINTS_PER_MEMBER_WEEK`). The arithmetic is real, the budget is a
+  stand-in.
+- **The chart's scope line is flat.** Only `completedAt` is recorded per issue,
+  so completed is a true historical series while scope is today's total. We keep
+  no log of when an issue joined a cycle, and drawing one would make the line
+  lie. `Started` is shown as a current value in the stat rail, not a series.
+
+`tsc -b ✅ · build ✅ · 6 cycle routes clean · dark + 900px wide, no overflow`

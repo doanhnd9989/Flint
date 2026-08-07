@@ -3,28 +3,11 @@ import { useState } from 'react'
 import { Plus, Tag, X } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { Toggle as UIToggle } from './ui/Toggle'
 
 /** Linear-style pill toggle switch. */
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      onClick={() => onChange(!on)}
-      className={cn(
-        'relative h-[18px] w-[30px] rounded-full transition-colors',
-        on ? 'bg-accent' : 'bg-[var(--border)]',
-      )}
-    >
-      <span
-        className={cn(
-          'absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-transform',
-          on ? 'translate-x-[14px]' : 'translate-x-[2px]',
-        )}
-      />
-    </button>
-  )
+  return <UIToggle checked={on} onChange={onChange} />
 }
 
 /** Bordered, divided settings card. */

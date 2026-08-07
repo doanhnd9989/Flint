@@ -8,6 +8,7 @@ import {
 } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { NotificationRulesSettings } from './NotificationRulesSettings'
+import { Toggle as UIToggle } from './ui/Toggle'
 import type {
   ChannelSettings,
   NotificationChannel,
@@ -39,32 +40,8 @@ function channelStatus(ch: ChannelSettings): { label: string; on: boolean } {
 }
 
 // ── primitives ───────────────────────────────────────────────────────────────
-function Switch({
-  checked,
-  onChange,
-}: {
-  checked: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors',
-        checked ? 'bg-accent' : 'bg-bg-tertiary',
-      )}
-    >
-      <span
-        className={cn(
-          'absolute top-[3px] h-3 w-3 rounded-full bg-white shadow transition-transform',
-          checked ? 'translate-x-[15px]' : 'translate-x-[3px]',
-        )}
-      />
-    </button>
-  )
+function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return <UIToggle checked={checked} onChange={onChange} />
 }
 
 /** A label + helper-text row with a trailing switch — Linear's setting row. */

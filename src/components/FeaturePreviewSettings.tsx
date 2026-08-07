@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import { cn } from '@/lib/utils'
+import { Toggle as UIToggle } from './ui/Toggle'
 
 // ── Settings → Features (mirrors Linear's admin "Features" page) ──────────────
 // Each row is a workspace feature that admins flip on or off. Persistence rides
@@ -28,32 +28,8 @@ function Card({ children }: { children: React.ReactNode }) {
 }
 
 /** The exact Linear pill toggle. */
-function Toggle({
-  checked,
-  onChange,
-}: {
-  checked: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors',
-        checked ? 'bg-accent' : 'bg-bg-tertiary',
-      )}
-    >
-      <span
-        className={cn(
-          'absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-transform',
-          checked ? 'translate-x-[14px]' : 'translate-x-[2px]',
-        )}
-      />
-    </button>
-  )
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return <UIToggle checked={checked} onChange={onChange} />
 }
 
 /** A feature row: icon + name + description + toggle. */

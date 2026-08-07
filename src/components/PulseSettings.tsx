@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { Toggle as UIToggle } from './ui/Toggle'
 
 // ── Settings → Pulse (mirrors Linear's workspace Pulse / AI-digest page) ──────
 
@@ -38,32 +39,8 @@ function Row({
 }
 
 /** The exact Linear pill toggle. */
-function Toggle({
-  checked,
-  onChange,
-}: {
-  checked: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors',
-        checked ? 'bg-accent' : 'bg-bg-tertiary',
-      )}
-    >
-      <span
-        className={cn(
-          'absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-transform',
-          checked ? 'translate-x-[14px]' : 'translate-x-[2px]',
-        )}
-      />
-    </button>
-  )
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return <UIToggle checked={checked} onChange={onChange} />
 }
 
 const FREQUENCIES = ['Daily', 'Weekly', 'Monthly'] as const

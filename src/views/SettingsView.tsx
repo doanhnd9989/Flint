@@ -47,6 +47,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { cn } from '@/lib/utils'
 import { ESTIMATION_TYPES, TIMEZONES } from '@/lib/constants'
 import type { EstimationType, Preferences, ThemeMode } from '@/lib/types'
+import { Toggle as UIToggle } from '@/components/ui/Toggle'
 
 // ── Settings navigation — mirrors Linear's Settings sidebar 1:1 ──────────────
 // (workspace "Claude Test App"): groups Personal / Issues / Projects / Features
@@ -186,25 +187,7 @@ function PrefRow({
 
 /** Linear's pill toggle. */
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      onClick={() => onChange(!on)}
-      className={cn(
-        'relative h-[18px] w-[30px] rounded-full transition-colors',
-        on ? 'bg-accent' : 'bg-[var(--border)]',
-      )}
-    >
-      <span
-        className={cn(
-          'absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-transform',
-          on ? 'translate-x-[14px]' : 'translate-x-[2px]',
-        )}
-      />
-    </button>
-  )
+  return <UIToggle checked={on} onChange={onChange} />
 }
 
 interface DropOption {

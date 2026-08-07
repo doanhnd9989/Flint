@@ -4,6 +4,7 @@ import { useStoreShallow } from '@/lib/store'
 import { PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type { NotificationRule } from '@/lib/types'
+import { Toggle as UIToggle } from './ui/Toggle'
 
 // ── Settings → Notifications → Rules (Linear's advanced if-then rules) ─────────
 // A configuration surface only (no live evaluation), mirroring how several other
@@ -22,32 +23,8 @@ const ACTION_LABELS: Record<NotificationRule['action'], string> = {
 }
 
 /** Reuse of the same toggle pill used across the Notifications settings pages. */
-function Switch({
-  checked,
-  onChange,
-}: {
-  checked: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors',
-        checked ? 'bg-accent' : 'bg-bg-tertiary',
-      )}
-    >
-      <span
-        className={cn(
-          'absolute top-[3px] h-3 w-3 rounded-full bg-white shadow transition-transform',
-          checked ? 'translate-x-[15px]' : 'translate-x-[3px]',
-        )}
-      />
-    </button>
-  )
+function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return <UIToggle checked={checked} onChange={onChange} />
 }
 
 /** Compact select styled to match the settings house style. */

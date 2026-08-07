@@ -9,6 +9,7 @@ import { Popover } from './ui/Popover'
 import { useStoreShallow } from '@/lib/store'
 import { DISPLAY_PROPERTIES, DEFAULT_DISPLAY_PROPERTIES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import { Toggle } from './ui/Toggle'
 import type {
   DisplayProperty,
   GroupBy,
@@ -113,23 +114,11 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between px-2 py-1.5">
       <span className="text-[12px] text-fg">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={cn(
-          'relative h-4 w-7 rounded-full transition-colors',
-          checked ? 'bg-accent' : 'bg-bg-tertiary',
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform',
-            checked ? 'translate-x-3.5' : 'translate-x-0.5',
-          )}
-        />
-      </button>
+      <Toggle
+        checked={checked}
+        onChange={() => onChange(!checked)}
+        size="sm"
+      />
     </div>
   )
 }

@@ -3,31 +3,11 @@ import { Check } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { ESTIMATION_TYPES, teamEstimationType } from '@/lib/constants'
 import type { EstimationType, Team } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import { Toggle as UIToggle } from './ui/Toggle'
 
 /** Linear-style pill toggle switch. */
 function Toggle({ on, onChange, disabled }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      disabled={disabled}
-      onClick={() => onChange(!on)}
-      className={cn(
-        'relative h-[18px] w-[30px] rounded-full transition-colors',
-        on ? 'bg-accent' : 'bg-[var(--border)]',
-        disabled && 'opacity-40',
-      )}
-    >
-      <span
-        className={cn(
-          'absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-transform',
-          on ? 'translate-x-[14px]' : 'translate-x-[2px]',
-        )}
-      />
-    </button>
-  )
+  return <UIToggle checked={on} onChange={onChange} disabled={disabled} />
 }
 
 /** Bordered, divided settings card. */

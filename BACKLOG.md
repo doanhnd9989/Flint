@@ -622,3 +622,11 @@ live workspace too.
 - [ ] 🟢 **Board keyboard drag** — `IssueBoard` registers only a `PointerSensor`,
   so a card can be focused but never moved from the keyboard. Adding dnd-kit's
   `KeyboardSensor` would make the board match the app's keyboard-first rule.
+- [ ] 🟡 **Cycle detail still carries its own cycle rail** — now that
+  `/team/:key/cycles` is the timeline index, the left list on
+  `CycleDetailView` duplicates it. Linear's cycle page has no rail; it has a
+  breadcrumb and a cycle switcher in the header.
+- [ ] 🟢 **Cycle scope history** — `Issue` records only `completedAt`, so the
+  burn-up's scope line is flat and there is no started series. An
+  `addedToCycleAt` (and a started timestamp) would make the chart match
+  Linear's three lines.

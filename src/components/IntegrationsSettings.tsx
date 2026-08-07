@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { Toggle } from './ui/Toggle'
 
 /** A single per-integration config toggle, persisted under `integrations.<id>.<key>`. */
 type IntegrationOption = { key: string; label: string }
@@ -246,23 +247,10 @@ export function IntegrationsSettings() {
                           <span className="text-[12px] text-muted">
                             {opt.label}
                           </span>
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={on}
-                            onClick={() => setFeatureSetting(optKey, !on)}
-                            className={cn(
-                              'relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors',
-                              on ? 'bg-accent' : 'bg-bg-secondary',
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                'absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white transition-transform',
-                                on ? 'translate-x-[14px]' : 'translate-x-[2px]',
-                              )}
-                            />
-                          </button>
+                          <Toggle
+                            checked={on}
+                            onChange={() => setFeatureSetting(optKey, !on)}
+                          />
                         </label>
                       )
                     })}

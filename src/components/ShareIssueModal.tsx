@@ -4,6 +4,7 @@ import { Share2, Globe, Lock } from 'lucide-react'
 import { useStore, useStoreShallow } from '@/lib/store'
 import { issueUrl } from '@/lib/utils'
 import { copyToClipboard, copyToast } from '@/lib/toast'
+import { Toggle } from './ui/Toggle'
 
 /**
  * Linear's "Share issue" dialog (issue ⋯ → Share… ). Surfaces the public URL
@@ -99,21 +100,11 @@ export function ShareIssueModal() {
                   : 'Only workspace members can access.'}
               </div>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isPublic}
-              onClick={() => toggleIssuePublic(issue.id)}
-              className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${
-                isPublic ? 'bg-accent' : 'bg-bg-tertiary'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${
-                  isPublic ? 'translate-x-3.5' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
+            <Toggle
+              checked={isPublic}
+              onChange={() => toggleIssuePublic(issue.id)}
+              size="sm"
+            />
           </div>
 
           {/* Embed snippet — only when public */}

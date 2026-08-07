@@ -24,6 +24,7 @@ import {
 } from '@/lib/constants'
 import { cycleState } from '@/lib/selectors'
 import { formatDate, menuOverlayOpen } from '@/lib/utils'
+import { Toggle } from './ui/Toggle'
 
 const chip =
   'flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover'
@@ -511,21 +512,11 @@ export function CreateIssueModal() {
           </span>
           <div className="flex items-center gap-3">
             <label className="flex cursor-pointer items-center gap-2 text-[13px] text-muted">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={store.createMore}
-                onClick={() => store.setCreateMore(!store.createMore)}
-                className={`relative h-4 w-7 rounded-full transition-colors ${
-                  store.createMore ? 'bg-accent' : 'bg-bg-tertiary'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${
-                    store.createMore ? 'translate-x-3.5' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
+              <Toggle
+                checked={store.createMore}
+                onChange={() => store.setCreateMore(!store.createMore)}
+                size="sm"
+              />
               Create more
             </label>
             <button

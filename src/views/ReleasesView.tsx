@@ -26,6 +26,7 @@ import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { RELEASE_STATUS, RELEASE_STATUS_ORDER } from '@/lib/constants'
 import { formatDate, formatFullDate, timeAgo, cn } from '@/lib/utils'
+import { Toggle } from '@/components/ui/Toggle'
 import type {
   Issue,
   Project,
@@ -159,23 +160,10 @@ function ReleaseShareButton({ release }: { release: Release }) {
                 Anyone with the link can view
               </div>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isPublic}
-              onClick={() => toggleReleaseShare(release.id)}
-              className={cn(
-                'relative h-5 w-9 shrink-0 rounded-full transition-colors',
-                isPublic ? 'bg-accent' : 'bg-bg-tertiary',
-              )}
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform',
-                  isPublic ? 'left-0.5 translate-x-4' : 'left-0.5',
-                )}
-              />
-            </button>
+            <Toggle
+              checked={isPublic}
+              onChange={() => toggleReleaseShare(release.id)}
+            />
           </div>
 
           {/* read-only URL + copy — only while a link exists */}
