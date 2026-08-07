@@ -387,6 +387,9 @@ function PreferencesPage() {
                   { value: 'small', label: 'Small' },
                   { value: 'default', label: 'Default' },
                   { value: 'large', label: 'Large' },
+                  { value: 'larger', label: 'Larger' },
+                  { value: 'largest', label: 'Largest' },
+                  { value: 'huge', label: 'Huge' },
                 ]}
               />
             }

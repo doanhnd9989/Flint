@@ -3275,3 +3275,34 @@ overflow, dark mode clean, upload → lightbox → command menu → ⌘↵ creat
 work, and the new issue round-tripped to the server.
 
 `tsc -b ✅ · build ✅ · 34-route sweep clean · console clean`
+
+## The audit routine, and a font scale that actually scales
+
+**`/linear-audit`** is now a skill on this machine (`.claude/skills/linear-audit/`),
+run on demand rather than on the 5-minute loop. One run is one full pass:
+`scripts/audit/collect.sh` (git, rotation pointer, server health, typecheck,
+lint grouped by rule, data volume, route inventory) → `scripts/audit/seed-bulk.mjs`
+(issues, sub-issues, comments and **real uploaded image/file bytes** through the
+same login → GraphQL → `fileUpload` path the app uses) → the browser sweep in
+`reference/browser-sweep.js` → compare one area from `reference/parity-map.md`
+against real Linear → fix → record the area in `.audit/last-area` so the next
+run picks up where this one stopped. The skill carries the traps this codebase
+has already sprung, so a future run doesn't rediscover them.
+
+**Font size did almost nothing.** The preference set the root font-size, but
+~1,900 text sizes in the app are literal px arbitrary utilities (`text-[13px]`),
+which no root font-size can move. So "Large" made spacing roomier and left the
+type exactly as small as before — which is precisely what it looked like.
+
+Text sizes now multiply through a `--font-scale` custom property. The overrides
+live unlayered in `index.css`, which outranks Tailwind's `@layer utilities` on
+cascade regardless of source order — thirteen rules, no `!important`, and not
+one of the 188 component files had to change. The root font-size scales by the
+same factor so rem-based spacing and row heights grow with the type inside them.
+
+Three steps past Linear's Large, at the user's request: Small · Default · Large ·
+Larger · Largest · Huge (0.9 → 1.6). At 1.6 the My Issues tab row no longer fit
+its window, so the tabs scroll and the controls stay pinned. Swept 14 routes at
+Huge: zero console errors, zero horizontal overflow.
+
+`tsc -b ✅ · build ✅ · 14-route sweep at Huge clean`

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useStore } from './store'
+import type { Preferences } from './types'
 
 /** Applies the persisted theme to <html>, honoring system preference. */
 export function useThemeEffect() {
@@ -28,6 +29,20 @@ export function useThemeEffect() {
   }, [theme, lightTheme, darkTheme])
 }
 
+/**
+ * How much each "Font size" step multiplies text by. `--font-scale` drives the
+ * px text utilities (see index.css) and the root font-size scales rem-based
+ * spacing by the same factor, so rows grow with the type inside them.
+ */
+const FONT_SCALE: Record<Preferences['fontSize'], number> = {
+  small: 0.9,
+  default: 1,
+  large: 1.15,
+  larger: 1.3,
+  largest: 1.45,
+  huge: 1.6,
+}
+
 /** Applies font-size and pointer-cursor preferences to <html>. */
 export function usePreferenceEffect() {
   const fontSize = useStore((s) => s.preferences.fontSize)
@@ -37,8 +52,11 @@ export function usePreferenceEffect() {
   const accentColor = useStore((s) => s.preferences.accentColor)
   useEffect(() => {
     const root = document.documentElement
-    root.style.fontSize =
-      fontSize === 'small' ? '14px' : fontSize === 'large' ? '17px' : ''
+    // A persisted preference from an older build may name a step that no longer
+    // exists — fall back rather than writing NaN into the scale.
+    const scale = FONT_SCALE[fontSize] ?? 1
+    root.style.setProperty('--font-scale', String(scale))
+    root.style.fontSize = scale === 1 ? '' : `${(16 * scale).toFixed(2)}px`
     root.classList.toggle('pointer-cursors', pointerCursors)
     root.classList.toggle('reduce-motion', !!reduceMotion)
     root.classList.toggle('underline-links', !!underlineLinks)

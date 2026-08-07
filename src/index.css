@@ -133,9 +133,41 @@ body,
   margin: 0;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Font scale — the "Font size" preference.
+
+   Almost every size in the UI is a Tailwind arbitrary utility
+   (`text-[13px]`), a literal px value that no root font-size can
+   move. So the preference sets `--font-scale` and the rules below
+   multiply each size through it. They are unlayered, which beats
+   Tailwind's `@layer utilities` on cascade regardless of source
+   order — no `!important`, no per-component edits.
+
+   `usePreferenceEffect` scales the root font-size by the same
+   factor, so rem-based spacing and row heights grow in step and
+   the larger text never outgrows the row it sits in.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --font-scale: 1;
+}
+
+.text-\[9px\] { font-size: calc(9px * var(--font-scale)); }
+.text-\[10px\] { font-size: calc(10px * var(--font-scale)); }
+.text-\[11px\] { font-size: calc(11px * var(--font-scale)); }
+.text-\[12px\] { font-size: calc(12px * var(--font-scale)); }
+.text-\[13px\] { font-size: calc(13px * var(--font-scale)); }
+.text-\[14px\] { font-size: calc(14px * var(--font-scale)); }
+.text-\[15px\] { font-size: calc(15px * var(--font-scale)); }
+.text-\[16px\] { font-size: calc(16px * var(--font-scale)); }
+.text-\[18px\] { font-size: calc(18px * var(--font-scale)); }
+.text-\[20px\] { font-size: calc(20px * var(--font-scale)); }
+.text-\[22px\] { font-size: calc(22px * var(--font-scale)); }
+.text-\[28px\] { font-size: calc(28px * var(--font-scale)); }
+.text-\[40px\] { font-size: calc(40px * var(--font-scale)); }
+
 body {
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale));
   line-height: 1.5;
   color: var(--text);
   background: var(--bg);

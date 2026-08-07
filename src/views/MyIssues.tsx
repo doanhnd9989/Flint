@@ -116,22 +116,26 @@ export function MyIssues() {
 
       {/* Tabs (Linear-style pill sub-nav) + Display options on the right */}
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-1.5">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => navigate(`/my-issues/${t}`)}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] capitalize text-muted hover:bg-bg-hover',
-              tab === t && 'bg-bg-selected font-medium text-fg',
-            )}
-          >
-            <span>{t}</span>
-            <span className="text-faint tabular-nums">{counts[t]}</span>
-          </button>
-        ))}
+        {/* The tabs scroll rather than push the controls off-screen — at the
+            larger font-size steps they no longer fit a narrow window. */}
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => navigate(`/my-issues/${t}`)}
+              className={cn(
+                'flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] capitalize text-muted hover:bg-bg-hover',
+                tab === t && 'bg-bg-selected font-medium text-fg',
+              )}
+            >
+              <span>{t}</span>
+              <span className="text-faint tabular-nums">{counts[t]}</span>
+            </button>
+          ))}
+        </div>
         {tab !== 'activity' && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {/* Team scope — narrows the issue lists to one team, or "All teams"
                 (Linear lets you scope My Issues per team). */}
             <SelectMenu

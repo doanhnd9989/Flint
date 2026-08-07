@@ -709,7 +709,7 @@ export interface Preferences {
   /** Which key press submits a comment. */
   sendCommentOn: 'enter' | 'mod-enter'
   /** Font scale across the app. */
-  fontSize: 'small' | 'default' | 'large'
+  fontSize: 'small' | 'default' | 'large' | 'larger' | 'largest' | 'huge'
   /** Pointer cursor on interactive elements. */
   pointerCursors: boolean
   /** Theme to use for light system appearance. */
