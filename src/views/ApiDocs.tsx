@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Zap, Lock, Globe, ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
+import { cn } from '@/lib/utils'
 
 /**
  * Public API reference for the Flint Task REST API. Documents the public auth
@@ -220,15 +221,19 @@ export function ApiDocs() {
                         <span className="ml-auto"><AccessBadge access={e.access} /></span>
                       </div>
                       <p className="mt-1.5 pl-[4.5rem] text-sm text-muted">{e.summary}</p>
+                      {/* min-w-0 on every grid item below: a grid track sizes to
+                          its content by default, so without it the pre pushes the
+                          track wider than the column and its own overflow-x never
+                          engages — the code just gets clipped. */}
                       {ex && (
                         <div className="mt-3 grid gap-3 pl-[4.5rem] sm:grid-cols-2">
                           {ex.request && (
-                            <div>
+                            <div className="min-w-0">
                               <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-faint">Request</p>
                               <pre className="overflow-x-auto rounded-lg bg-bg-tertiary p-3 text-[12px] leading-relaxed">{ex.request}</pre>
                             </div>
                           )}
-                          <div className={ex.request ? '' : 'sm:col-span-2'}>
+                          <div className={cn('min-w-0', !ex.request && 'sm:col-span-2')}>
                             <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-faint">Response</p>
                             <pre className="overflow-x-auto rounded-lg bg-bg-tertiary p-3 text-[12px] leading-relaxed">{ex.response}</pre>
                           </div>

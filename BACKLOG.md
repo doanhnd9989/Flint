@@ -1159,3 +1159,44 @@ table in `.audit/controls/search-and-docs.md`.
       `Last updated`, two unlabeled icon buttons, `New document`). The editor,
       outline / table of contents and document sharing — the other half of the
       `search-and-docs` area — are still unaudited. Next run starts here.
+
+### From the `api-and-data` pass (GraphQL surface + API screens vs Linear's)
+
+`Settings → API`, `Settings → Security & access` and the narrow-viewport
+clipping on `/api-docs` were fixed in that run; these are what is left. Full
+control-by-control table in `.audit/controls/api-and-data.md`.
+
+- [ ] 🟡 **The API has no rate limiting and returns no rate-limit headers.**
+      Linear's docs specify 2,500 requests/hour per API key (5,000 for an OAuth
+      app, 600 unauthenticated per IP) and return `X-RateLimit-Requests-Limit`,
+      `-Remaining` and `-Reset` on every response, plus `X-Complexity` and
+      `X-RateLimit-Complexity-Limit/-Remaining/-Reset`, with a 10,000-point
+      ceiling on a single query. Over the limit Linear answers **HTTP 400** with
+      `extensions.code: "RATELIMITED"`. We send none of these headers and never
+      throttle, so a client written against Linear's backoff guidance has
+      nothing to read. Server-side only (`server/graphql/index.js`,
+      `server/api.js`).
+- [ ] 🟡 **`searchIssues` returns the wrong payload type.** Ours returns an
+      `IssueConnection`; Linear returns `IssueSearchPayload`, whose nodes are
+      `IssueSearchResult` — an `Issue` plus per-result `metadata` carrying the
+      match context. Linear also has `searchProjects` and `searchDocuments`,
+      which we do not.
+- [ ] 🟡 **Mutations Linear documents that our schema has no field for.**
+      `projectArchive` / `projectUnarchive`, `teamCreate` / `teamUpdate`,
+      `workflowStateCreate` / `Update` / `Archive`, `issueRelationCreate` /
+      `Update` / `Delete`, `projectMilestoneCreate` / `Update` / `Delete`,
+      `issueBatchUpdate`, `issueSubscribe`, `favoriteCreate` / `Update` /
+      `Delete`, the `notification*` family and the `document*` family. Every one
+      of these already exists as a store action in the app; only the GraphQL
+      field is missing.
+- [ ] 🟢 **`Edit settings` on the OAuth-application and webhook rows links to a
+      param no screen reads.** Both point at `/settings?page=api&application=…`
+      / `&webhook=…`; Linear opens a real sub-screen
+      (`/settings/api/applications/<uuid>`). The link resolves and the page
+      renders, but the param is inert.
+- [ ] 🟢 **`/api-keys` is a route Linear does not have.** Linear keeps personal
+      keys only under `Settings → Security & access`, which we now match; the
+      standalone page duplicates it with a thinner row (no scope, no team
+      access, no creation date). Fold it into the settings section or redirect.
+- [ ] 🟢 **Our API header has no `Join our Slack` link.** Linear's `Settings →
+      API` description ends with one. Nothing to link to.

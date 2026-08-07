@@ -1,116 +1,168 @@
 import { useState } from 'react'
-import { Copy, Plus, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Blocks, MoreHorizontal, Plus, Webhook as WebhookIcon } from 'lucide-react'
+import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { Avatar } from './Avatar'
+import { Popover } from './ui/Popover'
+import { SelectMenu } from './ui/SelectMenu'
 
-// API keys here are session-local (kept in component useState) — this clone has
-// no backend, so nothing is persisted or sent anywhere.
-type ApiScope = 'Read' | 'Write' | 'Admin'
-type ApiExpiry = '30 days' | '90 days' | 'Never'
-type ApiKey = {
+// Everything on this screen is session-local (component useState): the workspace
+// API surface is served by the Node API, but OAuth apps and webhook registrations
+// have no store slice yet, so nothing here is persisted.
+//
+// Structure follows Linear's Settings → API exactly:
+//   OAuth applications → Webhooks → Member API keys
+// Personal keys are deliberately NOT here — Linear keeps those on
+// Settings → Security & access, and links across to them from this page.
+
+type OAuthApp = { id: string; name: string; updated: string }
+
+type Webhook = { id: string; name: string; url: string; events: string[]; active: boolean }
+
+/**
+ * A key belonging to some member of the workspace. `permissions` of `null` is
+ * Linear's "full access"; a number renders as "N permissions".
+ */
+type MemberKey = {
   id: string
-  label: string
-  prefix: string
+  name: string
+  userId: string
+  permissions: number | null
+  allTeams: boolean
   created: string
-  lastUsed: string
-  scope: ApiScope
-  expiry: ApiExpiry
-}
-
-// Webhooks are session-local too — same no-backend story as API keys above.
-type Webhook = {
-  id: string
-  url: string
-  events: string[]
+  lastUsed: string | null
   active: boolean
 }
 
-const SCOPES: ApiScope[] = ['Read', 'Write', 'Admin']
-const EXPIRIES: ApiExpiry[] = ['30 days', '90 days', 'Never']
 const WEBHOOK_EVENTS = ['Issues', 'Comments', 'Projects', 'Cycles', 'Labels']
 
 // Component-local id helper (NOT the store) — fine to use Math.random here.
 const genId = () => Math.random().toString(36).slice(2, 10)
 
-const SEED_KEYS: ApiKey[] = [
-  {
-    id: genId(),
-    label: 'Production deploy',
-    prefix: 'lin_api_••••••••',
-    created: 'Created Jun 12, 2026',
-    lastUsed: '2 days ago',
-    scope: 'Write',
-    expiry: '90 days',
-  },
-  {
-    id: genId(),
-    label: 'Local development',
-    prefix: 'lin_api_••••••••',
-    created: 'Created Jun 04, 2026',
-    lastUsed: 'never',
-    scope: 'Read',
-    expiry: 'Never',
-  },
+const SEED_APPS: OAuthApp[] = [
+  { id: genId(), name: 'Deploy bot', updated: 'Updated Jul 1, 2026' },
+  { id: genId(), name: 'Standup Agent', updated: 'Updated Jun 26, 2026' },
+  { id: genId(), name: 'UAT Reporter', updated: 'Updated Apr 3, 2026' },
 ]
 
 const SEED_WEBHOOKS: Webhook[] = [
   {
     id: genId(),
-    url: 'https://example.com/webhook',
+    name: 'Pipeline Notifier',
+    url: 'https://example.com/webhook/pipeline-status',
     events: ['Issues', 'Comments'],
     active: true,
   },
 ]
 
-export function ApiSettings() {
-  const [keys, setKeys] = useState<ApiKey[]>(SEED_KEYS)
-  const [creating, setCreating] = useState(false)
-  const [label, setLabel] = useState('')
-  const [scope, setScope] = useState<ApiScope>('Read')
-  const [expiry, setExpiry] = useState<ApiExpiry>('90 days')
-  // The freshly-created full token, shown exactly once.
-  const [revealed, setRevealed] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+const SEED_KEYS: MemberKey[] = [
+  { id: genId(), name: 'Production deploy', userId: '', permissions: null, allTeams: true, created: 'created 2 months ago', lastUsed: 'Aug 7, 2026', active: true },
+  { id: genId(), name: 'qa-ready-to-test', userId: '', permissions: 1, allTeams: false, created: 'created 18 days ago', lastUsed: 'Aug 8, 2026', active: true },
+  { id: genId(), name: 'Local development', userId: '', permissions: 2, allTeams: false, created: 'created 4 months ago', lastUsed: null, active: true },
+  { id: genId(), name: 'KPI Dashboard', userId: '', permissions: null, allTeams: true, created: 'created 3 months ago', lastUsed: 'Aug 7, 2026', active: true },
+  { id: genId(), name: 'PMACCESS', userId: '', permissions: null, allTeams: true, created: 'created 3 months ago', lastUsed: 'May 6, 2026', active: false },
+]
 
-  // Webhooks list + inline create form (mirrors the API-key pattern above).
+const rowCls =
+  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover'
+
+/** Section heading + description + docs link, with the action button on the right. */
+function SectionHead({
+  title,
+  description,
+  docsHref,
+  action,
+}: {
+  title: string
+  description: string
+  docsHref: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="mb-3 flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <h2 className="text-[15px] font-semibold text-fg">{title}</h2>
+        <p className="mt-0.5 text-[13px] text-muted">
+          {description}{' '}
+          <Link to={docsHref} className="text-accent hover:underline">
+            Docs
+          </Link>
+        </p>
+      </div>
+      {action}
+    </div>
+  )
+}
+
+/** Linear labels each list with its own size before the rows begin. */
+function Count({ children }: { children: React.ReactNode }) {
+  return <div className="mb-2 text-[12px] text-muted">{children}</div>
+}
+
+/** The `⋯` overflow every row on this screen carries. */
+function RowMenu({ items }: { items: { label: string; onClick: () => void }[] }) {
+  return (
+    <Popover
+      label="Open menu"
+      align="end"
+      width={200}
+      trigger={
+        <span className="flex h-6 w-6 items-center justify-center rounded-md text-muted hover:bg-bg-hover hover:text-fg">
+          <MoreHorizontal size={15} />
+        </span>
+      }
+    >
+      {(close) => (
+        <div role="menu">
+          {items.map((it) => (
+            <button
+              key={it.label}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                it.onClick()
+                close()
+              }}
+              className={rowCls}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </Popover>
+  )
+}
+
+export function ApiSettings() {
+  const users = useStore((s) => s.users)
+  const workspaceName = useStore((s) => s.workspaceName)
+
+  const [apps, setApps] = useState<OAuthApp[]>(SEED_APPS)
+  const [creatingApp, setCreatingApp] = useState(false)
+  const [appName, setAppName] = useState('')
+
   const [webhooks, setWebhooks] = useState<Webhook[]>(SEED_WEBHOOKS)
   const [creatingHook, setCreatingHook] = useState(false)
   const [hookUrl, setHookUrl] = useState('')
   const [hookEvents, setHookEvents] = useState<string[]>([])
 
-  function handleCreate() {
-    const name = label.trim() || 'Untitled key'
-    const token = `lin_api_${genId()}${genId()}${genId()}`
-    setKeys((prev) => [
-      {
-        id: genId(),
-        label: name,
-        prefix: 'lin_api_••••••••',
-        created: 'Created Jun 26, 2026',
-        lastUsed: 'never',
-        scope,
-        expiry,
-      },
-      ...prev,
-    ])
-    setRevealed(token)
-    setCopied(false)
-    setLabel('')
-    setScope('Read')
-    setExpiry('90 days')
-    setCreating(false)
-  }
+  // Seeded keys carry no author until the workspace is loaded; spread the real
+  // members across them so every row has a face, the way Linear's does.
+  const [keys, setKeys] = useState<MemberKey[]>(SEED_KEYS)
+  const [creation, setCreation] = useState<'all' | 'admins'>('all')
 
-  function handleCancel() {
-    setLabel('')
-    setScope('Read')
-    setExpiry('90 days')
-    setCreating(false)
-  }
+  const owner = (i: number) => users[i % Math.max(users.length, 1)]
+  const active = keys.filter((k) => k.active)
+  const inactive = keys.filter((k) => !k.active)
 
-  function toggleHookEvent(ev: string) {
-    setHookEvents((prev) =>
-      prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev],
-    )
+  function handleCreateApp() {
+    const name = appName.trim()
+    if (!name) return
+    setApps((prev) => [{ id: genId(), name, updated: 'Updated just now' }, ...prev])
+    setAppName('')
+    setCreatingApp(false)
   }
 
   function handleCreateHook() {
@@ -119,6 +171,7 @@ export function ApiSettings() {
     setWebhooks((prev) => [
       {
         id: genId(),
+        name: 'New webhook',
         url,
         events: hookEvents.length ? hookEvents : ['Issues'],
         active: true,
@@ -130,144 +183,114 @@ export function ApiSettings() {
     setCreatingHook(false)
   }
 
-  function handleCancelHook() {
-    setHookUrl('')
-    setHookEvents([])
-    setCreatingHook(false)
-  }
-
-  function handleCopy() {
-    if (revealed) {
-      navigator.clipboard?.writeText(revealed).catch(() => {})
-      setCopied(true)
-    }
+  /** Linear's "Download manifest" hands back the app's JSON descriptor. */
+  function downloadManifest(app: OAuthApp) {
+    const blob = new Blob([JSON.stringify({ name: app.name, id: app.id, scopes: ['read', 'write'] }, null, 2)], {
+      type: 'application/json',
+    })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${app.name.toLowerCase().replace(/\s+/g, '-')}.json`
+    a.click()
+    URL.revokeObjectURL(a.href)
   }
 
   return (
     <div className="mx-auto max-w-2xl px-10 py-10">
       <h1 className="text-[22px] font-semibold tracking-tight text-fg">API</h1>
       <p className="mt-1 text-[13px] text-muted">
-        Personal API keys and webhooks for programmatic access.
+        {workspaceName}&rsquo;s GraphQL API provides a programmable interface to your data. Use our
+        API to build public or private apps, workflows, and integrations for {workspaceName}.{' '}
+        <Link to="/api-docs" className="text-accent hover:underline">
+          Docs
+        </Link>
       </p>
 
       <div className="mt-7 space-y-9">
-        {/* Personal API keys */}
+        {/* OAuth applications */}
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[15px] font-semibold text-fg">Personal API keys</h2>
-            <button
-              onClick={() => setCreating((v) => !v)}
-              className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1.5 text-[13px] font-medium text-white hover:opacity-90"
-            >
-              <Plus size={14} />
-              New API key
-            </button>
-          </div>
+          <SectionHead
+            title="OAuth applications"
+            description="Manage your organization's OAuth applications."
+            docsHref="/api-docs#graphql"
+            action={
+              <button
+                type="button"
+                onClick={() => setCreatingApp((v) => !v)}
+                className="flex shrink-0 items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[13px] font-medium text-fg hover:bg-bg-hover"
+              >
+                <Plus size={14} />
+                New OAuth application
+              </button>
+            }
+          />
 
-          {/* Freshly revealed token — shown once */}
-          {revealed && (
-            <div className="mb-3 rounded-lg border border-border bg-bg-secondary p-3 text-[12px]">
-              <p className="mb-2 text-muted">
-                Copy your new API key now. You won’t be able to see it again.
-              </p>
-              <div className="flex items-center justify-between gap-3">
-                <code className="truncate font-mono text-fg">{revealed}</code>
-                <button
-                  onClick={handleCopy}
-                  className="flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-[12px] text-fg hover:bg-bg-hover"
-                >
-                  <Copy size={12} />
-                  {copied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Inline create form */}
-          {creating && (
-            <div className="mb-3 space-y-2">
+          {creatingApp && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-bg-secondary p-3">
               <input
                 autoFocus
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                placeholder="Key label (e.g. CI pipeline)"
-                className="w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-[13px] text-fg outline-none focus:border-accent"
+                value={appName}
+                onChange={(e) => setAppName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateApp()}
+                placeholder="Application name"
+                className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2.5 py-1.5 text-[13px] text-fg outline-none focus:border-accent"
               />
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1.5 text-[12px] text-muted">
-                  Scope
-                  <select
-                    value={scope}
-                    onChange={(e) => setScope(e.target.value as ApiScope)}
-                    className="rounded-md border border-border bg-bg px-2 py-1.5 text-[13px] text-fg outline-none focus:border-accent"
-                  >
-                    {SCOPES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex items-center gap-1.5 text-[12px] text-muted">
-                  Expires
-                  <select
-                    value={expiry}
-                    onChange={(e) => setExpiry(e.target.value as ApiExpiry)}
-                    className="rounded-md border border-border bg-bg px-2 py-1.5 text-[13px] text-fg outline-none focus:border-accent"
-                  >
-                    {EXPIRIES.map((x) => (
-                      <option key={x} value={x}>
-                        {x}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="ml-auto flex items-center gap-2">
-                  <button
-                    onClick={handleCreate}
-                    className="rounded-md bg-accent px-2.5 py-1.5 text-[13px] font-medium text-white hover:opacity-90"
-                  >
-                    Create
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    className="rounded-md border border-border px-2.5 py-1.5 text-[13px] text-fg hover:bg-bg-hover"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={handleCreateApp}
+                className="rounded-md bg-accent px-2.5 py-1.5 text-[13px] font-medium text-accent-text hover:bg-accent-hover"
+              >
+                Create
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreatingApp(false)}
+                className="rounded-md border border-border px-2.5 py-1.5 text-[13px] text-fg hover:bg-bg-hover"
+              >
+                Cancel
+              </button>
             </div>
           )}
 
+          <Count>
+            {apps.length} OAuth application{apps.length === 1 ? '' : 's'}
+          </Count>
           <div className="divide-y divide-border rounded-xl border border-border">
-            {keys.length === 0 ? (
+            {apps.length === 0 ? (
               <div className="px-4 py-8 text-center text-[13px] text-muted">
-                No API keys yet
+                No OAuth applications yet
               </div>
             ) : (
-              keys.map((k) => (
-                <div
-                  key={k.id}
-                  className="flex items-center justify-between gap-4 px-4 py-3.5"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[13px] font-medium text-fg">{k.label}</span>
-                      <code className="font-mono text-[12px] text-muted">{k.prefix}</code>
+              apps.map((app) => (
+                <div key={app.id} className="flex items-center justify-between gap-4 px-4 py-3.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-bg-tertiary text-muted">
+                      <Blocks size={15} />
                     </div>
-                    <div className="mt-0.5 text-[12px] text-muted">
-                      {k.scope} · Expires {k.expiry} · {k.created} · Last used{' '}
-                      {k.lastUsed}
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] font-medium text-fg">{app.name}</div>
+                      <div className="mt-0.5 text-[12px] text-muted">{app.updated}</div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setKeys((prev) => prev.filter((x) => x.id !== k.id))}
-                    className="shrink-0 text-[12px] text-red-500 hover:underline"
-                  >
-                    Revoke
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Link
+                      to={`/settings?page=api&application=${app.id}`}
+                      className="rounded-md border border-border px-2 py-1 text-[12px] text-fg hover:bg-bg-hover"
+                    >
+                      Edit settings
+                    </Link>
+                    <RowMenu
+                      items={[
+                        { label: 'Edit application', onClick: () => setCreatingApp(true) },
+                        { label: 'Download manifest', onClick: () => downloadManifest(app) },
+                        {
+                          label: 'Delete application',
+                          onClick: () => setApps((p) => p.filter((x) => x.id !== app.id)),
+                        },
+                        { label: 'View in workspace', onClick: () => window.open('/settings?page=applications', '_self') },
+                      ]}
+                    />
+                  </div>
                 </div>
               ))
             )}
@@ -276,23 +299,22 @@ export function ApiSettings() {
 
         {/* Webhooks */}
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <h2 className="text-[15px] font-semibold text-fg">Webhooks</h2>
-              <p className="mt-0.5 text-[13px] text-muted">
-                Send HTTP POST requests when issues change.
-              </p>
-            </div>
-            <button
-              onClick={() => setCreatingHook((v) => !v)}
-              className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[13px] font-medium text-fg hover:bg-bg-hover"
-            >
-              <Plus size={14} />
-              New webhook
-            </button>
-          </div>
+          <SectionHead
+            title="Webhooks"
+            description="Webhooks allow you to receive HTTP requests when an entity is created, updated, or deleted."
+            docsHref="/api-docs#webhooks"
+            action={
+              <button
+                type="button"
+                onClick={() => setCreatingHook((v) => !v)}
+                className="flex shrink-0 items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[13px] font-medium text-fg hover:bg-bg-hover"
+              >
+                <Plus size={14} />
+                New webhook
+              </button>
+            }
+          />
 
-          {/* Inline create form — URL + event checklist */}
           {creatingHook && (
             <div className="mb-3 space-y-2.5 rounded-lg border border-border bg-bg-secondary p-3">
               <input
@@ -312,7 +334,11 @@ export function ApiSettings() {
                     <input
                       type="checkbox"
                       checked={hookEvents.includes(ev)}
-                      onChange={() => toggleHookEvent(ev)}
+                      onChange={() =>
+                        setHookEvents((prev) =>
+                          prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev],
+                        )
+                      }
                       className="accent-accent"
                     />
                     {ev}
@@ -321,13 +347,15 @@ export function ApiSettings() {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={handleCreateHook}
-                  className="rounded-md bg-accent px-2.5 py-1.5 text-[13px] font-medium text-white hover:opacity-90"
+                  className="rounded-md bg-accent px-2.5 py-1.5 text-[13px] font-medium text-accent-text hover:bg-accent-hover"
                 >
                   Create
                 </button>
                 <button
-                  onClick={handleCancelHook}
+                  type="button"
+                  onClick={() => setCreatingHook(false)}
                   className="rounded-md border border-border px-2.5 py-1.5 text-[13px] text-fg hover:bg-bg-hover"
                 >
                   Cancel
@@ -336,57 +364,152 @@ export function ApiSettings() {
             </div>
           )}
 
+          <Count>
+            {webhooks.length} webhook{webhooks.length === 1 ? '' : 's'}
+          </Count>
           <div className="divide-y divide-border rounded-xl border border-border">
             {webhooks.length === 0 ? (
-              <div className="px-4 py-8 text-center text-[13px] text-muted">
-                No webhooks yet
-              </div>
+              <div className="px-4 py-8 text-center text-[13px] text-muted">No webhooks yet</div>
             ) : (
               webhooks.map((w) => (
-                <div
-                  key={w.id}
-                  className="flex items-center justify-between gap-4 px-4 py-3.5"
-                >
-                  <div className="min-w-0">
-                    <code className="block truncate font-mono text-[13px] text-fg">
-                      {w.url}
-                    </code>
-                    <div className="mt-0.5 text-[12px] text-muted">
-                      {w.events.join(', ')}
+                <div key={w.id} className="flex items-center justify-between gap-4 px-4 py-3.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-bg-tertiary text-muted">
+                      <WebhookIcon size={15} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-[13px] font-medium text-fg">{w.name}</span>
+                        {!w.active && (
+                          <span className="rounded-full bg-bg-hover px-1.5 py-0.5 text-[11px] text-muted">
+                            Disabled
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 truncate font-mono text-[12px] text-muted">{w.url}</div>
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <button
-                      onClick={() =>
-                        setWebhooks((prev) =>
-                          prev.map((x) =>
-                            x.id === w.id ? { ...x, active: !x.active } : x,
-                          ),
-                        )
-                      }
-                      className={cn(
-                        'rounded-full px-2 py-0.5 text-[11px] font-medium',
-                        w.active
-                          ? 'bg-green-500/15 text-green-500'
-                          : 'bg-bg-hover text-muted',
-                      )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Link
+                      to={`/settings?page=api&webhook=${w.id}`}
+                      className="rounded-md border border-border px-2 py-1 text-[12px] text-fg hover:bg-bg-hover"
                     >
-                      {w.active ? 'Active' : 'Paused'}
-                    </button>
-                    <button
-                      onClick={() =>
-                        setWebhooks((prev) => prev.filter((x) => x.id !== w.id))
-                      }
-                      className="text-muted hover:text-red-500"
-                      aria-label="Delete webhook"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                      Edit settings
+                    </Link>
+                    <RowMenu
+                      items={[
+                        {
+                          label: w.active ? 'Disable webhook' : 'Enable webhook',
+                          onClick: () =>
+                            setWebhooks((p) =>
+                              p.map((x) => (x.id === w.id ? { ...x, active: !x.active } : x)),
+                            ),
+                        },
+                        { label: 'Edit webhook', onClick: () => setCreatingHook(true) },
+                        {
+                          label: 'Delete webhook',
+                          onClick: () => setWebhooks((p) => p.filter((x) => x.id !== w.id)),
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
               ))
             )}
           </div>
+        </section>
+
+        {/* Member API keys */}
+        <section>
+          <h2 className="text-[15px] font-semibold text-fg">Member API keys</h2>
+          <p className="mt-0.5 text-[13px] text-muted">
+            Members of your workspace can create API keys to interact with the {workspaceName} API
+            on their behalf. View your personal API keys from your{' '}
+            <Link to="/settings?page=security-access" className="text-accent hover:underline">
+              security &amp; access settings
+            </Link>
+            .
+          </p>
+
+          <div className="mt-3 rounded-xl border border-border">
+            <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+              <div className="min-w-0">
+                <div className="text-[13px] font-medium text-fg">API key creation</div>
+                <div className="mt-0.5 text-[12px] text-muted">
+                  Who can create API keys to interact with the {workspaceName} API on their behalf
+                </div>
+              </div>
+              <SelectMenu
+                align="end"
+                width={200}
+                options={[
+                  { id: 'all', label: 'All members', selected: creation === 'all' },
+                  { id: 'admins', label: 'Only admins', selected: creation === 'admins' },
+                ]}
+                onSelect={(id) => setCreation(id as 'all' | 'admins')}
+                trigger={
+                  <span className="rounded-md border border-border px-2.5 py-1.5 text-[13px] text-fg hover:bg-bg-hover">
+                    {creation === 'all' ? 'All members' : 'Only admins'}
+                  </span>
+                }
+              />
+            </div>
+          </div>
+
+          {[
+            { label: 'Active', rows: active },
+            { label: 'Inactive', rows: inactive },
+          ]
+            .filter((g) => g.rows.length > 0)
+            .map((group) => (
+              <div key={group.label} className="mt-5">
+                <Count>
+                  {group.label} · {group.rows.length} API key{group.rows.length === 1 ? '' : 's'}
+                </Count>
+                <div className="divide-y divide-border rounded-xl border border-border">
+                  {group.rows.map((k, i) => {
+                    const user = owner(i + (group.label === 'Inactive' ? active.length : 0))
+                    return (
+                      <div
+                        key={k.id}
+                        className={cn(
+                          'flex items-center justify-between gap-4 px-4 py-3.5',
+                          !k.active && 'opacity-60',
+                        )}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Avatar user={user} size={28} />
+                          <div className="min-w-0">
+                            <div className="truncate text-[13px] text-fg">
+                              <span className="font-medium">{k.name}</span>
+                              <span className="text-muted">
+                                {' · '}
+                                {k.permissions === null
+                                  ? 'full access'
+                                  : `${k.permissions} permission${k.permissions === 1 ? '' : 's'}`}
+                                {' · '}
+                                {k.allTeams ? 'public teams' : 'selected teams'}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 truncate text-[12px] text-muted">
+                              {user?.name ?? 'Unknown'} {k.created} ·{' '}
+                              {k.lastUsed ? `last used on ${k.lastUsed}` : 'never used'}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setKeys((p) => p.filter((x) => x.id !== k.id))}
+                          className="shrink-0 text-[12px] text-red-500 hover:underline"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
         </section>
       </div>
     </div>

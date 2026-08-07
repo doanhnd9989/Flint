@@ -4285,3 +4285,80 @@ round-tripped, a $25 limit set and cleared, both reset-frequency selects, the
 schedule popover, all 3 breadcrumbs) with zero console errors · verified at
 dark and at a 420px viewport, document scrollWidth 420 · lint 106, unchanged
 baseline`
+
+## `api-and-data` — the API screens were the wrong screens, and the docs page clipped its own examples
+
+Rotation area 14. `collect.sh` came back green (typecheck PASS, api UP, lint 106
+— the unchanged baseline); vite was down and was started with the preview tool.
+Seeded another 24 issues / 6 sub-issues / 18 comments / 8 real-byte attachments
+on top of the existing 250 issues before walking anything.
+
+**Three things were actually broken.**
+
+`Settings → Security & access` rendered **two** `Password` sections — the real
+change-password form at the top, and a second card at the bottom whose
+`Change password` button had no `onClick` at all. A control that opens nothing,
+sitting in the app since the screen was written. Removed.
+
+`Settings → API` was the wrong screen. Linear's is a workspace-admin page with
+three sections — `OAuth applications`, `Webhooks`, `Member API keys` — and it
+explicitly does *not* hold your own keys; it links across to
+`Settings → Security & access` for those. Ours held `Personal API keys` +
+`Webhooks` and nothing else. Rebuilt to Linear's shape: OAuth applications with
+`New OAuth application` and a per-row `⋯` (`Edit application` · `Download
+manifest` · `Delete application` · `View in workspace`), webhooks with a per-row
+`⋯` (`Disable webhook` · `Edit webhook` · `Delete webhook`), and Member API keys
+with the `API key creation` combobox (`All members` · `Only admins`), the
+`Active · N` / `Inactive · N` grouping, and Linear's exact row line —
+`name · full access|N permissions · public teams|selected teams` over
+`<creator> created X · last used on <date>`. All three menus were opened on both
+sides and match item-for-item, in order.
+
+`Security & access` was then reordered to Linear's section list — `Sessions` →
+`Passkeys` → `Personal API keys` → `Commit signing key` → `Authorized
+applications` — with the three missing sections built and Linear's wording
+(`Devices logged into your account`, `N other sessions` + `Revoke all`,
+`New passkey` not `Add passkey`, `No signing key added` + `Add key`).
+
+**And one the sweep only found at 420px.** `/api-docs` renders each endpoint's
+request/response examples in a two-column grid of `<pre overflow-x-auto>`. A
+grid track sizes to its content, so the `pre` pushed the track wider than the
+column and its own horizontal scroll never engaged — the code was simply cut
+off by the page's `overflow-x-hidden`, unreachable. Four wrappers were
+overflowing with `overflow-x: visible`. Adding `min-w-0` to the grid items lets
+the `pre` shrink and scroll: at 420px, 8 of the 10 code blocks now scroll
+inside themselves and zero elements overflow without a scroll container.
+
+**Logged, not built.** The schema itself compared clean against Linear's public
+docs — auth headers, connection arguments, the 50-row default, `pageInfo`,
+comparators, AND/OR nesting and the `errors[].extensions.code` shape are all
+already identical. What is missing is rate limiting: Linear returns
+`X-RateLimit-Requests-*` and complexity headers on every response and answers
+HTTP 400 with `extensions.code: "RATELIMITED"`, and we send none of it. Also
+filed: `searchIssues` returning `IssueConnection` where Linear returns
+`IssueSearchPayload` with per-result `metadata`, and the ~20 documented
+mutations (`projectArchive`, `teamCreate`, `issueRelationCreate`,
+`projectMilestoneCreate`, `issueBatchUpdate`, the `favorite`/`notification`/
+`document` families) that already exist as store actions but have no GraphQL
+field.
+
+**Deliberately not Linear.** `Password` and `Two-factor authentication` stay at
+the bottom of Security & access. Linear signs in with SSO and passkeys and has
+no password to change; this clone authenticates with one, so removing the form
+would remove the only way to rotate a credential.
+
+**Linear stayed read-only.** `/settings/api` and `/settings/account/security`
+were opened by navigation, and three menus were opened, read and dismissed with
+Escape — the `API key creation` combobox, one webhook `⋯` and one OAuth
+application `⋯`. Nothing was selected, typed, submitted or created. The API
+surface was compared against Linear's public developer docs only; their live API
+was never called and no Linear API key was touched. What Linear's `New OAuth
+application`, `New webhook` and `Edit settings` controls open is recorded as
+unverified — reaching them means creating something.
+
+`tsc -b ✅ · build ✅ · 38-route sweep console-clean, no empty renders, no
+uncaught errors · every control on both rebuilt screens driven and read back
+(all three ⋯ menus itemised, both inline create forms opened and closed,
+`New passkey` / `New API key` / `Add key` each confirmed to change the page) ·
+verified at dark, at a 420px viewport and at `--font-scale: 1.15`, document
+scrollWidth never exceeding the viewport · lint 106, unchanged baseline`

@@ -100,28 +100,54 @@ function ChangePassword() {
 
 type Passkey = { id: string; name: string; added: string }
 type Session = { id: string; device: string; location: string; current: boolean }
+/** `permissions: null` is Linear's "full access"; a number renders as "N permissions". */
+type PersonalKey = {
+  id: string
+  name: string
+  permissions: number | null
+  allTeams: boolean
+  created: string
+  lastUsed: string | null
+}
+type AuthorizedApp = { id: string; name: string; scopes: string }
 
 /** Personal Security & access settings page. */
 export function SecurityAccessSettings() {
   const featureSettings = useStore((s) => s.featureSettings)
   const setFeatureSetting = useStore((s) => s.setFeatureSetting)
+  const workspaceName = useStore((s) => s.workspaceName)
 
   const [passkeys, setPasskeys] = useState<Passkey[]>([
-    { id: genId(), name: 'MacBook Pro', added: 'Added May 4, 2026' },
+    { id: genId(), name: 'MacBook Pro', added: 'Used with current session' },
   ])
   const [sessions, setSessions] = useState<Session[]>([
     {
       id: genId(),
       device: 'Chrome on macOS',
-      location: 'San Francisco, US · Current session',
+      location: 'Current session · San Francisco, US',
       current: true,
     },
     {
       id: genId(),
       device: 'Safari on iPhone',
-      location: 'San Francisco, US · 2 hours ago',
+      location: 'San Francisco, US · Last seen 2 hours ago',
       current: false,
     },
+    {
+      id: genId(),
+      device: 'Flint Desktop on macOS',
+      location: 'San Francisco, US · Last seen 3 days ago',
+      current: false,
+    },
+  ])
+  const [keys, setKeys] = useState<PersonalKey[]>([
+    { id: genId(), name: 'Production deploy', permissions: null, allTeams: true, created: 'Created 2 months ago', lastUsed: 'Aug 7, 2026' },
+    { id: genId(), name: 'Local development', permissions: 2, allTeams: false, created: 'Created 4 months ago', lastUsed: null },
+  ])
+  const [signingKey, setSigningKey] = useState<string | null>(null)
+  const [apps, setApps] = useState<AuthorizedApp[]>([
+    { id: genId(), name: 'Raycast', scopes: 'Read, Write' },
+    { id: genId(), name: 'Zapier', scopes: 'Read, Write' },
   ])
 
   const twoFactor = featureSettings['account.twoFactor'] ?? false
@@ -133,6 +159,20 @@ export function SecurityAccessSettings() {
   const revokeSession = (id: string) =>
     setSessions((prev) => prev.filter((s) => s.id !== id))
   const signOutAll = () => setSessions((prev) => prev.filter((s) => s.current))
+  const addKey = () =>
+    setKeys((prev) => [
+      {
+        id: genId(),
+        name: 'Untitled key',
+        permissions: null,
+        allTeams: true,
+        created: 'Created just now',
+        lastUsed: null,
+      },
+      ...prev,
+    ])
+
+  const others = sessions.filter((s) => !s.current)
 
   return (
     <div className="mx-auto max-w-2xl px-10 py-10">
@@ -141,46 +181,108 @@ export function SecurityAccessSettings() {
         Manage how you sign in and which devices have access.
       </p>
 
+      {/* Section order is Linear's: Sessions → Passkeys → Personal API keys →
+          Commit signing key → Authorized applications. Password and two-factor
+          come last and are ours: Linear signs in with SSO/passkeys and has no
+          password to change. */}
       <div className="mt-7 space-y-9">
-        {/* Password */}
+        {/* Sessions */}
         <section>
-          <h2 className="mb-3 text-[13px] font-semibold text-fg">Password</h2>
-          <ChangePassword />
-        </section>
-
-        {/* Two-factor */}
-        <section>
-          <h2 className="mb-3 text-[13px] font-semibold text-fg">Two-factor authentication</h2>
+          <h2 className="text-[13px] font-semibold text-fg">Sessions</h2>
+          <p className="mt-0.5 mb-3 text-[12px] text-muted">Devices logged into your account</p>
           <Card>
-            <Row
-              left={
-                <div>
-                  <div className="text-[13px] font-medium text-fg">Two-factor authentication</div>
-                  <div className="mt-0.5 text-[12px] text-muted">
-                    Require a code from your authenticator app when signing in.
-                  </div>
-                </div>
-              }
-              control={
-                <Toggle
-                  on={twoFactor}
-                  onChange={(next) => setFeatureSetting('account.twoFactor', next)}
+            {sessions
+              .filter((s) => s.current)
+              .map((s) => (
+                <Row
+                  key={s.id}
+                  left={
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-bg-tertiary text-muted">
+                        <Monitor size={15} />
+                      </div>
+                      <div>
+                        <div className="text-[13px] font-medium text-fg">{s.device}</div>
+                        <div className="mt-0.5 text-[12px] text-muted">{s.location}</div>
+                      </div>
+                    </div>
+                  }
+                  control={
+                    <button type="button" className="text-[13px] text-muted hover:text-fg">
+                      Log out
+                    </button>
+                  }
                 />
-              }
-            />
+              ))}
           </Card>
+
+          {others.length > 0 && (
+            <>
+              <div className="mt-5 mb-2 flex items-center justify-between">
+                <span className="text-[12px] text-muted">
+                  {others.length} other session{others.length === 1 ? '' : 's'}
+                </span>
+                <button
+                  type="button"
+                  onClick={signOutAll}
+                  className="text-[13px] text-red-500 hover:underline"
+                >
+                  Revoke all
+                </button>
+              </div>
+              <Card>
+                {others.map((s) => (
+                  <Row
+                    key={s.id}
+                    left={
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-bg-tertiary text-muted">
+                          {s.device.toLowerCase().includes('iphone') ? (
+                            <Smartphone size={15} />
+                          ) : (
+                            <Monitor size={15} />
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-[13px] font-medium text-fg">{s.device}</div>
+                          <div className="mt-0.5 text-[12px] text-muted">{s.location}</div>
+                        </div>
+                      </div>
+                    }
+                    control={
+                      <button
+                        type="button"
+                        onClick={() => revokeSession(s.id)}
+                        className="text-[13px] text-red-500 hover:underline"
+                      >
+                        Revoke
+                      </button>
+                    }
+                  />
+                ))}
+              </Card>
+            </>
+          )}
         </section>
 
         {/* Passkeys */}
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold text-fg">Passkeys</h2>
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-[13px] font-semibold text-fg">Passkeys</h2>
+              <p className="mt-0.5 text-[12px] text-muted">
+                Passkeys are a secure way to sign in to your {workspaceName} account
+              </p>
+              <p className="mt-2 text-[12px] text-muted">
+                {passkeys.length} passkey{passkeys.length === 1 ? '' : 's'}
+              </p>
+            </div>
             <button
               type="button"
               onClick={addPasskey}
-              className="rounded-md bg-accent px-2.5 py-1.5 text-[13px] font-medium text-white hover:opacity-90"
+              className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[13px] font-medium text-fg hover:bg-bg-hover"
             >
-              Add passkey
+              New passkey
             </button>
           </div>
           <Card>
@@ -212,75 +314,166 @@ export function SecurityAccessSettings() {
           </Card>
         </section>
 
-        {/* Active sessions */}
+        {/* Personal API keys — Linear keeps these here, not on Settings → API,
+            which only lists everyone else's. */}
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold text-fg">Active sessions</h2>
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-[13px] font-semibold text-fg">Personal API keys</h2>
+              <p className="mt-0.5 text-[12px] text-muted">
+                Use {workspaceName}&rsquo;s GraphQL API to build your own integrations
+              </p>
+              <p className="mt-2 text-[12px] text-muted">
+                {keys.length} API key{keys.length === 1 ? '' : 's'}
+              </p>
+            </div>
             <button
               type="button"
-              onClick={signOutAll}
-              className="text-[13px] text-red-500 hover:underline"
+              onClick={addKey}
+              className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[13px] font-medium text-fg hover:bg-bg-hover"
             >
-              Sign out all
+              New API key
             </button>
           </div>
           <Card>
-            {sessions.map((s) => (
-              <Row
-                key={s.id}
-                left={
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-bg-tertiary text-muted">
-                      {s.device.toLowerCase().includes('iphone') ? (
-                        <Smartphone size={15} />
-                      ) : (
-                        <Monitor size={15} />
-                      )}
+            {keys.length === 0 ? (
+              <div className="px-4 py-8 text-center text-[13px] text-muted">No API keys yet</div>
+            ) : (
+              keys.map((k) => (
+                <Row
+                  key={k.id}
+                  left={
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] text-fg">
+                        <span className="font-medium">{k.name}</span>
+                        <span className="text-muted">
+                          {' · '}
+                          {k.permissions === null
+                            ? 'full access'
+                            : `${k.permissions} permission${k.permissions === 1 ? '' : 's'}`}
+                          {' · '}
+                          {k.allTeams ? 'public teams' : 'selected teams'}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 text-[12px] text-muted">
+                        {k.created} · {k.lastUsed ? `last used on ${k.lastUsed}` : 'never used'}
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-[13px] font-medium text-fg">{s.device}</div>
-                      <div className="mt-0.5 text-[12px] text-muted">{s.location}</div>
-                    </div>
-                  </div>
-                }
-                control={
-                  s.current ? (
-                    <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[12px] font-medium text-green-500">
-                      This device
-                    </span>
-                  ) : (
+                  }
+                  control={
                     <button
                       type="button"
-                      onClick={() => revokeSession(s.id)}
+                      onClick={() => setKeys((prev) => prev.filter((x) => x.id !== k.id))}
+                      className="shrink-0 text-[13px] text-red-500 hover:underline"
+                    >
+                      Revoke
+                    </button>
+                  }
+                />
+              ))
+            )}
+          </Card>
+        </section>
+
+        {/* Commit signing key */}
+        <section>
+          <h2 className="text-[13px] font-semibold text-fg">Commit signing key</h2>
+          <p className="mt-0.5 mb-3 text-[12px] text-muted">
+            Coding sessions use this key to sign your commits
+          </p>
+          <Card>
+            <Row
+              left={
+                <div className="min-w-0">
+                  <div className="truncate text-[13px] text-fg">
+                    {signingKey ?? 'No signing key added'}
+                  </div>
+                </div>
+              }
+              control={
+                signingKey ? (
+                  <button
+                    type="button"
+                    onClick={() => setSigningKey(null)}
+                    className="text-[13px] text-red-500 hover:underline"
+                  >
+                    Remove
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setSigningKey(`ssh-ed25519 AAAAC3Nza…${genId()}`)}
+                    className="rounded-md border border-border px-2.5 py-1.5 text-[13px] font-medium text-fg hover:bg-bg-hover"
+                  >
+                    Add key
+                  </button>
+                )
+              }
+            />
+          </Card>
+        </section>
+
+        {/* Authorized applications */}
+        <section>
+          <h2 className="text-[13px] font-semibold text-fg">Authorized applications</h2>
+          <p className="mt-0.5 mb-3 text-[12px] text-muted">
+            OAuth applications you&rsquo;ve approved
+          </p>
+          <Card>
+            {apps.length === 0 ? (
+              <div className="px-4 py-8 text-center text-[13px] text-muted">
+                No authorized applications
+              </div>
+            ) : (
+              apps.map((a) => (
+                <Row
+                  key={a.id}
+                  left={
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] font-medium text-fg">{a.name}</div>
+                      <div className="mt-0.5 text-[12px] text-muted">{a.scopes}</div>
+                    </div>
+                  }
+                  control={
+                    <button
+                      type="button"
+                      onClick={() => setApps((prev) => prev.filter((x) => x.id !== a.id))}
                       className="text-[13px] text-red-500 hover:underline"
                     >
                       Revoke
                     </button>
-                  )
-                }
-              />
-            ))}
+                  }
+                />
+              ))
+            )}
           </Card>
         </section>
 
-        {/* Password */}
+        {/* Password — ours, not Linear's: this clone authenticates with a
+            password, so the account needs a way to rotate it. */}
         <section>
           <h2 className="mb-3 text-[13px] font-semibold text-fg">Password</h2>
+          <ChangePassword />
+        </section>
+
+        {/* Two-factor */}
+        <section>
+          <h2 className="mb-3 text-[13px] font-semibold text-fg">Two-factor authentication</h2>
           <Card>
             <Row
               left={
                 <div>
-                  <div className="text-[13px] font-medium text-fg">Password</div>
-                  <div className="mt-0.5 text-[12px] text-muted">Last changed 3 months ago</div>
+                  <div className="text-[13px] font-medium text-fg">Two-factor authentication</div>
+                  <div className="mt-0.5 text-[12px] text-muted">
+                    Require a code from your authenticator app when signing in.
+                  </div>
                 </div>
               }
               control={
-                <button
-                  type="button"
-                  className="rounded-md border border-border bg-bg-elevated px-2.5 py-1.5 text-[13px] font-medium text-fg hover:bg-bg-hover"
-                >
-                  Change password
-                </button>
+                <Toggle
+                  on={twoFactor}
+                  onChange={(next) => setFeatureSetting('account.twoFactor', next)}
+                />
               }
             />
           </Card>
