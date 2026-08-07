@@ -17,6 +17,7 @@ import {
   Search,
   Plus,
   PlusCircle,
+  LogOut,
   Inbox,
   CircleDot,
   Box,
@@ -67,6 +68,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
+import { useAuth } from '@/lib/auth'
 import { Calendar } from './DatePicker'
 import { StatusIcon } from './StatusIcon'
 import { PriorityIcon } from './PriorityIcon'
@@ -242,9 +244,16 @@ function groupOf(id: string): string {
   if (id.startsWith('order-')) return 'Order by'
   if (id.startsWith('disp-')) return 'Display properties'
   if (id.startsWith('switch-team-')) return 'Teams'
-  if (id.startsWith('theme-') || id.startsWith('toggle-')) return 'Preferences'
-  if (id === 'go-settings' || id === 'help') return 'Settings'
-  if (id.startsWith('new-') || id === 'create') return 'Create'
+  if (id.startsWith('account-')) return 'Account'
+  if (id === 'help') return 'Help'
+  // Linear has no "Create" bucket — a create command sits under the section of
+  // the thing it creates, and theme lives under Settings alongside the other
+  // preference rows.
+  if (id.startsWith('theme-')) return 'Settings'
+  if (id === 'create' || id === 'new-issue') return 'Issues'
+  if (id === 'new-initiative') return 'Projects'
+  if (id === 'new-document') return 'Documents'
+  if (id === 'toggle-sidebar' || id === 'customize-sidebar') return 'Navigation'
   // Navigate-straight-to-an-entity commands (typing a project / cycle / label /
   // member / initiative name jumps there) — Linear buckets these by type.
   if (id.startsWith('nav-project-')) return 'Projects'
@@ -350,6 +359,29 @@ function parseDueInput(raw: string): Date | undefined {
   return undefined
 }
 
+/**
+ * Section order on the root palette, following Linear's own top-to-bottom
+ * sequence. Root commands are declared in whatever order reads best in source,
+ * so they are grouped by this before rendering — otherwise a section whose
+ * members aren't contiguous would print its header more than once.
+ */
+const ROOT_SECTIONS = [
+  'Recently viewed',
+  'Issues',
+  'Projects',
+  'Documents',
+  'Views',
+  'Navigation',
+  'Settings',
+  'Teams',
+  'Help',
+  'Account',
+]
+
+/** Listbox/option ids wiring the input's `aria-activedescendant` to the rows. */
+const LISTBOX_ID = 'command-menu-listbox'
+const optionId = (i: number) => `command-menu-option-${i}`
+
 export function CommandMenu() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -369,6 +401,7 @@ export function CommandMenu() {
     { kind: 'project' | 'cycle'; id: string } | undefined
   >(undefined)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (open) {
@@ -1208,7 +1241,7 @@ export function CommandMenu() {
       },
       {
         id: 'new-issue',
-        label: 'Create new issue',
+        label: 'Create new issue…',
         icon: <PlusCircle size={15} />,
         hint: 'C',
         keywords: 'add create issue new',
@@ -1216,168 +1249,173 @@ export function CommandMenu() {
       },
       {
         id: 'new-initiative',
-        label: 'Create new initiative',
+        label: 'Create new initiative…',
         icon: <Goal size={15} />,
         keywords: 'add create initiative new strategy',
         run: () => store.setCreateInitiativeOpen(true),
       },
       {
         id: 'go-inbox',
-        label: 'Go to Inbox',
+        label: 'Go to inbox',
+        hint: 'G then I',
         icon: <Inbox size={15} />,
         keywords: 'inbox notifications',
         run: () => navigate('/inbox'),
       },
       {
         id: 'go-my',
-        label: 'Go to My Issues',
+        label: 'Go to my issues',
+        hint: 'G then M',
         icon: <CircleDot size={15} />,
         keywords: 'my issues assigned',
         run: () => navigate('/my-issues'),
       },
       {
         id: 'go-issues',
-        label: 'Go to Issues',
+        label: 'Go to active issues',
         icon: <StatusIcon type="started" color="var(--status-started)" />,
         keywords: 'issues team',
         run: () => navigate(`/team/${team.key}/active`),
       },
       {
         id: 'go-cycles',
-        label: 'Go to Cycles',
+        label: 'Go to cycles',
+        hint: 'G then C',
         icon: <StatusIcon type="started" color="var(--status-started)" />,
         keywords: 'cycles sprints',
         run: () => navigate(`/team/${team.key}/cycles`),
       },
       {
         id: 'go-projects',
-        label: 'Go to Projects',
+        label: 'Go to projects',
+        hint: 'G then P',
         icon: <Box size={15} />,
         keywords: 'projects',
         run: () => navigate('/projects'),
       },
       {
         id: 'go-initiatives',
-        label: 'Go to Initiatives',
+        label: 'Go to initiatives',
         icon: <Goal size={15} />,
         keywords: 'initiatives strategy goals',
         run: () => navigate('/initiatives'),
       },
       {
         id: 'go-roadmap',
-        label: 'Go to Roadmap',
+        label: 'Go to roadmap',
+        hint: 'G then R',
         icon: <Map size={15} />,
         keywords: 'roadmap timeline',
         run: () => navigate('/roadmap'),
       },
       {
         id: 'go-documents',
-        label: 'Go to Documents',
+        label: 'Go to documents',
         icon: <FileText size={15} />,
         keywords: 'documents docs notes specs',
         run: () => navigate('/documents'),
       },
       {
         id: 'go-active-cycles',
-        label: 'Go to Active Cycles',
+        label: 'Go to current cycle',
         icon: <IterationCw size={15} />,
         keywords: 'cycles active sprints all teams overview iteration',
         run: () => navigate('/cycles'),
       },
       {
         id: 'go-pulse',
-        label: 'Go to Pulse',
+        label: 'Go to pulse',
         icon: <Activity size={15} />,
         keywords: 'pulse activity feed workspace recent changes',
         run: () => navigate('/pulse'),
       },
       {
         id: 'go-customers',
-        label: 'Go to Customers',
+        label: 'Go to customers',
         icon: <Building2 size={15} />,
         keywords: 'customers crm accounts requests arr',
         run: () => navigate('/customers'),
       },
       {
         id: 'go-releases',
-        label: 'Go to Releases',
+        label: 'Go to releases',
         icon: <Rocket size={15} />,
         keywords: 'releases version ship deploy launch',
         run: () => navigate('/releases'),
       },
       {
         id: 'go-members',
-        label: 'Go to Members',
+        label: 'Go to members',
         icon: <Users size={15} />,
         keywords: 'members people directory users team',
         run: () => navigate('/members'),
       },
       {
         id: 'go-changelog',
-        label: 'Go to Changelog',
+        label: 'Go to changelog',
         icon: <Megaphone size={15} />,
         keywords: 'changelog shipped releases whats new timeline',
         run: () => navigate('/changelog'),
       },
       {
         id: 'go-profile',
-        label: 'Go to Profile',
+        label: 'Go to profile',
         icon: <CircleUser size={15} />,
         keywords: 'profile your work me account dashboard',
         run: () => navigate('/profile'),
       },
       {
         id: 'go-insights',
-        label: 'Go to Insights',
+        label: 'Go to insights',
         icon: <BarChart3 size={15} />,
         keywords: 'insights analytics charts metrics reports stats',
         run: () => navigate('/insights'),
       },
       {
         id: 'go-all-issues',
-        label: 'Go to All issues',
+        label: 'Go to all issues',
         icon: <Layers3 size={15} />,
         keywords: 'all issues workspace every team list',
         run: () => navigate('/all-issues'),
       },
       {
         id: 'go-teams',
-        label: 'Go to Teams',
+        label: 'Go to teams',
         icon: <Building2 size={15} />,
         keywords: 'teams directory groups workspace',
         run: () => navigate('/teams'),
       },
       {
         id: 'go-favorites',
-        label: 'Go to Favorites',
+        label: 'Go to favorites',
         icon: <Star size={15} />,
         keywords: 'favorites starred bookmarks pinned',
         run: () => navigate('/favorites'),
       },
       {
         id: 'go-recent',
-        label: 'Go to Recently viewed',
+        label: 'Go to recently viewed',
         icon: <History size={15} />,
         keywords: 'recent recently viewed history opened',
         run: () => navigate('/recent'),
       },
       {
         id: 'go-archive',
-        label: 'Go to Archive',
+        label: 'Go to team archive',
         icon: <Archive size={15} />,
         keywords: 'archive archived deleted removed restore',
         run: () => navigate('/archive'),
       },
       {
         id: 'go-reminders',
-        label: 'Go to Reminders',
+        label: 'Go to reminders',
         icon: <Bell size={15} />,
         keywords: 'reminders remind me snooze follow up due',
         run: () => navigate('/reminders'),
       },
       {
         id: 'go-drafts',
-        label: 'Go to Drafts',
+        label: 'Go to drafts',
         icon: <PenSquare size={15} />,
         keywords: 'drafts unsent draft issue saved',
         run: () => navigate('/drafts'),
@@ -1391,14 +1429,14 @@ export function CommandMenu() {
       },
       {
         id: 'go-labels',
-        label: 'Go to Labels',
+        label: 'Go to labels',
         icon: <Tag size={15} />,
         keywords: 'labels tags categories directory',
         run: () => navigate('/labels'),
       },
       {
         id: 'new-document',
-        label: 'Create new document',
+        label: 'Create new document…',
         icon: <FileText size={15} />,
         keywords: 'add create document doc new note',
         run: () => {
@@ -1408,14 +1446,14 @@ export function CommandMenu() {
       },
       {
         id: 'go-settings',
-        label: 'Open Settings',
+        label: 'Go to settings',
         icon: <Settings size={15} />,
         keywords: 'settings preferences',
         run: () => navigate('/settings'),
       },
       {
         id: 'help',
-        label: 'Keyboard shortcuts',
+        label: 'Open Keyboard Shortcuts Cheat Sheet',
         icon: <Keyboard size={15} />,
         hint: '?',
         keywords: 'help shortcuts keyboard',
@@ -1449,6 +1487,19 @@ export function CommandMenu() {
         hint: '⌘/',
         keywords: 'sidebar collapse expand hide show toggle',
         run: () => store.toggleSidebar(),
+      },
+      {
+        // Linear's palette ends on an Account section, and the ⌥⇧Q chord it
+        // prints here is already bound in `useShortcuts`.
+        id: 'account-logout',
+        label: 'Log out',
+        icon: <LogOut size={15} />,
+        hint: '⌥⇧Q',
+        keywords: 'log out sign out logout signout account',
+        run: () => {
+          useAuth.getState().logout()
+          navigate('/')
+        },
       },
       ...store.teams.map((t) => ({
         id: `switch-team-${t.id}`,
@@ -1621,9 +1672,11 @@ export function CommandMenu() {
       return commands
     if (!query) {
       // Inside a sub-page show every option; on the root, the landing state is
-      // the "Recently viewed" rows followed by a short slice of root commands —
-      // the long entity-nav / per-issue / view / display lists only surface once
-      // you type.
+      // the "Recently viewed" rows followed by *every* root command, sectioned
+      // and scrollable. Linear's root palette lists its whole command set this
+      // way (~80 rows across 21 sections) rather than a teaser slice — the
+      // long entity-nav / per-issue / view / display lists still only surface
+      // once you type, because those are workspace data, not commands.
       if (page) return commands
       const recent = commands.filter((c) => c.id.startsWith('recent-'))
       const roots = commands.filter(
@@ -1636,7 +1689,15 @@ export function CommandMenu() {
           !c.id.startsWith('order-') &&
           !c.id.startsWith('disp-'),
       )
-      return [...recent, ...roots.slice(0, 8)]
+      // Stable-sort into Linear's section order so each header prints once.
+      const rank = (c: Command) => {
+        const i = ROOT_SECTIONS.indexOf(groupOf(c.id))
+        return i === -1 ? ROOT_SECTIONS.length : i
+      }
+      return [...recent, ...roots]
+        .map((c, i) => ({ c, i }))
+        .sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i)
+        .map((x) => x.c)
     }
     // Fuzzy-score every command against the query and rank best-first; ties keep
     // their source order (recent → root → entities → issues) via the index.
@@ -1657,6 +1718,16 @@ export function CommandMenu() {
   useEffect(() => {
     setActive(0)
   }, [query, page])
+
+  // The root palette is now the full command set, so the highlight routinely
+  // sits outside the 320px viewport — keep it scrolled into view the way
+  // Linear does. `nearest` scrolls the minimum amount, so the list doesn't
+  // jump when the row is already visible.
+  useEffect(() => {
+    listRef.current
+      ?.querySelector(`#${CSS.escape(optionId(active))}`)
+      ?.scrollIntoView({ block: 'nearest' })
+  }, [active])
 
   if (!open) return null
 
@@ -1796,6 +1867,16 @@ export function CommandMenu() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={placeholder}
+            // Linear's palette input is a combobox driving a listbox: the
+            // options own the ids, the input points at the active one. Keyboard
+            // focus never leaves the field, so `aria-activedescendant` is what
+            // tells a screen reader which row is highlighted.
+            role="combobox"
+            aria-label="Command menu"
+            aria-expanded
+            aria-controls={LISTBOX_ID}
+            aria-autocomplete="list"
+            aria-activedescendant={filtered[active] ? optionId(active) : undefined}
             className="flex-1 bg-transparent text-[14px] text-fg outline-none"
           />
         </div>
@@ -1808,7 +1889,13 @@ export function CommandMenu() {
             />
           </div>
         ) : (
-          <div className="max-h-80 overflow-y-auto py-1">
+          <div
+            ref={listRef}
+            id={LISTBOX_ID}
+            role="listbox"
+            aria-label="Commands"
+            className="max-h-80 overflow-y-auto py-1"
+          >
             {filtered.length === 0 && (
               <div className="px-4 py-6 text-center text-[13px] text-faint">
                 No results
@@ -1823,11 +1910,16 @@ export function CommandMenu() {
               return (
                 <div key={c.id}>
                   {showHeader && (
-                    <div className="select-none px-4 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wider text-faint">
+                    // Linear renders these section labels in sentence case, not
+                    // caps — "Navigation", not "NAVIGATION".
+                    <div className="select-none px-4 pb-1 pt-2.5 text-[11px] font-medium text-faint">
                       {group}
                     </div>
                   )}
                   <button
+                    id={optionId(i)}
+                    role="option"
+                    aria-selected={i === active}
                     onMouseEnter={() => setActive(i)}
                     onClick={() => exec(c)}
                     className={cn(

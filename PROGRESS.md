@@ -3695,3 +3695,71 @@ bar, and the new selection reaching the bulk bar (`3 selected` after a
 
 `tsc -b ✅ · build ✅ · 37-route sweep console-clean · board verified at 1600px
 and 760px (no document-level horizontal scroll) · lint 109 (baseline)`
+
+## Audit pass — `command-menu` (rotation area #6)
+
+Read the logs first: typecheck green, both servers up, lint 109 — exactly the
+recorded baseline, nothing new. Poured in another `seed-bulk.mjs` batch (24
+issues + 6 sub-issues, 18 comments, 8 attachments, 3496 KB of real bytes;
+250 → 274 issues). Swept all 37 routes: no console errors, no empty renders,
+no overflow beyond the `truncate` ellipsis false-positives the heuristic always
+reports.
+
+Rotation area #6, the ⌘K palette. This one was mostly a **depth** finding, and
+a large one: Linear's root palette lists its entire command set — 98 rows across
+21 sections, 4216px of scroll — while ours listed **8 commands in 2 sections**.
+The cap was one line, `roots.slice(0, 8)` in the `filtered` memo, deliberately
+showing "a short slice of root commands". Linear does not do that; the root *is*
+the full list. Removed the cap: 8 → 39 commands, 2 → 8 sections.
+
+Removing it forced a second fix. With 8 rows everything fit inside the 320px
+list, so nothing ever scrolled the highlight into view; at 39 rows arrowing down
+walked the selection straight off-screen. Added a `scrollIntoView({block:
+'nearest'})` on the active option — verified live: 18 × ArrowDown moves
+`aria-activedescendant` to `command-menu-option-18`, scrollTop 481, row still in
+the viewport.
+
+The palette also had **no ARIA roles at all** — querying the whole document
+while it was open returned zero `[role]` attributes. That is a parity gap in its
+own right (Linear's palette is a textbook combobox/listbox) and it was blocking
+the audit tooling: `reference/control-crawl.js` keys off `[role="option"]` /
+`[role="menuitem"]` and so matched nothing on this screen. Our input now carries
+Linear's exact shape, read off their live DOM: `role="combobox"`,
+`aria-label="Command menu"`, `aria-expanded`, `aria-controls`,
+`aria-autocomplete="list"`, `aria-activedescendant` pointing at the active
+option id, over a `role="listbox"` of `role="option"` rows with `aria-selected`.
+
+Wording and grouping, all read from Linear's live listbox:
+
+- Section headers are **sentence case** in Linear ("Navigation"). Ours rendered
+  `uppercase tracking-wider` → "NAVIGATION". Dropped the uppercase.
+- Linear has **no "Create" bucket** — a create command sits under the section of
+  the thing it creates (Issues / Projects / Documents / Views). Re-grouped
+  `groupOf` to match, and added a `ROOT_SECTIONS` order so each header prints
+  once; source order alone would have printed "Navigation" three times.
+- Commands that open a further step end in `…` ("Create new issue…").
+- Linear writes "Go to " + **lowercase** destination ("Go to inbox"), not Title
+  Case. Relabelled 29 commands.
+- Linear's palette ends on an **Account** section with `Log out` (⌥⇧Q). We
+  already bound ⌥⇧Q in `useShortcuts` but exposed no command for it — added.
+
+Shortcut hints are only **partly** closed, deliberately. Linear prints a chord on
+most rows; our G-chord map agrees with Linear on 5 of 9 bindings and diverges on
+the rest (ours `G B` → active issues where Linear's is backlog, ours `G V` →
+views where Linear's is current cycle, and so on). Printing Linear's hints would
+have meant printing chords we don't honour, so hints went on only the five that
+match and the divergence is logged in `BACKLOG.md` for the `keyboard` area
+rather than silently rebinding keys during a command-menu run.
+
+No dead controls: all 35 statically-declared root commands have a `run` or a
+`goPage`. The `Create…` sub-page opens with 6 rows.
+
+**Linear stayed read-only.** Its palette was opened with ⌘K, its listbox scrolled
+and read, and closed with Escape. Nothing was selected, typed, or submitted —
+which also means everything behind typing into Linear's palette (fuzzy-match
+ranking, the contextual issue-actions set, and every sub-menu) is recorded as
+**unverified**, not as confirmed parity. `.audit/controls/command-menu.md` says
+so explicitly.
+
+`tsc -b ✅ · build ✅ · 37-route sweep console-clean · palette verified at dark +
+--font-scale 1.4 (headers and rows scale, nothing clipped) · lint 109 (baseline)`

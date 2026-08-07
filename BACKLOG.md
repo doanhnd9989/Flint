@@ -616,6 +616,77 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `command-menu` pass (⌘K on `/team/CLA/all` vs Linear's `team/VC/all`)
+
+Linear's root palette lists 98 rows across 21 sections. After this run ours
+lists 39 across 8. Each row below is a section or command Linear's root has and
+ours does not — read from Linear's live listbox, read-only.
+
+- [ ] 🔴 **`Filter` section is absent from ⌘K** — Linear's root has three rows we
+  have none of: `Search workspace…`, `Find in view…` (⌘F), `Add Filter…` (F).
+  `Add Filter…` should open the same filter tree the toolbar `Filter` button
+  opens, so this is mostly wiring an existing surface to a command, but
+  `Find in view…` (in-view incremental find) does not exist at all.
+- [ ] 🔴 **Templates do not exist** — Linear's root carries five template rows:
+  `Create new issue from template…` (⌥C), `Edit a template…`, and
+  `Create new issue / document / project template…`. No template model exists in
+  `types.ts`, so this is a feature, not a menu entry.
+- [ ] 🟡 **`Open …` entity-picker family** — Linear has nine explicit rows, each
+  with an `O, then <key>` chord: `Open issue…` (O I), `Open team…` (O T),
+  `Open project…` (O P), `Open cycle…` (O C), `Open issue label…` (O L),
+  `Open user…` (O U), `Open view…` (O V), `Open document…` (O D),
+  `Open customer…` (O Q). Ours jumps to entities by typing their name but has no
+  explicit picker rows and no `O` chord prefix at all.
+- [ ] 🟡 **`Create new label…` and `Create view…` missing from the root** — both
+  exist as screens in our app; neither is reachable from ⌘K.
+- [ ] 🟡 **Customers section** — Linear has `Add customer request…` (Ctrl R) and
+  `Create new customer…`; we have a `/customers` route but no ⌘K commands.
+- [ ] 🟡 **`Change interface theme…` is a sub-menu in Linear** — ours is three
+  flat rows (`Theme: Light` / `Dark` / `System`). Linear opens one row into a
+  picker. Same for `Change default view…`, which we don't have.
+- [ ] 🟡 **`Miscellaneous` / `Export` sections** — `Copy page URL` (⌘⇧C),
+  `Select all` (⌘A), `Export issues as CSV…`. None exist.
+- [ ] 🟡 **`Help` section is one row deep** — ours has only the shortcuts sheet.
+  Linear's has seven: Contact support, Send feedback, Open Linear Documentation,
+  Open API Documentation, Linear status, Report performance problem, View
+  workspace admins.
+- [ ] 🟢 **`Favorite page`** (⌥F) and **`Add section…`** (team overview) — single
+  commands, no new model needed.
+- [ ] 🟢 **`Create issue in fullscreen…`** (V) — Linear opens the create dialog as
+  a full-page editor; ours only has the modal.
+- [ ] 🟢 **`Create or join a workspace…`** under Account — we have Log out only.
+- [ ] ⚪ **`Ask Linear` (⌘J) / `Open agent chat…`** — Linear's AI panel. Brand-
+  specific; noting it for completeness, not proposing we clone it.
+
+**Our `Create…` umbrella row has no Linear counterpart.** Linear puts each create
+command directly on the root under its entity's section; we additionally have a
+`Create…` row that opens a 6-item sub-page (`New issue` / `New project` /
+`New team` / `New document` / `New view` / `New initiative`). Its wording is also
+off — Linear would say `Create new project…`, not `New project`. Decide whether
+to keep the sub-page (and match its wording) or drop it now that the root lists
+the create commands directly.
+
+### From the `command-menu` pass — findings for other rotation areas
+
+- [ ] 🔴 **`keyboard`: our G-chord map diverges from Linear's on 5 of 9 bindings.**
+  Ours (`useShortcuts.ts:226`) vs Linear's, read from its palette hints:
+  matching — G I inbox, G M my issues, G T triage, G C cycles, G P projects;
+  **diverging** — ours G B → active issues (Linear: G B → backlog, G A → active),
+  ours G V → views (Linear: G U → views, G V → current cycle), ours G S → search
+  (Linear: G S → settings, `/` → advanced search), ours G R → roadmap (Linear has
+  no G R). Linear also has G D drafts, G E all issues, G N initiatives,
+  G W upcoming cycle, G Q customers, G X team archive, G J agent. Until this is
+  reconciled the palette can only print hints for the 5 that agree — the other
+  rows are deliberately hint-less rather than showing a chord we don't honour.
+- [ ] 🟡 **`keyboard`: ⌘/ is bound to toggle-sidebar; Linear uses ⌘/ for the
+  Keyboard Shortcuts Cheat Sheet** and `[` for `Collapse navigation sidebar`.
+  Linear also labels it "Collapse navigation sidebar", not "Toggle sidebar".
+- [ ] 🟡 **`issue-list`: issue identifiers clip at large font scale.** At
+  `--font-scale: 1.4` on `/team/CLA/all` the `CLA–10` identifier wraps to a
+  second line and is cut off by the row height — the row height is computed in
+  JS and doesn't go through `useFontScale()`. Reproduced this run in dark mode at
+  1.4; the palette itself scales fine.
+
 ### From the `filters-display` pass (`/team/CLA/active` vs Linear's `team/VC/active`)
 
 Our filter menu carries 12 top-level dimensions after this run; Linear's has 25.
