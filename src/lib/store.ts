@@ -105,8 +105,10 @@ interface UIState {
   createDocumentOpen: boolean
   /** Pending saved-view draft for the "Save view" naming modal (transient). */
   viewModalConfig: Omit<SavedView, 'id' | 'name' | 'icon'> | null
-  /** Keyboard-shortcuts help overlay (transient). */
+  /** Keyboard-shortcuts help panel — Linear's ⌘/ drawer (transient). */
   helpOpen: boolean
+  /** Help-center popover — what Linear opens on `?` (transient). */
+  helpMenuOpen: boolean
   /** Issue currently shown in the right-side peek panel (transient). */
   peekIssueId: string | null
   /** Issues selected for bulk actions (transient). */
@@ -435,6 +437,7 @@ export interface Store extends WorkspaceData, UIState {
   openViewModal: (config: Omit<SavedView, 'id' | 'name' | 'icon'>) => void
   closeViewModal: () => void
   setHelpOpen: (open: boolean) => void
+  setHelpMenuOpen: (open: boolean) => void
   setPeek: (id: string | null) => void
   setNavIssueIds: (ids: string[]) => void
   /** Set (or clear) the keyboard-focused issue by identifier. */
@@ -555,6 +558,7 @@ export const useStore = create<Store>()(
       createDocumentOpen: false,
       viewModalConfig: null,
       helpOpen: false,
+      helpMenuOpen: false,
       peekIssueId: null,
       selectedIssueIds: [],
       navIssueIds: [],
@@ -2369,6 +2373,7 @@ export const useStore = create<Store>()(
       openViewModal: (viewModalConfig) => set({ viewModalConfig }),
       closeViewModal: () => set({ viewModalConfig: null }),
       setHelpOpen: (helpOpen) => set({ helpOpen }),
+      setHelpMenuOpen: (helpMenuOpen) => set({ helpMenuOpen }),
       setPeek: (peekIssueId) => set({ peekIssueId }),
       setNavIssueIds: (navIssueIds) =>
         set((s) =>
@@ -2765,6 +2770,7 @@ export const useStore = create<Store>()(
           createDocumentOpen: _cdo,
           viewModalConfig: _vmc,
           helpOpen: _h,
+          helpMenuOpen: _hm,
           peekIssueId: _p,
           selectedIssueIds: _sel,
           navIssueIds: _nav,

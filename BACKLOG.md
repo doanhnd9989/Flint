@@ -668,7 +668,8 @@ the create commands directly.
 
 ### From the `command-menu` pass — findings for other rotation areas
 
-- [ ] 🔴 **`keyboard`: our G-chord map diverges from Linear's on 5 of 9 bindings.**
+- [x] 🔴 **`keyboard`: our G-chord map diverges from Linear's on 5 of 9 bindings.**
+  _Closed in the `keyboard` pass — all 15 of Linear's G-chords now match._
   Ours (`useShortcuts.ts:226`) vs Linear's, read from its palette hints:
   matching — G I inbox, G M my issues, G T triage, G C cycles, G P projects;
   **diverging** — ours G B → active issues (Linear: G B → backlog, G A → active),
@@ -678,14 +679,61 @@ the create commands directly.
   G W upcoming cycle, G Q customers, G X team archive, G J agent. Until this is
   reconciled the palette can only print hints for the 5 that agree — the other
   rows are deliberately hint-less rather than showing a chord we don't honour.
-- [ ] 🟡 **`keyboard`: ⌘/ is bound to toggle-sidebar; Linear uses ⌘/ for the
+- [x] 🟡 **`keyboard`: ⌘/ is bound to toggle-sidebar; Linear uses ⌘/ for the
   Keyboard Shortcuts Cheat Sheet** and `[` for `Collapse navigation sidebar`.
-  Linear also labels it "Collapse navigation sidebar", not "Toggle sidebar".
+  _Closed in the `keyboard` pass — ⌘/ opens the sheet, `[` toggles the sidebar._
 - [ ] 🟡 **`issue-list`: issue identifiers clip at large font scale.** At
   `--font-scale: 1.4` on `/team/CLA/all` the `CLA–10` identifier wraps to a
   second line and is cut off by the row height — the row height is computed in
   JS and doesn't go through `useFontScale()`. Reproduced this run in dark mode at
   1.4; the palette itself scales fine.
+
+### From the `keyboard` pass (Linear's own Keyboard Shortcuts sheet, 198 rows)
+
+The sheet now prints Linear's rows verbatim. These are the ones we print but do
+not yet honour — each is a concrete key, not a mood.
+
+- [ ] 🔴 **The `O`-chord entity pickers are unbound** — Linear's Navigation
+  section has nine: `O I` open issue, `O P` project, `O C` cycle, `O U` user,
+  `O T` team, `O V` view, `O D` document, `O N` initiative, `O Q` customer, plus
+  `O F` favorite and `O W` switch workspace. We have no `O` chord prefix at all
+  (same gap the `command-menu` pass logged from the palette side — one fix
+  serves both).
+- [ ] 🔴 **List/Board reordering keys are unbound** — `⌥↑`/`⌥↓` move one
+  position, `⌥⇧↑`/`⌥⇧↓` move to top/bottom of the group, `⌥←`/`⌥→` move to the
+  previous/next column, `T` collapses a row, `⌥T` collapses all. Our board can
+  only be reordered by pointer drag, so this also closes the "board keyboard
+  drag" item below.
+- [ ] 🟡 **`⌘B` toggle layout view is unbound** — the list/board choice lives in
+  `useState` inside `IssuesView`, so no global key can reach it. Needs the
+  layout hoisted into the store (or a view-scoped context) first. Note Linear's
+  `V` is *New issue in full screen view*, not the layout toggle — our old `V`
+  hint was wrong twice over.
+- [ ] 🟡 **`⇧V` show display options, `F` add filter, `⇧F` clear last filter,
+  `⌥⇧F` clear all filters** — all four need a way to open/drive `DisplayMenu`
+  and `FilterBar` from the keyboard; both are currently pointer-only triggers.
+- [ ] 🟡 **Triage `1` accept / `2` decline / `3` duplicate / `H` snooze** — the
+  triage queue has the buttons but no key bindings.
+- [ ] 🟡 **Issue rows Linear has and we don't bind**: `⌥C` new issue from
+  template, `Ctrl⌥⇧T` apply template (both blocked on templates not existing),
+  `⇧R` rename, `Ctrl⇧I` focus description, `⌥F` favorite, `⇧H` remind,
+  `⌘⇧M` move to another team, `⌘⌫` delete, `#` restore, `⇧S` subscribe,
+  `⌘⇧S` manage subscribers, `Ctrl L` link URL, `⌘⇧'` copy title,
+  `⌘⌥C` copy as Markdown, `⌘⌥P` copy as prompt, `⌘⇧↑`/`⌘⇧↓` open parent/sub,
+  `Ctrl⇧L` toggle links section, `⌘⇧D` remove due date.
+- [ ] 🟢 **`]` toggle right sidebar** — printed, but we have no right sidebar to
+  toggle. Decide whether to build one or drop the row.
+- [ ] 🟢 **`Ctrl⇧1-9` go to team** — Linear jumps to the Nth team; unbound here.
+- [ ] 🟢 **Timeline section is printed but the roadmap honours none of it** —
+  `Y`/`Q`/`M`/`W` zoom levels, `-`/`=` zoom, `⌘ Scroll` zoom, `⇧{` toggle the
+  project list, `←`/`→`/`X`/`Esc` selection.
+- [ ] 🟢 **Markdown auto-formatting in the editor** — Linear turns `# `, `- `,
+  `1. `, `> `, `[]`, ` ``` `, `|--`, `***`, `>>>`, `_x_`, `**x**`, `~x~`,
+  `` `x` `` into blocks as you type. Our editor has the toolbar equivalents but
+  no input rules.
+- [ ] 🟢 **Rows Linear has that our product has no surface for** — `G J` agent,
+  `G L` loops, `G R` reviews, `G -` dashboards. Deliberately omitted from the
+  sheet rather than printed as dead navigation; revisit if those areas get built.
 
 ### From the `filters-display` pass (`/team/CLA/active` vs Linear's `team/VC/active`)
 

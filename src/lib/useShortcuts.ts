@@ -4,7 +4,7 @@ import { useStore, type Store } from './store'
 import { useAuth } from './auth'
 import type { Issue, RelationPickerKind } from './types'
 import { copyToClipboard, copyToast, toast } from './toast'
-import { issueUrl } from './utils'
+import { branchName, issueUrl } from './utils'
 
 function isTyping(el: EventTarget | null): boolean {
   const t = el as HTMLElement | null
@@ -93,10 +93,22 @@ export function useShortcuts() {
         return
       }
 
-      // ⌘/ — toggle the sidebar (Linear's collapse shortcut)
+      // ⌘/ — view keyboard shortcuts. Linear puts the sidebar on `[`, not here.
       if ((e.metaKey || e.ctrlKey) && key === '/') {
         e.preventDefault()
-        store.toggleSidebar()
+        store.setHelpMenuOpen(false)
+        store.setHelpOpen(!store.helpOpen)
+        return
+      }
+
+      // ⌘A — select every issue in the list being browsed (Linear's select all).
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && key === 'a') {
+        if (isTyping(e.target) || !store.navIssueIds.length) return
+        e.preventDefault()
+        const ids = store.navIssueIds
+          .map((ident) => store.issues.find((i) => i.identifier === ident)?.id)
+          .filter((id): id is string => !!id)
+        store.setSelectedIssues(ids)
         return
       }
 
@@ -120,14 +132,21 @@ export function useShortcuts() {
         return
       }
 
-      // ⌘. — copy the issue identifier; ⌘⇧. — copy its URL (Linear's copy chords).
-      if ((e.metaKey || e.ctrlKey) && key === '.') {
+      // Linear's copy chords: ⌘. id, ⌘⇧. git branch name, ⌘⇧, URL.
+      if ((e.metaKey || e.ctrlKey) && (key === '.' || key === ',')) {
         if (isTyping(e.target)) return
         const cur = currentIssue(store)
         if (!cur) return
+        if (key === ',') {
+          if (!e.shiftKey) return
+          e.preventDefault()
+          copyToClipboard(issueUrl(cur.identifier), copyToast.url())
+          return
+        }
         e.preventDefault()
         if (e.shiftKey) {
-          copyToClipboard(issueUrl(cur.identifier), copyToast.url())
+          const me = store.users.find((u) => u.id === store.currentUserId)
+          copyToClipboard(branchName(cur.identifier, cur.title, me), copyToast.branch())
         } else {
           copyToClipboard(cur.identifier, copyToast.id(cur.identifier))
         }
@@ -156,6 +175,7 @@ export function useShortcuts() {
         store.createDocumentOpen ||
         !!store.viewModalConfig ||
         store.helpOpen ||
+        store.helpMenuOpen ||
         !!document.querySelector('[data-overlay]')
 
       // `M` then <key> — relation chords (Mark as …) on the current issue.
@@ -195,21 +215,27 @@ export function useShortcuts() {
               store.toggleSelectIssue(focused.id)
               return
             }
-            if (e.key === 'Enter') {
+            // Linear splits these: Space peeks, Enter opens the issue.
+            if (e.key === ' ') {
               e.preventDefault()
               store.setPeek(focused.id)
               return
             }
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              store.setPeek(null)
+              navigate(`/issue/${focused.identifier}`)
+              return
+            }
             // Row property hotkeys — open the command menu at that sub-page
-            // (Linear: s status, p priority, a assignee, l label, e estimate).
-            // Shifted variants (⇧P project, ⇧C cycle, ⇧M milestone) fall through
-            // to the switch below so they don't collide with these plain keys.
+            // (Linear: s status, p priority, a assignee, l label). Estimate is
+            // ⇧E in Linear, and the shifted variants (⇧P project, ⇧C cycle,
+            // ⇧M milestone) fall through to the switch below.
             const propPage: Record<string, string> = {
               s: 'status',
               p: 'priority',
               a: 'assignee',
               l: 'label',
-              e: 'estimate',
             }
             if (!e.shiftKey && propPage[key]) {
               e.preventDefault()
@@ -223,16 +249,24 @@ export function useShortcuts() {
       // `G` then <key> — navigation chords
       if (pendingG.current) {
         clearG()
+        // Linear's letters exactly — `b` is the backlog (not "issues"), `v`/`w`
+        // are the current/upcoming cycle, `s` is settings, `e` is all issues.
         const dest: Record<string, string> = {
           i: '/inbox',
           m: '/my-issues',
-          p: '/projects',
-          r: '/roadmap',
-          v: '/views',
-          s: '/search',
           t: `/team/${teamKey}/triage`,
+          d: '/drafts',
+          a: `/team/${teamKey}/active`,
+          b: `/team/${teamKey}/backlog`,
+          x: '/archive',
+          e: '/all-issues',
           c: `/team/${teamKey}/cycles`,
-          b: `/team/${teamKey}/active`,
+          v: `/team/${teamKey}/cycle/current`,
+          w: `/team/${teamKey}/cycle/upcoming`,
+          p: '/projects',
+          s: '/settings',
+          n: '/initiatives',
+          q: '/customers',
         }
         if (dest[key]) {
           e.preventDefault()
@@ -258,10 +292,22 @@ export function useShortcuts() {
         return
       }
 
-      // Single-key shortcuts
+      // `?` opens the help centre in Linear — the shortcut sheet lives on ⌘/.
       if (e.key === '?') {
         e.preventDefault()
-        store.setHelpOpen(true)
+        store.setHelpMenuOpen(!store.helpMenuOpen)
+        return
+      }
+      // `[` / `]` — Linear's sidebar toggles. We have no right sidebar yet.
+      if (e.key === '[' && !overlayOpen) {
+        e.preventDefault()
+        store.toggleSidebar()
+        return
+      }
+      // `/` — open search (Linear's global search key).
+      if (e.key === '/' && !overlayOpen) {
+        e.preventDefault()
+        navigate('/search')
         return
       }
       // An open modal / command menu / popover owns the keyboard — single-key
@@ -300,9 +346,9 @@ export function useShortcuts() {
           store.openIssuePropertyMenu(cur.id, 'milestone')
           break
         }
-        // `E` — set the current issue's estimate (peek/detail; rows use propPage).
+        // ⇧E — change the current issue's estimate (Linear's estimate chord).
         case 'e': {
-          if (e.shiftKey || overlayOpen) break
+          if (!e.shiftKey || overlayOpen) break
           const cur = currentIssue(store)
           if (!cur) break
           e.preventDefault()

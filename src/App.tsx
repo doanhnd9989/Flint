@@ -23,6 +23,7 @@ import { BulkActionBar } from '@/components/BulkActionBar'
 import { IssueContextMenu } from '@/components/IssueContextMenu'
 import { AddLinkModal } from '@/components/AddLinkModal'
 import { HelpOverlay } from '@/components/HelpOverlay'
+import { HelpMenu } from '@/components/HelpMenu'
 import { RelationPicker } from '@/components/RelationPicker'
 import { Toaster } from '@/components/Toaster'
 import { useThemeEffect, usePreferenceEffect } from '@/lib/useTheme'
@@ -133,6 +134,7 @@ function Shell() {
       <ShareIssueModal />
       <MoveIssueModal />
       <HelpOverlay />
+      <HelpMenu />
       <RelationPicker />
       <Toaster />
     </div>

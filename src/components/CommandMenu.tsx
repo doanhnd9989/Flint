@@ -1455,7 +1455,7 @@ export function CommandMenu() {
         id: 'help',
         label: 'Open Keyboard Shortcuts Cheat Sheet',
         icon: <Keyboard size={15} />,
-        hint: '?',
+        hint: '⌘ /',
         keywords: 'help shortcuts keyboard',
         run: () => store.setHelpOpen(true),
       },

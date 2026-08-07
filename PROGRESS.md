@@ -3763,3 +3763,64 @@ so explicitly.
 
 `tsc -b ✅ · build ✅ · 37-route sweep console-clean · palette verified at dark +
 --font-scale 1.4 (headers and rows scale, nothing clipped) · lint 109 (baseline)`
+
+## `keyboard` — the help surface was the wrong surface, on the wrong key
+
+Rotation area 7. Compared our `?` overlay against Linear's, on
+`/team/CLA/active` vs `linear.app/<ws>/my-issues/assigned`, read-only through
+the Chrome extension.
+
+**The headline: `?` doesn't open Linear's shortcut sheet.** It opens a **help
+centre palette** (`Help` / `Help with…`) with eight rows — Search for help… ·
+Docs · Contact us · Keyboard shortcuts (⌘ /) · Linear status · Download apps ·
+Settings (G then S) · Slack community. The sheet itself is a **right-side
+drawer** on **⌘/**. Our app had `?` opening the sheet directly and `⌘/` bound to
+toggle-sidebar, so the entry point, the container and the key were all wrong.
+
+Fixed, all four:
+
+- New `HelpMenu.tsx` on `?` — Linear's eight rows, order, wording and hints
+  (only the brand name differs: "Flint status").
+- `⌘/` opens the shortcut sheet; the sheet's `<` chevron walks back to the Help
+  palette, exactly like Linear's.
+- `[` toggles the left sidebar (Linear's key), which is what freed `⌘/`.
+- `HelpOverlay.tsx` rebuilt as a **358px right-anchored drawer**, inset from the
+  edge, single column, undimmed page behind — measured off Linear
+  (`left 1868 / vw 2240`, header `13px/500/no-uppercase`, row height `21px`,
+  keys as plain glyphs rather than boxed `kbd` chips, chords as `G then I` with a
+  faint connector). Was a centred 640px two-column modal with uppercase headers.
+
+**Depth was the real gap: Linear's sheet has 13 sections / 198 rows; ours had
+11 / 85.** The sheet now carries 13 sections / 194 rows in Linear's order and
+wording — General, Navigation, Issues, Projects, Initiatives, List / Board,
+Timeline, Comments, Inbox, Filters, Triage, Editor, Markdown formatting.
+
+A sheet that lies is worse than a thin one, so the cheap bindings were made real
+in the same run rather than shipped as decoration:
+
+- **All 15 G-chords now match Linear** (`G A` active, `G B` backlog, `G E` all
+  issues, `G V`/`G W` current/upcoming cycle, `G S` settings, `G D` drafts,
+  `G X` archive, `G N` initiatives, `G Q` customers, plus the five that already
+  agreed). Ours previously had 9 chords, 4 of them on the wrong destination —
+  the divergence the `command-menu` pass logged for this area.
+- **`Space` peeks, `Enter` opens.** We had `Enter` peeking and nothing on Space.
+- `⌘A` selects the browsed list (verified: `147 selected`), `Esc` clears.
+- `⇧E` changes estimate (was plain `E`; Linear has no plain `E` on issues).
+- `⌘⇧.` copies the **git branch name** and `⌘⇧,` the **URL** — we had `⌘⇧.`
+  copying the URL, which is Linear's `⌘⇧,`.
+- `/` opens search.
+
+**Deliberate difference:** rows for Linear-only surfaces (Agent, Loops, Reviews,
+Dashboards) are omitted rather than printed as dead navigation. Everything else
+Linear prints, we print — the ~60 rows we print but don't yet honour are
+enumerated key by key in `BACKLOG.md` under the `keyboard` pass, not left
+implicit.
+
+**Linear stayed read-only.** Only `?`, the `Keyboard shortcuts` row and `Escape`
+were pressed; nothing was selected, typed or submitted. That also means each
+shortcut's *effect* in Linear is unverified — the sheet is authoritative for
+wording and key, and `.audit/controls/keyboard.md` says so.
+
+`tsc -b ✅ · build ✅ · 23-route sweep console-clean, zero overflow · drawer
+verified at dark + --font-scale 1.4 and at a 420px viewport (clamps to 92vw,
+labels ellipsise, no page h-scroll) · lint 109 (baseline)`
