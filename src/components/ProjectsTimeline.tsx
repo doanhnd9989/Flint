@@ -12,11 +12,15 @@ import { useStore } from '@/lib/store'
 import { projectProgress } from '@/lib/selectors'
 import { ProjectStatusIcon } from './ProjectStatusIcon'
 import { DatePicker } from './DatePicker'
+import { useFontScale } from '@/lib/useTheme'
 
 const MONTH_W = 120
-const NAME_W = 240
-const ROW_H = 40
-const BAR_H = 24
+// Sized in JS, so these three have to be walked through the font scale by hand
+// — CSS can't reach them. MONTH_W deliberately does not scale: it is the time
+// axis, not type, and stretching it would change what a month looks like.
+const BASE_NAME_W = 240
+const BASE_ROW_H = 40
+const BASE_BAR_H = 24
 const MIN_BAR_W = 56
 
 /**
@@ -40,6 +44,10 @@ export function ProjectsTimeline({
   // it needs — typed as Pick to stay honest without dragging in WorkspaceData.
   const issues = useStore((s) => s.issues)
   const states = useStore((s) => s.states)
+  const fs = useFontScale()
+  const NAME_W = Math.round(BASE_NAME_W * fs)
+  const ROW_H = Math.round(BASE_ROW_H * fs)
+  const BAR_H = Math.round(BASE_BAR_H * fs)
   const updateProject = useStore((s) => s.updateProject)
   const progressData = useMemo(
     () => ({ states }) as Parameters<typeof projectProgress>[2],

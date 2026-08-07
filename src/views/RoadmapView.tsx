@@ -22,8 +22,12 @@ import { Avatar } from '@/components/Avatar'
 import { projectProgress } from '@/lib/selectors'
 import { PROJECT_STATUS, PROJECT_STATUS_ORDER } from '@/lib/constants'
 import { cn, formatDate } from '@/lib/utils'
+import { useFontScale } from '@/lib/useTheme'
 
-const NAME_W = 200
+// Sized in JS, so CSS can't scale them with the Font size preference — both go
+// through useFontScale below. The month width is the time axis and stays put.
+const BASE_NAME_W = 200
+const BASE_BAR_H = 24
 /** Per-month column width by zoom level — Linear's Compact / Default / Wide. */
 const ZOOM: Record<'compact' | 'default' | 'wide', number> = {
   compact: 72,
@@ -45,6 +49,9 @@ export function RoadmapView() {
   const data = useStore()
   const [zoom, setZoom] = useState<'compact' | 'default' | 'wide'>('default')
   const MONTH_W = ZOOM[zoom]
+  const fs = useFontScale()
+  const NAME_W = Math.round(BASE_NAME_W * fs)
+  const BAR_H = Math.round(BASE_BAR_H * fs)
 
   // Local-only header filters: a project-status picker and an initiative picker.
   // Both narrow which project bars render and compose with AND.
@@ -556,7 +563,7 @@ export function RoadmapView() {
                               style={{
                                 left,
                                 width,
-                                height: 24,
+                                height: BAR_H,
                                 borderColor: p.color,
                                 background: `${p.color}22`,
                               }}

@@ -174,7 +174,7 @@ function BarChart({ bars, max }: { bars: Bar[]; max: number }) {
               />
               <span className="truncate text-[12px] text-muted group-hover:text-fg">{b.label}</span>
             </div>
-            <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+            <div className="relative h-[14px] flex-1 overflow-hidden rounded-full bg-bg-tertiary">
               <div
                 className="absolute inset-y-0 left-0 flex items-center justify-end rounded-full pr-1.5 transition-all"
                 style={{ width: `${pct}%`, backgroundColor: b.color }}
@@ -227,7 +227,7 @@ function StackedBarChart({ bars, series, max }: { bars: StackedBar[]; series: Se
           <div className="flex w-28 shrink-0 items-center gap-1.5" title={b.label}>
             <span className="truncate text-[12px] text-muted group-hover:text-fg">{b.label}</span>
           </div>
-          <div className="relative flex h-2 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
+          <div className="relative flex h-[14px] flex-1 overflow-hidden rounded-full bg-bg-tertiary">
             {/* Width is scaled to the largest total so bars stay comparable; each
                 segment then takes its share of that bar's own width. A 1px gap
                 between segments (track shows through) keeps adjacent same-ish

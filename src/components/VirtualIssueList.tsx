@@ -7,8 +7,10 @@ import { PriorityIcon } from './PriorityIcon'
 import { Avatar } from './Avatar'
 import { LabelDot } from './LabelChip'
 import { useStore } from '@/lib/store'
+import { useFontScale } from '@/lib/useTheme'
 
-const ITEM_H = 36
+/** Row height at the default font size; scaled by the Font size preference. */
+const BASE_ITEM_H = 36
 const OVERSCAN = 8
 
 type Row =
@@ -54,6 +56,10 @@ export function VirtualIssueList({
   const ref = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [height, setHeight] = useState(800)
+  // The rows are sized in JS, so they can't inherit the font scale from CSS the
+  // way the rest of the list does — without this the text grows and the row
+  // doesn't, and every title gets its descenders clipped.
+  const ITEM_H = Math.round(BASE_ITEM_H * useFontScale())
 
   useEffect(() => {
     const el = ref.current

@@ -43,6 +43,17 @@ const FONT_SCALE: Record<Preferences['fontSize'], number> = {
   huge: 1.6,
 }
 
+/**
+ * The current font multiplier, for the few places that must size a box in JS
+ * rather than CSS — a virtualized list's row height, a timeline's row pitch.
+ * Anything measured in px and computed outside the stylesheet has to go through
+ * this, or the text outgrows the box the scroll math reserved for it.
+ */
+export function useFontScale(): number {
+  const fontSize = useStore((s) => s.preferences.fontSize)
+  return FONT_SCALE[fontSize] ?? 1
+}
+
 /** Applies font-size and pointer-cursor preferences to <html>. */
 export function usePreferenceEffect() {
   const fontSize = useStore((s) => s.preferences.fontSize)
