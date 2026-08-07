@@ -616,6 +616,56 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `cycles` pass (`/team/:key/cycles` + `/cycle/:ref` vs Linear's)
+
+Read off Linear's live cycles list and cycle detail, read-only. The cycle row
+context menu was built in that run (0 items → 7 items + 3 flyouts, three
+phase variants); these are what is left. Full control-by-control table in
+`.audit/controls/cycles.md`.
+
+- [ ] 🔴 **The cycle detail screen is the wrong shape.** Linear puts the issue
+      list in the main pane with a `45 issues` count above it, and every
+      analytic — description, `+ Add document or link…`, `Progress ▾` with its
+      Scope/Started/Completed legend, the burn-up, and tabs
+      `Assignees | Labels | Priority | Projects | Teams` — in a **right
+      sidebar**. Ours stacks burndown, delta metrics, scope chart, estimate
+      distribution and workload vertically *above* the list, pushing the
+      issues off the fold, and puts a cycle-directory rail on the left that
+      Linear does not have. Large.
+- [ ] 🟠 **Cycle detail has no Filter or Display control.** Linear's cycle
+      issue list carries the same filter icon, display-options icon and
+      right-panel toggle as any issue list. Ours has only a `Group:` picker.
+      Medium.
+- [ ] 🟠 **No `⌥J` / `⌥K` to step between cycles, and no breadcrumb switcher.**
+      Linear's `Cycle N ▾` breadcrumb opens a two-row menu —
+      `Next cycle (upcoming)` and `Previous cycle (completed)`, each with its
+      date range and shortcut hint. Ours has bare `‹` / `›` buttons. Small.
+- [ ] 🟠 **`Export issues as CSV…` is missing from the cycle ⋯ menu.** Linear's
+      cycle-detail ⋯ menu is `Edit cycle name and description…` ·
+      `Change cycle dates ▸` · — · `Copy link` · `Subscribe to cycle
+      calendar ▸` · — · `Export issues as CSV…`. Ours reuses the row menu, so
+      the CSV row is absent. Small — `AuditLogSettings.tsx` already has the
+      csvCell/Blob pattern to copy.
+- [ ] 🟡 **The Cycles list header has no favorite star.** Linear stars the
+      team's Cycles *page*; our `FavoriteType` has no entry for a team-scoped
+      view, so there is nothing to point it at. Small — needs the type.
+- [ ] 🟡 **No `Cycles paused` divider row in the cycles timeline.** Linear
+      draws one where a team's cadence was paused. We have `pausedAt` on a
+      cycle and a `CyclePauseButton`, but the list never shows it. Small.
+- [ ] 🟡 **Scope / completed numbers carry no estimate glyph.** Linear prefixes
+      each with a small △; ours are bare numerals. Small, cosmetic.
+- [ ] 🟡 **No cycle has ever been completed in seed data, so every past-cycle
+      surface ships untested.** `buildSeed()` creates exactly two cycles — one
+      active, one upcoming — so `CycleRetrospective`, `CycleDeltaMetrics`, the
+      velocity sparkline and the workspace `Past` tab had never rendered with
+      data until this run forced a cycle into the past by hand. `seed-bulk.mjs`
+      can't help: it writes through GraphQL and cycles live in the zustand
+      store. Add three completed cycles to `buildSeed()` with a share of the
+      completed issues assigned to them. Small.
+- [ ] 🟡 **`Open in desktop app` (`Ctrl⌘,`) is absent from the cycle menu.**
+      Deliberate, same call as the inbox and projects passes — there is no
+      desktop app to hand off to. Listed so the gap stays visible.
+
 ### From the `projects-initiatives` pass (`/projects` vs Linear's `/projects/all`)
 
 Read off Linear's live projects list, read-only. The row context menu was

@@ -261,7 +261,7 @@ export function useShortcuts() {
           x: '/archive',
           e: '/all-issues',
           c: `/team/${teamKey}/cycles`,
-          v: `/team/${teamKey}/cycle/current`,
+          v: `/team/${teamKey}/cycle/active`,
           w: `/team/${teamKey}/cycle/upcoming`,
           p: '/projects',
           s: '/settings',

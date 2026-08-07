@@ -293,6 +293,16 @@ export interface Store extends WorkspaceData, UIState {
   deleteInitiativeUpdate: (id: string) => void
   /** Set a cycle's free-text goal / objectives. */
   setCycleGoal: (cycleId: string, goal: string) => void
+  updateCycle: (
+    id: string,
+    patch: Partial<Pick<Cycle, 'name' | 'goal' | 'startsAt' | 'endsAt'>>,
+  ) => void
+  startCycleToday: (id: string) => void
+  toggleCycleNotification: (
+    cycleId: string,
+    event: 'added' | 'completed',
+    userId: string,
+  ) => void
   pauseCycle: (id: string) => void
   resumeCycle: (id: string) => void
   /** Create the next cycle for a team (auto-numbered, 2-week window after the latest). */
@@ -1620,6 +1630,44 @@ export const useStore = create<Store>()(
           cycles: s.cycles.map((c) =>
             c.id === cycleId ? { ...c, goal: goal.trim() || undefined } : c,
           ),
+        })),
+
+      updateCycle: (id, patch) =>
+        set((s) => ({
+          cycles: s.cycles.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        })),
+
+      /**
+       * Linear's `Start cycle today…` — pull an upcoming cycle's start to now,
+       * keeping its length so the end date moves by the same offset.
+       */
+      startCycleToday: (id) =>
+        set((s) => ({
+          cycles: s.cycles.map((c) => {
+            if (c.id !== id) return c
+            const start = new Date(c.startsAt).getTime()
+            const shift = Date.now() - start
+            return {
+              ...c,
+              startsAt: new Date(start + shift).toISOString(),
+              endsAt: new Date(new Date(c.endsAt).getTime() + shift).toISOString(),
+            }
+          }),
+        })),
+
+      toggleCycleNotification: (cycleId, event, userId) =>
+        set((s) => ({
+          cycles: s.cycles.map((c) => {
+            if (c.id !== cycleId) return c
+            const key = event === 'added' ? 'notifyAddedIds' : 'notifyCompletedIds'
+            const list = c[key] ?? []
+            return {
+              ...c,
+              [key]: list.includes(userId)
+                ? list.filter((u) => u !== userId)
+                : [...list, userId],
+            }
+          }),
         })),
 
       pauseCycle: (id) =>

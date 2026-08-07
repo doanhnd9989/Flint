@@ -3957,3 +3957,82 @@ items *does* is recorded as unverified.
 each driven and read back · 321kb workspace PUT verified 200 · checked at dark
 + --font-scale 1.4 (no clipping) and at a 420px viewport · lint 110, unchanged,
 none in the files touched`
+
+---
+
+## `cycles` — the cycle rows had no menu at all, and the live cycle sat on the wrong URL
+
+Rotation area #10. Read the logs first: typecheck green, both servers up, lint
+106 — four *below* the recorded 110 baseline and none in the files touched, so
+nothing new to chase. Poured in 40 issues / 6 sub-issues / 30 comments / 10
+real attachments (4.1 MB of bytes) before walking anything.
+
+**The gap.** Linear's cycles list gives every row a hover `⋯` *and* a
+right-click menu; ours gave neither — the control crawl on `/team/CLA/cycles`
+found exactly six controls on the whole screen (`New cycle` plus five row
+buttons), against Linear's eleven, one `Open menu` per row. Not thin: absent.
+
+**What Linear actually has**, read off the live app control by control, and
+what the menu turned out to be is three menus, not one:
+
+- **planned / upcoming** — `Edit cycle name and description…` ·
+  `Change cycle dates ▸` (`Move start date…`, `Move end date…`) ·
+  `Start cycle today…` · — · `Subscribe to cycle notifications ▸`
+  (two checkboxes) · `Favorite` `⌥F` · `Copy link` ·
+  `Subscribe to cycle calendar ▸` (three leaves) · — · `Open in desktop app`
+- **current** — the same, minus `Start cycle today…`, and the dates flyout
+  drops to `Move end date…` alone
+- **completed** — `Edit cycle name and description…` · — · `Favorite` ·
+  `Copy link` · `Subscribe to cycle calendar ▸` · — · `Open in desktop app`;
+  both `Change cycle dates` and the notification submenu are gone
+
+All three are now reproduced and each was driven and read back on our side:
+7 items on a planned cycle, 6 on the current one, 3 on a completed one, with
+the dates flyout correctly collapsing from two leaves to one the moment a
+cycle starts. The submenu leaves are real work, not labels — the calendar rows
+build an actual RFC 5545 `.ics`, a `webcal://` feed URL and Google's event
+template; `Favorite` writes a `{type:'cycle'}` favorite and the sidebar grew a
+branch so it renders as a live row instead of being silently dropped by the
+`filter(Boolean)` at the end of `favoriteItems`.
+
+**A whole screen was on the wrong URL, again.** Linear addresses the live
+cycle as `/team/:key/cycle/**active**`; we had been shipping
+`/cycle/**current**` in the sidebar, in the `G`-menu shortcuts and in the
+router. Fixed in all three; `current` stays as an alias so old links resolve.
+This is the same class of bug as `/cycles` being the detail view — the page
+looked right, so nobody checked the address.
+
+**Verified by using it, not by looking at it.** `Move start date…` moved
+Cycle 5 from Sep 24 to Jul 1 and the row re-rendered as `Current` with
+`Start cycle today…` gone from its menu; `Move end date…` then took it to
+Jul 14 and the row became `Completed · 0% success`, the menu collapsing to the
+three-item variant. That also, incidentally, gave the workspace its first
+completed cycle ever — `CycleRetrospective`, `CycleDeltaMetrics`, the velocity
+sparkline and the workspace `Past` tab had never once rendered with data,
+because `buildSeed()` only ever makes an active cycle and an upcoming one.
+Logged as its own backlog item; `seed-bulk.mjs` cannot reach it, since it
+writes through GraphQL and cycles live in the zustand store.
+
+**Deliberate differences,** each because the alternative is a dead row:
+`Open in desktop app` (no desktop app — same call as the inbox and projects
+passes) and the header `Add to favorites` star on the Cycles *page*, which
+would need a team-scoped view favorite type we don't model. Both logged.
+
+**The big one is logged, not built.** Linear's cycle *detail* screen is a
+different shape from ours: the issue list is the main pane with a `45 issues`
+count, and every analytic lives in a right sidebar behind
+`Assignees | Labels | Priority | Projects | Teams` tabs. Ours stacks burndown,
+delta metrics, scope chart, estimate distribution and workload above the list
+and adds a left rail Linear doesn't have. Too big to land safely in one pass —
+filed 🔴 with the full control table in `.audit/controls/cycles.md`.
+
+**Linear stayed read-only.** Only menus, flyouts and the breadcrumb cycle
+switcher were opened and Escaped; nothing was selected, typed, submitted or
+created, so what each of Linear's items *does* is recorded as unverified.
+
+`tsc -b ✅ · build ✅ · 14-route sweep console-clean, zero document h-scroll ·
+all three menu variants and all three flyouts driven and read back · favorite
+round-tripped through the store into a live sidebar row · checked at dark +
+--font-scale 1.4 (no clipped rows) and at a 420px viewport (menu 8→266,
+flyout clamped to 12→278, no h-scroll) · lint 106, unchanged, none in the
+files touched`

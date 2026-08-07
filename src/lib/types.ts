@@ -281,6 +281,13 @@ export interface Cycle {
   goal?: string
   /** Set when the cycle is paused/soft-deleted; resumable by clearing it. Optional. */
   pausedAt?: string
+  /**
+   * Cycle notification subscriptions, one user list per event — Linear's
+   * `Subscribe to cycle notifications ▸` is two independent checkboxes, not a
+   * single subscribe toggle.
+   */
+  notifyAddedIds?: string[]
+  notifyCompletedIds?: string[]
 }
 
 export interface Comment {
@@ -697,6 +704,7 @@ export type FavoriteType =
   | 'customer'
   | 'release'
   | 'team'
+  | 'cycle'
 
 export interface Favorite {
   type: FavoriteType

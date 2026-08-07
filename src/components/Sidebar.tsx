@@ -430,6 +430,7 @@ export function Sidebar() {
     issues,
     projects,
     savedViews,
+    cycles,
     favorites,
     users,
     onboardingDismissed,
@@ -446,6 +447,7 @@ export function Sidebar() {
     issues: s.issues,
     projects: s.projects,
     savedViews: s.savedViews,
+    cycles: s.cycles,
     favorites: s.favorites,
     users: s.users,
     onboardingDismissed: s.onboardingDismissed,
@@ -506,6 +508,17 @@ export function Sidebar() {
       if (f.type === 'team') {
         const t = teams.find((x) => x.id === f.id)
         return t ? { to: `/team/${t.key}/active`, icon: <span className="text-[13px]">{t.icon}</span>, label: t.name } : null
+      }
+      if (f.type === 'cycle') {
+        const c = cycles.find((x) => x.id === f.id)
+        const t = c && teams.find((x) => x.id === c.teamId)
+        return c && t
+          ? {
+              to: `/team/${t.key}/cycle/${c.number}`,
+              icon: <IterationCw size={15} />,
+              label: c.name ? `Cycle ${c.number} · ${c.name}` : `Cycle ${c.number}`,
+            }
+          : null
       }
       const v = savedViews.find((x) => x.id === f.id)
       return v ? { to: `/view/${v.id}`, icon: <LayersIcon size={15} />, label: v.name } : null
@@ -709,7 +722,7 @@ export function Sidebar() {
                     label="Cycles"
                   />
                   {/* Linear nests Current / Upcoming under a team's Cycles. */}
-                  <SubItem to={`/team/${team.key}/cycle/current`} label="Current" />
+                  <SubItem to={`/team/${team.key}/cycle/active`} label="Current" />
                   <SubItem to={`/team/${team.key}/cycle/upcoming`} label="Upcoming" />
                 </>
               )}

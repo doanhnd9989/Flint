@@ -1,7 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  MoreHorizontal,
+} from 'lucide-react'
 import { useStore } from '@/lib/store'
 import {
   cycleBurndown,
@@ -22,6 +27,8 @@ import { CycleGoals } from '@/components/CycleGoals'
 import { CycleDeltaMetrics } from '@/components/CycleDeltaMetrics'
 import { CycleRetrospective } from '@/components/CycleRetrospective'
 import { CyclePauseButton } from '@/components/CyclePauseButton'
+import { CycleContextMenu } from '@/components/CycleContextMenu'
+import { StarButton } from '@/components/StarButton'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
 import { Avatar } from '@/components/Avatar'
@@ -69,9 +76,10 @@ export function CycleDetailView() {
     return active?.id ?? cycles[cycles.length - 1]?.id
   }, [cycles, nowMs])
 
-  // Linear addresses a cycle as /team/:key/cycle/:ref, where ref is `current`,
-  // `upcoming`, or the cycle number. The legacy `?c=` query is still honoured so
-  // older links and saved tabs keep landing on the right cycle.
+  // Linear addresses a cycle as /team/:key/cycle/:ref, where ref is `active`,
+  // `upcoming`, or the cycle number. `current` is our own older spelling, kept
+  // as an alias so existing links still resolve; the legacy `?c=` query is
+  // honoured too so older links and saved tabs keep landing on the right cycle.
   const requested = cycleRef ?? searchParams.get('c')
   const upcomingId = useMemo(
     () =>
@@ -83,7 +91,7 @@ export function CycleDetailView() {
   const routedId =
     requested === 'upcoming'
       ? (upcomingId ?? activeId)
-      : requested === 'current'
+      : requested === 'active' || requested === 'current'
         ? activeId
         : requested
           ? cycles.find((c) => String(c.number) === requested)?.id
@@ -102,6 +110,11 @@ export function CycleDetailView() {
   // summed estimate points — Linear's Issues / Points unit toggle. Component-
   // local; defaults to Issues (count-based).
   const [unit, setUnit] = useState<'issues' | 'points'>('issues')
+
+  // Where the cycle ⋯ menu was summoned from, if it's open.
+  const [cycleMenu, setCycleMenu] = useState<{ x: number; y: number } | null>(
+    null,
+  )
 
   // How the cycle issue list is grouped — Status / Assignee / Priority /
   // Project / No grouping. Defaults to Status, matching Linear.
@@ -352,6 +365,19 @@ export function CycleDetailView() {
               <h1 className="text-[16px] font-semibold text-fg">
                 Cycle {current.number}
               </h1>
+              {/* Linear's cycle panel carries a ⭐ and a ⋯ beside the title. */}
+              <StarButton type="cycle" id={current.id} size={14} />
+              <button
+                type="button"
+                aria-label="Open menu"
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect()
+                  setCycleMenu({ x: r.left, y: r.bottom + 4 })
+                }}
+                className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg"
+              >
+                <MoreHorizontal size={15} />
+              </button>
               <span
                 className={cn(
                   'rounded-full px-2 py-0.5 text-[11px] font-medium capitalize',
@@ -549,6 +575,16 @@ export function CycleDetailView() {
           <GroupedIssueList groups={groups} groupBy={groupBy} />
         </div>
       </div>
+
+      {cycleMenu && (
+        <CycleContextMenu
+          cycleId={current.id}
+          x={cycleMenu.x}
+          y={cycleMenu.y}
+          nowMs={nowMs}
+          onClose={() => setCycleMenu(null)}
+        />
+      )}
     </div>
   )
 }

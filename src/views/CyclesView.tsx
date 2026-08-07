@@ -1,6 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { CircleCheck, CirclePlay, CircleDot } from 'lucide-react'
+import {
+  CircleCheck,
+  CirclePlay,
+  CircleDot,
+  MoreHorizontal,
+} from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { cycleProgress, cycleState } from '@/lib/selectors'
 import type { Cycle } from '@/lib/types'
@@ -8,6 +13,7 @@ import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
 import { ProgressDonut } from '@/components/ProgressDonut'
 import { CreateCycleButton } from '@/components/CreateCycleButton'
+import { CycleContextMenu } from '@/components/CycleContextMenu'
 import { CycleTimelineChart } from '@/components/CycleTimelineChart'
 import { cn } from '@/lib/utils'
 
@@ -40,6 +46,13 @@ export function CyclesView() {
   const data = useStore()
   const team = data.teams.find((t) => t.key === teamKey) ?? data.teams[0]
   const nowMs = Date.now()
+
+  // Which cycle row has its context menu open, and where it was summoned.
+  const [rowMenu, setRowMenu] = useState<{
+    id: string
+    x: number
+    y: number
+  } | null>(null)
 
   const rows = useMemo(() => {
     const mine = data.cycles
@@ -130,7 +143,11 @@ export function CyclesView() {
                 onClick={() =>
                   navigate(`/team/${team.key}/cycle/${cycle.number}`)
                 }
-                className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-2.5 pl-1 pr-4 text-left hover:bg-bg-hover"
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setRowMenu({ id: cycle.id, x: e.clientX, y: e.clientY })
+                }}
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-2.5 pl-1 pr-10 text-left hover:bg-bg-hover"
               >
                 <PhaseIcon phase={phase} percent={prog.percent} />
                 <span className="shrink-0 text-[13px] font-medium text-fg">
@@ -179,6 +196,26 @@ export function CyclesView() {
                   </span>
                 </div>
               </button>
+
+              {/* Linear reveals a ⋯ in the row's trailing gutter on hover; it
+                  opens the same menu as right-click. */}
+              <button
+                type="button"
+                aria-label="Open menu"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const r = e.currentTarget.getBoundingClientRect()
+                  setRowMenu({ id: cycle.id, x: r.right - 258, y: r.bottom + 4 })
+                }}
+                className={cn(
+                  'absolute right-3 top-2 flex h-6 w-6 items-center justify-center rounded text-faint hover:bg-bg-tertiary hover:text-fg',
+                  rowMenu?.id === cycle.id
+                    ? 'opacity-100'
+                    : 'opacity-0 group-hover:opacity-100',
+                )}
+              >
+                <MoreHorizontal size={15} />
+              </button>
             </div>
 
             {/* Linear expands the in-flight cycle into its chart, in place. */}
@@ -198,6 +235,16 @@ export function CyclesView() {
           </div>
         ))}
       </div>
+
+      {rowMenu && (
+        <CycleContextMenu
+          cycleId={rowMenu.id}
+          x={rowMenu.x}
+          y={rowMenu.y}
+          nowMs={nowMs}
+          onClose={() => setRowMenu(null)}
+        />
+      )}
     </div>
   )
 }
