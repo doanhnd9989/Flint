@@ -2,13 +2,17 @@
 import express from 'express'
 import cors from 'cors'
 import bcrypt from 'bcryptjs'
-import { randomUUID, randomBytes } from 'node:crypto'
+import { randomUUID, randomBytes, randomInt, createHash } from 'node:crypto'
 import { db, seed } from './db.js'
 import { signToken, publicUser, requireAuth, requireAdmin, hashApiKey, API_KEY_PREFIX } from './auth.js'
 import { apiRouter } from './api.js'
 import { graphqlRouter } from './graphql/index.js'
 import { filesRouter } from './files.js'
 import { setupWebsocket } from './realtime.js'
+import {
+  getMailConfig, publicMailConfig, saveMailConfig, sendMail, verifyMail,
+  resetPasswordEmail, otpEmail,
+} from './mailer.js'
 
 seed() // idempotent: creates tables' default rows + admin on first boot
 
@@ -77,6 +81,165 @@ app.post('/api/auth/change-password', requireAuth, (req, res) => {
   res.json({ ok: true })
 })
 
+// ---- password reset ----
+// The emailed token is random and single-use; only its sha256 is stored, and
+// every response is identical whether or not the address exists — an attacker
+// must not be able to probe which emails have accounts.
+const RESET_TTL_MIN = Number(process.env.RESET_TTL_MIN) || 60
+const resetThrottle = new Map() // email -> ms of the last accepted request
+
+const sha256 = (s) => createHash('sha256').update(s).digest('hex')
+const workspaceName = () =>
+  db.prepare("SELECT value FROM workspace WHERE key = 'name'").get()?.value || 'Flint Task'
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase()
+  if (!email) return res.status(400).json({ error: 'Email is required' })
+  const ok = () => res.json({ ok: true })
+
+  const last = resetThrottle.get(email) || 0
+  if (Date.now() - last < 60_000) return ok() // one mail a minute per address
+  resetThrottle.set(email, Date.now())
+
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email)
+  if (!user || user.status === 'suspended') return ok()
+
+  const nowIso = new Date().toISOString()
+  // Requesting a new link retires any earlier one.
+  db.prepare('UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL')
+    .run(nowIso, user.id)
+
+  const token = randomBytes(32).toString('hex')
+  db.prepare('INSERT INTO password_resets (id, user_id, hash, created_at, expires_at) VALUES (?,?,?,?,?)')
+    .run(randomUUID(), user.id, sha256(token), nowIso,
+         new Date(Date.now() + RESET_TTL_MIN * 60_000).toISOString())
+
+  const url = `${getMailConfig().appUrl}/reset-password?token=${token}`
+  const msg = resetPasswordEmail({
+    name: user.name, url, minutes: RESET_TTL_MIN, workspace: workspaceName(),
+  })
+  await sendMail({ to: user.email, ...msg })
+  ok()
+})
+
+/** Check a token before rendering the form, so an expired link fails early. */
+app.get('/api/auth/reset-password/:token', (req, res) => {
+  const row = db.prepare('SELECT * FROM password_resets WHERE hash = ?').get(sha256(req.params.token))
+  if (!row || row.used_at || row.expires_at < new Date().toISOString()) {
+    return res.status(400).json({ valid: false, error: 'Link đã hết hạn hoặc đã dùng rồi' })
+  }
+  const user = db.prepare('SELECT email FROM users WHERE id = ?').get(row.user_id)
+  if (!user) return res.status(400).json({ valid: false, error: 'Tài khoản không còn tồn tại' })
+  // Hint at the account without exposing the whole address.
+  const [name, domain] = user.email.split('@')
+  res.json({ valid: true, email: `${name.slice(0, 2)}${'•'.repeat(Math.max(name.length - 2, 1))}@${domain}` })
+})
+
+app.post('/api/auth/reset-password', (req, res) => {
+  const token = String(req.body?.token || '')
+  const password = String(req.body?.password || '')
+  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' })
+
+  const row = db.prepare('SELECT * FROM password_resets WHERE hash = ?').get(sha256(token))
+  if (!row || row.used_at || row.expires_at < new Date().toISOString()) {
+    return res.status(400).json({ error: 'Link đã hết hạn hoặc đã dùng rồi' })
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id)
+  if (!user) return res.status(400).json({ error: 'Tài khoản không còn tồn tại' })
+  if (user.status === 'suspended') return res.status(403).json({ error: 'Account suspended' })
+
+  const nowIso = new Date().toISOString()
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(password, 10), user.id)
+  db.prepare('UPDATE password_resets SET used_at = ? WHERE id = ?').run(nowIso, row.id)
+  // Any other live link for this account dies with the reset.
+  db.prepare('UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL')
+    .run(nowIso, user.id)
+
+  const fresh = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id)
+  res.json({ token: signToken(fresh), user: publicUser(fresh) })
+})
+
+// ---- passwordless sign-in (email OTP) ----
+// A 6-digit code is emailed for both sign-in and sign-up. The request step is
+// non-enumerating — it answers the same way for any valid address — and a new
+// account is created at verify time if none exists yet. Only the sha256 of the
+// code is stored; it is single-use, short-lived, and rate-limited by attempts.
+const OTP_TTL_MIN = 10
+const OTP_MAX_ATTEMPTS = 5
+const otpThrottle = new Map() // email -> ms of the last accepted request
+
+app.post('/api/auth/otp/request', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase()
+  const name = String(req.body?.name || '').trim()
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Nhập email hợp lệ' })
+  const ok = () => res.json({ ok: true })
+
+  const last = otpThrottle.get(email) || 0
+  if (Date.now() - last < 60_000) return ok() // one code a minute per address
+  otpThrottle.set(email, Date.now())
+
+  const nowIso = new Date().toISOString()
+  // Requesting a new code retires any earlier one for this address.
+  db.prepare('UPDATE otp_codes SET used_at = ? WHERE email = ? AND used_at IS NULL').run(nowIso, email)
+
+  const exists = !!db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)
+  const code = String(randomInt(1_000_000)).padStart(6, '0')
+  db.prepare(
+    'INSERT INTO otp_codes (id, email, hash, purpose, name, created_at, expires_at) VALUES (?,?,?,?,?,?,?)',
+  ).run(
+    randomUUID(), email, sha256(code), exists ? 'login' : 'register', name || null,
+    nowIso, new Date(Date.now() + OTP_TTL_MIN * 60_000).toISOString(),
+  )
+
+  const msg = otpEmail({
+    name: name || email.split('@')[0], code, minutes: OTP_TTL_MIN, workspace: workspaceName(),
+  })
+  await sendMail({ to: email, ...msg })
+  ok()
+})
+
+app.post('/api/auth/otp/verify', (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase()
+  const code = String(req.body?.code || '').trim()
+  const remember = !!req.body?.remember
+  if (!email || !/^\d{6}$/.test(code)) return res.status(400).json({ error: 'Mã gồm 6 chữ số' })
+
+  const row = db
+    .prepare('SELECT * FROM otp_codes WHERE email = ? AND used_at IS NULL ORDER BY created_at DESC LIMIT 1')
+    .get(email)
+  const nowIso = new Date().toISOString()
+  if (!row || row.expires_at < nowIso) return res.status(400).json({ error: 'Mã đã hết hạn — xin mã mới' })
+  if (row.attempts >= OTP_MAX_ATTEMPTS) {
+    db.prepare('UPDATE otp_codes SET used_at = ? WHERE id = ?').run(nowIso, row.id)
+    return res.status(400).json({ error: 'Nhập sai quá nhiều lần — xin mã mới' })
+  }
+  if (row.hash !== sha256(code)) {
+    db.prepare('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?').run(row.id)
+    return res.status(400).json({ error: 'Mã không đúng' })
+  }
+  db.prepare('UPDATE otp_codes SET used_at = ? WHERE id = ?').run(nowIso, row.id)
+
+  let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email)
+  if (user) {
+    if (user.status === 'suspended') return res.status(403).json({ error: 'Account suspended' })
+  } else {
+    // First time this address is seen — create a passwordless member account.
+    // A random, undisclosed hash satisfies the NOT NULL column while making
+    // password login impossible until the user deliberately sets one.
+    const nm = (String(req.body?.name || row.name || '').trim() || email.split('@')[0]).slice(0, 80)
+    const id = randomUUID()
+    db.prepare(
+      `INSERT INTO users (id, name, email, password_hash, avatar_color, role, status, created_at)
+       VALUES (?, ?, ?, ?, ?, 'member', 'active', ?)`,
+    ).run(
+      id, nm, email, bcrypt.hashSync(randomBytes(32).toString('hex'), 10),
+      AVATAR_COLORS[nm.length % AVATAR_COLORS.length], nowIso,
+    )
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
+  }
+  res.json({ token: signToken(user, { remember }), user: publicUser(user) })
+})
+
 // ---- personal API keys (Linear-style) ----
 app.get('/api/auth/api-keys', requireAuth, (req, res) => {
   const keys = db
@@ -105,6 +268,29 @@ app.delete('/api/auth/api-keys/:id', requireAuth, (req, res) => {
 })
 
 // ---- webhooks (admin-managed outgoing integrations) ----
+// ---- outgoing mail (SMTP) ----
+// The password is write-only: it goes in from the console and never comes back
+// out, the same way webhook signing secrets work.
+app.get('/api/admin/mail', requireAuth, requireAdmin, (_req, res) => {
+  res.json({ mail: publicMailConfig() })
+})
+app.put('/api/admin/mail', requireAuth, requireAdmin, (req, res) => {
+  res.json({ mail: saveMailConfig(req.body || {}) })
+})
+app.post('/api/admin/mail/test', requireAuth, requireAdmin, async (req, res) => {
+  const check = await verifyMail()
+  if (!check.ok) return res.status(400).json({ ok: false, error: check.error })
+  const to = String(req.body?.to || req.user.email).trim().toLowerCase()
+  const r = await sendMail({
+    to,
+    subject: `Thử gửi mail từ ${workspaceName()}`,
+    text: `Nếu bạn đọc được email này thì cấu hình SMTP của ${workspaceName()} đã chạy.`,
+    html: `<p>Nếu bạn đọc được email này thì cấu hình SMTP của <strong>${workspaceName()}</strong> đã chạy.</p>`,
+  })
+  if (!r.delivered) return res.status(400).json({ ok: false, error: r.error || 'Không gửi được' })
+  res.json({ ok: true, to })
+})
+
 const maskSecret = (s) => `whsec_…${s.slice(-6)}`
 app.get('/api/admin/webhooks', requireAuth, requireAdmin, (_req, res) => {
   const hooks = db.prepare('SELECT * FROM webhooks ORDER BY created_at DESC').all().map((w) => ({

@@ -12,9 +12,12 @@ export function hashApiKey(key) {
 // so no key that exists in this repo can sign a token.
 const JWT_SECRET = getOrCreateSecret('JWT_SECRET')
 const JWT_TTL = '7d'
+const JWT_TTL_REMEMBER = '90d' // "remember me" — the opt-in longer session
 
-export function signToken(user) {
-  return jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_TTL })
+export function signToken(user, { remember = false } = {}) {
+  return jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, {
+    expiresIn: remember ? JWT_TTL_REMEMBER : JWT_TTL,
+  })
 }
 
 /** Strip the password hash before sending a user to the client. */

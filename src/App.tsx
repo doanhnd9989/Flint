@@ -74,6 +74,8 @@ import { SearchView } from '@/views/SearchView'
 import { Landing } from '@/views/Landing'
 import { Login } from '@/views/Login'
 import { Register } from '@/views/Register'
+import { ForgotPassword } from '@/views/ForgotPassword'
+import { ResetPassword } from '@/views/ResetPassword'
 import { ApiDocs } from '@/views/ApiDocs'
 import { AdminView } from '@/views/AdminView'
 import { ApiKeysView } from '@/views/ApiKeysView'
@@ -202,6 +204,8 @@ export default function App() {
         <Route path="/api-docs" element={<ApiDocs />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         {/* Self-service API key management (any authenticated user) */}
         <Route
           path="/api-keys"

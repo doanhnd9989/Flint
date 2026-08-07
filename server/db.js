@@ -52,6 +52,51 @@ db.exec(`
     last_used_at TEXT
   );
 
+  -- Password-reset tokens. Only the sha256 of the token is stored, so a stolen
+  -- database still can't be used to reset anyone's password.
+  CREATE TABLE IF NOT EXISTS password_resets (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL,
+    hash       TEXT NOT NULL UNIQUE,  -- sha256 of the emailed token
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at    TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets (user_id);
+
+  -- One-time email codes for passwordless sign-in / sign-up. Only the sha256 of
+  -- the 6-digit code is stored; a row is single-use and short-lived. The name
+  -- column carries the pending display name so a brand-new account can be
+  -- created at verify time. purpose is informational (login vs register).
+  CREATE TABLE IF NOT EXISTS otp_codes (
+    id         TEXT PRIMARY KEY,
+    email      TEXT NOT NULL,
+    hash       TEXT NOT NULL,        -- sha256 of the emailed code
+    purpose    TEXT NOT NULL DEFAULT 'login',  -- login | register
+    name       TEXT,                 -- pending display name (register)
+    attempts   INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at    TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_otp_codes_email ON otp_codes (email);
+
+  -- Outgoing mail (SMTP) settings, one row. Admin fills these in the console;
+  -- env vars act as the fallback so a deployment can be configured by file.
+  CREATE TABLE IF NOT EXISTS mail_config (
+    id          INTEGER PRIMARY KEY CHECK (id = 1),
+    host        TEXT NOT NULL DEFAULT '',
+    port        INTEGER NOT NULL DEFAULT 587,
+    secure      INTEGER NOT NULL DEFAULT 0,   -- true for port 465 (implicit TLS)
+    username    TEXT NOT NULL DEFAULT '',
+    password    TEXT NOT NULL DEFAULT '',
+    from_email  TEXT NOT NULL DEFAULT 'no-reply@flinttask.com',
+    from_name   TEXT NOT NULL DEFAULT 'Flint Task',
+    app_url     TEXT NOT NULL DEFAULT 'https://flinttask.com',
+    enabled     INTEGER NOT NULL DEFAULT 0,
+    updated_at  TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS webhooks (
     id          TEXT PRIMARY KEY,
     url         TEXT NOT NULL,

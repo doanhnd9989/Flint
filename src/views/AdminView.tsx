@@ -15,12 +15,14 @@ import {
   Webhook,
   Copy,
   Check,
+  Mail,
+  Send,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAuth, type AuthUser, type FeatureFlag, type AuthRole } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
-type Tab = 'features' | 'users' | 'workspace' | 'webhooks'
+type Tab = 'features' | 'users' | 'workspace' | 'email' | 'webhooks'
 
 /** Admin-only system console: feature flags, users, workspace config. */
 export function AdminView() {
@@ -48,6 +50,9 @@ export function AdminView() {
           <TabButton active={tab === 'workspace'} onClick={() => setTab('workspace')} icon={Building2}>
             Workspace
           </TabButton>
+          <TabButton active={tab === 'email'} onClick={() => setTab('email')} icon={Mail}>
+            Email
+          </TabButton>
           <TabButton active={tab === 'webhooks'} onClick={() => setTab('webhooks')} icon={Webhook}>
             Webhooks
           </TabButton>
@@ -58,6 +63,7 @@ export function AdminView() {
         {tab === 'features' && <FeaturesTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'workspace' && <WorkspaceTab />}
+        {tab === 'email' && <MailTab />}
         {tab === 'webhooks' && <WebhooksTab />}
       </main>
     </div>
@@ -422,6 +428,207 @@ function WorkspaceTab() {
             {busy && <Loader2 size={14} className="animate-spin" />} Save changes
           </button>
           {saved && <span className="text-sm text-green-600">Saved ✓</span>}
+        </div>
+      </form>
+    </section>
+  )
+}
+
+// ---------- Email (SMTP) ----------
+interface MailConfig {
+  host: string
+  port: number
+  secure: boolean
+  username: string
+  fromEmail: string
+  fromName: string
+  appUrl: string
+  enabled: boolean
+  hasPassword: boolean
+  configured: boolean
+}
+
+const EMPTY_MAIL: MailConfig = {
+  host: '', port: 587, secure: false, username: '',
+  fromEmail: 'no-reply@flinttask.com', fromName: 'Flint Task',
+  appUrl: 'https://flinttask.com', enabled: false, hasPassword: false, configured: false,
+}
+
+function MailTab() {
+  const me = useAuth((s) => s.user)
+  const [cfg, setCfg] = useState<MailConfig>(EMPTY_MAIL)
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
+
+  useEffect(() => {
+    api<{ mail: MailConfig }>('/admin/mail')
+      .then((d) => setCfg({ ...EMPTY_MAIL, ...d.mail }))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const set = <K extends keyof MailConfig>(k: K, v: MailConfig[K]) =>
+    setCfg((prev) => ({ ...prev, [k]: v }))
+
+  async function save(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    setNote(null)
+    try {
+      // An empty password box means "keep the stored one".
+      const { mail } = await api<{ mail: MailConfig }>('/admin/mail', {
+        method: 'PUT',
+        body: { ...cfg, password },
+      })
+      setCfg({ ...EMPTY_MAIL, ...mail })
+      setPassword('')
+      setNote('Đã lưu cấu hình SMTP.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function sendTest() {
+    setTesting(true)
+    setError(null)
+    setNote(null)
+    try {
+      const r = await api<{ to: string }>('/admin/mail/test', { method: 'POST', body: {} })
+      setNote(`Đã gửi thư thử tới ${r.to}.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gửi thử thất bại')
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  if (loading) return <Spinner />
+  return (
+    <section>
+      <SectionHead
+        title="Email (SMTP)"
+        subtitle="Máy chủ gửi thư cho link đặt lại mật khẩu và các thông báo hệ thống."
+      />
+
+      {!cfg.configured && (
+        <p className="mb-4 rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-700">
+          Chưa cấu hình — link đặt lại mật khẩu sẽ được ghi vào log của máy chủ thay vì gửi đi.
+        </p>
+      )}
+      {error && <p className="mb-3 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-500">{error}</p>}
+      {note && <p className="mb-3 rounded-md bg-green-500/10 px-3 py-2 text-sm text-green-600">{note}</p>}
+
+      <form onSubmit={save} className="space-y-4 rounded-lg border border-border bg-bg p-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="SMTP host">
+            <input
+              value={cfg.host}
+              onChange={(e) => set('host', e.target.value)}
+              placeholder="smtp.resend.com"
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Cổng">
+            <input
+              type="number"
+              value={cfg.port}
+              onChange={(e) => set('port', Number(e.target.value))}
+              placeholder="587"
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Tài khoản">
+            <input
+              value={cfg.username}
+              onChange={(e) => set('username', e.target.value)}
+              autoComplete="off"
+              className={inputCls}
+            />
+          </Field>
+          <Field label={cfg.hasPassword ? 'Mật khẩu (để trống = giữ nguyên)' : 'Mật khẩu'}>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={cfg.hasPassword ? '••••••••' : ''}
+              autoComplete="new-password"
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Gửi từ (email)">
+            <input
+              value={cfg.fromEmail}
+              onChange={(e) => set('fromEmail', e.target.value)}
+              placeholder="no-reply@flinttask.com"
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Gửi từ (tên hiển thị)">
+            <input
+              value={cfg.fromName}
+              onChange={(e) => set('fromName', e.target.value)}
+              placeholder="Flint Task"
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Địa chỉ app (dùng dựng link trong email)">
+            <input
+              value={cfg.appUrl}
+              onChange={(e) => set('appUrl', e.target.value)}
+              placeholder="https://flinttask.com"
+              className={inputCls}
+            />
+          </Field>
+        </div>
+
+        <div className="flex items-center gap-6">
+          <button
+            type="button"
+            onClick={() => set('secure', !cfg.secure)}
+            className="flex items-center gap-2 text-sm"
+          >
+            <span className={cn('transition', cfg.secure ? 'text-accent' : 'text-faint')}>
+              {cfg.secure ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
+            </span>
+            TLS ngầm định (cổng 465)
+          </button>
+          <button
+            type="button"
+            onClick={() => set('enabled', !cfg.enabled)}
+            className="flex items-center gap-2 text-sm"
+          >
+            <span className={cn('transition', cfg.enabled ? 'text-accent' : 'text-faint')}>
+              {cfg.enabled ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
+            </span>
+            Bật gửi mail
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 border-t border-border pt-4">
+          <button
+            type="submit"
+            disabled={busy}
+            className="flex items-center gap-1.5 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+          >
+            {busy && <Loader2 size={14} className="animate-spin" />} Lưu
+          </button>
+          <button
+            type="button"
+            onClick={sendTest}
+            disabled={testing || !cfg.configured}
+            className="flex items-center gap-1.5 rounded-md border border-border px-4 py-1.5 text-sm hover:bg-bg-hover disabled:opacity-50"
+            title={cfg.configured ? undefined : 'Lưu và bật cấu hình trước đã'}
+          >
+            {testing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            Gửi thử tới {me?.email ?? 'tôi'}
+          </button>
         </div>
       </form>
     </section>

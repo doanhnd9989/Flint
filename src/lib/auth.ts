@@ -52,6 +52,10 @@ interface AuthState {
   refreshConfig: () => Promise<void>
   login: (email: string, password: string) => Promise<boolean>
   register: (name: string, email: string, password: string) => Promise<boolean>
+  /** Passwordless: email a one-time code. Works for both sign-in and sign-up. */
+  requestOtp: (email: string, name?: string) => Promise<boolean>
+  /** Passwordless: exchange the code for a session. `remember` → 90-day token. */
+  verifyOtp: (email: string, code: string, remember: boolean, name?: string) => Promise<boolean>
   logout: () => void
   /** Optimistically reflect an admin flag toggle without a refetch. */
   applyFlag: (key: string, enabled: boolean) => void
@@ -137,6 +141,40 @@ export const useAuth = create<AuthState>()(
           return true
         } catch (e) {
           set({ loading: false, error: e instanceof Error ? e.message : 'Registration failed' })
+          return false
+        }
+      },
+
+      requestOtp: async (email, name) => {
+        set({ loading: true, error: null })
+        try {
+          await api('/auth/otp/request', {
+            method: 'POST',
+            body: { email, name },
+            auth: false,
+          })
+          set({ loading: false })
+          return true
+        } catch (e) {
+          set({ loading: false, error: e instanceof Error ? e.message : 'Không gửi được mã' })
+          return false
+        }
+      },
+
+      verifyOtp: async (email, code, remember, name) => {
+        set({ loading: true, error: null })
+        try {
+          const { token, user } = await api<{ token: string; user: AuthUser }>('/auth/otp/verify', {
+            method: 'POST',
+            body: { email, code, remember, name },
+            auth: false,
+          })
+          setApiToken(token)
+          set({ token, user, loading: false })
+          get().refreshConfig().catch(() => {})
+          return true
+        } catch (e) {
+          set({ loading: false, error: e instanceof Error ? e.message : 'Xác thực thất bại' })
           return false
         }
       },
