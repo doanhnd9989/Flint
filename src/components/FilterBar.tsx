@@ -679,13 +679,15 @@ function Chip({
   const negated = isNegated(filters, dim)
   const isLabel = dim === 'labelIds'
   const matchAll = isLabel && isLabelMatchAll(filters)
+  const dimLabel = DIMS.find((d) => d.id === dim)!.label
 
   return (
     <div className="flex items-center overflow-hidden rounded-md border border-border text-[12px]">
-      <span className="px-2 py-1 text-faint">{DIMS.find((d) => d.id === dim)!.label}</span>
+      <span className="px-2 py-1 text-faint">{dimLabel}</span>
       <Popover
         align="start"
         width={isLabel ? 180 : 160}
+        label={`${dimLabel} filter operator`}
         trigger={
           <span className="border-l border-border bg-bg px-2 py-1 text-muted hover:bg-bg-hover">
             {isLabel
@@ -720,6 +722,7 @@ function Chip({
       <Popover
         align="start"
         width={220}
+        label={`${dimLabel} filter value`}
         trigger={
           <span className="border-l border-border bg-bg px-2 py-1 text-fg hover:bg-bg-hover">
             {display}
@@ -742,6 +745,7 @@ function Chip({
       </Popover>
       <button
         type="button"
+        aria-label={`Remove ${dimLabel} filter`}
         onClick={() => onChange(clearDim(filters, dim))}
         className="border-l border-border px-1.5 py-1 text-faint hover:bg-bg-hover hover:text-fg"
       >
@@ -1179,6 +1183,7 @@ function DateChip({
       <Popover
         align="start"
         width={140}
+        label={`${dateFieldLabel(df.field)} filter operator`}
         trigger={
           <span className="border-l border-border bg-bg px-2 py-1 text-muted hover:bg-bg-hover">
             {df.op}
@@ -1210,6 +1215,7 @@ function DateChip({
       <Popover
         align="start"
         width={180}
+        label={`${dateFieldLabel(df.field)} filter value`}
         trigger={
           <span className="border-l border-border bg-bg px-2 py-1 text-fg hover:bg-bg-hover">
             {datePeriodLabel(df.value)}
@@ -1254,6 +1260,7 @@ function DateChip({
       </Popover>
       <button
         type="button"
+        aria-label={`Remove ${dateFieldLabel(df.field)} filter`}
         onClick={remove}
         className="border-l border-border px-1.5 py-1 text-faint hover:bg-bg-hover hover:text-fg"
       >
@@ -1303,6 +1310,7 @@ function TextChip({
       </Popover>
       <button
         type="button"
+        aria-label="Remove Content filter"
         onClick={() => onChange({ ...filters, text: '' })}
         className="border-l border-border px-1.5 py-1 text-faint hover:bg-bg-hover hover:text-fg"
       >
@@ -1359,6 +1367,7 @@ export function FilterBar({
       <Popover
         align="start"
         width={200}
+        label="Add filter"
         trigger={
           <span
             title="Add filter"

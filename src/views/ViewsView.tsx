@@ -209,6 +209,11 @@ export function ViewsView() {
                         <div className="text-[13px] font-medium text-fg">
                           {v.name}
                         </div>
+                        {/* Linear shows the view's own description above the
+                            derived layout summary, when one was given. */}
+                        {v.description && (
+                          <div className="text-[12px] text-muted">{v.description}</div>
+                        )}
                         <div className="text-[11px] text-faint capitalize">
                           {v.layout} · grouped by {v.groupBy} · sorted by{' '}
                           {v.orderBy}

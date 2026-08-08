@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
@@ -15,7 +14,6 @@ import { cn } from '@/lib/utils'
 type Tab = 'active' | 'backlog' | 'all'
 
 export function AllIssuesView() {
-  const navigate = useNavigate()
   const data = useStore()
   const [tab, setTab] = useState<Tab>('active')
   const [layout, setLayout] = useState<ViewLayout>('list')
@@ -128,19 +126,13 @@ export function AllIssuesView() {
     showEmptyGroups,
   ])
 
-  /** "Save" in the filter row — turns the current filters into a saved view. */
+  /**
+   * "Save" in the filter row — turns the current filters into a saved view.
+   * Opens the same "Save view" dialog ⌘K's "New view" uses; a native `prompt()`
+   * is suppressed in embedded browsers, which left this button doing nothing.
+   */
   function saveView() {
-    const name = prompt('Save view as…')
-    if (!name?.trim()) return
-    const view = data.createView({
-      name: name.trim(),
-      icon: 'layers',
-      layout,
-      groupBy,
-      orderBy,
-      filters,
-    })
-    navigate(`/view/${view.id}`)
+    data.openViewModal({ layout, groupBy, orderBy, filters })
   }
 
   return (

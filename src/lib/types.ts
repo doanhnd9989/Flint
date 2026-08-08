@@ -621,6 +621,8 @@ export interface SavedView {
   groupBy: GroupBy
   orderBy: OrderBy
   filters: FilterState
+  /** Linear's "Description (optional)" on the view editor. Optional. */
+  description?: string
   /** Pinned to the sidebar under "Views". Optional. */
   pinned?: boolean
 }

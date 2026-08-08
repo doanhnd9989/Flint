@@ -616,6 +616,55 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `filters-display` pass, second lap (the chip row + saved views)
+
+The dead `Save` button, the missing `Description (optional)` field and the
+accessible names on every chip control were fixed in that run. Full
+control-by-control table in `.audit/controls/filters-display.md`. What is left:
+
+- [ ] 🔴 **Our "save a view" is a 480px modal; Linear's is a full-page editor
+      at its own route.** Linear's `+` on `/views/issues` navigates to
+      `/views/issues/new` — a real screen with breadcrumb `Views › All issues`,
+      `Copy URL`, `Choose icon`, name, `Description (optional)`, a `Save to`
+      scope picker, `Cancel` / `Save`, **and a live preview of the matching
+      issue list whose `Add filter` and `Display options` stay editable inside
+      the editor**. Ours captures whatever the issue view had and shows it as
+      four read-only chips. Medium–large (new route + reuse of the list).
+- [ ] 🟡 **No `Save to` scope picker.** Linear's reads `Save to…` then
+      `Personal` (default, checked, lock icon) · `Workspace` · a separator ·
+      one row per team (`VC Squad`, `Core Systems Squad`, `Growth Squad`,
+      `VA Squad`). Every saved view of ours is implicitly personal, and
+      `SavedView` has no field for the scope. Medium (type + store + picker).
+- [ ] 🟡 **`/views` has no `Issues` / `Projects` tabs.** Linear's Views screen
+      splits saved views by what they list, at `/views/issues` and
+      `/views/projects`; ours is a single flat list on `/views`. We already
+      have a separate `ProjectsDisplayMenu`, so the projects half exists.
+- [ ] 🟡 **`/views` header has no `+` (Create new view) and no `Display
+      options`.** Linear's carries both, top-right. Ours has a `Search views…`
+      input and a `Name A→Z` sort dropdown instead — neither of which Linear
+      shows; its equivalent lives inside `Display options`. Small.
+- [ ] 🟡 **A saved view's filter row offers no way to save the change back.**
+      Open `/view/:id`, change a filter, and ours shows only `Clear` — the
+      modified view can be re-saved as a brand-new view but never updated in
+      place. Linear surfaces an update affordance on a dirty saved view.
+      `updateView` already exists in the store. Small.
+- [ ] 🟢 **Empty `/views` doesn't read like Linear's.** Linear's empty state is
+      a heading `Views`, three lines of copy, a hint that any existing view can
+      be saved via the ⧉ icon or `⌥V`, then a primary `Create new view` button
+      beside a `Documentation` link to `linear.app/docs/custom-views`. Small.
+- [ ] 🟢 **Linear prefills the view name from the filters** (the field showed
+      placeholder `All issues`), so `Save` is reachable without typing. Ours
+      starts empty and keeps `Save` disabled until the user names it. Small.
+
+**Unverified — could not be read without mutating Linear.** The filter *chip
+row* itself (the dimension label, the `is` / `is not` operator list, the value
+list, `×`, `+`, `Clear`, `Save`) never rendered on the reference workspace:
+nothing there has a filter applied and no saved view exists, and putting one
+there would mean choosing a filter value in the user's real workspace. Ours
+offers exactly `is` / `is not` on a status chip; whether Linear adds `is any
+of` / `is none of` at multi-select is still an open question from the previous
+lap and stays open.
+
 ### From the `issue-detail` pass, second lap (the comment toolbar)
 
 The comment ⋯ menu, both reaction pickers and their accessible names were fixed

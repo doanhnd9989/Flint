@@ -63,11 +63,13 @@ export function CreateViewModal() {
 
   const [icon, setIcon] = useState('🔭')
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
 
   useEffect(() => {
     if (config) {
       setIcon('🔭')
       setName('')
+      setDescription('')
     }
   }, [config])
 
@@ -94,7 +96,12 @@ export function CreateViewModal() {
 
   function submit() {
     if (!name.trim() || !config) return
-    const view = store.createView({ ...config, name: name.trim(), icon })
+    const view = store.createView({
+      ...config,
+      name: name.trim(),
+      icon,
+      ...(description.trim() ? { description: description.trim() } : {}),
+    })
     store.closeViewModal()
     navigate(`/view/${view.id}`)
   }
@@ -130,13 +137,22 @@ export function CreateViewModal() {
                 </span>
               }
             />
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="View name"
-              className="mt-0.5 flex-1 bg-transparent text-[16px] font-medium text-fg outline-none"
-            />
+            <div className="flex-1">
+              <input
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="View name"
+                className="mt-0.5 w-full bg-transparent text-[16px] font-medium text-fg outline-none"
+              />
+              {/* Linear's view editor carries a second, optional line. */}
+              <input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Description (optional)"
+                className="mt-1 w-full bg-transparent text-[13px] text-fg outline-none placeholder:text-faint"
+              />
+            </div>
           </div>
 
           {/* Read-only summary of the captured layout / grouping / filters. */}
@@ -183,7 +199,7 @@ export function CreateViewModal() {
             onClick={submit}
             className="rounded-md bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
           >
-            Save view
+            Save
           </button>
         </div>
       </div>

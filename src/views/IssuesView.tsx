@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useLocation, useParams, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { filterIssues, groupIssues, sortIssues, boardColumnGroupBy } from '@/lib/selectors'
 import type { GroupBy, Issue, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
@@ -22,7 +22,6 @@ const TABS: { key: Tab; label: string }[] = [
 export function IssuesView() {
   const { teamKey } = useParams()
   const { pathname } = useLocation()
-  const navigate = useNavigate()
   const data = useStore()
   // The tab lives in the URL — `/team/ENG/backlog`, as Linear does it — so it
   // survives a reload, can be linked, and sits in the back stack.
@@ -137,19 +136,13 @@ export function IssuesView() {
     showEmptyGroups,
   ])
 
-  /** "Save" in the filter row — turns the current filters into a saved view. */
+  /**
+   * "Save" in the filter row — turns the current filters into a saved view.
+   * Opens the same "Save view" dialog ⌘K's "New view" uses; a native `prompt()`
+   * is suppressed in embedded browsers, which left this button doing nothing.
+   */
   function saveView() {
-    const name = prompt('Save view as…')
-    if (!name?.trim()) return
-    const view = data.createView({
-      name: name.trim(),
-      icon: 'layers',
-      layout,
-      groupBy,
-      orderBy,
-      filters,
-    })
-    navigate(`/view/${view.id}`)
+    data.openViewModal({ layout, groupBy, orderBy, filters })
   }
 
   return (

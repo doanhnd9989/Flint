@@ -4693,3 +4693,63 @@ verified at 267px with `Search emoji…`, `Frequently used` appearing after a
 first pick, and search returning 🚀 for "rocket" and 🚀🚢📦 for "ship" · zero
 clipped emoji cells at `--font-scale` 1.0 and 1.4, dark, in a 420×760 viewport
 with document scrollWidth 420 · lint 105, two below the 106 baseline`
+
+---
+
+## `filters-display`, second lap — the chip row and the saved-view flow
+
+The first lap left three things unpressed: the filter **chip row**, the
+**saved-view flow** end to end, and `Display` on board / `/projects`. This lap
+took the first two; the third is written down as where the next lap starts.
+
+**One dead control, and it was the important one.** `Save` in the filter chip
+row focused on click and did nothing else. `saveView()` called
+`window.prompt('Save view as…')`, and the embedded browser refuses it outright —
+`prompt() is not supported.` sat in the console the whole time. Because the
+throw happened inside the click handler, the row looked fine and the button
+looked styled and alive. Both `IssuesView` and `AllIssuesView` had the same
+copy of it, so **neither** issue screen could save a view. They now open the
+`CreateViewModal` that ⌘K's `New view` has been opening all along — the
+component was already built, already wired to `openViewModal`, and simply never
+reached from the filter row.
+
+**Depth, against Linear's real editor.** Linear's `+` on `/views/issues` does
+not open a modal at all; it navigates to `/views/issues/new`, a full screen with
+`Copy URL`, `Choose icon`, a name prefilled from the filters, `Description
+(optional)`, a `Save to` scope picker, `Cancel` / `Save`, and a **live preview
+of the matching issues whose own `Add filter` and `Display options` stay
+editable inside the editor**. Ours is a 480px modal showing four read-only
+chips. Two of that gap closed this run — the missing `Description (optional)`
+field (added to `SavedView` as optional, so views persisted before today still
+load, and surfaced on the `/views` row) and the button wording (`Save view` →
+Linear's `Save`). The route, the live preview and the `Save to` picker are
+sized in `BACKLOG.md`; the editor-as-a-route is filed 🔴 because it is the
+shape of the feature, not a detail on it.
+
+**Accessible names.** Every icon-only control on the chip row was anonymous —
+the `×`, the `+`, and both popover triggers, plus the date-chip and text-chip
+equivalents. All now carry an `aria-label` naming their dimension. This is the
+same class of gap the first lap fixed on the funnel and `Display`; the chip row
+had simply never been crawled.
+
+**Linear stayed read-only, and one thing stayed unread because of it.** The
+filter chip row never rendered on the reference workspace: nothing there has a
+filter applied and the workspace has **no saved views at all**, so the only way
+to produce a chip would have been to choose a filter value in the user's real
+data. Declined. The chip row's Linear counterpart — the operator list in
+particular, where ours offers only `is` / `is not` — is recorded **unverified**
+and stays an open question. The create-view editor *was* opened, itemised, and
+left by navigating away with nothing typed and nothing saved.
+
+**Harness correction.** The in-app browser's screenshot space is CSS × 0.625
+(1280×720 CSS reported as 800×450), not CSS ÷ 2. The existing "click at half the
+pixel you see" note is true of the rendered *image* but not of a
+`getBoundingClientRect()` value; mixing the two dismissed a dialog mid-check.
+Written into `.audit/controls/filters-display.md` so the next lap doesn't repeat it.
+
+`tsc -b ✅ · build ✅ · 37-route sweep console-clean with zero empty renders (the
+only "overflow" hits are `truncate` and `overflow-x-auto` elements behaving as
+intended) · re-sweep of the six touched routes after the fix returned `[]` ·
+saved-view flow round-tripped create → navigate → hard reload → filters,
+grouping and ordering all restored → description rendered on `/views` · lint 105,
+unchanged`
