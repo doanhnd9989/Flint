@@ -5156,3 +5156,76 @@ One harness note: mid-edit HMR failures ("Failed to reload …") stay in the
 browser console buffer across reloads and read exactly like a live break. They
 were a transient broken parse in `seed.ts`; the dev server's own log timestamps
 them, and refetching each module returned 200 once the parse was fixed.
+
+## `cycles`, lap 2 — the cycle detail page was the wrong screen
+
+Run 1 left a 🔴 it didn't have room to close: on Linear the cycle's **issue list
+is the page** and every number sits in a right panel; ours stacked a burndown,
+two charts and a workload table *above* the list, so the first screenful of
+`/team/CLA/cycle/active` contained no issues at all. This lap rebuilt the screen
+around Linear's shape.
+
+**Two dead controls, both confirmed by pressing them.** The left rail listing
+every cycle, and the `‹` `›` chevrons beside the title, called `setSelectedId` —
+but `current` resolved the URL's cycle ref *before* falling back to that state,
+and the ref is always defined on `/cycle/active`, `/cycle/upcoming` and
+`/cycle/current`. Those are the only URLs the sidebar links to, so clicking
+"Cycle 2" in the rail did nothing wherever a user actually arrived. The chevrons
+had no accessible name either. Rail and chevrons are gone; switching now goes
+through Linear's breadcrumb `Cycle N ▾` — `Next cycle (upcoming)` / `Previous
+cycle (completed)` with the target's name, its date range, and ⌥K / ⌥J, which
+are wired and verified.
+
+**What the page is now:** breadcrumb `Team › Cycles › Cycle N ▾` with ⭐ and a
+`Cycle options` ⋯; a toolbar row carrying `N issues` on the left and
+`Add filter` · `Display options` · `Close cycle details` on the right; the
+grouped issue list as the main pane; and a 320px right panel holding the phase
+and date chips, the title with its own ⭐/⋯, the goal, a collapsible `Progress`
+section (Scope `+N%`, Started `•N%`, Completed `•N%` — Linear's exact delta
+notation, with the scope delta hidden when the cycle hasn't grown) and the
+`Assignees · Labels · Priority · Projects · Teams` tab strip. All five tabs are
+live: buckets sort by volume, except Priority, which keeps Linear's fixed order
+with **No priority first** — checked against their screen, not assumed.
+
+The lone `Group:` picker became a full `DisplayMenu`, and the screen gained
+filtering it never had: 83 issues → 31 on `Priority = Urgent`, with the toolbar
+count following.
+
+**A regression I caused and caught.** Re-homing `CycleRetrospective` into the
+panel exposed `sm:grid-cols-4` on its stat tiles — a *viewport* breakpoint, so
+on a wide window it still applied inside a 320px column and squeezed each tile
+to **3px**. Stacked and two-up now, re-measured clean at `--font-scale` 1 and
+1.25.
+
+**Deliberately different, and why.** Linear has no Pause, no "Move N
+unfinished", no delta metrics, no estimate distribution and no retrospective;
+all of them still work, moved into the panel below the breakdown rather than
+deleted. `CreateCycleButton` left the detail header because it already lives on
+the cycles index, which is where Linear puts creation. The `Issues`/`Points`
+toggle and the workload-by-assignee block are gone outright — the Assignees tab
+*is* Linear's workload breakdown, so keeping both would have been the same
+number twice. `CycleBurndown` was deleted and its role taken by the panel's
+compact chart; that loses its `Forecast` line, which is logged rather than
+quietly dropped.
+
+**Honest about one number.** Linear's `Scope +87%` is growth since the cycle
+began. We never record *when* an issue was added to a cycle, so the issue's own
+`createdAt` stands in for it — an approximation, commented as one. Likewise
+Linear plots a *started* series over time; `Issue` has `completedAt` but no
+`startedAt`, so rather than invent a curve the started count stays in the legend
+and the gap is in BACKLOG.
+
+**Unverified, on purpose:** Linear's panel breakdown rows are buttons, and what
+they filter can only be learned by clicking one in the user's real workspace, so
+their behaviour is recorded as unverified. The `Teams` tab's row shape is
+likewise unconfirmed — the reference cycle is single-team.
+
+`tsc -b ✅ · build ✅ · 17-route sweep console-clean, zero uncaught errors and no
+"Maximum update depth" · no horizontal overflow at 1600 / 900 / 375px · dark
+mode re-read after the change · lint 108, down from 111`
+
+Harness note, again: deleting `CycleBurndown.tsx` left `Failed to reload
+/src/components/CycleBurndown.tsx` and a stale `CyclePauseButton is not defined`
+in the console buffer, surviving a full navigation and reading exactly like a
+live break. The page rendered every control the whole time — the give-away is
+that a genuine `is not defined` would have blanked the panel it was in.

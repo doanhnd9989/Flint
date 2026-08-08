@@ -83,12 +83,15 @@ export function CycleRetrospective({ cycleId }: { cycleId: string }) {
         </span>
       </div>
 
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+      {/* Stacked, two-up: this lives in the cycle side panel, so the old
+          `sm:grid-cols-4` — a *viewport* breakpoint — squeezed each tile to a
+          few pixels wide while the window itself was still wide. */}
+      <div className="flex flex-col gap-5">
         {/* Completion donut */}
         <CompletionDonut percent={stats.percent} />
 
         {/* Headline stat tiles */}
-        <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid flex-1 grid-cols-2 gap-2">
           <Tile label="Scope" value={stats.total} />
           <Tile label="Completed" value={stats.completed} />
           <Tile label="Carried over" value={stats.carried} />

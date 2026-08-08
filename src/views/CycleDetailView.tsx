@@ -1,60 +1,31 @@
-import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useParams } from 'react-router-dom'
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  MoreHorizontal,
-} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ChevronDown, PanelRight } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import {
-  cycleBurndown,
-  cycleProgress,
-  cycleState,
-  groupIssues,
-  sortIssues,
-} from '@/lib/selectors'
-import type { GroupBy } from '@/lib/types'
+import { cycleState, filterIssues, groupIssues, sortIssues } from '@/lib/selectors'
+import type { GroupBy, OrderBy, OrderDir, ViewLayout } from '@/lib/types'
 import { GroupedIssueList } from '@/components/GroupedIssueList'
-import { SelectMenu } from '@/components/ui/SelectMenu'
-import { CycleBurndown } from '@/components/CycleBurndown'
-import { CreateCycleButton } from '@/components/CreateCycleButton'
-import { CycleCarryOver } from '@/components/CycleCarryOver'
-import { EstimateDistribution } from '@/components/EstimateDistribution'
-import { CycleScopeChart } from '@/components/CycleScopeChart'
-import { CycleGoals } from '@/components/CycleGoals'
-import { CycleDeltaMetrics } from '@/components/CycleDeltaMetrics'
-import { CycleRetrospective } from '@/components/CycleRetrospective'
-import { CyclePauseButton } from '@/components/CyclePauseButton'
+import { IssueBoard } from '@/components/IssueBoard'
+import { DisplayMenu } from '@/components/DisplayMenu'
+import { FilterTrigger, emptyFilters } from '@/components/FilterBar'
+import { Popover } from '@/components/ui/Popover'
 import { CycleContextMenu } from '@/components/CycleContextMenu'
+import { CycleSidePanel } from '@/components/CycleSidePanel'
 import { StarButton } from '@/components/StarButton'
 import { ViewHeader } from '@/components/ViewHeader'
 import { EmptyState, CycleIllustration } from '@/components/EmptyState'
-import { Avatar } from '@/components/Avatar'
+import { MoreHorizontal } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
-const STATUS_BADGE: Record<string, string> = {
-  active: 'bg-[var(--status-started)]/20 text-[var(--status-started)]',
-  upcoming: 'bg-accent-subtle text-accent',
-  past: 'bg-bg-tertiary text-faint',
-}
-
-// Group-by options for the cycle issue list — the subset of GroupBy keys that
-// make sense within a single cycle (no per-cycle grouping). Mirrors Linear's
-// cycle "Group by" menu. Default is Status.
-const CYCLE_GROUP_BYS = ['status', 'assignee', 'priority', 'project', 'none'] as const
-const GROUP_LABEL: Record<(typeof CYCLE_GROUP_BYS)[number], string> = {
-  status: 'Status',
-  assignee: 'Assignee',
-  priority: 'Priority',
-  project: 'Project',
-  none: 'No grouping',
-}
-
+/**
+ * A single cycle. Linear's shape: the issue list *is* the page, the numbers
+ * live in a right-hand panel, and the cycle you're looking at is switched from
+ * the breadcrumb (`Cycle 14 ▾`) or with ⌥J / ⌥K — there is no cycle rail.
+ */
 export function CycleDetailView() {
   const { teamKey, cycleRef } = useParams()
+  const navigate = useNavigate()
   const data = useStore()
   const team = data.teams.find((t) => t.key === teamKey) ?? data.teams[0]
   const nowMs = Date.now()
@@ -76,11 +47,6 @@ export function CycleDetailView() {
     return active?.id ?? cycles[cycles.length - 1]?.id
   }, [cycles, nowMs])
 
-  // Linear addresses a cycle as /team/:key/cycle/:ref, where ref is `active`,
-  // `upcoming`, or the cycle number. `current` is our own older spelling, kept
-  // as an alias so existing links still resolve; the legacy `?c=` query is
-  // honoured too so older links and saved tabs keep landing on the right cycle.
-  const requested = cycleRef ?? searchParams.get('c')
   const upcomingId = useMemo(
     () =>
       cycles.find(
@@ -88,171 +54,104 @@ export function CycleDetailView() {
       )?.id,
     [cycles, nowMs],
   )
-  const routedId =
-    requested === 'upcoming'
-      ? (upcomingId ?? activeId)
-      : requested === 'active' || requested === 'current'
-        ? activeId
-        : requested
-          ? cycles.find((c) => String(c.number) === requested)?.id
-          : undefined
 
-  const [selectedId, setSelectedId] = useState<string | undefined>(activeId)
-  // Validate selectedId against THIS team's cycles — a stale id left over from a
-  // previous team (the route reuses the component) falls through to activeId.
-  // An explicit `?c=` in the URL wins, so the sidebar rows always land right.
+  // Linear addresses a cycle as /team/:key/cycle/:ref, where ref is `active`,
+  // `upcoming`, or the cycle number. `current` is our own older spelling, kept
+  // as an alias so existing links still resolve; the legacy `?c=` query is
+  // honoured too so older links and saved tabs keep landing on the right cycle.
+  const requested = cycleRef ?? searchParams.get('c')
   const current =
-    cycles.find((c) => c.id === routedId) ??
-    cycles.find((c) => c.id === selectedId) ??
-    cycles.find((c) => c.id === activeId)
+    (requested === 'upcoming'
+      ? cycles.find((c) => c.id === (upcomingId ?? activeId))
+      : requested === 'active' || requested === 'current'
+        ? cycles.find((c) => c.id === activeId)
+        : requested
+          ? cycles.find((c) => String(c.number) === requested)
+          : undefined) ?? cycles.find((c) => c.id === activeId)
 
-  // Whether the cycle stats / progress bar are measured in issue counts or
-  // summed estimate points — Linear's Issues / Points unit toggle. Component-
-  // local; defaults to Issues (count-based).
-  const [unit, setUnit] = useState<'issues' | 'points'>('issues')
-
-  // Where the cycle ⋯ menu was summoned from, if it's open.
-  const [cycleMenu, setCycleMenu] = useState<{ x: number; y: number } | null>(
-    null,
-  )
-
-  // How the cycle issue list is grouped — Status / Assignee / Priority /
-  // Project / No grouping. Defaults to Status, matching Linear.
+  const [panelOpen, setPanelOpen] = useState(true)
+  const [layout, setLayout] = useState<ViewLayout>('list')
   const [groupBy, setGroupBy] = useState<GroupBy>('status')
-  const groupOptions = useMemo(
-    () =>
-      CYCLE_GROUP_BYS.map((g) => ({
-        id: g,
-        label: GROUP_LABEL[g],
-        selected: groupBy === g,
-      })),
-    [groupBy],
-  )
+  const [subGroupBy, setSubGroupBy] = useState<GroupBy>('none')
+  const [orderBy, setOrderBy] = useState<OrderBy>('priority')
+  const [orderDir, setOrderDir] = useState<OrderDir>('asc')
+  const [orderCompletedByRecency, setOrderCompletedByRecency] = useState(false)
+  const [showSubIssues, setShowSubIssues] = useState(true)
+  const [nestedSubIssues, setNestedSubIssues] = useState(false)
+  const [showEmptyGroups, setShowEmptyGroups] = useState(false)
+  const [filters, setFilters] = useState(emptyFilters())
+  const [cycleMenu, setCycleMenu] = useState<{ x: number; y: number } | null>(null)
 
-  const groups = useMemo(() => {
-    if (!current) return []
-    const scoped = data.issues.filter((i) => i.cycleId === current.id && !i.archivedAt)
-    return groupIssues(sortIssues(scoped, 'priority', data), groupBy, data)
-  }, [data, current, groupBy])
+  // The cycles either side of this one, for the breadcrumb switcher and ⌥J/⌥K.
+  const idx = current ? cycles.findIndex((c) => c.id === current.id) : -1
+  const prevCycle = idx > 0 ? cycles[idx - 1] : undefined
+  const nextCycle = idx >= 0 && idx < cycles.length - 1 ? cycles[idx + 1] : undefined
 
-  // Cycle directory: every cycle for this team partitioned into Active /
-  // Upcoming / Completed sections, each carrying its own progress so the rail
-  // mirrors Linear's left-hand cycle list. Active first, then upcoming
-  // (soonest first), then past (most recent first).
-  const directory = useMemo(() => {
-    const rows = cycles.map((c) => ({
-      cycle: c,
-      status: cycleState(c.startsAt, c.endsAt, nowMs).status,
-      prog: cycleProgress(c.id, data.issues, data),
-    }))
-    const pick = (s: 'active' | 'upcoming' | 'past') =>
-      rows.filter((r) => r.status === s)
-    return [
-      { key: 'active' as const, label: 'Active', rows: pick('active') },
-      {
-        key: 'upcoming' as const,
-        label: 'Upcoming',
-        rows: pick('upcoming').sort(
-          (a, b) => a.cycle.number - b.cycle.number,
-        ),
-      },
-      {
-        key: 'past' as const,
-        label: 'Completed',
-        rows: pick('past').sort((a, b) => b.cycle.number - a.cycle.number),
-      },
-    ].filter((sec) => sec.rows.length > 0)
-  }, [cycles, data, nowMs])
+  const goTo = (number: number) =>
+    navigate(`/team/${team.key}/cycle/${number}`)
 
-  // Cycle health for the active cycle: "On track" vs "At risk". Risk fires
-  // when the remaining (non-completed) scope can't plausibly land in the days
-  // left — more open issues than days remaining — or any open issue is already
-  // past its due date. Upcoming/past/empty cycles surface no chip (null).
-  const health = useMemo<'on-track' | 'at-risk' | null>(() => {
-    if (!current) return null
-    const cs = cycleState(current.startsAt, current.endsAt, nowMs)
-    if (cs.status !== 'active') return null
-    const prog = cycleProgress(current.id, data.issues, data)
-    if (prog.total === 0) return null
-    const open = prog.total - prog.done
-    if (open === 0) return 'on-track'
-    const completed = new Set(
-      data.states.filter((s) => s.type === 'completed').map((s) => s.id),
-    )
-    const overdue = data.issues.some(
-      (i) =>
-        i.cycleId === current.id &&
-        !i.archivedAt &&
-        !completed.has(i.stateId) &&
-        i.dueDate != null &&
-        new Date(i.dueDate).getTime() < nowMs,
-    )
-    return overdue || open > cs.daysLeft ? 'at-risk' : 'on-track'
-  }, [data, current, nowMs])
-
-  // Per-assignee workload within the cycle (scope / completed / in-progress),
-  // sorted by scope so the heaviest-loaded members surface first — mirrors
-  // Linear's cycle "workload by assignee" breakdown.
-  const workload = useMemo(() => {
-    if (!current) return []
-    const completed = new Set(
-      data.states.filter((s) => s.type === 'completed').map((s) => s.id),
-    )
-    const started = new Set(
-      data.states.filter((s) => s.type === 'started').map((s) => s.id),
-    )
-    const scoped = data.issues.filter(
-      (i) => i.cycleId === current.id && !i.archivedAt,
-    )
-    const byUser = new Map<
-      string,
-      { total: number; done: number; inProgress: number }
-    >()
-    for (const i of scoped) {
-      const key = i.assigneeId ?? '__none__'
-      const row = byUser.get(key) ?? { total: 0, done: 0, inProgress: 0 }
-      row.total += 1
-      if (completed.has(i.stateId)) row.done += 1
-      else if (started.has(i.stateId)) row.inProgress += 1
-      byUser.set(key, row)
-    }
-    return Array.from(byUser.entries())
-      .map(([key, row]) => ({
-        user: key === '__none__' ? undefined : data.users.find((u) => u.id === key),
-        ...row,
-      }))
-      .sort((a, b) => b.total - a.total || b.done - a.done)
-  }, [data, current])
-
-  // Point-based progress: sum each issue's estimate (missing → 0) into
-  // completed / started / total buckets so the stats and bar can reflect
-  // points instead of issue counts when the unit toggle is on Points.
-  const pointProg = useMemo(() => {
-    const completed = new Set(
-      data.states.filter((s) => s.type === 'completed').map((s) => s.id),
-    )
-    const started = new Set(
-      data.states.filter((s) => s.type === 'started').map((s) => s.id),
-    )
-    let total = 0
-    let done = 0
-    let st = 0
-    if (current) {
-      for (const i of data.issues) {
-        if (i.cycleId !== current.id || i.archivedAt) continue
-        const pts = i.estimate ?? 0
-        total += pts
-        if (completed.has(i.stateId)) done += pts
-        else if (started.has(i.stateId)) st += pts
+  // ⌥J previous cycle, ⌥K next — Linear's pairing, and the same shortcuts its
+  // breadcrumb menu advertises. `code` rather than `key`: Alt rewrites `key`
+  // to a dead character on macOS.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!e.altKey || e.metaKey || e.ctrlKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA)$/.test(el.tagName))) return
+      if (e.code === 'KeyJ' && prevCycle) {
+        e.preventDefault()
+        goTo(prevCycle.number)
+      } else if (e.code === 'KeyK' && nextCycle) {
+        e.preventDefault()
+        goTo(nextCycle.number)
       }
     }
-    return {
-      total,
-      done,
-      started: st,
-      percent: total ? Math.round((done / total) * 100) : 0,
-    }
-  }, [data, current])
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
+  const { groups, issueCount } = useMemo(() => {
+    if (!current) return { groups: [], issueCount: 0 }
+    let scoped = data.issues.filter(
+      (i) => i.cycleId === current.id && !i.archivedAt,
+    )
+    if (!showSubIssues) scoped = scoped.filter((i) => !i.parentId)
+    const statesByType = new Map(data.states.map((s) => [s.id, s.type]))
+    if (data.hideCompleted)
+      scoped = scoped.filter((i) => {
+        const t = statesByType.get(i.stateId)
+        return t !== 'completed' && t !== 'canceled'
+      })
+    const filtered = filterIssues(scoped, filters)
+    const sorted = sortIssues(
+      filtered,
+      orderBy,
+      data,
+      orderCompletedByRecency,
+      orderDir,
+    )
+    const dn = data.preferences.displayNames
+    const top = groupIssues(sorted, groupBy, data, showEmptyGroups, dn)
+    const groups =
+      subGroupBy !== 'none'
+        ? top.map((g) => ({
+            ...g,
+            subGroups: groupIssues(g.issues, subGroupBy, data, showEmptyGroups, dn),
+          }))
+        : top
+    return { groups, issueCount: filtered.length }
+  }, [
+    data,
+    current,
+    groupBy,
+    subGroupBy,
+    orderBy,
+    orderDir,
+    orderCompletedByRecency,
+    filters,
+    showSubIssues,
+    showEmptyGroups,
+  ])
 
   if (cycles.length === 0 || !current) {
     return (
@@ -267,313 +166,141 @@ export function CycleDetailView() {
     )
   }
 
-  const idx = cycles.findIndex((c) => c.id === current.id)
-  const prog = cycleProgress(current.id, data.issues, data)
-  const cs = cycleState(current.startsAt, current.endsAt, nowMs)
-  const burndown = cycleBurndown(current, data.issues, nowMs)
-
-  // The stats / progress-bar source for the current unit. Points uses summed
-  // estimates (missing → 0); Issues keeps the count-based cycleProgress.
-  const display = unit === 'points' ? pointProg : prog
-  const remaining = Math.max(0, display.total - display.done - display.started)
+  const title = current.name ?? `Cycle ${current.number}`
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Cycles" teamName={team.name} teamIcon={team.icon} />
-
-      <div className="flex min-h-0 flex-1">
-        {/* Cycle directory rail — all cycles grouped by lifecycle */}
-        <aside className="w-60 shrink-0 overflow-y-auto border-r border-border py-2">
-          {directory.map((sec) => (
-            <div key={sec.key} className="mb-2">
-              <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-faint">
-                {sec.label}
-              </div>
-              {sec.rows.map(({ cycle, status, prog }) => {
-                const remaining = Math.max(0, prog.total - prog.done - prog.started)
-                const selected = cycle.id === current.id
-                return (
-                  <button
-                    key={cycle.id}
-                    onClick={() => setSelectedId(cycle.id)}
-                    className={cn(
-                      'flex w-full flex-col gap-1.5 px-3 py-2 text-left hover:bg-bg-hover',
-                      selected && 'bg-secondary',
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          'truncate text-[13px]',
-                          selected
-                            ? 'font-medium text-fg'
-                            : status === 'past'
-                              ? 'text-faint'
-                              : 'text-fg',
-                        )}
-                      >
-                        Cycle {cycle.number}
-                      </span>
-                      <span className="ml-auto shrink-0 text-[11px] tabular-nums text-faint">
-                        {prog.percent}%
-                      </span>
-                    </div>
-                    <div className="flex h-1 w-full overflow-hidden rounded-full bg-bg-tertiary">
-                      <div
-                        className="h-full bg-accent"
-                        style={{
-                          width: `${prog.total ? (prog.done / prog.total) * 100 : 0}%`,
-                        }}
-                      />
-                      <div
-                        className="h-full bg-[var(--status-started)]"
-                        style={{
-                          width: `${prog.total ? (prog.started / prog.total) * 100 : 0}%`,
-                        }}
-                      />
-                      <div
-                        className="h-full"
-                        style={{
-                          width: `${prog.total ? (remaining / prog.total) * 100 : 0}%`,
-                        }}
-                      />
-                    </div>
-                    <div className="text-[11px] text-faint">
-                      {formatDate(cycle.startsAt)} – {formatDate(cycle.endsAt)}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          ))}
-        </aside>
-
-        {/* Selected-cycle detail */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* Cycle selector + summary */}
-      <div className="border-b border-border px-6 py-4">
-        <div className="flex items-center gap-3">
-          <button
-            disabled={idx <= 0}
-            onClick={() => setSelectedId(cycles[idx - 1].id)}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-bg-hover disabled:opacity-30"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-[16px] font-semibold text-fg">
-                Cycle {current.number}
-              </h1>
-              {/* Linear's cycle panel carries a ⭐ and a ⋯ beside the title. */}
-              <StarButton type="cycle" id={current.id} size={14} />
-              <button
-                type="button"
-                aria-label="Open menu"
-                onClick={(e) => {
-                  const r = e.currentTarget.getBoundingClientRect()
-                  setCycleMenu({ x: r.left, y: r.bottom + 4 })
-                }}
-                className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg"
-              >
-                <MoreHorizontal size={15} />
-              </button>
-              <span
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-[11px] font-medium capitalize',
-                  STATUS_BADGE[cs.status],
-                )}
-              >
-                {cs.status}
-              </span>
-              {health && (
-                <span
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium',
-                    health === 'on-track'
-                      ? 'bg-[var(--c-green)]/15 text-[var(--c-green)]'
-                      : 'bg-[var(--c-orange)]/15 text-[var(--c-orange)]',
-                  )}
-                >
-                  <span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{
-                      backgroundColor:
-                        health === 'on-track'
-                          ? 'var(--c-green)'
-                          : 'var(--c-orange)',
-                    }}
-                  />
-                  {health === 'on-track' ? 'On track' : 'At risk'}
-                </span>
-              )}
-            </div>
-            <div className="text-[12px] text-faint">
-              {formatDate(current.startsAt)} – {formatDate(current.endsAt)}
-              {cs.status === 'active' && ` · ${cs.daysLeft} days left`}
-            </div>
-            <CycleGoals cycleId={current.id} />
-          </div>
-          <button
-            disabled={idx >= cycles.length - 1}
-            onClick={() => setSelectedId(cycles[idx + 1].id)}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-bg-hover disabled:opacity-30"
-          >
-            <ChevronRight size={16} />
-          </button>
-
-          <div className="ml-auto flex items-center gap-3 text-[12px]">
-            {/* Pause / resume (soft-delete) the cycle — shows a Paused badge. */}
-            <CyclePauseButton cycleId={current.id} />
-            {/* Carry unfinished work into the next cycle + spin up a new cycle. */}
-            <CycleCarryOver cycleId={current.id} />
-            <CreateCycleButton teamId={team.id} />
-            {/* Issues / Points unit toggle — a small segmented control. */}
-            <div className="flex items-center rounded-md border border-border bg-bg-secondary p-0.5">
-              {(['issues', 'points'] as const).map((u) => (
-                <button
-                  key={u}
-                  onClick={() => setUnit(u)}
-                  className={cn(
-                    'rounded px-2 py-0.5 text-[11px] font-medium capitalize',
-                    unit === u
-                      ? 'bg-bg text-fg shadow-sm'
-                      : 'text-muted hover:text-fg',
-                  )}
-                >
-                  {u}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-5">
-              <Stat label="Scope" value={display.total} />
-              <Stat label="Started" value={display.started} />
-              <Stat label="Completed" value={display.done} />
-              <Stat label="Progress" value={`${display.percent}%`} />
-            </div>
-          </div>
-        </div>
-
-        {/* Stacked progress bar (completed / started / remaining) */}
-        <div className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-bg-tertiary">
-          <div
-            className="h-full bg-accent"
-            style={{ width: `${display.total ? (display.done / display.total) * 100 : 0}%` }}
-            title={`${display.done} completed`}
-          />
-          <div
-            className="h-full bg-[var(--status-started)]"
-            style={{ width: `${display.total ? (display.started / display.total) * 100 : 0}%` }}
-            title={`${display.started} started`}
-          />
-          <div
-            className="h-full"
-            style={{ width: `${display.total ? (remaining / display.total) * 100 : 0}%` }}
-          />
-        </div>
-
-        {/* Burndown chart */}
-        {burndown.scope > 0 && (
-          <div className="mt-5">
-            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-faint">
-              Burndown
-            </div>
-            <CycleBurndown
-              points={burndown.points}
-              scope={burndown.scope}
-              nowMs={nowMs}
-            />
-          </div>
-        )}
-
-        {/* Previous-cycle comparison metrics */}
-        <div className="mt-5">
-          <CycleDeltaMetrics cycleId={current.id} />
-        </div>
-
-        {/* End-of-cycle retrospective — only for completed (past) cycles. */}
-        {cs.status === 'past' && (
-          <div className="mt-5">
-            <CycleRetrospective cycleId={current.id} />
-          </div>
-        )}
-
-        {/* Scope mix + estimate distribution for this cycle. */}
-        <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <CycleScopeChart
-            issues={data.issues.filter(
-              (i) => i.cycleId === current.id && !i.archivedAt,
-            )}
-          />
-          <EstimateDistribution
-            issues={data.issues.filter(
-              (i) => i.cycleId === current.id && !i.archivedAt,
-            )}
-          />
-        </div>
-
-        {/* Workload by assignee */}
-        {workload.length > 0 && (
-          <div className="mt-5">
-            <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint">
-              Workload by assignee
-            </div>
-            <div className="flex flex-col gap-2">
-              {workload.map((w, n) => (
-                <div
-                  key={w.user?.id ?? `none-${n}`}
-                  className="flex items-center gap-3"
-                >
-                  <div className="flex w-40 shrink-0 items-center gap-2">
-                    <Avatar user={w.user} size={18} />
-                    <span className="truncate text-[12px] text-fg">
-                      {w.user?.name ?? 'No assignee'}
-                    </span>
-                  </div>
-                  <div className="flex h-1.5 flex-1 overflow-hidden rounded-full bg-bg-tertiary">
-                    <div
-                      className="h-full bg-accent"
-                      style={{ width: `${(w.done / w.total) * 100}%` }}
-                      title={`${w.done} completed`}
-                    />
-                    <div
-                      className="h-full bg-[var(--status-started)]"
-                      style={{ width: `${(w.inProgress / w.total) * 100}%` }}
-                      title={`${w.inProgress} in progress`}
-                    />
-                  </div>
-                  <div className="w-20 shrink-0 text-right text-[11px] tabular-nums text-faint">
-                    {w.done}/{w.total} done
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-          {/* Issue-list toolbar — group-by picker for the cycle's issues. */}
-          <div className="flex items-center justify-end border-b border-border px-6 py-2">
-            <SelectMenu
-              width={180}
-              align="end"
-              options={groupOptions}
-              onSelect={(id) => setGroupBy(id as GroupBy)}
-              placeholder="Group by…"
+      <ViewHeader
+        title="Cycles"
+        titleHref={`/team/${team.key}/cycles`}
+        teamName={team.name}
+        teamIcon={team.icon}
+        trail={
+          <div className="flex items-center gap-1">
+            <Popover
+              align="start"
+              width={260}
               trigger={
-                <span className="flex items-center gap-1 rounded-md border border-border bg-bg-secondary px-2 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-fg">
-                  <span className="text-faint">Group:</span>
-                  <span className="max-w-[100px] truncate">
-                    {GROUP_LABEL[groupBy as (typeof CYCLE_GROUP_BYS)[number]]}
-                  </span>
-                  <ChevronDown size={13} className="shrink-0 text-faint" />
+                <span className="flex items-center gap-1 rounded px-1 py-0.5 font-medium text-fg hover:bg-bg-hover">
+                  {title}
+                  <ChevronDown size={12} className="text-faint" />
                 </span>
               }
-            />
+            >
+              {(close) => (
+                <div className="py-1">
+                  <CycleJump
+                    heading={
+                      nextCycle
+                        ? `Next cycle (${phaseWord(nextCycle, nowMs)})`
+                        : undefined
+                    }
+                    cycle={nextCycle}
+                    hint="⌥K"
+                    onPick={(n) => {
+                      goTo(n)
+                      close()
+                    }}
+                  />
+                  <CycleJump
+                    heading={
+                      prevCycle
+                        ? `Previous cycle (${phaseWord(prevCycle, nowMs)})`
+                        : undefined
+                    }
+                    cycle={prevCycle}
+                    hint="⌥J"
+                    onPick={(n) => {
+                      goTo(n)
+                      close()
+                    }}
+                  />
+                  {!nextCycle && !prevCycle && (
+                    <div className="px-3 py-2 text-[12px] text-faint">
+                      No other cycles
+                    </div>
+                  )}
+                </div>
+              )}
+            </Popover>
+            <StarButton type="cycle" id={current.id} size={14} />
+            <button
+              type="button"
+              aria-label="Cycle options"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect()
+                setCycleMenu({ x: r.left, y: r.bottom + 4 })
+              }}
+              className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-bg-hover hover:text-fg"
+            >
+              <MoreHorizontal size={15} />
+            </button>
           </div>
+        }
+      />
 
-          <GroupedIssueList groups={groups} groupBy={groupBy} />
+      {/* Toolbar: the issue count on the left, filter / display / panel on the
+          right — the row Linear puts directly under the breadcrumb. */}
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-4">
+        <span className="text-[13px] text-muted">
+          {issueCount} {issueCount === 1 ? 'issue' : 'issues'}
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <FilterTrigger
+            filters={filters}
+            onChange={setFilters}
+            scope={data.issues.filter(
+              (i) => i.cycleId === current.id && !i.archivedAt,
+            )}
+          />
+          <DisplayMenu
+            layout={layout}
+            groupBy={groupBy}
+            orderBy={orderBy}
+            onLayout={setLayout}
+            onGroupBy={setGroupBy}
+            onOrderBy={setOrderBy}
+            orderDir={orderDir}
+            onOrderDir={setOrderDir}
+            subGroupBy={subGroupBy}
+            onSubGroupBy={setSubGroupBy}
+            orderCompletedByRecency={orderCompletedByRecency}
+            onOrderCompletedByRecency={setOrderCompletedByRecency}
+            showSubIssues={showSubIssues}
+            onShowSubIssues={setShowSubIssues}
+            nestedSubIssues={nestedSubIssues}
+            onNestedSubIssues={setNestedSubIssues}
+            showEmptyGroups={showEmptyGroups}
+            onShowEmptyGroups={setShowEmptyGroups}
+          />
+          <button
+            type="button"
+            aria-label={panelOpen ? 'Close cycle details' : 'Open cycle details'}
+            onClick={() => setPanelOpen((v) => !v)}
+            className={cn(
+              'flex h-6 w-6 items-center justify-center rounded hover:bg-bg-hover',
+              panelOpen ? 'text-fg' : 'text-muted hover:text-fg',
+            )}
+          >
+            <PanelRight size={15} />
+          </button>
         </div>
+      </div>
+
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {layout === 'board' ? (
+            <IssueBoard groups={groups} groupBy={groupBy} />
+          ) : (
+            <GroupedIssueList groups={groups} groupBy={groupBy} />
+          )}
+        </div>
+        {panelOpen && (
+          <CycleSidePanel
+            cycleId={current.id}
+            onClose={() => setPanelOpen(false)}
+          />
+        )}
       </div>
 
       {cycleMenu && (
@@ -589,11 +316,44 @@ export function CycleDetailView() {
   )
 }
 
-function Stat({ label, value }: { label: string; value: number | string }) {
+/** "upcoming" / "current" / "completed" — the word Linear puts in the heading. */
+function phaseWord(
+  cycle: { startsAt: string; endsAt: string },
+  nowMs: number,
+): string {
+  const s = cycleState(cycle.startsAt, cycle.endsAt, nowMs).status
+  return s === 'active' ? 'current' : s === 'upcoming' ? 'upcoming' : 'completed'
+}
+
+/** One half of the breadcrumb switcher: a heading and the cycle it jumps to. */
+function CycleJump({
+  heading,
+  cycle,
+  hint,
+  onPick,
+}: {
+  heading?: string
+  cycle?: { number: number; name?: string; startsAt: string; endsAt: string }
+  hint: string
+  onPick: (n: number) => void
+}) {
+  if (!cycle || !heading) return null
   return (
-    <div className="text-center">
-      <div className="text-[15px] font-semibold text-fg">{value}</div>
-      <div className="text-[11px] text-faint">{label}</div>
-    </div>
+    <>
+      <div className="px-3 pb-1 pt-1.5 text-[11px] text-faint">{heading}</div>
+      <button
+        type="button"
+        onClick={() => onPick(cycle.number)}
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-bg-hover"
+      >
+        <span className="text-[13px] text-fg">
+          {cycle.name ?? `Cycle ${cycle.number}`}
+        </span>
+        <span className="text-[12px] text-faint">
+          {formatDate(cycle.startsAt)} - {formatDate(cycle.endsAt)}
+        </span>
+        <span className="ml-auto text-[11px] text-faint">{hint}</span>
+      </button>
+    </>
   )
 }

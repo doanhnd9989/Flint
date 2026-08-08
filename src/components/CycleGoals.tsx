@@ -49,7 +49,7 @@ export function CycleGoals({ cycleId }: { cycleId: string }) {
     return (
       <button
         onClick={startEdit}
-        className="mt-1.5 text-[13px] text-faint hover:text-fg"
+        className="mt-1.5 w-full text-left text-[13px] text-faint hover:text-fg"
       >
         + Add cycle goal
       </button>

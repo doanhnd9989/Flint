@@ -616,6 +616,36 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `cycles` pass, second lap (`/team/:key/cycle/:ref`)
+
+Linear's `VC Squad › Cycle 14` was read-only: the breadcrumb switcher, the
+Progress collapse and the five panel tabs were opened/switched and Escaped.
+Nothing was selected, typed or submitted. Full table in
+`.audit/controls/cycles.md`.
+
+- [ ] 🟡 **No `+ Add document or link…` on a cycle.** Linear's panel puts it
+      directly under the cycle description. Cycles carry no documents or links
+      in our model; projects already do, so the shape exists to copy. (M)
+- [ ] 🟡 **Panel breakdown rows aren't clickable.** In Linear each
+      `name — N% of M` row is a button; ours are static. They should narrow the
+      issue list to that assignee / label / priority / project. (S)
+- [ ] 🟢 **No `Started` series in the panel chart.** Linear plots scope,
+      started and completed over time. `Issue` records `completedAt` but no
+      `startedAt`, so there is no honest per-day started history to draw —
+      the number is in the legend only. Needs a state-change log. (M)
+- [ ] 🟢 **The burndown's `Forecast` line is gone.** The full-width
+      `CycleBurndown` (Open / Ideal / Forecast) was replaced by the panel's
+      compact scope-vs-completed chart; Linear has one chart, in the panel, so
+      the shape is right but the projection was lost with it. (S)
+- [ ] 🟢 **No estimate glyph (△) on the panel's scope numbers.** Linear
+      prefixes point-based totals with it; ours prints bare numbers. (S)
+- [ ] 🟢 **`Export issues as CSV…` is absent from the cycle ⋯ menu.** (M)
+- [ ] 🟢 **`Pause` shows on completed cycles.** Ours-only control, but it
+      should still be inert once a cycle is over. (S)
+- [ ] 🟢 **Teams other than CLA have no cycles at all.** Linear generates them
+      from the team's cadence settings; our seed only builds them for one team,
+      so `/team/ENG/cycle/active` is a permanent empty state. (S)
+
 ### From the `projects-initiatives` pass, second lap (`/initiatives`)
 
 Linear's initiatives index was navigated read-only; three menus were opened and
