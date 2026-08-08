@@ -23,30 +23,43 @@ with `FLINT_HOST=user@host` if the box ever moves.
 
 ## Access (read this before assuming you're blocked)
 
-**There is no deploy key and no CI.** Every deploy before 2026-08-08 was done by
-hand, driving `ssh`/`scp` from an `expect` wrapper that took the root password as
-an argument:
+**As of 2026-08-08 the Mac's `~/.ssh/id_ed25519` is authorised on the box**, so
+`ssh root@103.38.237.217` just works. Before that there was no key and no CI —
+deploys were hand-driven by an `expect` wrapper fed the root password:
 
 ```
 # usage: ssh.exp <host> <password> <remote-command>
 # usage: scp.exp <password> <local> <remote>
 ```
 
-Those wrappers lived in a session scratchpad and are gone. Nothing about that
-setup survives a session, which is why "deploy it" repeatedly turns into "I can't
-reach the server".
-
-Fix it once, permanently, by authorising a key:
+Those wrappers lived in a session scratchpad, so nothing about that setup
+survived a session — which is why "deploy it" kept turning into "I can't reach
+the server". If a future box ever loses the key, restore access the same way:
 
 ```bash
 ssh-copy-id -i ~/.ssh/id_ed25519.pub root@103.38.237.217
 ```
 
-Until that runs, `ssh root@103.38.237.217` answers
-`Permission denied (publickey,password)` — the server offers both methods but no
-local key is authorised. `~/.ssh/config` has entries for other boxes
-(`xommuaban-vps` = 103.38.237.40, `dmticket` = 157.66.25.152) and **none** for
-this one; don't mistake those for it.
+Never handle the root password directly. Note that `~/.ssh/config` has **no**
+entry for .217 — `xommuaban-vps` (103.38.237.40) and `dmticket`
+(157.66.25.152) are different machines; don't mistake them for this one.
+
+## Back up before restarting
+
+The restart is when schema migrations run, and they are not reversible. Snapshot
+first — `VACUUM INTO` captures the WAL, which a plain `cp` of `flint.db` does
+not (the file is usually near-empty with everything still in `flint.db-wal`):
+
+```bash
+ssh root@103.38.237.217 'TS=$(date +%Y%m%d-%H%M%S); mkdir -p /root/backups/$TS
+  cd /var/www/flint-api
+  DEST=/root/backups/$TS/flint.db node -e "const D=require(\"better-sqlite3\");new D(\"data/flint.db\",{readonly:true}).prepare(\"VACUUM INTO ?\").run(process.env.DEST)"
+  tar -czf /root/backups/$TS/flint-api.tgz --exclude node_modules -C /var/www/flint-api .
+  tar -czf /root/backups/$TS/flint-web.tgz -C /var/www/flint .
+  cp /etc/flint-api.env /root/backups/$TS/; echo $TS > /root/backups/LATEST'
+```
+
+`/root/backups/LATEST` names the newest snapshot.
 
 ## Layout on the box
 

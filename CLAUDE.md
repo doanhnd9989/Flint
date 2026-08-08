@@ -66,16 +66,10 @@ src/
 
 See **`DEPLOY.md`** — read it *before* concluding you can't reach the server.
 
-The short version: production is `103.38.237.217` behind Cloudflare, and **there
-is no deploy key and no CI**. Past deploys drove `ssh` from an `expect` wrapper
-fed the root password by hand, which is why nothing survives a session. One
-command fixes that for good:
-
-```
-ssh-copy-id -i ~/.ssh/id_ed25519.pub root@103.38.237.217
-```
-
-Never handle that password yourself — ask, then use the key from then on.
+The short version: production is `103.38.237.217` behind Cloudflare, reachable
+over SSH as root with `~/.ssh/id_ed25519`. There is no CI. **Snapshot the
+database before any restart that migrates the schema** — `VACUUM INTO`, not
+`cp`, because the data sits in the WAL. Never handle the root password.
 
 ## Definition of done for any change
 
