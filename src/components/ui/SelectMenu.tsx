@@ -30,6 +30,8 @@ interface Props {
   width?: number
   header?: ReactNode
   footer?: ReactNode
+  /** Accessible name for the trigger — required when the trigger is icon-only. */
+  label?: string
   disabled?: boolean
 }
 
@@ -44,6 +46,7 @@ export function SelectMenu({
   header,
   footer,
   disabled,
+  label,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -140,6 +143,7 @@ export function SelectMenu({
       <button
         ref={anchorRef}
         type="button"
+        aria-label={label}
         disabled={disabled}
         onClick={(e) => {
           e.stopPropagation()

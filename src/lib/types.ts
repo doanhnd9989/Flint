@@ -540,6 +540,8 @@ export interface CreatePrefill {
   draftId?: string
   /** Set when the new issue is a sub-issue of an existing one. */
   parentId?: string
+  /** Set by Triage's "Create triage issue" — the issue lands in the queue. */
+  triage?: boolean
 }
 
 /** Properties that can be shown/hidden on issue rows (Linear's Display options). */
@@ -723,6 +725,8 @@ export type FavoriteType =
   | 'team'
   | 'cycle'
   | 'initiative'
+  /** A team's Triage queue — Linear stars the view, not the team. Keyed by team id. */
+  | 'triage'
 
 export interface Favorite {
   type: FavoriteType

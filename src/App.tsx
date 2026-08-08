@@ -280,6 +280,12 @@ export default function App() {
           <Route path="/team/:teamKey/backlog" element={<IssuesView />} />
           <Route path="/team/:teamKey/all" element={<IssuesView />} />
           <Route path="/team/:teamKey/triage" element={<TriageView />} />
+          {/* Triage's split pane keeps the queue beside the issue, so the
+              selection is a nested route rather than a jump to /issue/:id. */}
+          <Route
+            path="/team/:teamKey/triage/:identifier"
+            element={<TriageView />}
+          />
           <Route path="/team/:teamKey/cycles" element={<CyclesView />} />
           <Route path="/team/:teamKey/cycle/:cycleRef" element={<CycleDetailView />} />
           <Route path="/team/:teamKey/projects" element={<ProjectsView />} />

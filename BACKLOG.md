@@ -616,6 +616,46 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `triage-and-intake` pass, second lap (`/team/:key/triage`)
+
+Linear's `VC Squad › Triage` was read-only: rows were clicked to *open* the
+detail pane and the header ⋯ was opened and Escaped. Nothing was selected,
+typed, submitted or created. Full table in `.audit/controls/triage-and-intake.md`.
+
+- [x] 🔴 **Triage was a card list, not a split pane.** Linear puts a ~400px
+      queue column beside the whole issue, with `Accept · Decline · Mark as
+      duplicate · Snooze` in the detail header. Rebuilt; selection lives at
+      `/team/:key/triage/:identifier`.
+- [x] 🔴 **The header ☆ starred nothing.** `FavoriteType` gained `triage`.
+- [x] 🔴 **`Create triage issue` would have created a normal issue.**
+      `CreatePrefill` gained `triage`.
+- [x] 🔴 **`IssueDetailBody` overflowed horizontally in any narrow column** —
+      missing `min-w-0` plus three non-wrapping header rows.
+- [x] 🔴 **A long issue title scrolled out of sight** — the title was an
+      `<input>`; it wraps now.
+- [x] 🟡 **The header `Snooze` was four rows deep, Linear's is six.** `Next
+      cycle` and `Custom…` added.
+- [ ] 🟡 **`Add filter` offers 6 rows; Linear's offers 21.** Ours filters on
+      priority only. Linear's menu: AI filter · Advanced filter · — · Assignee ·
+      Agent · Agent Session · Creator · Priority · Estimate · Labels · Relations
+      · Suggested label · Dates · — · Project · Project properties · Cycle ·
+      Added to cycle · Customers · — · Subscribers · External source ·
+      Auto-closed · Content · Links · Template. The full filter model exists on
+      the issue list already — this is wiring it to the triage queue. (M)
+- [ ] 🟢 **No `Display properties` group in the triage Display menu.** Linear
+      offers `ID` and `Due date` chips there; ours has Ordering + Show snoozed
+      only. (S)
+- [ ] 🟢 **The queue column isn't resizable.** Fixed at 380px; Linear's appears
+      to be draggable (not verified — dragging it would change the user's
+      stored layout). (S)
+- [ ] 🟢 **Our triage URL shape differs from Linear's.** Linear keeps the pane
+      on `/issue/:id/:slug`; ours nests at `/team/:key/triage/:identifier`.
+      Deliberate — see PROGRESS.md — but it is a difference. (S)
+- [ ] 🟡 **The sidebar never collapses, so every route loses 240px at a narrow
+      viewport.** `w-60 shrink-0`, no breakpoint. Nothing overflows the
+      document, but below ~900px the content column is unusable on *every*
+      screen, not just Triage. Linear collapses the sidebar to icons. (M)
+
 ### From the `cycles` pass, second lap (`/team/:key/cycle/:ref`)
 
 Linear's `VC Squad › Cycle 14` was read-only: the breadcrumb switcher, the

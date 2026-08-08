@@ -1,43 +1,45 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
+  Ban,
+  CalendarDays,
   Check,
   ChevronDown,
   ChevronRight,
   Clock,
+  Copy,
+  Filter,
   Inbox,
-  IterationCw,
-  MoreHorizontal,
   SlidersHorizontal,
   X,
   Zap,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
-import { cycleState } from '@/lib/selectors'
-import { formatDate, timeAgo } from '@/lib/utils'
-import { ViewHeader } from '@/components/ViewHeader'
+import { cn, formatDate, timeAgo } from '@/lib/utils'
 import { EmptyState, CheckIllustration } from '@/components/EmptyState'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PriorityIcon } from '@/components/PriorityIcon'
 import { Avatar } from '@/components/Avatar'
 import { LabelDot } from '@/components/LabelChip'
+import { StarButton } from '@/components/StarButton'
+import { IssueDetailBody } from '@/components/IssueDetailBody'
+import { IssueOptionsMenu } from '@/components/IssueOptionsMenu'
 import { SelectMenu } from '@/components/ui/SelectMenu'
 import type { SelectOption } from '@/components/ui/SelectMenu'
 import { Popover } from '@/components/ui/Popover'
 import { Toggle } from '@/components/ui/Toggle'
 import { TriageContextMenu } from '@/components/TriageContextMenu'
-import {
-  StatusPicker,
-  PriorityPicker,
-  AssigneePicker,
-  LabelPicker,
-} from '@/components/pickers'
-import { snoozePresets } from '@/lib/dateOptions'
+import { DatePicker } from '@/components/DatePicker'
+import { snoozePresets, stamp } from '@/lib/dateOptions'
 import { PRIORITY_LABELS, PRIORITY_ORDER, PRIORITY_SORT } from '@/lib/constants'
-import type { Priority } from '@/lib/types'
+import type { Issue, Priority } from '@/lib/types'
 
 const chip =
   'flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover'
+
+/** The four triage actions in the detail header — Linear's plain text buttons. */
+const actionCls =
+  'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-fg'
 
 /**
  * Ordering options for the Triage queue, in Linear's Display menu wording and
@@ -52,24 +54,19 @@ const SORT_LABELS: Record<SortKey, string> = {
 }
 const SORT_ORDER: SortKey[] = ['added', 'priority', 'due']
 
+/**
+ * Triage — Linear's split pane: a narrow queue on the left, the selected issue
+ * in full on the right. The selection lives in the URL
+ * (`/team/:teamKey/triage/:identifier`) so it survives a reload and can be
+ * linked; Linear reuses its own `/issue/:id` URL for the same pane, which would
+ * mean the issue route rendering the triage layout — see PROGRESS.md.
+ */
 export function TriageView() {
-  const { teamKey } = useParams()
+  const { teamKey, identifier } = useParams()
+  const navigate = useNavigate()
   const store = useStore()
   const fmt = useDisplayName()
   const team = store.teams.find((t) => t.key === teamKey) ?? store.teams[0]
-
-  // The team's current + upcoming cycles, in number order — the options the
-  // per-card Cycle picker offers (past cycles aren't valid triage targets).
-  const teamCycles = useMemo(
-    () =>
-      store.cycles
-        .filter((c) => c.teamId === team.id)
-        .filter(
-          (c) => cycleState(c.startsAt, c.endsAt, Date.now()).status !== 'past',
-        )
-        .sort((a, b) => a.number - b.number),
-    [store.cycles, team.id],
-  )
 
   // Local-only header controls: a priority filter ('all' or a Priority value),
   // a sort order, and Linear's `Show snoozed`. They compose — filter narrows,
@@ -118,6 +115,52 @@ export function TriageView() {
     return sorted
   }, [allQueue, priorityFilter, sort])
 
+  // ── The pane's selection ──
+  // Resolved against every issue in the team, not just the queue, so a row that
+  // has just been accepted (or one reached from "Recently accepted") still
+  // renders instead of blanking the pane. The triage actions key off
+  // `issue.triage`, so they disappear on their own once it leaves the queue.
+  const selected = useMemo(
+    () =>
+      identifier
+        ? store.issues.find(
+            (i) => i.identifier === identifier && i.teamId === team.id,
+          )
+        : undefined,
+    [store.issues, identifier, team.id],
+  )
+  const cursor = selected
+    ? queue.findIndex((i) => i.id === selected.id)
+    : -1
+
+  const triageUrl = (i?: Issue) =>
+    i ? `/team/${team.key}/triage/${i.identifier}` : `/team/${team.key}/triage`
+  /** Move the pane. Keyboard moves replace, so j/k doesn't fill the history. */
+  const select = (i?: Issue, replace = false) =>
+    navigate(triageUrl(i), { replace })
+
+  /**
+   * Where the pane should land once `id` leaves the queue — the next row at the
+   * same slot, or the previous one at the end. Read *before* the mutation, so
+   * the row is still in the queue when we look it up.
+   */
+  const nextAfter = (id: string) => {
+    const idx = queue.findIndex((i) => i.id === id)
+    if (idx === -1) return undefined
+    return queue[idx + 1] ?? queue[idx - 1]
+  }
+
+  const accept = (id: string) => {
+    const nxt = nextAfter(id)
+    store.acceptTriage(id)
+    if (selected?.id === id) select(nxt, true)
+  }
+  const decline = (id: string) => {
+    const nxt = nextAfter(id)
+    store.declineTriage(id)
+    if (selected?.id === id) select(nxt, true)
+  }
+
   // ── Recently-accepted archive ──
   // Accepting a triage issue clears its triage flag and stamps triageAcceptedAt
   // (the moment it joined the workflow). We surface the most recent of those
@@ -146,12 +189,7 @@ export function TriageView() {
     nowMs: number
   } | null>(null)
 
-  // ── Keyboard-driven queue navigation (Linear's signature Triage workflow) ──
-  // A single "active" card is highlighted; j/k (or arrows) move it, Enter opens
-  // it, and A/D accept or decline it. Accept/decline removes the card from the
-  // queue, so the cursor stays on the same slot to land on the next one.
-  const [cursor, setCursor] = useState(0)
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([])
+  const rowRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   // ── Speedrun mode (Linear-style focused triage) ──
   // A distraction-free single-card mode: the first issue in the queue is shown
@@ -159,8 +197,6 @@ export function TriageView() {
   // to the next issue after each action. Esc exits. The queue narrows from the
   // front as you act, so we always focus queue[0].
   const [speedrun, setSpeedrun] = useState(false)
-  // The card under the speedrun spotlight — always the head of the live queue,
-  // so accepting/declining (which removes it) naturally advances to the next.
   const focusIssue = queue[0]
   // Progress: how far through the original session we are. We track the total at
   // the moment speedrun began so "3 of 12" counts down a stable denominator.
@@ -175,21 +211,15 @@ export function TriageView() {
   }, [speedrun, queue.length])
 
   // ── Bulk multi-select (Linear lets you triage several issues at once) ──
-  // A set of selected issue ids; `x` toggles the active row, and a floating
-  // action bar appears while anything is selected to Accept / Decline the whole
-  // batch in one shot. Ids that leave the queue are pruned automatically.
-  const [selected, setSelected] = useState<Set<string>>(() => new Set())
+  // A set of checked issue ids; `x` toggles the pane's row, ⌘/Ctrl-click toggles
+  // a row without moving the pane, and a floating action bar appears while
+  // anything is checked. Ids that leave the queue are pruned automatically.
+  const [checked, setChecked] = useState<Set<string>>(() => new Set())
 
-  // Keep the cursor in range as the queue shrinks (accept/decline/filter) or
-  // empties out — clamp to the last row so it never points past the end.
-  useEffect(() => {
-    setCursor((c) => (queue.length === 0 ? 0 : Math.min(c, queue.length - 1)))
-  }, [queue.length])
-
-  // Drop any selected ids that are no longer in the queue (accepted, declined,
+  // Drop any checked ids that are no longer in the queue (accepted, declined,
   // filtered out) so the action-bar count never overstates the selection.
   useEffect(() => {
-    setSelected((prev) => {
+    setChecked((prev) => {
       if (prev.size === 0) return prev
       const live = new Set(queue.map((i) => i.id))
       let changed = false
@@ -202,46 +232,53 @@ export function TriageView() {
     })
   }, [queue])
 
-  // The selected issues, in queue order, plus a tiny toggle helper.
-  const selectedIssues = useMemo(
-    () => queue.filter((i) => selected.has(i.id)),
-    [queue, selected],
+  // The checked issues, in queue order, plus a tiny toggle helper.
+  const checkedIssues = useMemo(
+    () => queue.filter((i) => checked.has(i.id)),
+    [queue, checked],
   )
-  const toggleSelected = (id: string) =>
-    setSelected((prev) => {
+  const toggleChecked = (id: string) =>
+    setChecked((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
 
-  // Accept / decline the whole current selection, then clear it.
-  const acceptSelected = () => {
-    selectedIssues.forEach((i) => store.acceptTriage(i.id))
-    setSelected(new Set())
+  // Accept / decline the whole current selection, then clear it. The pane lands
+  // on whatever survives, so it never sits on an issue that just left.
+  const acceptChecked = () => {
+    const nxt = queue.find((i) => !checked.has(i.id))
+    checkedIssues.forEach((i) => store.acceptTriage(i.id))
+    setChecked(new Set())
+    if (selected && checked.has(selected.id)) select(nxt, true)
   }
-  const declineSelected = () => {
-    selectedIssues.forEach((i) => store.declineTriage(i.id))
-    setSelected(new Set())
+  const declineChecked = () => {
+    const nxt = queue.find((i) => !checked.has(i.id))
+    checkedIssues.forEach((i) => store.declineTriage(i.id))
+    setChecked(new Set())
+    if (selected && checked.has(selected.id)) select(nxt, true)
   }
 
   // Snooze an issue out of the immediate triage focus until the given ISO time
   // (a snoozedUntil in the future hides it from active lists). Mirrors Linear's
-  // "remind me later" — the card leaves the queue, so we keep the cursor on the
-  // same slot to advance onto the next issue, and drop it from any selection.
+  // "remind me later" — the row leaves the queue, so the pane advances onto the
+  // next issue, and it drops out of any checked set.
   const snoozeIssue = (id: string, iso: string) => {
+    const nxt = nextAfter(id)
     store.setIssueSnooze(id, iso)
-    setSelected((prev) => {
+    setChecked((prev) => {
       if (!prev.has(id)) return prev
       const next = new Set(prev)
       next.delete(id)
       return next
     })
+    if (!showSnoozed && selected?.id === id) select(nxt, true)
   }
 
-  // Scroll the active card into view whenever the cursor moves.
+  // Keep the pane's row in view whenever the selection moves.
   useEffect(() => {
-    cardRefs.current[cursor]?.scrollIntoView({ block: 'nearest' })
+    if (cursor >= 0) rowRefs.current[cursor]?.scrollIntoView({ block: 'nearest' })
   }, [cursor])
 
   // Capture-phase handler so we pre-empt the global j/k/arrow shortcuts, mirror
@@ -255,7 +292,8 @@ export function TriageView() {
       return
     if (document.querySelector('[data-overlay]')) return
     if (!queue.length || e.metaKey || e.ctrlKey || e.altKey) return
-    const cur = queue[Math.min(cursor, queue.length - 1)]
+    // With nothing selected yet, j/k start at the top of the queue.
+    const cur = cursor >= 0 ? queue[cursor] : undefined
     const own = () => {
       e.preventDefault()
       e.stopImmediatePropagation()
@@ -263,41 +301,42 @@ export function TriageView() {
 
     if (e.key === 'ArrowDown' || e.key === 'j') {
       own()
-      setCursor((c) => Math.min(c + 1, queue.length - 1))
+      select(queue[Math.min(cursor + 1, queue.length - 1)] ?? queue[0], true)
       return
     }
     if (e.key === 'ArrowUp' || e.key === 'k') {
       own()
-      setCursor((c) => Math.max(c - 1, 0))
+      select(queue[Math.max(cursor - 1, 0)] ?? queue[0], true)
       return
     }
-    // Toggle the active row's selection (X), Linear's multi-select key.
+    // Toggle the pane row's checkbox (X), Linear's multi-select key.
     if (e.code === 'KeyX') {
       if (!cur) return
       own()
-      toggleSelected(cur.id)
+      toggleChecked(cur.id)
       return
     }
-    // Clear the whole selection (Escape).
-    if (e.key === 'Escape' && selected.size) {
+    // Clear the whole checked set (Escape).
+    if (e.key === 'Escape' && checked.size) {
       own()
-      setSelected(new Set())
+      setChecked(new Set())
       return
     }
-    // Open the active issue (Enter / O).
+    // Open the selected issue on its own page (Enter / O). The pane already
+    // shows it, so this is the "give it the full window" move.
     if (e.key === 'Enter' || e.code === 'KeyO') {
       if (!cur) return
       own()
-      store.setPeek(cur.id)
+      navigate(`/issue/${cur.identifier}`)
       return
     }
     // Accept — Linear binds this to `1`; `A` stays as the mnemonic this app
-    // shipped with. Acts on the whole selection when one exists, otherwise on
-    // the active card (which leaves the queue, so the cursor lands on the next).
+    // shipped with. Acts on the whole checked set when one exists, otherwise on
+    // the pane's issue (which leaves the queue, so the pane advances).
     if (e.code === 'KeyA' || e.key === '1') {
       own()
-      if (selected.size) acceptSelected()
-      else if (cur) store.acceptTriage(cur.id)
+      if (checked.size) acceptChecked()
+      else if (cur) accept(cur.id)
       return
     }
     // Decline — `2` in Linear; `D` / ⌫ keep working. Same selection awareness.
@@ -308,13 +347,13 @@ export function TriageView() {
       e.key === 'Delete'
     ) {
       own()
-      if (selected.size) declineSelected()
-      else if (cur) store.declineTriage(cur.id)
+      if (checked.size) declineChecked()
+      else if (cur) decline(cur.id)
       return
     }
-    // Mark as duplicate (`3`) — opens the relation picker on the active card.
+    // Mark as duplicate (`3`) — opens the relation picker on the pane's issue.
     // Bulk has no meaning here (a duplicate points at one issue), so this one
-    // always acts on the cursor.
+    // always acts on the selection.
     if (e.key === '3') {
       if (!cur) return
       own()
@@ -322,15 +361,15 @@ export function TriageView() {
       return
     }
     // Snooze (H) — push the issue out of triage focus until tomorrow (Linear's
-    // default snooze). Acts on the whole selection when one exists, else the
-    // active card, which leaves the queue so the cursor lands on the next one.
+    // default snooze). Acts on the whole checked set when one exists, else the
+    // pane's issue, which leaves the queue so the pane advances.
     if (e.code === 'KeyH') {
       own()
       // presets[1] is `Tomorrow` — Linear's default when H is pressed bare.
       const iso = snoozePresets()[1].at.toISOString()
-      if (selected.size) {
-        selectedIssues.forEach((i) => snoozeIssue(i.id, iso))
-        setSelected(new Set())
+      if (checked.size) {
+        checkedIssues.forEach((i) => snoozeIssue(i.id, iso))
+        setChecked(new Set())
       } else if (cur) {
         snoozeIssue(cur.id, iso)
       }
@@ -368,12 +407,12 @@ export function TriageView() {
     if (!focusIssue) return
     if (e.code === 'KeyA') {
       own()
-      store.acceptTriage(focusIssue.id)
+      accept(focusIssue.id)
       return
     }
     if (e.code === 'KeyD' || e.code === 'KeyX') {
       own()
-      store.declineTriage(focusIssue.id)
+      decline(focusIssue.id)
       return
     }
   }
@@ -408,127 +447,191 @@ export function TriageView() {
     [sort],
   )
 
-  // Label for the priority-filter trigger chip.
-  const priorityFilterLabel =
-    priorityFilter === 'all'
-      ? 'All priorities'
-      : PRIORITY_LABELS[Number(priorityFilter) as Priority]
+  // Snooze presets for the header's `Snooze` button. They are clock-relative,
+  // so — as in TriageContextMenu — the clock is read in the handler that opens
+  // the menu, never during render, and each row carries the moment it lands on
+  // ("Tomorrow · Sat, 9 Aug, 9:00") exactly as Linear does.
+  const [snoozeOptions, setSnoozeOptions] = useState<SelectOption[]>([])
+  const stampSnoozeOptions = () => {
+    const now = Date.now()
+    // `Next cycle` — the team's next cycle that hasn't started yet, matching
+    // the row TriageContextMenu already offers.
+    const nextCycle = store.cycles
+      .filter(
+        (c) => c.teamId === team.id && new Date(c.startsAt).getTime() > now,
+      )
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0]
+    setSnoozeOptions([
+      ...snoozePresets().map((p) => ({
+        id: p.at.toISOString(),
+        label: p.label,
+        hint: stamp(p.at),
+      })),
+      ...(nextCycle
+        ? [
+            {
+              id: new Date(nextCycle.startsAt).toISOString(),
+              label: 'Next cycle',
+              hint: stamp(new Date(nextCycle.startsAt)),
+            },
+          ]
+        : []),
+    ])
+  }
+
+  /** Click a queue row: ⌘/Ctrl toggles the checkbox, a plain click moves the pane. */
+  const onRowClick = (e: React.MouseEvent, issue: Issue) => {
+    if (e.metaKey || e.ctrlKey) {
+      toggleChecked(issue.id)
+      return
+    }
+    select(issue)
+  }
+
+  const showList = !selected
+  const queueEmpty = queue.length === 0
 
   return (
-    <div className="relative flex h-full flex-col">
-      <ViewHeader title="Triage" teamName={team.name} teamIcon={team.icon}>
-        {/* ViewHeader's slot is a plain block, so the count and the controls
-            need their own row — otherwise the count wraps above them and the
-            44px-tall header clips it. */}
-        <div className="flex items-center gap-2">
-        <span className="text-[12px] tabular-nums text-faint">
-          {allQueue.length}
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          {/* Speedrun and the priority filter only mean something with a queue
-              to work through. Display options stays — it holds `Show snoozed`,
-              and hiding it when everything is snoozed would strand you. */}
-          {queue.length > 0 && (
-            <button
-              onClick={enterSpeedrun}
-              className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg"
-            >
-              <Zap size={13} className="shrink-0 text-faint" />
-              Speedrun
-            </button>
-          )}
-          {allQueue.length > 0 && (
+    <div className="relative flex h-full">
+      {/* ── Queue column ──
+          Fixed-width beside the pane on a wide window; below `lg` the two swap
+          places (master → detail) so nothing has to scroll sideways. */}
+      <div
+        className={cn(
+          'relative w-full flex-col border-r border-border lg:flex lg:w-[380px] lg:shrink-0',
+          showList ? 'flex' : 'hidden',
+        )}
+      >
+        <header className="flex h-11 shrink-0 items-center gap-1.5 border-b border-border px-4">
+          {/* Linear drops the team crumb here — the sidebar row already says
+              which team's triage this is, and the column is 380px wide. */}
+          <span className="shrink-0">{team.icon}</span>
+          <span className="text-[13px] font-medium text-fg">Triage</span>
+          <span className="text-[12px] tabular-nums text-faint">
+            {allQueue.length}
+          </span>
+          {/* Linear stars the *queue*, not the team — a `triage` favorite,
+              keyed by team id, so the sidebar row lands back on this screen. */}
+          <StarButton type="triage" id={team.id} size={13} />
+          <div className="ml-auto flex items-center gap-1">
+            {/* Speedrun only means something with a queue to work through.
+                Display options stays — it holds `Show snoozed`, and hiding it
+                when everything is snoozed would strand you. */}
+            {queue.length > 0 && (
+              <button
+                onClick={enterSpeedrun}
+                aria-label="Speedrun"
+                title="Speedrun"
+                className="flex size-[26px] items-center justify-center rounded-md text-muted hover:bg-bg-hover hover:text-fg"
+              >
+                <Zap size={14} />
+              </button>
+            )}
+            {/* Linear's `Add filter`; ours filters on priority only, so far. */}
             <SelectMenu
               width={200}
               align="end"
+              label="Add filter"
               options={priorityOptions}
               onSelect={setPriorityFilter}
               placeholder="Filter by priority…"
               trigger={
-                <span className="flex items-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1 text-[12px] text-muted hover:text-fg">
-                  <span className="max-w-[120px] truncate">{priorityFilterLabel}</span>
-                  <ChevronDown size={13} className="shrink-0 text-faint" />
+                <span className="flex size-[26px] items-center justify-center rounded-md text-muted hover:bg-bg-hover hover:text-fg">
+                  <Filter size={14} />
                 </span>
               }
             />
-          )}
-          {/* Display options — Linear's icon-only trigger, holding `Ordering`
-              and the `Show snoozed` switch in that order. */}
-          <Popover align="end" width={268} label="Display options"
-            trigger={
-              <span className="flex size-[26px] items-center justify-center rounded-md border border-border bg-bg-tertiary text-muted hover:text-fg">
-                <SlidersHorizontal size={13} />
-              </span>
-            }
-          >
-            {() => (
-              <div className="px-1 py-0.5">
-                <div className="flex items-center justify-between gap-2 py-1.5">
-                  <span className="text-[13px] text-fg">Ordering</span>
-                  <SelectMenu
-                    width={190}
-                    align="end"
-                    options={sortOptions}
-                    onSelect={(id) => setSort(id as SortKey)}
-                    placeholder="Order by…"
-                    trigger={
-                      <span className="flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg">
-                        {SORT_LABELS[sort]}
-                        <ChevronDown size={12} className="shrink-0 text-faint" />
-                      </span>
-                    }
-                  />
+            <Popover
+              align="end"
+              width={268}
+              label="Display options"
+              trigger={
+                <span className="flex size-[26px] items-center justify-center rounded-md text-muted hover:bg-bg-hover hover:text-fg">
+                  <SlidersHorizontal size={14} />
+                </span>
+              }
+            >
+              {() => (
+                <div className="px-1 py-0.5">
+                  <div className="flex items-center justify-between gap-2 py-1.5">
+                    <span className="text-[13px] text-fg">Ordering</span>
+                    <SelectMenu
+                      width={190}
+                      align="end"
+                      options={sortOptions}
+                      onSelect={(id) => setSort(id as SortKey)}
+                      placeholder="Order by…"
+                      trigger={
+                        <span className="flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg">
+                          {SORT_LABELS[sort]}
+                          <ChevronDown size={12} className="shrink-0 text-faint" />
+                        </span>
+                      }
+                    />
+                  </div>
+                  <div className="my-1 h-px bg-border" />
+                  <div className="flex items-center justify-between gap-2 py-1.5">
+                    <span className="text-[13px] text-fg">Show snoozed</span>
+                    <Toggle
+                      size="sm"
+                      checked={showSnoozed}
+                      onChange={setShowSnoozed}
+                      aria-label="Show snoozed"
+                    />
+                  </div>
                 </div>
-                <div className="my-1 h-px bg-border" />
-                <div className="flex items-center justify-between gap-2 py-1.5">
-                  <span className="text-[13px] text-fg">Show snoozed</span>
-                  <Toggle
-                    size="sm"
-                    checked={showSnoozed}
-                    onChange={setShowSnoozed}
-                    aria-label="Show snoozed"
-                  />
-                </div>
-              </div>
-            )}
-          </Popover>
-        </div>
-        </div>
-      </ViewHeader>
-      <div className="flex-1 overflow-y-auto p-4">
-        {allQueue.length === 0 ? (
-          <EmptyState
-            illustration={<CheckIllustration />}
-            title="Triage is clear"
-            description="New issues that need triage will show up here. Nothing to review right now."
-          />
-        ) : queue.length === 0 ? (
-          <EmptyState
-            illustration={<CheckIllustration />}
-            title="No matching issues"
-            description="No issues in this triage queue match the selected priority."
-          />
-        ) : (
-          <div className="mx-auto max-w-3xl space-y-3">
-            {queue.map((issue, i) => {
-              const state = store.states.find((s) => s.id === issue.stateId)!
-              const assignee = store.users.find((u) => u.id === issue.assigneeId)
-              const labels = issue.labelIds
-                .map((id) => store.labels.find((l) => l.id === id))
-                .filter(Boolean)
-              const cycle = store.cycles.find((c) => c.id === issue.cycleId)
-              const active = i === cursor
-              const isSelected = selected.has(issue.id)
+              )}
+            </Popover>
+          </div>
+        </header>
+
+        {/* Active-filter bar — Linear's chip row under the header. Only rendered
+            while something is actually filtering the queue. */}
+        {priorityFilter !== 'all' && (
+          <div className="flex shrink-0 items-center gap-1.5 border-b border-border px-3 py-1.5">
+            <span className="flex items-center gap-1.5 rounded-md border border-border bg-bg-tertiary py-0.5 pl-1.5 pr-1 text-[12px] text-muted">
+              <PriorityIcon priority={Number(priorityFilter) as Priority} />
+              Priority is {PRIORITY_LABELS[Number(priorityFilter) as Priority]}
+              <button
+                onClick={() => setPriorityFilter('all')}
+                aria-label="Remove filter"
+                className="rounded p-0.5 hover:bg-bg-hover hover:text-fg"
+              >
+                <X size={11} />
+              </button>
+            </span>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto">
+          {queueEmpty ? (
+            <EmptyState
+              className="py-16"
+              illustration={<CheckIllustration />}
+              title={allQueue.length === 0 ? 'Triage is clear' : 'No matching issues'}
+              description={
+                allQueue.length === 0
+                  ? 'New issues that need triage will show up here.'
+                  : 'No issues in this queue match the filter.'
+              }
+            />
+          ) : (
+            queue.map((issue, i) => {
+              // Linear's row shows who filed it, not who it's assigned to —
+              // triage is about the incoming report.
+              const requester = store.users.find((u) => u.id === issue.creatorId)
+              const isSelected = selected?.id === issue.id
+              const isChecked = checked.has(issue.id)
               return (
-                <div
+                <button
                   key={issue.id}
                   ref={(el) => {
-                    cardRefs.current[i] = el
+                    rowRefs.current[i] = el
                   }}
-                  onMouseDown={() => setCursor(i)}
+                  onClick={(e) => onRowClick(e, issue)}
                   onContextMenu={(e) => {
                     e.preventDefault()
-                    setCursor(i)
+                    select(issue)
                     setMenu({
                       id: issue.id,
                       x: e.clientX,
@@ -536,259 +639,242 @@ export function TriageView() {
                       nowMs: Date.now(),
                     })
                   }}
-                  className={`group rounded-xl border bg-bg-secondary p-4 transition-colors ${
-                    isSelected
-                      ? 'border-accent ring-1 ring-accent bg-accent/5'
-                      : active
-                        ? 'border-accent ring-1 ring-accent'
-                        : 'border-border'
-                  }`}
+                  className={cn(
+                    'flex w-full flex-col gap-1 border-b border-border px-3 py-2.5 text-left',
+                    isChecked
+                      ? 'bg-accent/10'
+                      : isSelected
+                        ? 'bg-bg-tertiary'
+                        : 'hover:bg-bg-hover',
+                  )}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    {/* Selection checkbox — appears on hover, or whenever this
-                        card (or any card) is selected, mirroring Linear. */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleSelected(issue.id)
-                      }}
-                      aria-label={isSelected ? 'Deselect issue' : 'Select issue'}
-                      className={`mt-0.5 flex size-[16px] shrink-0 items-center justify-center rounded border transition-colors ${
-                        isSelected
-                          ? 'border-accent bg-accent text-white'
-                          : 'border-border text-transparent hover:border-faint group-hover:opacity-100 ' +
-                            (selected.size ? 'opacity-100' : 'opacity-0')
-                      }`}
-                    >
-                      <Check size={11} strokeWidth={3} />
-                    </button>
-                    <button
-                      onClick={() => store.setPeek(issue.id)}
-                      className="flex-1 text-left"
-                    >
-                      {/* `shrink-0` on everything but the title: without it the
-                          identifier and the snooze badge get squeezed and break
-                          mid-word, while the title is the one thing that should
-                          wrap. */}
-                      <div className="flex items-center gap-2">
-                        <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-faint">
-                          {issue.identifier}
-                        </span>
-                        <span className="text-[14px] font-medium text-fg">{issue.title}</span>
-                        {/* Only reachable with `Show snoozed` on, and then it's
-                            the one thing that tells these rows apart. */}
-                        {snoozedIds.has(issue.id) && (
-                          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-border px-1.5 py-px text-[11px] text-faint">
-                            <Clock size={11} />
-                            {formatDate(issue.snoozedUntil!)}
-                          </span>
-                        )}
-                      </div>
-                      {issue.description && (
-                        <p className="mt-1 line-clamp-2 text-[12px] text-muted">
-                          {issue.description}
-                        </p>
-                      )}
-                    </button>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <button
-                        onClick={() => store.acceptTriage(issue.id)}
-                        className="flex items-center gap-1 rounded-md bg-[var(--status-review)] px-2.5 py-1.5 text-[12px] font-medium text-white hover:opacity-90"
-                      >
-                        <Check size={13} /> Accept
-                      </button>
-                      <button
-                        onClick={() => store.declineTriage(issue.id)}
-                        className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[12px] text-muted hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
-                      >
-                        <X size={13} /> Decline
-                      </button>
-                      {/* Overflow "…" — the same menu a right-click opens, so
-                          the two can't drift apart. Anchored under the button
-                          rather than at the pointer. */}
-                      <button
-                        aria-label="More triage actions"
-                        onClick={(e) => {
-                          const r = e.currentTarget.getBoundingClientRect()
-                          setMenu({
-                            id: issue.id,
-                            x: r.left,
-                            y: r.bottom + 4,
-                            nowMs: Date.now(),
-                          })
-                        }}
-                        className="flex size-[28px] items-center justify-center rounded-md border border-border text-muted hover:bg-bg-hover hover:text-fg"
-                      >
-                        <MoreHorizontal size={14} />
-                      </button>
-                    </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="min-w-0 flex-1 truncate text-[13px] text-fg">
+                      {issue.title}
+                    </span>
+                    <span className="shrink-0 font-mono text-[11px] text-faint">
+                      {issue.identifier}
+                    </span>
                   </div>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    <StatusPicker
-                      stateId={issue.stateId}
-                      onChange={(id) => store.setIssueStatus(issue.id, id)}
-                      trigger={
-                        <span className={chip}>
-                          <StatusIcon type={state.type} color={state.color} />
-                          {state.name}
-                        </span>
-                      }
-                    />
-                    <PriorityPicker
-                      priority={issue.priority}
-                      onChange={(p) => store.setIssuePriority(issue.id, p)}
-                      trigger={
-                        <span className={chip}>
-                          <PriorityIcon priority={issue.priority} />
-                          {PRIORITY_LABELS[issue.priority]}
-                        </span>
-                      }
-                    />
-                    <AssigneePicker
-                      assigneeId={issue.assigneeId}
-                      onChange={(id) => store.setIssueAssignee(issue.id, id)}
-                      trigger={
-                        <span className={chip}>
-                          <Avatar user={assignee} size={16} />
-                          {assignee ? fmt(assignee.name) : 'Assignee'}
-                        </span>
-                      }
-                    />
-                    <LabelPicker
-                      labelIds={issue.labelIds}
-                      onToggle={(id) => store.toggleIssueLabel(issue.id, id)}
-                      trigger={
-                        <span className={chip}>
-                          {labels.length ? (
-                            <>
-                              {labels.slice(0, 3).map((l) => (
-                                <LabelDot key={l!.id} color={l!.color} />
-                              ))}
-                              {labels.length} label{labels.length > 1 ? 's' : ''}
-                            </>
-                          ) : (
-                            'Label'
-                          )}
-                        </span>
-                      }
-                    />
-                    {/* Cycle — only offered when the team runs cycles. Lists the
-                        team's current + upcoming cycles plus "No cycle". */}
-                    {teamCycles.length > 0 && (
-                      <SelectMenu
-                        width={220}
-                        options={[
-                          { id: '__none', label: 'No cycle', selected: !issue.cycleId },
-                          ...teamCycles.map((c) => {
-                            const cs = cycleState(c.startsAt, c.endsAt, Date.now())
-                            return {
-                              id: c.id,
-                              label: c.name ?? `Cycle ${c.number}`,
-                              keywords: String(c.number),
-                              hint: cs.status === 'active' ? 'Active' : 'Upcoming',
-                              selected: issue.cycleId === c.id,
-                            }
-                          }),
-                        ]}
-                        onSelect={(id) =>
-                          store.setIssueCycle(
-                            issue.id,
-                            id === '__none' ? undefined : id,
-                          )
-                        }
-                        trigger={
-                          <span className={chip}>
-                            <IterationCw size={13} className="text-faint" />
-                            {cycle ? (cycle.name ?? `Cycle ${cycle.number}`) : 'No cycle'}
-                          </span>
-                        }
-                      />
+                  <div className="flex items-center gap-1.5">
+                    <Avatar user={requester} size={14} />
+                    <span className="min-w-0 flex-1 truncate text-[11px] text-muted">
+                      {requester?.email ?? 'Unknown'}
+                    </span>
+                    {/* Only reachable with `Show snoozed` on, and then it's the
+                        one thing that tells these rows apart. */}
+                    {snoozedIds.has(issue.id) && (
+                      <span
+                        title={`Snoozed until ${formatDate(issue.snoozedUntil!)}`}
+                        className="shrink-0 text-faint"
+                      >
+                        <Clock size={11} />
+                      </span>
                     )}
+                    {issue.priority > 0 && (
+                      <span className="shrink-0">
+                        <PriorityIcon priority={issue.priority} />
+                      </span>
+                    )}
+                    <span className="shrink-0 text-[11px] text-faint">
+                      {timeAgo(issue.createdAt)} ago
+                    </span>
                   </div>
-                </div>
+                </button>
               )
-            })}
-            {/* Keyboard hints — the active card responds to these. */}
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-1 text-[11px] text-faint">
-              <span>
-                <Kbd>J</Kbd> <Kbd>K</Kbd> navigate
+            })
+          )}
+
+          {/* Recently-accepted archive — a collapsible reference list of issues
+              that recently left triage by being accepted into the workflow.
+              Newest first, capped; clicking one shows it in the pane. */}
+          {recentlyAccepted.length > 0 && (
+            <div className="px-3 py-3">
+              <button
+                onClick={() => setArchiveOpen((o) => !o)}
+                className="flex w-full items-center gap-1.5 text-[12px] font-medium text-muted hover:text-fg"
+              >
+                <ChevronRight
+                  size={14}
+                  className={cn(
+                    'shrink-0 text-faint transition-transform',
+                    archiveOpen && 'rotate-90',
+                  )}
+                />
+                <Inbox size={13} className="shrink-0 text-faint" />
+                Recently accepted
+                <span className="tabular-nums text-faint">
+                  {recentlyAccepted.length}
+                </span>
+              </button>
+              {archiveOpen && (
+                <div className="mt-2 overflow-hidden rounded-lg border border-border">
+                  {recentlyAccepted.map((issue) => {
+                    const state = store.states.find((s) => s.id === issue.stateId)
+                    return (
+                      <button
+                        key={issue.id}
+                        onClick={() => select(issue)}
+                        className="flex w-full items-center gap-2 border-b border-border px-2 py-1.5 text-left last:border-b-0 hover:bg-bg-hover"
+                      >
+                        {state && (
+                          <StatusIcon type={state.type} color={state.color} />
+                        )}
+                        <span className="min-w-0 flex-1 truncate text-[12px] text-fg">
+                          {issue.title}
+                        </span>
+                        <span className="shrink-0 text-[11px] text-faint">
+                          {timeAgo(issue.triageAcceptedAt!)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Floating bulk-action bar — over the queue column, where the checked
+            rows are. Accept / Decline apply to the whole batch. */}
+        {checkedIssues.length > 0 && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center">
+            <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-border bg-bg-secondary px-2 py-1.5 shadow-lg">
+              <span className="px-1 text-[12px] tabular-nums text-muted">
+                {checkedIssues.length} selected
               </span>
-              <span>
-                <Kbd>1</Kbd> accept
-              </span>
-              <span>
-                <Kbd>2</Kbd> decline
-              </span>
-              <span>
-                <Kbd>3</Kbd> duplicate
-              </span>
-              <span>
-                <Kbd>X</Kbd> select
-              </span>
-              <span>
-                <Kbd>H</Kbd> snooze
-              </span>
-              <span>
-                <Kbd>↵</Kbd> open
-              </span>
+              <span className="h-4 w-px bg-border" />
+              <button
+                onClick={acceptChecked}
+                className="flex items-center gap-1 rounded-md bg-[var(--status-review)] px-2 py-1 text-[12px] font-medium text-white hover:opacity-90"
+              >
+                <Check size={13} /> Accept
+              </button>
+              <button
+                onClick={declineChecked}
+                className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
+              >
+                <X size={13} /> Decline
+              </button>
+              <button
+                onClick={() => setChecked(new Set())}
+                className="rounded-md px-1.5 py-1 text-[12px] text-faint hover:bg-bg-hover hover:text-fg"
+              >
+                Clear
+              </button>
             </div>
           </div>
         )}
+      </div>
 
-        {/* Recently-accepted archive — a collapsible reference list of issues
-            that recently left triage by being accepted into the workflow.
-            Newest first, capped; reuses StatusIcon / Avatar / timeAgo. */}
-        {recentlyAccepted.length > 0 && (
-          <div className="mx-auto mt-8 max-w-3xl">
-            <button
-              onClick={() => setArchiveOpen((o) => !o)}
-              className="flex w-full items-center gap-1.5 text-[12px] font-medium text-muted hover:text-fg"
-            >
-              <ChevronRight
-                size={14}
-                className={`shrink-0 text-faint transition-transform ${
-                  archiveOpen ? 'rotate-90' : ''
-                }`}
-              />
-              <Inbox size={13} className="shrink-0 text-faint" />
-              Recently accepted
-              <span className="tabular-nums text-faint">
-                {recentlyAccepted.length}
+      {/* ── Detail pane ── */}
+      <div
+        className={cn(
+          'min-w-0 flex-1 flex-col lg:flex',
+          selected ? 'flex' : 'hidden',
+        )}
+      >
+        {selected ? (
+          <>
+            <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-4 text-[13px]">
+              {/* Back to the bare queue — the only way out of the pane below
+                  `lg`, where the two columns swap rather than sit side by side. */}
+              <button
+                onClick={() => select(undefined)}
+                aria-label="Back to triage queue"
+                className="-ml-1 flex size-[26px] shrink-0 items-center justify-center rounded-md text-muted hover:bg-bg-hover hover:text-fg lg:hidden"
+              >
+                <ChevronRight size={15} className="rotate-180" />
+              </button>
+              <span className="shrink-0 font-mono text-faint">
+                {selected.identifier}
               </span>
-            </button>
-            {archiveOpen && (
-              <div className="mt-2 overflow-hidden rounded-lg border border-border bg-bg-secondary">
-                {recentlyAccepted.map((issue) => {
-                  const state = store.states.find((s) => s.id === issue.stateId)
-                  const assignee = store.users.find(
-                    (u) => u.id === issue.assigneeId,
-                  )
-                  return (
-                    <button
-                      key={issue.id}
-                      onClick={() => store.setPeek(issue.id)}
-                      className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-bg-hover"
-                    >
-                      {state && (
-                        <StatusIcon type={state.type} color={state.color} />
-                      )}
-                      <span className="font-mono text-[11px] text-faint">
-                        {issue.identifier}
+              <span className="min-w-0 truncate text-fg">{selected.title}</span>
+              <StarButton type="issue" id={selected.id} />
+              <IssueOptionsMenu
+                issue={selected}
+                onOpenIssue={(id) => navigate(`/issue/${id}`)}
+                onDeleted={() => select(nextAfter(selected.id), true)}
+              />
+              <div className="flex-1" />
+              {/* Linear's four triage actions, in its order and wording. They
+                  vanish once the issue leaves the queue — which is exactly what
+                  happens the moment you press one. */}
+              {selected.triage && (
+                <>
+                  <button
+                    onClick={() => accept(selected.id)}
+                    aria-label="Accept issue from triage"
+                    className={actionCls}
+                  >
+                    <Check size={13} /> Accept
+                  </button>
+                  <button
+                    onClick={() => decline(selected.id)}
+                    aria-label="Decline triage issue"
+                    className={actionCls}
+                  >
+                    <Ban size={13} /> Decline
+                  </button>
+                  <button
+                    onClick={() =>
+                      store.openRelationPicker(selected.id, 'duplicateOf')
+                    }
+                    aria-label="Mark triage issue as duplicate"
+                    className={actionCls}
+                  >
+                    <Copy size={13} /> Mark as duplicate
+                  </button>
+                  <SelectMenu
+                    width={280}
+                    align="end"
+                    label="Snooze triage issue"
+                    options={snoozeOptions}
+                    onSelect={(iso) => snoozeIssue(selected.id, iso)}
+                    placeholder="Snooze until…"
+                    // Linear's last snooze row is a free date — a SelectMenu
+                    // can't hold a calendar, so it rides in the footer.
+                    footer={
+                      <DatePicker
+                        align="start"
+                        onChange={(iso) => {
+                          if (iso) snoozeIssue(selected.id, iso)
+                        }}
+                        trigger={
+                          <span className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover">
+                            <CalendarDays size={14} className="text-faint" />
+                            Custom…
+                          </span>
+                        }
+                      />
+                    }
+                    trigger={
+                      <span onMouseDown={stampSnoozeOptions} className={actionCls}>
+                        <Clock size={13} /> Snooze
                       </span>
-                      <span className="flex-1 truncate text-[13px] text-fg">
-                        {issue.title}
-                      </span>
-                      <span className="shrink-0 text-[11px] text-faint">
-                        accepted {timeAgo(issue.triageAcceptedAt!)}
-                      </span>
-                      <Avatar user={assignee} size={16} />
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+                    }
+                  />
+                </>
+              )}
+            </header>
+            <IssueDetailBody
+              issue={selected}
+              onOpenIssue={(id) => navigate(`/issue/${id}`)}
+            />
+          </>
+        ) : (
+          // Linear's resting state for the pane: the queue's size and the one
+          // thing you can do without picking a row.
+          <EmptyState
+            illustration={<CheckIllustration />}
+            title={`${allQueue.length} issue${allQueue.length === 1 ? '' : 's'} to triage`}
+            action={{
+              label: 'Create triage issue',
+              onClick: () =>
+                store.openCreateWith({ teamId: team.id, triage: true }),
+            }}
+            hint="J K navigate · 1 accept · 2 decline · 3 duplicate · X select · H snooze"
+          />
         )}
       </div>
 
@@ -801,37 +887,6 @@ export function TriageView() {
           nowMs={menu.nowMs}
           onClose={() => setMenu(null)}
         />
-      )}
-
-      {/* Floating bulk-action bar — shown only while a selection is active.
-          Accept / Decline apply to the whole batch; the count mirrors Linear. */}
-      {selectedIssues.length > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center">
-          <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-border bg-bg-secondary px-2 py-1.5 shadow-lg">
-            <span className="px-1.5 text-[12px] tabular-nums text-muted">
-              {selectedIssues.length} selected
-            </span>
-            <span className="h-4 w-px bg-border" />
-            <button
-              onClick={acceptSelected}
-              className="flex items-center gap-1 rounded-md bg-[var(--status-review)] px-2.5 py-1 text-[12px] font-medium text-white hover:opacity-90"
-            >
-              <Check size={13} /> Accept
-            </button>
-            <button
-              onClick={declineSelected}
-              className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[12px] text-muted hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
-            >
-              <X size={13} /> Decline
-            </button>
-            <button
-              onClick={() => setSelected(new Set())}
-              className="rounded-md px-2 py-1 text-[12px] text-faint hover:bg-bg-hover hover:text-fg"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
       )}
 
       {/* Speedrun overlay — a focused, single-card spotlight. The first issue in
@@ -929,13 +984,13 @@ export function TriageView() {
           {/* Big on-screen key hints + clickable fallbacks. */}
           <div className="flex items-center justify-center gap-3 px-6 pb-10">
             <button
-              onClick={() => store.acceptTriage(focusIssue.id)}
+              onClick={() => accept(focusIssue.id)}
               className="flex items-center gap-2 rounded-lg bg-[var(--status-review)] px-4 py-2.5 text-[14px] font-medium text-white hover:opacity-90"
             >
               <Check size={16} /> Accept <Kbd>A</Kbd>
             </button>
             <button
-              onClick={() => store.declineTriage(focusIssue.id)}
+              onClick={() => decline(focusIssue.id)}
               className="flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-[14px] text-muted hover:bg-bg-hover hover:text-[var(--priority-urgent)]"
             >
               <X size={16} /> Decline <Kbd>D</Kbd>
@@ -947,7 +1002,7 @@ export function TriageView() {
   )
 }
 
-/** Small inline keycap used by the Triage keyboard-hint footer. */
+/** Small inline keycap used by the Speedrun overlay. */
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
     <kbd className="rounded border border-border bg-bg-tertiary px-1 font-mono text-[10px] text-muted">

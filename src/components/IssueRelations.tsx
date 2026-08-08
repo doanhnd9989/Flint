@@ -169,7 +169,9 @@ export function IssueRelations({
 
   return (
     <div className="mt-6">
-      <div className="mb-2 flex items-center justify-between">
+      {/* Wraps rather than overflows: the four "add" chips don't fit beside the
+          heading in a narrow column (Triage's pane, the peek panel). */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-y-1">
         <button
           onClick={() => setCollapsed((c) => !c)}
           className="flex items-center gap-1 rounded px-0.5 text-[12px] font-medium text-faint hover:text-fg"
@@ -178,7 +180,7 @@ export function IssueRelations({
           Relations
           {total > 0 && <span className="text-faint">· {total}</span>}
         </button>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           {ADD_KINDS.map((k) => (
             <SelectMenu
               key={k.label}

@@ -5229,3 +5229,78 @@ Harness note, again: deleting `CycleBurndown.tsx` left `Failed to reload
 in the console buffer, surviving a full navigation and reading exactly like a
 live break. The page rendered every control the whole time — the give-away is
 that a genuine `is not defined` would have blanked the panel it was in.
+
+## 2026-08-08 — `triage-and-intake`, second lap: Triage was the wrong shape
+
+**Red on arrival:** nothing. `tsc -b` clean, both servers up, the 37-route sweep
+console-clean before I touched anything. Lint 108, all in families already
+recorded. So the whole run went into the parity gap.
+
+**The gap.** Linear's Triage is a **split pane** — a ~400px queue on the left,
+the entire issue on the right, with `Accept · Decline · Mark as duplicate ·
+Snooze` in the detail header. Ours was a column of full-width cards with Accept
+and Decline on each card and the issue's properties reduced to five chips. The
+previous lap had logged this three separate times (🔴 ×3) without closing it,
+because each symptom reads as its own small position bug. It isn't: it's one
+structural difference, and the fixes only make sense together.
+
+Rebuilt `TriageView` as the split pane. The selection lives in the URL
+(`/team/:key/triage/:identifier`, a new route) so it survives a reload and can
+be linked. The right pane is `IssueDetailBody` — the same component the issue
+page and the peek panel use — so the property rail is the real one (Status /
+Priority / Assignee / Estimate / Cycle, then Labels, then Project: Linear's
+section order), not five chips.
+
+**Deliberately different, and why.** Linear puts the selection on its own
+`/issue/:id/:slug` URL and keeps the triage pane beside it — the issue route
+renders the triage layout when you arrived from triage. Reproducing that means
+the issue route carrying hidden state about where you came from; a nested route
+is linkable, honest and can't get stuck. `Speedrun` stays (ours only) but is now
+an icon in the header rather than a labelled button, because a 380px column has
+room for three icons and not for three buttons. The bulk-action bar stays and
+now floats over the queue column, where the checked rows actually are.
+
+**Three real bugs the pane exposed, all fixed.** None of them were visible while
+the issue only ever rendered at full width:
+
+1. `IssueDetailBody`'s scroll column had no `min-w-0`, so a flex child refused
+   to shrink below its content and pushed the whole column past the pane —
+   25px of genuine horizontal overflow, the thing this audit checks for on
+   every route.
+2. Three header rows (`Sub-issues`, `Relations`, `Activity`) were
+   `flex justify-between` with no wrap. At `--font-scale: 1.25` the Activity
+   row still overflowed after the first fix, because its *inner* group needed
+   to wrap too. Caught only by re-running the overflow check at 1.25 — the
+   default scale was already clean.
+3. The issue title was an `<input>`. A long title scrolled out of sight instead
+   of wrapping, in the pane and in the peek panel. Now a textarea sized from
+   `scrollHeight` — measured, so it follows `--font-scale` for free rather than
+   computing a height in JS and getting clipped.
+
+**Two controls that existed but didn't mean anything.** The header ☆ had no
+counterpart — Linear's stars the *queue*, so `FavoriteType` gained `triage`
+(keyed by team id) and the sidebar routes it back to `/team/:key/triage`;
+verified star → sidebar row → un-star. And `Create triage issue` would have
+created an ordinary issue: `CreatePrefill` gained `triage`, so the new issue
+lands in the queue (verified end-to-end via ⌘Enter — `ENG-367`, `triage: true`).
+
+**Depth, chased to the leaves.** The header's new `Snooze` offers Linear's six
+rows, not the four `snoozePresets()` returns: `Next cycle` is computed from the
+team's next unstarted cycle, and `Custom…` rides in the SelectMenu footer as a
+`DatePicker`, since a select can't hold a calendar. Verified populated on CLA
+(has an upcoming cycle) and correctly absent on ENG (doesn't). The clock is read
+in the trigger's `mousedown`, never during render — the same discipline
+`TriageContextMenu` already uses, and the reason lint didn't grow a purity error.
+
+`SelectMenu` gained a `label` prop: its icon-only triggers had no accessible
+name at all, so the new filter button was literally unnamed until it did.
+
+`tsc -b ✅ · build ✅ · 39-route sweep console-clean, zero errors and no
+"Maximum update depth" · zero horizontal overflow at 1280 and 375px and at
+--font-scale 0.875 / 1 / 1.25 · light and dark re-read · lint 106, down from 108`
+
+Honest about one thing: at 375px the pane is unusable, but so is every other
+route — the sidebar is `w-60 shrink-0` and never collapses, so the content gets
+240px taken off the top regardless of screen. Verified `/issue/ENG-3` behaves
+identically at that width. Nothing overflows the document; it's an app-wide
+responsive gap, now in BACKLOG rather than pinned on this screen.

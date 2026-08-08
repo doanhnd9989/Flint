@@ -200,6 +200,9 @@ export function CreateIssueModal() {
     })
     // createIssue's input has no milestoneId field; persist it via the action.
     if (milestoneId) store.setIssueMilestone(issue.id, milestoneId)
+    // Opened from Triage's "Create triage issue" — the issue joins the queue
+    // rather than the team's active list.
+    if (store.createPrefill?.triage) store.updateIssue(issue.id, { triage: true })
     // The draft has become a real issue — drop it from Drafts.
     if (draftId) {
       store.deleteDraft(draftId)

@@ -590,6 +590,18 @@ export function Sidebar() {
         const t = teams.find((x) => x.id === f.id)
         return t ? { to: `/team/${t.key}/active`, icon: <span className="text-[13px]">{t.icon}</span>, label: t.name } : null
       }
+      if (f.type === 'triage') {
+        // Keyed by team id — Linear's triage star favorites the queue, and the
+        // row reads as the team's, since every team has one.
+        const t = teams.find((x) => x.id === f.id)
+        return t
+          ? {
+              to: `/team/${t.key}/triage`,
+              icon: <Ticket size={15} />,
+              label: `${t.name} › Triage`,
+            }
+          : null
+      }
       if (f.type === 'initiative') {
         const n = initiatives.find((x) => x.id === f.id)
         return n

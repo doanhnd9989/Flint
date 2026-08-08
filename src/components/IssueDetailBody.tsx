@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useStore, useDisplayName } from '@/lib/store'
 import type { Issue } from '@/lib/types'
 import { StatusIcon } from './StatusIcon'
@@ -121,6 +121,46 @@ const triggerCls =
  *        clicked — the page navigates, the peek re-targets itself.
  * @param compact tightens horizontal padding for the narrower peek panel.
  */
+/**
+ * The issue title. A textarea rather than an input so a long title wraps
+ * instead of scrolling out of sight — which is what it did in every column
+ * narrower than the full-page route (Triage's pane, the peek panel).
+ *
+ * The height is measured from `scrollHeight`, not computed, so it follows
+ * `--font-scale` for free.
+ */
+function IssueTitleField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      // Enter would only ever add a stray newline to a title.
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.preventDefault()
+      }}
+      className="w-full resize-none overflow-hidden bg-transparent text-[22px] font-semibold leading-snug text-fg outline-none"
+    />
+  )
+}
+
 export function IssueDetailBody({
   issue,
   onOpenIssue,
@@ -209,8 +249,10 @@ export function IssueDetailBody({
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      {/* Main content */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Main content. `min-w-0`: without it a flex child refuses to shrink
+          below its content's intrinsic width, so a wide row inside would push
+          the whole column past the pane instead of wrapping. */}
+      <div className="min-w-0 flex-1 overflow-y-auto">
         <div className={compact ? 'px-6 py-6' : 'mx-auto max-w-3xl px-10 py-8'}>
           {issue.archivedAt && (
             <div className="mb-4 flex items-center gap-2.5 rounded-md border border-border bg-bg-secondary px-3 py-2.5">
@@ -265,10 +307,9 @@ export function IssueDetailBody({
               Copy as Markdown
             </button>
           </div>
-          <input
+          <IssueTitleField
             value={issue.title}
-            onChange={(e) => store.setIssueTitle(issue.id, e.target.value)}
-            className="w-full bg-transparent text-[22px] font-semibold text-fg outline-none"
+            onChange={(v) => store.setIssueTitle(issue.id, v)}
             placeholder="Issue title"
           />
           <MarkdownEditor
@@ -294,7 +335,7 @@ export function IssueDetailBody({
 
           {/* Sub-issues */}
           <div className="mt-6">
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-y-1">
               <div className="flex items-center gap-2">
                 <span className="text-[12px] font-medium text-faint">Sub-issues</span>
                 {progress.total > 0 && (
@@ -473,8 +514,10 @@ export function IssueDetailBody({
 
           {/* Activity + comments */}
           <div className="mt-8">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-y-1">
+              {/* Wraps too: heading + segmented filter + bulk actions outgrow a
+                  narrow column on their own once --font-scale is stepped up. */}
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[12px] font-medium text-faint">Activity</span>
                 <div className="flex items-center gap-0.5 rounded-md bg-bg-secondary p-0.5">
                   {(['all', 'comments', 'updates'] as const).map((f) => (
