@@ -616,6 +616,51 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `projects-initiatives` pass, second lap (`/initiatives`)
+
+Linear's initiatives index was navigated read-only; three menus were opened and
+Escaped. Nothing was selected, toggled or submitted. The reference workspace
+holds no initiatives, so nothing below the index chrome could be observed. Full
+table in `.audit/controls/projects-initiatives.md`.
+
+- [ ] 🔴 **`Initiative` has no `priority`, `teamIds` or `labelIds`.** Linear
+      filters, groups, orders and displays initiatives by all three. Adding the
+      fields unlocks 3 grouping options, 2 ordering options, 3 display
+      properties and 3 filter dimensions at once — the single biggest lever on
+      this screen. (M)
+- [ ] 🟡 **`Initiative` has no `updatedAt` / `completedAt`.** Blocks Linear's
+      `Updated` and `Completed` display properties and its `Updated` ordering.
+      Every other model here carries timestamps; initiatives were the exception. (S)
+- [ ] 🟡 **Linear's filter menu is a dimension list with flyouts, ours is a flat
+      section list.** Ours shows every value of every dimension at once; Linear
+      shows 10 dimension rows and opens values in a flyout. Same divergence as
+      the `/projects` filter — worth fixing both with one shared component. (M)
+- [ ] 🟡 **`Creator ▸` and `Dates ▸` filter dimensions are absent.**
+      `Initiative` has `createdAt` but no `creatorId`, and no date-range filter
+      primitive exists for it. (S)
+- [ ] 🟢 **No `Set default for everyone` in the Display footer.** Linear writes
+      view defaults per workspace; there is no such record here, so only `Reset`
+      is built. (M)
+- [ ] 🟢 **No right summary panel / `Close sidebar` toggle on `/initiatives`.**
+      Linear's index has one (the `/projects` pass logged the same gap). (M)
+- [ ] 🟢 **Empty state is missing Linear's `N then I` shortcut hint on the
+      button and its `Documentation` link.** Copy and illustration already
+      match. (S)
+- [ ] 🟢 **`/initiative/:id` header health chip is inert.** Status, Owner and
+      Target date are pickers; health is display-only because it is derived from
+      the newest update. Linear lets you set health from the header — that means
+      posting an update, so it needs the update composer wired to the chip. (S)
+- [ ] 🟢 **Picker rows in `ProjectContextMenu` don't fill the menu width.**
+      `SelectMenu` wraps its trigger in an inline-flex button, so each row is
+      only as wide as its label and the hover highlight is ragged. It stacks
+      correctly only because the labels happen to be too wide to pair up. The
+      fix used in `InitiativeContextMenu` (`flex flex-col [&>button]:w-full`)
+      applies verbatim. (S)
+- [ ] 🟢 **Linear's initiative row context menu was never read.** The reference
+      workspace has no initiatives and creating one there is out of bounds, so
+      ours is modelled on Linear's *project* row menu. Re-verify against a
+      workspace that has an initiative. (S)
+
 ### From the `inbox-notifications` pass, second lap (the settings screens)
 
 Linear's notification settings were navigated read-only; one dropdown was opened

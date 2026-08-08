@@ -251,6 +251,9 @@ export default function App() {
           <Route path="/projects" element={<ProjectsView />} />
           <Route path="/project/:id" element={<ProjectDetail />} />
           <Route path="/initiatives" element={<InitiativesView />} />
+          {/* Linear routes each initiative tab: /initiatives/active,
+              /initiatives/planned, and bare /initiatives for "All initiatives". */}
+          <Route path="/initiatives/:tab" element={<InitiativesView />} />
           <Route path="/initiative/:id" element={<InitiativeDetail />} />
           <Route path="/roadmap" element={<RoadmapView />} />
           <Route path="/insights" element={<InsightsView />} />

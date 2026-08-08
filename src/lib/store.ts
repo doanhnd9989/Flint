@@ -278,6 +278,8 @@ export interface Store extends WorkspaceData, UIState {
   mergeLabel: (sourceId: string, targetId: string) => void
   createInitiative: (i: Omit<Initiative, 'id' | 'createdAt' | 'sortOrder'>) => Initiative
   updateInitiative: (id: string, patch: Partial<Initiative>) => void
+  /** Reorder an initiative within the manually-ordered initiatives list. */
+  moveInitiative: (id: string, to: 'top' | 'up' | 'down' | 'bottom') => void
   deleteInitiative: (id: string) => void
   setProjectInitiative: (projectId: string, initiativeId?: string) => void
   createProject: (p: Omit<Project, 'id' | 'createdAt' | 'sortOrder'>) => Project
@@ -1408,6 +1410,33 @@ export const useStore = create<Store>()(
             i.id === id ? { ...i, ...patch } : i,
           ),
         })),
+
+      // Manual reordering for the initiatives list, same renumbering as
+      // moveProject so sparse legacy sortOrder values can't collide.
+      moveInitiative: (id, to) =>
+        set((s) => {
+          const ordered = [...s.initiatives].sort((a, b) => a.sortOrder - b.sortOrder)
+          const from = ordered.findIndex((i) => i.id === id)
+          if (from < 0) return {}
+          const target =
+            to === 'top'
+              ? 0
+              : to === 'bottom'
+                ? ordered.length - 1
+                : to === 'up'
+                  ? from - 1
+                  : from + 1
+          if (target === from || target < 0 || target >= ordered.length) return {}
+          const [moved] = ordered.splice(from, 1)
+          ordered.splice(target, 0, moved)
+          const rank = new Map(ordered.map((i, n) => [i.id, (n + 1) * 100]))
+          return {
+            initiatives: s.initiatives.map((i) => ({
+              ...i,
+              sortOrder: rank.get(i.id) ?? i.sortOrder,
+            })),
+          }
+        }),
 
       deleteInitiative: (id) =>
         set((s) => ({

@@ -510,6 +510,7 @@ export function Sidebar() {
     projects,
     savedViews,
     cycles,
+    initiatives,
     favorites,
     users,
     onboardingDismissed,
@@ -527,6 +528,7 @@ export function Sidebar() {
     projects: s.projects,
     savedViews: s.savedViews,
     cycles: s.cycles,
+    initiatives: s.initiatives,
     favorites: s.favorites,
     users: s.users,
     onboardingDismissed: s.onboardingDismissed,
@@ -587,6 +589,16 @@ export function Sidebar() {
       if (f.type === 'team') {
         const t = teams.find((x) => x.id === f.id)
         return t ? { to: `/team/${t.key}/active`, icon: <span className="text-[13px]">{t.icon}</span>, label: t.name } : null
+      }
+      if (f.type === 'initiative') {
+        const n = initiatives.find((x) => x.id === f.id)
+        return n
+          ? {
+              to: `/initiative/${n.id}`,
+              icon: <span className="text-[13px]">{n.icon}</span>,
+              label: n.name,
+            }
+          : null
       }
       if (f.type === 'cycle') {
         const c = cycles.find((x) => x.id === f.id)

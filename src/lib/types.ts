@@ -722,6 +722,7 @@ export type FavoriteType =
   | 'release'
   | 'team'
   | 'cycle'
+  | 'initiative'
 
 export interface Favorite {
   type: FavoriteType

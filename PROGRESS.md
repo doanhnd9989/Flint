@@ -2,6 +2,83 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-08-08 — Audit: `projects-initiatives`, second lap (`/initiatives`)
+
+**Where it started.** `collect.sh`: typecheck PASS, lint 109 (unchanged
+baseline), api UP, vite DOWN → started with the preview tool. `seed-bulk.mjs`
+added 24 issues (+6 sub), 18 comments and 8 attachments (3496 KB of real bytes).
+The 37-route sweep was clean before any change: no console errors, no
+horizontal overflow, no empty renders. The `projects-initiatives` coverage file
+named its own starting point — run 1 did `/projects` and explicitly left
+`/initiatives` untouched — so this lap took that screen.
+
+**What was red.** Nothing in the logs. Everything below came from pressing the
+controls on `/initiatives` and diffing them against Linear's same screen.
+
+**The third tab was the wrong tab.** Ours read `Completed` and filtered to
+`status === 'completed'`. Linear's third tab is **`All initiatives`** and it is
+the *unfiltered* one — so where Linear shows you everything, we showed you the
+one bucket almost nothing is ever in. Same class of miss as `/cycles` being the
+detail view on the index URL: the screen looked plausible.
+
+**The tabs weren't URLs.** Linear routes all three — `/initiatives/active`,
+`/initiatives/planned`, and bare `/initiatives` for All. Ours were a single
+`useState`, so a tab could not be linked, bookmarked, or come back after a
+reload. Added `/initiatives/:tab`; the route is now the source of truth and an
+unknown segment falls back to All rather than rendering nothing.
+
+**Right-clicking an initiative did nothing.** Not a thin menu — no menu. Every
+other row type in this app has one. Built `InitiativeContextMenu` on the shape
+of `ProjectContextMenu` (which *was* read off Linear in run 1), cut to the
+fields an `Initiative` actually has: Status ▸ · Owner ▸ · Target date… ·
+Rename… · Copy ▸ (4) · Move ▸ (4, greyed unless Ordering = Manual) · Favorite ·
+New update… · Archive · Delete. Two model gaps had to be closed to make its rows
+real rather than decorative: `moveInitiative` (the store had `moveProject` but
+no initiative equivalent) and `'initiative'` as a `FavoriteType`, with the
+Sidebar branch to render it — without that the favourites list would have fallen
+through to its saved-view default and silently dropped the row.
+
+**The toolbar was ours, not Linear's.** We had a second row carrying a
+List/Board toggle, a search box, and three single-select dropdowns. Linear has
+no such row: `Add filter` and `Display options` are two icon buttons at the far
+right of the *tab* row. Rebuilt to match, which meant building the two menus
+those icons are supposed to open — a Display menu (Grouping, Ordering, the
+Display-properties chip grid, `Reset`) and a multi-select filter with removable
+chips, replacing dropdowns that could only ever hold one value each.
+
+Linear's menus are deeper than what an `Initiative` can back, and the missing
+rows are missing *fields*, not missing UI: no `priority`, `teamIds`, `labelIds`,
+`updatedAt` or `completedAt`. That costs 3 grouping options, 2 ordering options,
+5 display properties and 4 filter dimensions. All absent rather than dead, all
+logged with the field that would unlock them — the top BACKLOG item is now the
+one model change that buys back most of them at once.
+
+**Fixed in passing:** `SelectMenu` and `DatePicker` wrap their trigger in an
+**inline-flex** button. Put several in a column and they lay out side by side —
+Status and Owner shared a line on the new menu's first render. `ProjectContextMenu`
+only escapes this because its labels are too wide to pair up; the same latent
+bug is logged there.
+
+**Unverified, on purpose:** Linear's reference workspace holds **no
+initiatives**. The index chrome is fully observed, but the row context menu, the
+row anatomy and the whole of `/initiative/:id` could not be read, and creating an
+initiative in the user's real workspace to see them is out of bounds. Our row
+menu's order is therefore inferred from Linear's project menu and recorded as
+inferred in `.audit/controls/projects-initiatives.md`.
+
+**Deliberately different:** the Display menu keeps a `Layout: List / Board` row
+that Linear's initiatives view does not have — Linear's initiatives are
+list-only. This app already renders initiative cards, so the board stays
+reachable from the menu rather than being deleted or stranded behind a toolbar
+toggle Linear also doesn't have.
+
+`tsc -b ✅ · build ✅ · 14-route sweep console-clean, zero uncaught errors and no
+"Maximum update depth" · grouping / ordering / property toggles / Reset / tab
+routing / favourite round-trip all exercised in the browser · 420px viewport has
+no horizontal overflow · dark mode re-read after the change · lint 111 (+2, both
+`react-refresh/only-export-components` on the new Display menu, the same known
+family and the same shape as `ProjectsDisplayMenu`)`
+
 ## 2026-08-08 — Audit: `keyboard`, second lap (the Filters and List/Board keys)
 
 **Where it started.** `collect.sh`: typecheck PASS, lint 105 (unchanged
