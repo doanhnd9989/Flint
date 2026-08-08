@@ -4753,3 +4753,79 @@ intended) · re-sweep of the six touched routes after the fix returned `[]` ·
 saved-view flow round-tripped create → navigate → hard reload → filters,
 grouping and ordering all restored → description rendered on `/views` · lint 105,
 unchanged`
+
+---
+
+## `board-and-layouts`, second lap — the board's keyboard model was invisible
+
+Rotation area #5, resumed at the four controls the first lap left unpressed.
+`collect.sh` came back green: typecheck PASS, api UP, lint 105 (one below the
+documented 106 baseline), 250 issues before the seed. Vite was DOWN and was
+started with the preview tool. `seed-bulk.mjs` added 24 issues, 6 sub-issues,
+18 comments and 8 real attachments, taking the board to 306 issues over 6
+columns.
+
+**What was red.** Nothing in the logs. Everything below came from pressing keys.
+
+**The board had no highlighted state at all.** `IssueRow` renders a ring and
+calls `scrollIntoView` for the `j`/`k`-focused row; `Card` in `IssueBoard.tsx`
+read `selectedIssueIds` and never read `focusedIssueId`. So on the board, `j`
+and `k` moved the focus and drew nothing — verified by pressing `j` three times
+(no visual change anywhere) and then `x`, which selected `CLA-49`, a card that
+had never looked focused. Linear's docs are explicit that this state exists and
+that it is what `x` acts on: *"Use ↑ / ↓ or J / K to navigate the page to the
+issue"*, then *"Once an issue is highlighted, press X"* — and the same page says
+it applies to a **board or list**. The board card now takes the list's exact
+treatment, plus `inline: 'nearest'` on the scroll, because `j` walks the board
+column by column and the next column is off-screen to the right.
+
+The same fix restores hover-highlight, which Linear documents as the first way
+to highlight an issue and which was equally invisible on the board.
+
+**Shift-click on a card peeked it instead of selecting it.** The range branch
+required a `lastBoardSelectedId` anchor and fell through to `setPeek` without
+one, so the very first Shift-click — the documented *"Hold Shift and click your
+mouse on the issue"* — opened the peek panel. It now selects, and sets the
+anchor, so the second Shift-click still ranges within the column (verified:
+`CLA-33` → `CLA-16` selected the 4 consecutive cards between them).
+
+**`⇧↑` / `⇧↓` did nothing.** Linear: *"Hold down Shift after selecting the first
+issue, then use the ↑ / ↓ keys to increase the selected range one issue at a
+time."* Ours fell through to the plain focus move. Added `extendFocusSelection`
+to the store — it moves the focus and adds **both ends of the step** to the
+selection, so the first `⇧↓` from an unselected row picks up the row you started
+on. Implemented on the arrows only, because the docs name the arrows only.
+Verified 4 → 7 selected over three presses, focus tracking with it.
+
+**The projects board's layout switcher was still three loose buttons.** The
+first lap established from Linear's real accessibility tree that the layout
+switcher is a `tablist`, and fixed the issue views' Display menu. The projects
+Display menu — `List` / `Board` / `Timeline` — had never been crawled and still
+had none of it. Now `role="tablist"` / `role="tab"` / `aria-selected`.
+
+**Two corrections to the record.** The first lap wrote that our board cards are
+`tabIndex=0`; they are not, and never have been — filed 🟢. And the harness
+itself: the in-app browser's `computer` `key` action **silently drops
+`modifiers`** — the delivered event has `key: ""` and `shiftKey: false`,
+confirmed with a capture listener. Both `⇧↓` findings were nearly recorded
+backwards because of it (dead before the fix, still "dead" after). `modifiers`
+on `left_click` works fine; it is only `key`. Written into
+`.audit/controls/board-and-layouts.md` with the dispatch-plus-timeout recipe,
+since reading the DOM on the same tick as a dispatch also reads as "did
+nothing" — React batches.
+
+**Linear stayed read-only, and one thing stayed unread because of it.** Reaching
+Linear's board still means clicking `tab "Board"`, which rewrites the user's
+saved layout preference, so it was declined a second time. The keyboard model
+was instead compared against `linear.app/docs/select-issues`, which documents it
+verbatim and states it covers boards. Linear's project-board column `⋯` menu
+stays **unverified**: ours holds a single `Collapse column`, and our own issue
+board gives every column an `Add issue` `+` that the projects board has no
+equivalent of — both filed rather than guessed at.
+
+`tsc -b ✅ · build ✅ · 37-route sweep console-clean, zero empty renders · the
+five "overflow" hits are `truncate` elements whose `scrollWidth` exceeds
+`clientWidth` by design, with `documentElement.scrollWidth === innerWidth ===
+1280`, i.e. the page never scrolls sideways · board keyboard model re-verified
+end to end after the fix: ring renders and scrolls into view, `⇧`-click selects,
+`⇧↓` ranges, `Esc` clears, `⌘A` takes all 306 · lint 105, unchanged`

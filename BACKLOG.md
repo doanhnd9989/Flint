@@ -616,6 +616,35 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `board-and-layouts` pass, second lap (the board keyboard model)
+
+The invisible highlight, the Shift-click that peeked, and the dead `⇧↑`/`⇧↓`
+range were fixed in that run. Full table in `.audit/controls/board-and-layouts.md`.
+What is left:
+
+- [ ] 🟡 **`⌥↑` / `⌥↓` do not reorder issues, and `⌥⇧↑` / `⌥⇧↓` do not send them
+      to the top/bottom.** Linear documents both on
+      `linear.app/docs/select-issues` ("Reorder issues using keyboard
+      shortcuts", with Grouping = No grouping and Ordering = Manual).
+      `useShortcuts.ts` bails out of the whole switch on `e.altKey`, so every
+      Alt chord below `⌥T` is unreachable. Small–medium (a store action that
+      moves `sortOrder`, plus four chords above the bail-out).
+- [ ] 🟡 **The projects board's column `⋯` menu has one item.** `ProjectsBoard.tsx`
+      opens a popover holding only `Collapse column`. Our *issue* board column
+      header carries a collapse control **and** an `Add issue` `+`; the projects
+      board has no per-column create affordance at all, so a project cannot be
+      created into a status from the board. Small (reuse `openCreateProject`
+      with a status prefill). Linear's own project-board column menu is
+      **unverified** — see the read-only note below.
+- [ ] 🟢 **Board cards are not tabbable and take no DOM focus.** Navigation is
+      driven entirely by the store's `focusedIssueId`; the cards have no
+      `tabIndex`, so Tab never reaches the board and a screen reader has no
+      cursor to follow. Small.
+- [ ] 🟢 **`←` / `→` do nothing on the board.** Linear's docs describe only
+      `↑`/`↓` and `J`/`K` for board navigation, so this is **not** confirmed as
+      a gap — recorded so the next lap does not re-derive it. Whether Linear
+      moves between columns on the horizontal arrows is unverified.
+
 ### From the `filters-display` pass, second lap (the chip row + saved views)
 
 The dead `Save` button, the missing `Description (optional)` field and the

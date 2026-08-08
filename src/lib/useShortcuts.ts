@@ -212,6 +212,14 @@ export function useShortcuts() {
 
       // ── Issue-list keyboard navigation (Linear's `j`/`k` row focus) ──
       if (!overlayOpen && !pendingG.current) {
+        // ⇧↑ / ⇧↓ grow the selection by one row instead of just moving focus.
+        // Linear documents this on the arrows only, so `⇧J`/`⇧K` stay plain
+        // navigation.
+        if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+          e.preventDefault()
+          store.extendFocusSelection(e.key === 'ArrowDown' ? 1 : -1)
+          return
+        }
         if (key === 'j' || e.key === 'ArrowDown') {
           e.preventDefault()
           store.moveFocus(1)

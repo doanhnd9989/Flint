@@ -122,11 +122,16 @@ export function ProjectsDisplayMenu({
       {() => (
         <div>
           <Row label="Layout">
-            <div className="flex gap-1">
+            {/* Linear exposes the layout switcher as a real tablist, the same
+                shape the issue views' Display menu uses — not a row of loose
+                buttons, so it is announced as one layout choice. */}
+            <div role="tablist" aria-label="Layout" className="flex gap-1">
               {LAYOUTS.map((l) => (
                 <button
                   key={l.value}
                   type="button"
+                  role="tab"
+                  aria-selected={layout === l.value}
                   onClick={() => onLayout(l.value)}
                   className={
                     'flex items-center gap-1 rounded-md px-2 py-1 text-[12px] ' +

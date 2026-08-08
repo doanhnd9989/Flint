@@ -479,6 +479,11 @@ export interface Store extends WorkspaceData, UIState {
   setFocusedIssue: (identifier: string | null) => void
   /** Move keyboard focus by `dir` (+1 next / −1 prev) through `navIssueIds`. */
   moveFocus: (dir: 1 | -1) => void
+  /**
+   * Move focus by `dir` and grow the selection to cover the step — Linear's
+   * "hold Shift, then ↑/↓ to increase the selected range one issue at a time".
+   */
+  extendFocusSelection: (dir: 1 | -1) => void
   addRecentSearch: (q: string) => void
   clearRecentSearches: () => void
   toggleFavorite: (type: FavoriteType, id: string) => void
@@ -2548,6 +2553,31 @@ export const useStore = create<Store>()(
             next = Math.min(Math.max(cur + dir, 0), list.length - 1)
           }
           return { focusedIssueId: list[next] }
+        }),
+      extendFocusSelection: (dir) =>
+        set((s) => {
+          const list = s.navIssueIds
+          if (list.length === 0) return s
+          const cur = s.focusedIssueId ? list.indexOf(s.focusedIssueId) : -1
+          const next =
+            cur === -1
+              ? dir === 1
+                ? 0
+                : list.length - 1
+              : Math.min(Math.max(cur + dir, 0), list.length - 1)
+          const idFor = (ident: string | undefined) =>
+            ident ? s.issues.find((i) => i.identifier === ident)?.id : undefined
+          // Both ends of the step join the selection, so the first Shift-↓ from
+          // an unselected row picks up the row you started on as well.
+          const grown = [idFor(list[cur]), idFor(list[next])].filter(
+            (id): id is string => !!id,
+          )
+          return {
+            focusedIssueId: list[next],
+            selectedIssueIds: Array.from(
+              new Set([...s.selectedIssueIds, ...grown]),
+            ),
+          }
         }),
 
       addRecentSearch: (q) =>

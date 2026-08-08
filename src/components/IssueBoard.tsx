@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CalendarClock, ChevronDown, ChevronsRightLeft, Plus, IterationCw, Diamond, CircleSlash, Gauge } from 'lucide-react'
 import {
   DndContext,
@@ -150,11 +150,14 @@ function Card({
   issue,
   dragging,
   columnIds,
+  overlay,
 }: {
   issue: Issue
   dragging?: boolean
   /** This column's card ids, in render order — the span a Shift-click covers. */
   columnIds?: string[]
+  /** The copy rendered inside `DragOverlay` — never takes the focus ring. */
+  overlay?: boolean
 }) {
   const setPeek = useStore((s) => s.setPeek)
   // The board card honors the same Display-properties toggles as list rows, so
@@ -173,6 +176,7 @@ function Card({
     setSelectedIssues,
     openContextMenu,
     setFocusedIssue,
+    focusedIssueId,
   } = useStoreShallow((s) => ({
       users: s.users,
       labels: s.labels,
@@ -187,8 +191,20 @@ function Card({
       setSelectedIssues: s.setSelectedIssues,
       openContextMenu: s.openContextMenu,
       setFocusedIssue: s.setFocusedIssue,
+      focusedIssueId: s.focusedIssueId,
     }))
   const selected = selectedIssueIds.includes(issue.id)
+  // Linear highlights a card on hover and as `j`/`k` walk the board; `x` then
+  // acts on whatever is highlighted, so the ring is what makes the board's
+  // keyboard model legible at all.
+  const focused = !overlay && focusedIssueId === issue.identifier
+  const cardRef = useRef<HTMLDivElement>(null)
+  // Board columns scroll on both axes, so the focused card has to be pulled
+  // into view horizontally too — `j` walks column by column.
+  useEffect(() => {
+    if (focused)
+      cardRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [focused])
   const dp = displayProperties
   const assignee = users.find((u) => u.id === issue.assigneeId)
   const state = states.find((s) => s.id === issue.stateId)
@@ -221,6 +237,7 @@ function Card({
     issue.subscriberIds.length > 1
   return (
     <div
+      ref={cardRef}
       data-issue-focus={issue.identifier}
       // A plain click peeks the issue in the right-side panel; a drag is
       // suppressed by dnd-kit so it won't fire this click handler. ⌘/Ctrl-click
@@ -234,16 +251,24 @@ function Card({
         }
         // Shift extends from the last selected card through this one, within
         // this column — the board's equivalent of the list's range select.
-        if (e.shiftKey && lastBoardSelectedId && columnIds?.length) {
-          const a = columnIds.indexOf(lastBoardSelectedId)
-          const b = columnIds.indexOf(issue.id)
+        if (e.shiftKey) {
+          const a = lastBoardSelectedId
+            ? (columnIds?.indexOf(lastBoardSelectedId) ?? -1)
+            : -1
+          const b = columnIds?.indexOf(issue.id) ?? -1
           if (a !== -1 && b !== -1) {
             const [lo, hi] = a < b ? [a, b] : [b, a]
             setSelectedIssues(
-              Array.from(new Set([...selectedIssueIds, ...columnIds.slice(lo, hi + 1)])),
+              Array.from(new Set([...selectedIssueIds, ...columnIds!.slice(lo, hi + 1)])),
             )
             return
           }
+          // No anchor yet (or the anchor is in another column): Linear's
+          // "hold Shift and click your mouse on the issue" just selects it,
+          // rather than falling through and peeking it.
+          toggleSelectIssue(issue.id)
+          lastBoardSelectedId = issue.id
+          return
         }
         setPeek(issue.id)
       }}
@@ -256,7 +281,10 @@ function Card({
         'rounded-lg border bg-bg p-2.5 shadow-sm cursor-pointer',
         selected
           ? 'border-accent bg-accent-subtle'
-          : 'border-border hover:border-border-strong',
+          : focused
+            ? 'border-border-strong bg-bg-hover'
+            : 'border-border hover:border-border-strong',
+        focused && 'ring-1 ring-inset ring-border-strong',
         dragging && 'opacity-50',
       )}
     >
@@ -792,7 +820,7 @@ export function IssueBoard({
           ))}
         </div>
       )}
-      <DragOverlay>{active && <Card issue={active} />}</DragOverlay>
+      <DragOverlay>{active && <Card issue={active} overlay />}</DragOverlay>
     </DndContext>
   )
 }
