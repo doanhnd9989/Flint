@@ -12,19 +12,25 @@ import {
   Pin,
   PinOff,
   Quote,
+  Bell,
+  BellOff,
+  SquarePlus,
+  ListPlus,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { Popover } from './ui/Popover'
+import { EmojiPicker } from './EmojiPicker'
 import { copyToClipboard } from '@/lib/toast'
 import { useReplyDraft, quoteOf } from '@/lib/replyDraft'
 import { cn, issueUrl } from '@/lib/utils'
 
-const EMOJIS = ['👍', '❤️', '🎉', '🚀', '👀', '😄', '🙏', '🔥', '💯', '😅', '🤔', '👏']
-
 /**
- * Linear's per-comment hover toolbar: a quick add-reaction picker and a ⋯
- * overflow menu (Edit / Copy link / Copy content as Markdown / Delete). Delete
- * opens a "Delete this comment?" confirmation. Shown on comment hover.
+ * Linear's per-comment hover toolbar: an "Add reaction" picker and a
+ * "Comment options" ⋯ menu. The menu follows Linear's order — Subscribe to
+ * thread, Resolve thread, Copy link to comment, Copy content as Markdown,
+ * New issue from comment…, New sub-issue from comment…, Delete — with Edit,
+ * Quote reply and Pin comment as our own additions. Delete opens a
+ * "Delete this comment?" confirmation. Shown on comment hover.
  */
 export function CommentActions({
   commentId,
@@ -44,6 +50,8 @@ export function CommentActions({
 
   const issue = store.issues.find((i) => i.id === comment.issueId)
   const resolved = !!root?.resolvedAt
+  // Absent on threads saved before subscribers existed — evaluate lazily.
+  const subscribed = !!root?.subscriberIds?.includes(store.currentUserId)
 
   function copyLink() {
     if (!issue) return
@@ -54,42 +62,55 @@ export function CommentActions({
     )
   }
 
+  /**
+   * Linear seeds the new-issue dialog from the comment: its first line becomes
+   * the title, anything after it the description. `parent` makes it a sub-issue
+   * of the issue the comment lives on.
+   */
+  function createFromComment(parent: boolean) {
+    if (!issue) return
+    const [first = '', ...rest] = comment!.body.split('\n')
+    store.openCreateWith({
+      teamId: issue.teamId,
+      title: first.trim().slice(0, 120),
+      description: rest.join('\n').trim(),
+      parentId: parent ? issue.id : undefined,
+    })
+  }
+
   return (
     <>
       <div className="flex items-center gap-0.5">
         <Popover
-          width={196}
+          width={272}
           align="end"
           trigger={
-            <span className="flex h-6 w-6 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg">
+            <span
+              title="Add reaction"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg"
+            >
               <SmilePlus size={14} />
             </span>
           }
         >
           {(close) => (
-            <div className="grid grid-cols-6 gap-0.5">
-              {EMOJIS.map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  onClick={() => {
-                    store.toggleReaction(commentId, e)
-                    close()
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-[16px] hover:bg-bg-hover"
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
+            <EmojiPicker
+              onPick={(e) => {
+                store.toggleReaction(commentId, e)
+                close()
+              }}
+            />
           )}
         </Popover>
 
         <Popover
-          width={232}
+          width={248}
           align="end"
           trigger={
-            <span className="flex h-6 w-6 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg">
+            <span
+              title="Comment options"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-faint hover:bg-bg-hover hover:text-fg"
+            >
               <MoreHorizontal size={14} />
             </span>
           }
@@ -102,6 +123,14 @@ export function CommentActions({
                 onClick={() => {
                   close()
                   onEdit()
+                }}
+              />
+              <MenuItem
+                icon={subscribed ? <BellOff size={14} /> : <Bell size={14} />}
+                label={subscribed ? 'Unsubscribe from thread' : 'Subscribe to thread'}
+                onClick={() => {
+                  close()
+                  if (root) store.toggleThreadSubscription(root.id)
                 }}
               />
               <MenuItem
@@ -148,6 +177,23 @@ export function CommentActions({
                 onClick={() => {
                   close()
                   copyToClipboard(comment.body, 'Copied to clipboard')
+                }}
+              />
+              <div className="my-1 border-t border-border" />
+              <MenuItem
+                icon={<SquarePlus size={14} />}
+                label="New issue from comment…"
+                onClick={() => {
+                  close()
+                  createFromComment(false)
+                }}
+              />
+              <MenuItem
+                icon={<ListPlus size={14} />}
+                label="New sub-issue from comment…"
+                onClick={() => {
+                  close()
+                  createFromComment(true)
                 }}
               />
               <div className="my-1 border-t border-border" />

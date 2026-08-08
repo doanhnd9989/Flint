@@ -252,6 +252,8 @@ export interface Store extends WorkspaceData, UIState {
   bulkResolveComments: (issueId: string) => void
   /** Pin / unpin a comment to the top of the issue's comments. */
   togglePinComment: (id: string) => void
+  /** Follow / unfollow a single comment thread (Linear's "Subscribe to thread"). */
+  toggleThreadSubscription: (rootId: string) => void
   toggleReaction: (commentId: string, emoji: string) => void
   /** Mute / unmute an issue's notifications (hidden from the inbox). */
   toggleMuteIssue: (id: string) => void
@@ -1190,6 +1192,21 @@ export const useStore = create<Store>()(
               ? { ...c, pinnedAt: c.pinnedAt ? undefined : nowIso() }
               : c,
           ),
+        })),
+
+      toggleThreadSubscription: (rootId) =>
+        set((s) => ({
+          comments: s.comments.map((c) => {
+            if (c.id !== rootId) return c
+            // Absent on threads saved before subscribers existed.
+            const subs = c.subscriberIds ?? []
+            return {
+              ...c,
+              subscriberIds: subs.includes(s.currentUserId)
+                ? subs.filter((u) => u !== s.currentUserId)
+                : [...subs, s.currentUserId],
+            }
+          }),
         })),
 
       toggleMuteIssue: (id) =>

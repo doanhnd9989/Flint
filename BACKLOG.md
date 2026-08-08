@@ -616,6 +616,44 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `issue-detail` pass, second lap (the comment toolbar)
+
+The comment ⋯ menu, both reaction pickers and their accessible names were fixed
+in that run. Full control-by-control table in `.audit/controls/issue-detail.md`.
+What is left:
+
+- [ ] 🟡 **Linear splits the activity subscribe control into two buttons** —
+      `Subscribe to issue` and, next to it, `Change subscribers` (a picker for
+      who else follows the issue). Ours is a single combined toggle, so there is
+      no way to add another subscriber from the activity header. The rail
+      already renders a `Subscribers` group, so the model exists; this is a
+      second trigger plus a member multi-select. Small.
+- [ ] 🟡 **The Sub-issues section header has no `Display options` menu.**
+      Linear's header is `Collapse sub-issues section` (left) · `Display
+      options` + `Create new sub-issue` (right). Ours has a `0/3` progress
+      count and a text `+ Add sub-issue` button, and no display menu at all.
+      Small–medium (needs to decide which properties a sub-issue row shows).
+- [ ] 🟢 **Wording on the description action row.** Linear titles its paperclip
+      `Attach images, files, or videos`; ours says `Attach files`. Linear's
+      sub-issue button is icon-only titled `Create new sub-issue`; ours is a
+      text button reading `+ Add sub-issue`. Same for the composer: Linear's
+      submit is icon-only `Submit comment`, ours is a text `Comment` button. Small.
+- [ ] 🟢 **`Development` and `Customers` render header-only when empty** — no
+      empty-state row, just a title and a `+`. Both `+` buttons do open real
+      surfaces (a PR form and a customer picker), so this is presentation only.
+      Linear shows neither section on the issues we could read, so the empty
+      copy is unverified. Small.
+- [ ] 🟢 **Activity has an `all` / `comments` / `updates` tab group and a
+      `Resolve all (N)` button that Linear's issue Activity header does not
+      show.** Ours-only, and the tabs stay visible on `updates` where there is
+      nothing to resolve. Decide whether to keep them (and say so in
+      `PROGRESS.md`) or drop them. Small.
+- [ ] 🟢 **`Edit` / `Quote reply` / `Pin comment` in the comment ⋯ menu are
+      unverified** — the only Linear comment reachable was another user's, and
+      Linear does not offer `Edit` there. Re-read the menu on an own comment
+      before treating their position as correct. Small.
+
+
 ### From the `issue-list` pass, second lap (multi-select and the `⌥` family)
 
 The clipped bulk bar, `⌘⌥A`, `T` and `⌥T` were fixed in that run. Full

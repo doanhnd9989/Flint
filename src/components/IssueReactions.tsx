@@ -2,10 +2,8 @@ import { SmilePlus } from 'lucide-react'
 import type { Issue } from '@/lib/types'
 import { useStoreShallow, useDisplayName } from '@/lib/store'
 import { Popover } from '@/components/ui/Popover'
+import { EmojiPicker } from '@/components/EmojiPicker'
 import { cn } from '@/lib/utils'
-
-/** Same emoji set the comment reaction picker uses (CommentActions). */
-const EMOJIS = ['👍', '❤️', '🎉', '🚀', '👀', '😄', '🙏', '🔥', '💯', '😅', '🤔', '👏']
 
 /**
  * Emoji reactions on an issue itself, mirroring `CommentReactions`: a row of
@@ -53,7 +51,7 @@ export function IssueReactions({ issue, trailing }: { issue: Issue; trailing?: R
       })}
 
       <Popover
-        width={196}
+        width={272}
         trigger={
           <span
             className="flex h-6 w-6 items-center justify-center rounded-full border border-border text-faint hover:bg-bg-hover hover:text-fg"
@@ -64,21 +62,12 @@ export function IssueReactions({ issue, trailing }: { issue: Issue; trailing?: R
         }
       >
         {(close) => (
-          <div className="grid grid-cols-6 gap-0.5">
-            {EMOJIS.map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => {
-                  toggleIssueReaction(issue.id, e)
-                  close()
-                }}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-[16px] hover:bg-bg-hover"
-              >
-                {e}
-              </button>
-            ))}
-          </div>
+          <EmojiPicker
+            onPick={(e) => {
+              toggleIssueReaction(issue.id, e)
+              close()
+            }}
+          />
         )}
       </Popover>
 

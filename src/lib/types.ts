@@ -304,6 +304,11 @@ export interface Comment {
   resolvedBy?: string
   /** Set when the comment is pinned to the top of the issue's comments. */
   pinnedAt?: string
+  /**
+   * Users following just this thread (Linear's "Subscribe to thread"). Only
+   * meaningful on a thread root; absent on comments saved before it existed.
+   */
+  subscriberIds?: string[]
   /** emoji → userIds who reacted with it */
   reactions?: Record<string, string[]>
 }
@@ -533,6 +538,8 @@ export interface CreatePrefill {
   title?: string
   description?: string
   draftId?: string
+  /** Set when the new issue is a sub-issue of an existing one. */
+  parentId?: string
 }
 
 /** Properties that can be shown/hidden on issue rows (Linear's Display options). */

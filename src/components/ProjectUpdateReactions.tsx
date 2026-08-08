@@ -53,7 +53,7 @@ export function ProjectUpdateReactions({ updateId }: { updateId: string }) {
       })}
 
       <Popover
-        width={264}
+        width={272}
         trigger={
           <span
             className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-border text-faint hover:bg-bg-hover hover:text-fg"

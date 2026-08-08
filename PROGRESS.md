@@ -4594,3 +4594,102 @@ override cleared back to `{}` on Default · `Visibility ▸ → Don't show` move
 back · zero unhandled rejections across three `Copy link` presses · menu clamps
 fully inside a 420×760 viewport (document scrollWidth 420) and resolves dark
 tokens · lint 106, unchanged baseline`
+
+---
+
+## `issue-detail`, second lap — the comment toolbar and the reaction picker
+
+Rotation area #3, resumed from the "Not pressed" list in
+`.audit/controls/issue-detail.md`. Read the logs first: typecheck PASS, api UP,
+lint 107 — two more than the documented 106 baseline. Vite was DOWN and was
+started with the preview tool. `seed-bulk.mjs` added 24 issues (+6 sub), 18
+comments and 8 attachments (3496 KB of real bytes). The 37-route sweep was clean
+before any change: zero console errors, zero horizontal overflow, zero empty
+renders.
+
+**What was red.** The two extra lint problems. `GroupedIssueList`'s
+`setNavIssueIds` effect, added last run, had a complex expression
+(`flatOrder.join('\n')`) in its dependency array and a missing dep — the exact
+pattern the `groupOrder` effect eight lines below it already avoids by hoisting
+a `groupOrderKey`. Hoisted `flatOrderKey` the same way and rebuilt the array
+from it, which is what the effect actually depends on. Lint back to 105.
+
+**What Linear does.** Read on `linear.app/thehumaninc/issue/VC-784` — the only
+issue found carrying a real comment (`VC-804` and `VA-1297` have activity but no
+comments, so the comment toolbar does not render there at all). Linear's
+per-comment hover toolbar is two buttons, `Add reaction` and `Comment options`,
+and the ⋯ menu holds seven items:
+
+| Linear's `Comment options` |
+|---|
+| `Subscribe to thread` · `Resolve thread` · `Copy link to comment` · `Copy content as Markdown` · `New issue from comment…` · `New sub-issue from comment…` · `Delete` |
+
+and `Add reaction` opens a 273×321 picker with a `Search emoji…` field, a
+`Frequently used` row and category sections beginning `Smileys & People`.
+
+**What was built.** Three of Linear's seven menu items did not exist on our
+side. `Subscribe to thread` needed a model: `Comment.subscriberIds` plus a
+`toggleThreadSubscription` action, read lazily so threads persisted before the
+field existed still work — the schema-evolution trap this file documents. `New
+issue from comment…` and `New sub-issue from comment…` open the create modal
+seeded from the comment (first line → title, the rest → description); the
+sub-issue variant needed `CreatePrefill.parentId`, which `CreateIssueModal` now
+passes through to `createIssue`. The menu was re-ordered into Linear's sequence,
+with our own `Edit` / `Quote reply` / `Pin comment` kept.
+
+**The reaction picker was two different pickers.** `CommentReactions` (the `+`
+on the pill row) already used the full searchable `EmojiPicker`, but
+`CommentActions` (the hover toolbar) and `IssueReactions` each had their own
+hardcoded 12-emoji grid — so the same "add reaction" action gave you a different
+picker depending on which affordance you reached for. Both now use
+`EmojiPicker`, at Linear's 272px width. The picker itself was renamed to
+Linear's wording (`Frequently used`, not "Recently used"; `Search emoji…` with
+the ellipsis) and its categories to Linear's (`Smileys & People`, `Animals &
+Nature`, `Food & Drink`, `Activity`, `Travel & Places`, `Objects`, `Symbols`,
+`Flags`). Search used to match only the *category* name, so "rocket" found
+nothing; each emoji now carries keywords and the query narrows within a
+category, as Linear's does.
+
+**A font-scale bug fell out of it.** Every emoji cell was a fixed `h-7 w-7` with
+`text-[16px]` inside. At `--font-scale 1.4` the glyph renders at 22.4px in a
+28px box and the line box grows to 31px, so all 289 cells clipped their emoji.
+This is the trap this file already documents, one step sideways: not a size
+computed in JavaScript, but a fixed CSS box wrapped around text that *does*
+scale. The cell now tracks its grid column (`aspect-square w-full` in the 7-fr
+grid), so it grows with the type — 32px at both scales here, zero clipped cells
+at 1.0 and at 1.4. Pre-existing, but this run made the picker reachable from
+three more places, so it would have shipped much more visibly.
+
+**Two harness bugs, worth more than they look.** A `javascript_tool` call that
+hits the 30s timeout *keeps running in the page*: the batch that timed out after
+control 117 went on to press 118 and 119, and 119 was `Resolve all (3)`, which
+resolved every thread on CLA-22 and made the comment toolbars vanish from every
+later read. And `control-crawl`'s destructive-label regex matches the bare word
+`leave`, so it has been silently skipping `Leave a reply…` and `Leave a
+comment… (@ to mention)` — the composer, the single most-used control on the
+screen — on every run this file records. Both are written up in
+`.audit/controls/issue-detail.md`.
+
+**Deliberate difference.** Our Activity header keeps the `all` / `comments` /
+`updates` tabs and `Resolve all (N)`, which Linear's issue Activity header does
+not show. Logged in `BACKLOG.md` rather than removed: the reference workspace is
+one Linear build, and dropping working features on a single reading is the wrong
+trade. Ours-only until a second reading confirms.
+
+**Linear stayed read-only.** One ⋯ menu and one emoji picker opened, itemised
+and dismissed with Escape (dispatched at `document.activeElement` — a real
+`computer{action:"key"}` Escape does not reach the page, as this file already
+records). Nothing selected, toggled, typed, submitted or created. Linear's
+`Edit` / `Quote reply` / `Pin comment` counterparts could not be read because
+the only reachable comment belonged to another user; they are recorded as
+**unverified**.
+
+`tsc -b ✅ · build ✅ · 17-route re-sweep console-clean, zero empty renders, the
+one "overflow" hit is a `truncate` element resolving `text-overflow: ellipsis`
+as intended · comment ⋯ menu re-read at 10 items in Linear's order · `Subscribe
+to thread` round-tripped `[] → ['u_me'] → []` with the label flipping both ways
+· `New sub-issue from comment…` created CLA-297 parented to CLA-31 · picker
+verified at 267px with `Search emoji…`, `Frequently used` appearing after a
+first pick, and search returning 🚀 for "rocket" and 🚀🚢📦 for "ship" · zero
+clipped emoji cells at `--font-scale` 1.0 and 1.4, dark, in a 420×760 viewport
+with document scrollWidth 420 · lint 105, two below the 106 baseline`

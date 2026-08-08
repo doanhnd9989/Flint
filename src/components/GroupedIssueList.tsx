@@ -110,9 +110,10 @@ export function GroupedIssueList({
       ? g.subGroups.flatMap((sg) => visibleOrder(sg.issues))
       : visibleOrder(g.issues),
   )
+  const flatOrderKey = flatOrder.join('\n')
   useEffect(() => {
-    setNavIssueIds(flatOrder)
-  }, [flatOrder.join('\n'), setNavIssueIds])
+    setNavIssueIds(flatOrderKey ? flatOrderKey.split('\n') : [])
+  }, [flatOrderKey, setNavIssueIds])
 
   // …and the same order broken down by group, so `⌘⌥A` / `T` can resolve which
   // group the focused row sits in. Sub-groups are published as their own keys —

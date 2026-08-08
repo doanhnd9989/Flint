@@ -195,6 +195,8 @@ export function CreateIssueModal() {
       projectId,
       cycleId,
       estimate,
+      // Set when the modal was opened as "New sub-issue from …".
+      parentId: store.createPrefill?.parentId,
     })
     // createIssue's input has no milestoneId field; persist it via the action.
     if (milestoneId) store.setIssueMilestone(issue.id, milestoneId)
