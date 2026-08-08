@@ -241,6 +241,7 @@ export const NOTIFICATION_EVENT_GROUPS: {
       { id: 'documentChanges', label: 'Document changes', hint: 'Changes to document content, location, and subscriptions' },
       { id: 'updates', label: 'Updates', hint: 'New project & initiative updates and reminders to post an update' },
       { id: 'remindersDeadlines', label: 'Reminders and deadlines', hint: 'Reminders, due dates, and SLA updates' },
+      { id: 'loops', label: 'Loops', hint: 'Messages, responses, and failures from loops' },
       { id: 'appsIntegrations', label: 'Apps and integrations', hint: 'Requests related to OAuth apps and integrations' },
       { id: 'billing', label: 'Billing', hint: 'Usage credit balance alerts' },
     ],
@@ -248,6 +249,7 @@ export const NOTIFICATION_EVENT_GROUPS: {
   {
     header: 'Feature notifications',
     events: [
+      { id: 'customerRequests', label: 'Customer requests', hint: 'Requests from your customers' },
       { id: 'triage', label: 'Triage', hint: 'Issues added to triage' },
     ],
   },
@@ -263,8 +265,10 @@ const ALL_EVENTS_ON: Record<NotificationEvent, boolean> = {
   documentChanges: true,
   updates: true,
   remindersDeadlines: true,
+  loops: true,
   appsIntegrations: true,
   billing: true,
+  customerRequests: true,
   triage: true,
 }
 

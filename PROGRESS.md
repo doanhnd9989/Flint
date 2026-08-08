@@ -5004,3 +5004,78 @@ handful of "overflow" hits all `truncate` elements behaving as designed with
 dark + `--font-scale: 1.4` + a 420px viewport (panel 386px, rows 43px, nothing
 clipped, `document.scrollWidth` 420) · every sub-page drill-in opened and
 counted, no dead controls · lint 105, unchanged baseline`
+
+## `inbox-notifications`, second lap — the notification settings screens
+
+Rotation moved off `keyboard`. Lap 1 had covered the inbox list pane and its
+row context menu, and left a written starting point: the reading pane, the
+`Read` tab, the bulk bar, and the two notification settings screens. This lap
+took the reading pane and the settings screens.
+
+**Red on arrival:** nothing. `collect.sh` reported typecheck PASS, api UP, lint
+109 (the same known families). Vite was DOWN and was started with the preview
+tool. Seeded 24 issues · 6 sub-issues · 18 comments · 8 attachments on top of
+the existing 250 issues / 224 files.
+
+**Fixed this run**
+
+- **Two whole notification categories were missing.** Linear's channel
+  sub-screen lists 14; ours listed 12. Added `Loops` ("Messages, responses, and
+  failures from loops", which sits between Reminders and deadlines and Apps and
+  integrations) and `Customer requests` ("Requests from your customers", which
+  opens the Feature notifications group above Triage). Both are now in
+  `NOTIFICATION_EVENT_GROUPS` in Linear's order.
+- **Email's "Notification format" was the wrong kind of control.** Linear
+  renders it as a `Digest`/`Immediate` dropdown inside the same card as the
+  master enable. Ours was a toggle labelled "Digest" under its own group header.
+  It is now a `select` in the right card, and `ToggleRow` was factored onto a
+  new `SettingRow` so a row can carry any control.
+- **We had invented helper text Linear doesn't print.** Both "Email digest
+  settings" rows carried a second line of our own writing; Linear's label is the
+  whole sentence. `hint` is now optional and the second line is dropped.
+- **Overview section was renamed and rewritten to Linear's copy** — "Push
+  notifications" (was "Notification channels") with Linear's exact description.
+- **The channel status line was ours, not Linear's.** We printed "Enabled for N
+  of M notifications"; Linear names the first two enabled categories and counts
+  the rest — "Enabled for assignments, status changes, 12 others".
+- **Channel sub-screens had no subtitle**, and the back link had no chevron.
+- **The reading pane's snooze menu was a different menu from the row's.** The
+  row context menu already had Linear's six presets with their resolved moments;
+  the reading pane and the bulk bar had four, with our own wording ("In 1 hour"
+  vs Linear's "An hour from now") and no stamps. All three now share
+  `snoozePresets`, and "Next cycle" resolves against the notification's own team
+  (inert on the bulk bar, which isn't scoped to one issue).
+- **Every notification subtitle was a dangling fragment.** The row renders
+  `<actor> <body>` and the seed bodies stopped mid-sentence — "Jordan Lee
+  mentioned you in", and worse, "You assigned you to" from a notification whose
+  actor was the current user. Bodies are now complete predicates and the
+  self-assignment was reseated on another actor.
+
+Adding the two event ids is a persisted-schema change, which this repo has been
+bitten by before: stored `channels[x].events` predate the new keys, so reading
+`ch.events[id]` straight would hand `undefined` to a controlled toggle. Reads go
+through `eventOn()`, which defaults a missing key to on, and the status line
+counts over the group definition rather than `Object.values` of stored state.
+
+**Deliberately not changed:** Linear's Desktop sub-screen has no master enable
+toggle — it shows an "Open Linear Desktop ↗" callout instead, because the
+setting only means anything with their desktop build installed. Ours keeps the
+master toggle: it is a working control, the overview's "Disabled" status depends
+on it, and Linear's own Email page proves the pattern ("Enable email
+notifications"). Logged rather than removed.
+
+**Unverified, on purpose:** Linear's inbox *reading pane*. Every row in the
+user's inbox was unread and opening one marks it read, which is a real mutation
+of their workspace — so the reading pane's header controls stay uncompared, and
+this lap's reading-pane work is measured against the row context menu (whose
+snooze flyout was itemised on Linear in lap 1) rather than against the pane
+itself. Linear's Mobile and Slack sub-screens are likewise uncrawled.
+
+`tsc -b ✅ · build ✅ · 9-route sweep console-clean, zero uncaught errors and no
+"Maximum update depth" · Email and Desktop sub-screens re-read after the change
+and both match Linear row-for-row · lint 109, unchanged baseline`
+
+One harness note: mid-edit HMR failures ("Failed to reload …") stay in the
+browser console buffer across reloads and read exactly like a live break. They
+were a transient broken parse in `seed.ts`; the dev server's own log timestamps
+them, and refetching each module returned 200 once the parse was fixed.

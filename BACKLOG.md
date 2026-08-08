@@ -616,6 +616,31 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `inbox-notifications` pass, second lap (the settings screens)
+
+Linear's notification settings were navigated read-only; one dropdown was opened
+and Escaped. Nothing was selected, toggled or submitted. Full table in
+`.audit/controls/inbox-notifications.md`.
+
+- [ ] 🟢 **Linear's Desktop channel page has no master enable toggle.** It shows
+      a `Desktop notifications require Linear Desktop` row with an
+      `Open Linear Desktop ↗` link instead. Ours keeps a master toggle because
+      the overview's `Disabled` status reads off it. Revisit only if a desktop
+      build ever exists. (S)
+- [ ] 🟡 **Linear's inbox reading pane is still uncompared.** Opening a
+      notification there marks it read on the user's real workspace, so its
+      header controls were never inventoried. Needs a Linear workspace with an
+      already-read notification. (S)
+- [ ] 🟡 **Linear's Mobile and Slack channel sub-screens are uncrawled.** Only
+      Desktop and Email were opened; Mobile's subtitle is currently copied from
+      Desktop's wording rather than observed. (S)
+- [ ] 🟢 **`Notification schedule` is a top-level nav entry for us.** Linear has
+      no such screen under account Notifications — find where Linear actually
+      puts work-hours/schedule before assuming ours is in the right place. (M)
+- [ ] 🟢 **`NotificationRulesSettings` (if-then rules) is ours only.** Linear's
+      Notifications page has no rules section. Either find where Linear exposes
+      this or record it as a deliberate divergence. (S)
+
 ### From the `keyboard` pass, second lap (the Filters and List/Board keys)
 
 `F` was pressed on Linear's `my-issues/assigned` (menu opened, itemised through

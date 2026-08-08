@@ -1,5 +1,12 @@
 import { useState } from 'react'
-import { ChevronRight, Mail, MessageSquare, Monitor, Smartphone } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Mail,
+  MessageSquare,
+  Monitor,
+  Smartphone,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStoreShallow } from '@/lib/store'
 import {
@@ -12,6 +19,7 @@ import { Toggle as UIToggle } from './ui/Toggle'
 import type {
   ChannelSettings,
   NotificationChannel,
+  NotificationEvent,
   NotificationSettings,
 } from '@/lib/types'
 
@@ -24,19 +32,36 @@ const CHANNEL_ICON: Record<NotificationChannel, LucideIcon> = {
   slack: MessageSquare,
 }
 
-const EVENT_COUNT = NOTIFICATION_EVENT_GROUPS.reduce(
-  (n, g) => n + g.events.length,
-  0,
-)
+/** Linear prints a subtitle under the channel title only where the channel
+ *  spans more than one device; its Email page has none. */
+const CHANNEL_SUBTITLE: Partial<Record<NotificationChannel, string>> = {
+  desktop: 'Applies across all your desktop devices with notifications enabled',
+  mobile: 'Applies across all your mobile devices with notifications enabled',
+}
 
-/** The grey status line under a channel name on the overview, e.g. Linear's
- *  "Disabled" / "Enabled for all notifications". */
+const ALL_EVENTS = NOTIFICATION_EVENT_GROUPS.flatMap((g) => g.events)
+const EVENT_COUNT = ALL_EVENTS.length
+
+/** Persisted channel settings predate the newer event ids, so a missing key
+ *  reads as "on" rather than `undefined` — otherwise a stored value from an
+ *  older schema renders the row as an uncontrolled toggle. */
+function eventOn(ch: ChannelSettings, id: NotificationEvent): boolean {
+  return ch.events[id] ?? true
+}
+
+/** The grey status line under a channel name on the overview. Linear names the
+ *  first two enabled categories and counts the rest — "Enabled for assignments,
+ *  status changes, 12 others" — rather than printing a bare N-of-M. */
 function channelStatus(ch: ChannelSettings): { label: string; on: boolean } {
   if (!ch.enabled) return { label: 'Disabled', on: false }
-  const onCount = Object.values(ch.events).filter(Boolean).length
-  if (onCount === EVENT_COUNT)
+  const on = ALL_EVENTS.filter((e) => eventOn(ch, e.id))
+  if (on.length === EVENT_COUNT)
     return { label: 'Enabled for all notifications', on: true }
-  return { label: `Enabled for ${onCount} of ${EVENT_COUNT} notifications`, on: true }
+  if (on.length === 0) return { label: 'No notifications enabled', on: false }
+  const named = on.slice(0, 2).map((e) => e.label.toLowerCase())
+  const rest = on.length - named.length
+  const list = rest > 0 ? [...named, `${rest} others`] : named
+  return { label: `Enabled for ${list.join(', ')}`, on: true }
 }
 
 // ── primitives ───────────────────────────────────────────────────────────────
@@ -44,18 +69,18 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   return <UIToggle checked={checked} onChange={onChange} />
 }
 
-/** A label + helper-text row with a trailing switch — Linear's setting row. */
-function ToggleRow({
+/** A label + optional helper-text row with a trailing control — Linear's setting
+ *  row. Several of Linear's rows (the two email-digest ones) carry no hint at
+ *  all, so `hint` is optional and the second line is dropped entirely. */
+function SettingRow({
   label,
   hint,
-  checked,
-  onChange,
+  control,
   disabled,
 }: {
   label: string
-  hint: string
-  checked: boolean
-  onChange: (v: boolean) => void
+  hint?: string
+  control: React.ReactNode
   disabled?: boolean
 }) {
   return (
@@ -67,10 +92,35 @@ function ToggleRow({
     >
       <div className="min-w-0">
         <div className="text-[13px] font-medium text-fg">{label}</div>
-        <div className="text-[12px] text-muted">{hint}</div>
+        {hint && <div className="text-[12px] text-muted">{hint}</div>}
       </div>
-      <Switch checked={checked} onChange={(v) => !disabled && onChange(v)} />
+      {control}
     </div>
+  )
+}
+
+function ToggleRow({
+  label,
+  hint,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string
+  hint?: string
+  checked: boolean
+  onChange: (v: boolean) => void
+  disabled?: boolean
+}) {
+  return (
+    <SettingRow
+      label={label}
+      hint={hint}
+      disabled={disabled}
+      control={
+        <Switch checked={checked} onChange={(v) => !disabled && onChange(v)} />
+      }
+    />
   )
 }
 
@@ -109,13 +159,18 @@ function ChannelDetail({
     <div className="mx-auto max-w-2xl px-10 py-10">
       <button
         onClick={onBack}
-        className="text-[13px] text-muted hover:text-fg"
+        className="-ml-1 flex items-center gap-0.5 text-[13px] text-muted hover:text-fg"
       >
-        Notifications
+        <ChevronLeft size={14} /> Notifications
       </button>
       <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-fg">
         {meta.label}
       </h1>
+      {CHANNEL_SUBTITLE[channel] && (
+        <p className="mt-1 text-[13px] text-muted">
+          {CHANNEL_SUBTITLE[channel]}
+        </p>
+      )}
 
       {/* Master enable */}
       <div className="mt-7 border-b border-border">
@@ -129,26 +184,44 @@ function ChannelDetail({
           checked={on}
           onChange={(v) => setNotificationChannelEnabled(channel, v)}
         />
+
+        {/* Linear keeps "Notification format" in the same card as the master
+            enable, and it is a Digest/Immediate dropdown — not a toggle. */}
+        {channel === 'email' && (
+          <>
+            <div className="border-t border-border" />
+            <SettingRow
+              label="Notification format"
+              hint="Choose whether to group email notifications"
+              disabled={!on}
+              control={
+                <select
+                  value={settings.emailDigest ? 'digest' : 'immediate'}
+                  disabled={!on}
+                  onChange={(e) =>
+                    updateNotificationSettings({
+                      emailDigest: e.target.value === 'digest',
+                    })
+                  }
+                  className="rounded-md border border-border bg-bg px-2 py-1 text-[12px] text-fg outline-none"
+                >
+                  <option value="digest">Digest</option>
+                  <option value="immediate">Immediate</option>
+                </select>
+              }
+            />
+          </>
+        )}
       </div>
 
-      {/* Email-only digest options, matching Linear's Email page */}
+      {/* Email-only digest options, matching Linear's Email page. Linear prints
+          no helper line under either row — the label is the whole sentence. */}
       {channel === 'email' && (
         <>
-          <GroupHeader>Notification format</GroupHeader>
-          <div className="border-b border-border">
-            <ToggleRow
-              label="Digest"
-              hint="Choose whether to group email notifications"
-              checked={settings.emailDigest}
-              onChange={(v) => updateNotificationSettings({ emailDigest: v })}
-              disabled={!on}
-            />
-          </div>
           <GroupHeader>Email digest settings</GroupHeader>
           <div className="border-b border-border">
             <ToggleRow
               label="Delay low priority emails outside of work hours until next work day"
-              hint="Batch non-urgent emails so they arrive during your work hours"
               checked={settings.emailDelayLowPriority}
               onChange={(v) =>
                 updateNotificationSettings({ emailDelayLowPriority: v })
@@ -158,7 +231,6 @@ function ChannelDetail({
             <div className="border-t border-border" />
             <ToggleRow
               label="Immediately notify if an issue assigned to you is marked urgent or breaches SLA"
-              hint="Override the digest delay for urgent assigned issues"
               checked={settings.emailUrgentImmediate}
               onChange={(v) =>
                 updateNotificationSettings({ emailUrgentImmediate: v })
@@ -180,7 +252,7 @@ function ChannelDetail({
                 <ToggleRow
                   label={ev.label}
                   hint={ev.hint}
-                  checked={ch.events[ev.id]}
+                  checked={eventOn(ch, ev.id)}
                   onChange={(v) => setNotificationEvent(channel, ev.id, v)}
                   disabled={!on}
                 />
@@ -213,10 +285,10 @@ function Overview({
 
       {/* Notification channels */}
       <section className="mt-7">
-        <h2 className="text-[13px] font-semibold text-fg">Notification channels</h2>
+        <h2 className="text-[13px] font-semibold text-fg">Push notifications</h2>
         <p className="mt-0.5 text-[12px] text-muted">
-          Choose how to be notified for workspace activity. Notifications will
-          always go to your inbox.
+          Choose which notifications are pushed to your devices. All
+          notifications will still appear in your inbox.
         </p>
         <div className="mt-4 overflow-hidden rounded-lg border border-border">
           {NOTIFICATION_CHANNELS.map((c, i) => {

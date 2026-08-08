@@ -671,8 +671,10 @@ export type NotificationEvent =
   | 'documentChanges'
   | 'updates'
   | 'remindersDeadlines'
+  | 'loops'
   | 'appsIntegrations'
   | 'billing'
+  | 'customerRequests'
   | 'triage'
 
 export interface ChannelSettings {

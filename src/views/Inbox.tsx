@@ -43,6 +43,7 @@ import { PriorityIcon } from '@/components/PriorityIcon'
 import { StatusIcon } from '@/components/StatusIcon'
 import { PRIORITY_LABELS, PRIORITY_ORDER } from '@/lib/constants'
 import { timeAgo, cn } from '@/lib/utils'
+import { morning, stamp } from '@/lib/dateOptions'
 import { Toggle } from '@/components/ui/Toggle'
 import type {
   NotificationType,
@@ -108,36 +109,78 @@ function isSnoozed(until: string | undefined, now: number) {
 
 // ── snooze menu body ─────────────────────────────────────────────────────────
 // Shared across every snooze popover in the inbox (reading pane, bulk action
-// bar, notification row). The fixed presets snooze relative to `now`; the
-// trailing "Custom…" row reveals a DatePicker (reusing the same calendar as the
-// issue due-date picker) and snoozes to the picked date's ISO. Picking from the
-// calendar closes both popovers via the parent's `close`.
-const SNOOZE_PRESETS = [
-  { label: 'In 1 hour', ms: 3_600_000 },
-  { label: 'Tomorrow', ms: 86_400_000 },
-  { label: 'Next week', ms: 7 * 86_400_000 },
-]
+// bar). Linear's snooze flyout is six rows — An hour from now · Tomorrow · Next
+// week · A month from now · Next cycle · Custom… — each with the moment it
+// resolves to printed on the right. The row context menu already built this
+// set; `snoozePresets` is the shared source so all three agree.
+// "Next cycle" resolves against a team, so it is inert wherever the snooze
+// isn't scoped to one issue (the bulk bar).
+function snoozePresets(
+  now: Date,
+  cycles: { teamId: string; startsAt: string; pausedAt?: string }[],
+  teamId?: string,
+): { label: string; at?: Date }[] {
+  const hour = new Date(now.getTime() + 3_600_000)
+  const tomorrow = morning(new Date(now.getTime() + 86_400_000))
+  // "Next week" is the coming Monday, not now+7d — Linear lands it on the week
+  // start, matching the row context menu.
+  const nextWeek = morning(new Date(now))
+  nextWeek.setDate(nextWeek.getDate() + ((8 - nextWeek.getDay()) % 7 || 7))
+  const nextMonth = morning(new Date(now))
+  nextMonth.setMonth(nextMonth.getMonth() + 1)
+  const nextCycle = teamId
+    ? cycles
+        .filter(
+          (c) =>
+            c.teamId === teamId &&
+            !c.pausedAt &&
+            new Date(c.startsAt).getTime() > now.getTime(),
+        )
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0]
+    : undefined
+  return [
+    { label: 'An hour from now', at: hour },
+    { label: 'Tomorrow', at: tomorrow },
+    { label: 'Next week', at: nextWeek },
+    { label: 'A month from now', at: nextMonth },
+    { label: 'Next cycle', at: nextCycle ? new Date(nextCycle.startsAt) : undefined },
+  ]
+}
+
 function SnoozeMenu({
-  onSnoozeMs,
   onSnoozeAt,
   close,
+  teamId,
 }: {
-  onSnoozeMs: (ms: number) => void
   onSnoozeAt: (iso: string) => void
   close: () => void
+  teamId?: string
 }) {
+  const cycles = useStore((s) => s.cycles)
+  const presets = snoozePresets(new Date(), cycles, teamId)
   return (
     <div>
-      {SNOOZE_PRESETS.map((o) => (
+      {presets.map((o) => (
         <button
           key={o.label}
+          disabled={!o.at}
           onClick={() => {
-            onSnoozeMs(o.ms)
+            if (!o.at) return
+            onSnoozeAt(o.at.toISOString())
             close()
           }}
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover"
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-hover',
+            !o.at && 'cursor-default text-faint hover:bg-transparent',
+          )}
         >
-          <Clock size={13} className="text-faint" /> {o.label}
+          <Clock size={13} className="shrink-0 text-faint" />
+          <span className="flex-1 truncate">{o.label}</span>
+          {o.at && (
+            <span className="shrink-0 pl-3 text-[12px] text-faint">
+              {stamp(o.at)}
+            </span>
+          )}
         </button>
       ))}
       <DatePicker
@@ -1379,7 +1422,7 @@ export function Inbox() {
         snoozeMenu={
           <Popover
             align="start"
-            width={160}
+            width={280}
             trigger={
               <span className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[12px] text-muted hover:bg-bg-hover hover:text-fg">
                 <Clock size={14} /> Snooze
@@ -1389,14 +1432,6 @@ export function Inbox() {
             {(close) => (
               <SnoozeMenu
                 close={close}
-                onSnoozeMs={(ms) =>
-                  bulkAct((id) =>
-                    store.snoozeNotification(
-                      id,
-                      new Date(now + ms).toISOString(),
-                    ),
-                  )
-                }
                 onSnoozeAt={(iso) =>
                   bulkAct((id) => store.snoozeNotification(id, iso))
                 }
@@ -1412,7 +1447,6 @@ export function Inbox() {
           <ReadingPane
             key={selected.id}
             n={selected}
-            onSnooze={(ms) => actThenAdvance(selected.id, (x) => snooze(x, ms))}
             onSnoozeAt={(iso) =>
               actThenAdvance(selected.id, (x) =>
                 store.snoozeNotification(x, iso),
@@ -1450,14 +1484,12 @@ export function Inbox() {
 // ── reading pane: the selected notification's issue ──────────────────────────
 function ReadingPane({
   n,
-  onSnooze,
   onSnoozeAt,
   onUnsnooze,
   onDone,
   onOpenFull,
 }: {
   n: Notification
-  onSnooze: (ms: number) => void
   onSnoozeAt: (iso: string) => void
   onUnsnooze: () => void
   onDone: () => void
@@ -1506,7 +1538,7 @@ function ReadingPane({
       ) : (
         <Popover
           align="end"
-          width={160}
+          width={280}
           trigger={
             <span
               title="Snooze (H)"
@@ -1519,8 +1551,8 @@ function ReadingPane({
           {(close) => (
             <SnoozeMenu
               close={close}
-              onSnoozeMs={onSnooze}
               onSnoozeAt={onSnoozeAt}
+              teamId={issue?.teamId}
             />
           )}
         </Popover>

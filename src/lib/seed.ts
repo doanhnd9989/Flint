@@ -395,18 +395,21 @@ export function buildSeed(): WorkspaceData {
     { id: 'a_x5', issueId: 'i_5', userId: 'u_me', kind: 'estimate', to: '5', createdAt: nowIso() },
   )
 
+  // The row renders "<actor> <body>", so each body has to be a complete
+  // predicate — Linear's subtitle is always a whole sentence, never a fragment
+  // left dangling on a noun it never prints.
   const notifications: Notification[] = [
     {
       id: 'n_1', issueId: 'i_5', type: 'comment', actorId: 'u_avery',
-      body: 'commented on', createdAt: nowIso(), read: false,
+      body: 'commented on this issue', createdAt: nowIso(), read: false,
     },
     {
-      id: 'n_2', issueId: 'i_6', type: 'assigned', actorId: 'u_me',
-      body: 'assigned you to', createdAt: nowIso(), read: false,
+      id: 'n_2', issueId: 'i_6', type: 'assigned', actorId: 'u_avery',
+      body: 'assigned this issue to you', createdAt: nowIso(), read: false,
     },
     {
       id: 'n_3', issueId: 'i_5', type: 'mention', actorId: 'u_jordan',
-      body: 'mentioned you in', createdAt: nowIso(), read: true,
+      body: 'mentioned you in a comment', createdAt: nowIso(), read: true,
     },
   ]
 
