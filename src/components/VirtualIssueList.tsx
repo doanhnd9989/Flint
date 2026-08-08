@@ -3,6 +3,7 @@ import type { IssueGroup } from '@/lib/selectors'
 import type { GroupBy, Issue } from '@/lib/types'
 import { IssueRow } from './IssueRow'
 import { IssueGroupHeader } from './IssueGroupHeader'
+import { useStore } from '@/lib/store'
 import { useFontScale } from '@/lib/useTheme'
 
 /** Row height at the default font size; scaled by the Font size preference. */
@@ -72,6 +73,34 @@ export function VirtualIssueList({
   const start = Math.max(0, Math.floor(scrollTop / ITEM_H) - OVERSCAN)
   const end = Math.min(total, Math.ceil((scrollTop + height) / ITEM_H) + OVERSCAN)
   const visible = rows.slice(start, end)
+
+  // A focused row outside the window has no DOM node, so `IssueRow`'s own
+  // `scrollIntoView` can never fire. That left `⌥⇧↓` ("move to bottom of the
+  // group") looking like it did nothing on a long list — the issue moved, off
+  // screen, and the viewport stayed put. Scroll the container ourselves.
+  const focusedIssueId = useStore((s) => s.focusedIssueId)
+  const focusedIndex = focusedIssueId
+    ? rows.findIndex((r) => r.kind === 'issue' && r.issue.identifier === focusedIssueId)
+    : -1
+  useEffect(() => {
+    const el = ref.current
+    // A container that has not been laid out yet (hidden tab, first paint) has
+    // no viewport to scroll within — scrolling against it would desync the
+    // window from the real scroll position.
+    if (!el || focusedIndex === -1 || el.clientHeight === 0) return
+    const top = focusedIndex * ITEM_H
+    let next = el.scrollTop
+    if (top < el.scrollTop) next = top
+    else if (top + ITEM_H > el.scrollTop + el.clientHeight)
+      next = top + ITEM_H - el.clientHeight
+    next = Math.max(0, Math.min(next, el.scrollHeight - el.clientHeight))
+    if (next === el.scrollTop) return
+    el.scrollTop = next
+    // Assigning `scrollTop` does not reliably reach React's `onScroll`, and
+    // without this the container scrolls while the mounted window stays where
+    // it was — leaving the viewport on blank space.
+    setScrollTop(next)
+  }, [focusedIndex, ITEM_H])
 
   return (
     <div

@@ -616,6 +616,42 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `keyboard` pass, second lap (the Filters and List/Board keys)
+
+`F` was pressed on Linear's `my-issues/assigned` (menu opened, itemised through
+the DOM, Escaped — nothing selected). The reordering and clear-filter keys were
+**not** pressed on Linear: each one mutates the user's real workspace, so their
+behaviour is taken from Linear's own shortcut sheet, not observed. Full table in
+`.audit/controls/keyboard.md`.
+
+- [ ] 🟡 **Linear's `Add Filter…` menu has 26 entries; ours has 12.** Linear's
+      order, measured: `AI filter`, `Advanced filter`, then `Team`, `Status`,
+      `Status type`, `Assignee`, `Agent`, `Agent Session`, `Creator`,
+      `Priority`, `Estimate`, `Labels`, `Relations`, `Suggested label`, `Dates`,
+      then `Project`, `Project properties`, `Cycle`, `Added to cycle`,
+      `Customers`, then `Subscribers`, `External source`, `Auto-closed`,
+      `Content`, `Links`, `Template`. Ours: `Status`, `Assignee`, `Creator`,
+      `Priority`, `Estimate`, `Labels`, `Dates`, `Project`, `Milestone`,
+      `Cycle`, `Subscribers`, `Content`. So we are missing fourteen, and we show
+      a `Milestone` row Linear does not have at this level. Linear's panel is
+      also grouped by blank separators; ours is one flat list. The individual
+      dimensions are tracked separately above (`Status type`, `Relations`,
+      `Links`, `Team`); this entry is the menu's shape and count.
+- [ ] 🟡 **`⌥`-modified letter shortcuts elsewhere still match on `e.key`.**
+      `⌥T` had this bug and is fixed, but `MentionInput.tsx:468` does
+      `e.altKey && (e.key === '1' || '2' || '3')` — on macOS Option rewrites
+      those to `¡ ™ £`, so the editor's `⌥1/2/3` are dead the same way. Every
+      `altKey` handler in the app should be matching `e.code`.
+- [ ] 🟢 **`⌥⇧↑`/`⌥⇧↓` were verified on the list, not on a board column.** The
+      board shares `moveFocusedIssue`, and `⌥←`/`⌥→` were verified there, but
+      "move to top/bottom" inside a board column is untested.
+- [ ] 🟢 **Linear's `O`-chord behaviour is still unverified, not just unbuilt.**
+      Driving a chord through the Chrome extension takes two round-trips, which
+      is longer than Linear's chord window, so `O then P` closed the palette
+      instead of opening the project picker. The chords are recorded from
+      Linear's printed sheet only. Any future attempt needs both keys inside a
+      single `browser_batch`.
+
 ### From the `command-menu` pass, second lap (the issue-context commands)
 
 The palette with an issue in context, read side by side against Linear's on
@@ -1159,19 +1195,31 @@ not yet honour — each is a concrete key, not a mood.
   `O F` favorite and `O W` switch workspace. We have no `O` chord prefix at all
   (same gap the `command-menu` pass logged from the palette side — one fix
   serves both).
-- [ ] 🔴 **List/Board reordering keys are unbound** — `⌥↑`/`⌥↓` move one
-  position, `⌥⇧↑`/`⌥⇧↓` move to top/bottom of the group, `⌥←`/`⌥→` move to the
-  previous/next column, `T` collapses a row, `⌥T` collapses all. Our board can
-  only be reordered by pointer drag, so this also closes the "board keyboard
-  drag" item below.
+- [x] 🔴 **List/Board reordering keys are unbound** — shipped. `⌥↑`/`⌥↓` move the
+  focused issue one position inside its group and `⌥⇧↑`/`⌥⇧↓` send it to the
+  top/bottom (`moveFocusedIssue`, midpoint `sortOrder` maths shared with
+  drag-to-reorder); `⌥←`/`⌥→` move it to the previous/next column
+  (`moveFocusedIssueToColumn`, which sets whichever property the view is grouped
+  by — status, assignee, priority, project, cycle or milestone — exactly as
+  dropping the card there does). `T` and `⌥T` were already bound, but `⌥T`
+  matched on `e.key`, which macOS Option rewrites to `†`, so it was dead in a
+  real browser; it now matches `e.code`. The board publishes `navGroups` too, so
+  the keyboard reaches its columns. Keyboard drag on the board is now covered,
+  which closes the "board keyboard drag" item below.
 - [ ] 🟡 **`⌘B` toggle layout view is unbound** — the list/board choice lives in
   `useState` inside `IssuesView`, so no global key can reach it. Needs the
   layout hoisted into the store (or a view-scoped context) first. Note Linear's
   `V` is *New issue in full screen view*, not the layout toggle — our old `V`
   hint was wrong twice over.
-- [ ] 🟡 **`⇧V` show display options, `F` add filter, `⇧F` clear last filter,
-  `⌥⇧F` clear all filters** — all four need a way to open/drive `DisplayMenu`
-  and `FilterBar` from the keyboard; both are currently pointer-only triggers.
+- [x] 🟡 **`F` add filter, `⇧F` clear last filter, `⌥⇧F` clear all filters** —
+  shipped. `FilterTrigger` owns the three keys, so every view that renders the
+  funnel gets them without per-view plumbing; `Popover` gained an optional
+  `triggerRef` so `F` opens the menu through the same click path a pointer uses.
+  `⇧F` needed a notion of "last", so `FilterState` gained an optional `order`
+  of chip keys maintained wherever `onChange` is handed down — `⇧F` drops the
+  filter added most recently, not the leftmost chip.
+- [ ] 🟡 **`⇧V` show display options is unbound** — needs the same treatment as
+  the filter keys, against `DisplayMenu`, whose trigger is still pointer-only.
 - [ ] 🟡 **Triage `1` accept / `2` decline / `3` duplicate / `H` snooze** — the
   triage queue has the buttons but no key bindings.
 - [ ] 🟡 **Issue rows Linear has and we don't bind**: `⌥C` new issue from

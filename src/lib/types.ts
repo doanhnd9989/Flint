@@ -611,6 +611,12 @@ export interface FilterState {
    * saved views persisted before operators existed still load.
    */
   negate?: Partial<Record<keyof Omit<FilterState, 'negate'>, boolean>>
+  /**
+   * Chip keys in the order the user added them, so `⇧F` ("Clear last issue
+   * filter") can drop the most recent one rather than guessing. Optional: a
+   * view saved before this existed simply falls back to render order.
+   */
+  order?: string[]
 }
 
 export interface SavedView {

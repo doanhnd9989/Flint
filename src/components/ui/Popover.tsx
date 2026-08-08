@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from 'react'
 import { createPortal } from 'react-dom'
 import { placePanel } from '@/lib/anchor'
@@ -19,12 +20,19 @@ interface Props {
    * unnamed. Linear labels every one of them ("Add filter", "Display options").
    */
   label?: string
+  /**
+   * Exposes the trigger button so a keyboard shortcut can open this popover the
+   * same way a click does — Linear's `F` opens the filter menu without the
+   * caller having to mirror the open state.
+   */
+  triggerRef?: RefObject<HTMLButtonElement | null>
 }
 
 /** Generic click-anchored popover rendered in a portal. */
-export function Popover({ trigger, children, align = 'start', width = 220, label }: Props) {
+export function Popover({ trigger, children, align = 'start', width = 220, label, triggerRef }: Props) {
   const [open, setOpen] = useState(false)
-  const anchorRef = useRef<HTMLButtonElement>(null)
+  const ownRef = useRef<HTMLButtonElement>(null)
+  const anchorRef = triggerRef ?? ownRef
   const panelRef = useRef<HTMLDivElement>(null)
 
   /** Ref callback: position the panel in the commit that mounts it. */

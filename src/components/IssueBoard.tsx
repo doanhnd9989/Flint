@@ -674,6 +674,7 @@ export function IssueBoard({
   const setIssuePriority = useStore((s) => s.setIssuePriority)
   const setIssueProject = useStore((s) => s.setIssueProject)
   const setNavIssueIds = useStore((s) => s.setNavIssueIds)
+  const setNavGroups = useStore((s) => s.setNavGroups)
   const [active, setActive] = useState<Issue | null>(null)
   const [showHidden, setShowHidden] = useState(false)
   // Column ids the user has collapsed into a narrow rail (component-local; not
@@ -705,6 +706,17 @@ export function IssueBoard({
   useEffect(() => {
     setNavIssueIds(flatOrder)
   }, [flatOrder.join('\n'), setNavIssueIds])
+
+  // …and the columns themselves, left to right, so `⌥←` / `⌥→` can move the
+  // focused card between them and `T` / `⌘⌥A` can resolve its column.
+  const colOrder = groups.map((g) => ({
+    key: g.key,
+    identifiers: g.issues.map((i) => i.identifier),
+  }))
+  const colOrderKey = colOrder.map((g) => `${g.key}:${g.identifiers.join(',')}`).join('\n')
+  useEffect(() => {
+    setNavGroups(colOrder, groupBy)
+  }, [colOrderKey, groupBy, setNavGroups])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

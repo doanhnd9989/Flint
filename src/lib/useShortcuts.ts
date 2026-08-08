@@ -122,12 +122,42 @@ export function useShortcuts() {
 
       // ⌥T — fold/unfold every group at once. Lives above the blanket altKey
       // bail-out below, which is what made this and its siblings dead keys.
-      if (e.altKey && !e.metaKey && !e.ctrlKey && key === 't') {
+      // Option rewrites `e.key` on macOS (⌥T arrives as "†"), so match the
+      // physical key; `e.key` stays as the fallback for synthesised events,
+      // which carry no `code`.
+      if (
+        e.altKey &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        (e.code === 'KeyT' || key === 't' || e.key === '†' || e.key === 'ˇ')
+      ) {
         if (isTyping(e.target) || !store.navGroups.length) return
         e.preventDefault()
         const keys = store.navGroups.map((g) => g.key)
         const allCollapsed = keys.every((k) => store.collapsedGroups[k])
         store.setGroupsCollapsed(keys, !allCollapsed)
+        return
+      }
+
+      // ⌥↑ / ⌥↓ move the focused issue one position inside its group, ⌥⇧↑ / ⌥⇧↓
+      // send it to the top / bottom, and ⌥← / ⌥→ move it to the neighbouring
+      // column. Like ⌥T these must sit above the blanket altKey bail-out below.
+      if (
+        e.altKey &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        (e.key === 'ArrowUp' ||
+          e.key === 'ArrowDown' ||
+          e.key === 'ArrowLeft' ||
+          e.key === 'ArrowRight')
+      ) {
+        if (isTyping(e.target) || !store.focusedIssueId) return
+        e.preventDefault()
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          store.moveFocusedIssueToColumn(e.key === 'ArrowRight' ? 1 : -1)
+        } else {
+          store.moveFocusedIssue(e.key === 'ArrowDown' ? 1 : -1, e.shiftKey)
+        }
         return
       }
 

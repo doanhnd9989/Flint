@@ -2,6 +2,91 @@
 
 Newest first. Each loop iteration appends one entry.
 
+## 2026-08-08 — Audit: `keyboard`, second lap (the Filters and List/Board keys)
+
+**Where it started.** `collect.sh`: typecheck PASS, lint 105 (unchanged
+baseline), api UP, vite DOWN → started with the preview tool. `seed-bulk.mjs`
+added 24 issues (+6 sub), 18 comments and 8 attachments (3496 KB of real bytes).
+The 37-route sweep was clean before any change: no console errors, no
+horizontal overflow, no empty renders. `keyboard` already had a coverage file
+whose closing note named the starting point exactly — the `Filters` keys and the
+`List and board` movement keys — so this lap began there.
+
+**What was red.** Nothing in the logs. Everything below came out of pressing
+keys the app's own shortcut sheet advertises.
+
+**Seven advertised keys did nothing.** `F`, `⇧F`, `⌥⇧F`, `⌥↑`, `⌥↓`, `⌥⇧↑`,
+`⌥⇧↓` and `⌥←`/`⌥→` were all printed in the shortcuts drawer and all dead. The
+filter panel was the sharpest version of it: its input already read
+`Add Filter…` with an `F` hint badge in the corner, so the UI had been promising
+a key that was never bound.
+
+`F` now opens the funnel's popover, `⇧F` drops the most recently added filter
+and `⌥⇧F` clears them all. `FilterTrigger` owns the three keys rather than the
+global `useShortcuts`, because it is the one component every filterable view
+renders and it already holds `filters` + `onChange` — so all five views get the
+keys with no per-view plumbing and no store round-trip. `Popover` gained an
+optional `triggerRef` so `F` opens the menu through the same click path a
+pointer takes, instead of mirroring its open state.
+
+`⇧F` needed a definition of "last", which our `FilterState` had no way to
+express — the chip row renders in a fixed dimension order, so the *rightmost*
+chip is not the *newest* one. `FilterState` gained an optional `order` of chip
+keys, maintained in the two places a view hands `onChange` down, and verified by
+adding Status after Priority (chips render Status first) and confirming `⇧F`
+removes Status. Optional, and read through a fallback to render order, per the
+persisted-schema trap: a view saved before this existed still loads.
+
+The `⌥`-arrow family moves issues rather than focus: `moveFocusedIssue` reorders
+within the group using the same midpoint `sortOrder` maths as drag-to-reorder,
+so keyboard and mouse land on identical values, and `moveFocusedIssueToColumn`
+sets whichever property the view is grouped by — mirroring the board's drop
+handler, so `⌥→` on a board is exactly a drag one column right. That needed the
+grouping dimension in the store (`navGroupBy`, published alongside `navGroups`),
+and the board publishing `navGroups` at all, which it never did.
+
+**`⌥T` was dead in a real browser and the last audit called it fixed.** It
+matched `e.key === 't'`; macOS Option rewrites that key to `†`, so the handler
+never ran. The previous run's harness injects key events with `altKey` set but
+without the character rewrite, which is why it passed. It now matches `e.code`,
+verified by dispatching the true macOS shape (`{key: '†', code: 'KeyT',
+altKey: true}`): 10 rows → 0 → 10. `MentionInput`'s `⌥1/2/3` has the identical
+bug and is filed. **Any `altKey` handler matching on `e.key` should be assumed
+broken until tested with the rewritten character.**
+
+**`⌥⇧↓` moved the issue and the viewport stayed put.** On a windowed list the
+moved row lands outside the mounted window, so `IssueRow`'s own `scrollIntoView`
+can never fire — the issue went to the bottom of a 315-row group, off screen,
+and nothing appeared to happen. `VirtualIssueList` now scrolls to the focused
+index itself. Two traps on the way: assigning `scrollTop` does not reliably
+reach React's `onScroll`, so the container scrolled while the mounted window
+stayed at row 0 and the viewport showed blank space — the scroll state is now
+set alongside the DOM property; and the target is clamped to the scrollable
+range, with a bail-out when the container has not been laid out
+(`clientHeight === 0`), or a hidden tab desyncs the window from the real scroll
+position.
+
+**Linear stayed read-only.** `F` was pressed on `my-issues/assigned`, the menu
+itemised through the DOM (26 entries, right-anchored, `w 206`), and Escaped.
+Nothing was selected, typed or submitted. Every other key in this area mutates
+the user's workspace — `⇧F` and `⌥⇧F` clear their filters, the `⌥` arrows
+reorder their issues — so those were **not** pressed: their wording and key come
+from Linear's own shortcut sheet, which is authoritative for both, but Linear's
+*behaviour* for each is recorded as unverified rather than assumed. Linear's
+`O` chords are also unverified for a mechanical reason worth keeping: a chord
+driven as two tool calls is slower than Linear's chord window, so `O then P`
+just closed the palette. Both keys have to go in one `browser_batch`.
+
+**The gap that is left.** Linear's `Add Filter…` menu has 26 entries to our 12,
+grouped by separators where ours is flat, and we show a `Milestone` row Linear
+does not have at that level. Filed with the full list rather than fixed here —
+fourteen missing dimensions is a feature run, not a keyboard one.
+
+`tsc -b ✅ · build ✅ · 37-route sweep console-clean, zero overflow, zero empty
+renders · lint 105 → 109, the delta entirely `react-hooks/exhaustive-deps`, no
+new error families · filter panel re-checked at 420px + `--font-scale 1.4`
+(right edge 410 < 420, no page h-scroll)`
+
 ## 2026-08-08 — Audit: `issue-list`, second lap (multi-select, bulk bar, the `⌥` family)
 
 **Where it started.** `collect.sh`: typecheck PASS, lint 106 (unchanged

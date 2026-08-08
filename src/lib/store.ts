@@ -25,6 +25,7 @@ import type {
   Release,
   Favorite,
   FavoriteType,
+  GroupBy,
   Initiative,
   Issue,
   IssueLink,
@@ -127,6 +128,12 @@ interface UIState {
    * select-all-in-group and `T` collapse-row). Transient.
    */
   navGroups: { key: string; identifiers: string[] }[]
+  /**
+   * What those groups are grouped *by*, so the keyboard layer can turn "move to
+   * the next column" into the right property change (Linear's `⌥←` / `⌥→`).
+   * Transient.
+   */
+  navGroupBy: GroupBy
   /** Group keys the user has folded in the list on screen. Transient. */
   collapsedGroups: Record<string, boolean>
   /**
@@ -470,7 +477,22 @@ export interface Store extends WorkspaceData, UIState {
   setHelpMenuOpen: (open: boolean) => void
   setPeek: (id: string | null) => void
   setNavIssueIds: (ids: string[]) => void
-  setNavGroups: (groups: { key: string; identifiers: string[] }[]) => void
+  setNavGroups: (
+    groups: { key: string; identifiers: string[] }[],
+    groupBy: GroupBy,
+  ) => void
+  /**
+   * Reorder the focused issue inside its own group — Linear's `⌥↑` / `⌥↓`
+   * ("Move one position up/down") and `⌥⇧↑` / `⌥⇧↓` ("Move to top/bottom of
+   * the group"). Only visible under manual ordering, same as Linear.
+   */
+  moveFocusedIssue: (dir: 1 | -1, toEdge: boolean) => void
+  /**
+   * Move the focused issue to the group before/after its own — Linear's
+   * `⌥←` / `⌥→` ("Move to the left/right column"). Sets whichever property the
+   * list is grouped by, exactly as dropping the card into that column does.
+   */
+  moveFocusedIssueToColumn: (dir: 1 | -1) => void
   /** Fold/unfold one group of the list on screen (Linear's `T`). */
   toggleGroupCollapsed: (key: string) => void
   /** Fold/unfold every listed group at once (Linear's `⌥T`). */
@@ -603,6 +625,7 @@ export const useStore = create<Store>()(
       selectedIssueIds: [],
       navIssueIds: [],
       navGroups: [],
+      navGroupBy: 'none',
       collapsedGroups: {},
       focusedIssueId: null,
       contextMenu: null,
@@ -2515,8 +2538,9 @@ export const useStore = create<Store>()(
         ),
       // Same no-op guard as `setNavIssueIds`: this is published from a render
       // effect, so returning a fresh array every time would loop forever.
-      setNavGroups: (navGroups) =>
+      setNavGroups: (navGroups, navGroupBy) =>
         set((s) =>
+          s.navGroupBy === navGroupBy &&
           s.navGroups.length === navGroups.length &&
           s.navGroups.every(
             (g, i) =>
@@ -2525,7 +2549,7 @@ export const useStore = create<Store>()(
               g.identifiers.every((v, j) => v === navGroups[i].identifiers[j]),
           )
             ? s
-            : { navGroups },
+            : { navGroups, navGroupBy },
         ),
       toggleGroupCollapsed: (key) =>
         set((s) => ({
@@ -2554,6 +2578,78 @@ export const useStore = create<Store>()(
           }
           return { focusedIssueId: list[next] }
         }),
+      moveFocusedIssue: (dir, toEdge) => {
+        const s = get()
+        const ident = s.focusedIssueId
+        if (!ident) return
+        const group = s.navGroups.find((g) => g.identifiers.includes(ident))
+        if (!group) return
+        // Render order, resolved to issues. A sub-issue nested under a parent
+        // appears in `identifiers` but is not a peer, so anything the group no
+        // longer contains simply drops out.
+        const row = group.identifiers
+          .map((id) => s.issues.find((i) => i.identifier === id))
+          .filter((i): i is Issue => !!i)
+        const cur = row.findIndex((i) => i.identifier === ident)
+        if (cur === -1) return
+        const target = toEdge
+          ? dir === 1
+            ? row.length - 1
+            : 0
+          : Math.min(Math.max(cur + dir, 0), row.length - 1)
+        if (target === cur) return
+        const moved = row[cur]
+        const rest = row.filter((_, i) => i !== cur)
+        // Neighbours *after* the move — the same midpoint maths drag-to-reorder
+        // uses, so keyboard and mouse land on identical sortOrders.
+        const prev = rest[target - 1]
+        const next = rest[target]
+        let sortOrder: number
+        if (prev && next) sortOrder = (prev.sortOrder + next.sortOrder) / 2
+        else if (prev) sortOrder = prev.sortOrder + 100
+        else if (next) sortOrder = next.sortOrder - 100
+        else return
+        get().setIssueSortOrder(moved.id, sortOrder)
+      },
+      moveFocusedIssueToColumn: (dir) => {
+        const s = get()
+        const ident = s.focusedIssueId
+        if (!ident) return
+        const issue = s.issues.find((i) => i.identifier === ident)
+        if (!issue) return
+        const at = s.navGroups.findIndex((g) => g.identifiers.includes(ident))
+        if (at === -1) return
+        const dest = s.navGroups[at + dir]
+        if (!dest) return
+        // Sub-grouped lists publish "group::subGroup" keys; the column the user
+        // sees is the outer one.
+        const key = dest.key.includes('::') ? dest.key.split('::')[0] : dest.key
+        const none = key === 'none' ? undefined : key
+        switch (s.navGroupBy) {
+          case 'status':
+            if (issue.stateId !== key) s.moveIssue(issue.id, key, issue.sortOrder)
+            return
+          case 'assignee':
+            if (issue.assigneeId !== none) s.setIssueAssignee(issue.id, none)
+            return
+          case 'priority':
+            s.setIssuePriority(issue.id, Number(key) as Priority)
+            return
+          case 'project':
+            if (issue.projectId !== none) s.setIssueProject(issue.id, none)
+            return
+          case 'cycle':
+            if (issue.cycleId !== none) s.setIssueCycle(issue.id, none)
+            return
+          case 'milestone':
+            if (issue.milestoneId !== none) s.setIssueMilestone(issue.id, none)
+            return
+          default:
+            // 'label', 'creator', 'none' — not a single settable property, so
+            // there is no column to move between. Linear does the same.
+            return
+        }
+      },
       extendFocusSelection: (dir) =>
         set((s) => {
           const list = s.navIssueIds

@@ -128,8 +128,8 @@ export function GroupedIssueList({
   )
   const groupOrderKey = groupOrder.map((g) => `${g.key}:${g.identifiers.join(',')}`).join('\n')
   useEffect(() => {
-    setNavGroups(groupOrder)
-  }, [groupOrderKey, setNavGroups])
+    setNavGroups(groupOrder, groupBy)
+  }, [groupOrderKey, groupBy, setNavGroups])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Filter,
@@ -148,6 +148,59 @@ export function hasActiveFilters(f: FilterState): boolean {
     (f.dates ?? []).length > 0 ||
     !!f.text?.trim()
   )
+}
+
+/**
+ * One entry per chip the filter row can show. Dates collapse to a single key —
+ * a view can carry several date chips, and `⇧F` drops the most recent of them.
+ */
+type ChipKey = Dim | 'text' | 'dates'
+
+/** The chip keys currently carrying a value, in the order the row renders them. */
+function activeChipKeys(f: FilterState): ChipKey[] {
+  const keys: ChipKey[] = DIMS.filter((d) => ((f[d.id] as unknown[]) ?? []).length > 0).map(
+    (d) => d.id,
+  )
+  if (f.text?.trim()) keys.push('text')
+  if ((f.dates ?? []).length > 0) keys.push('dates')
+  return keys
+}
+
+/**
+ * Keep `order` in step with a filter change: chips that went away drop out,
+ * chips that just appeared go on the end. Applied at the two places a view
+ * hands `onChange` down, so every chip and menu maintains it for free.
+ */
+function withFilterOrder(prev: FilterState, next: FilterState): FilterState {
+  const now = activeChipKeys(next)
+  const kept = (prev.order ?? activeChipKeys(prev)).filter((k): k is ChipKey =>
+    now.includes(k as ChipKey),
+  )
+  const added = now.filter((k) => !kept.includes(k))
+  return { ...next, order: [...kept, ...added] }
+}
+
+/** Drop one chip's worth of filtering. Dates lose only their newest entry. */
+function clearChip(f: FilterState, key: ChipKey): FilterState {
+  if (key === 'text') return { ...f, text: undefined }
+  if (key === 'dates') return { ...f, dates: (f.dates ?? []).slice(0, -1) }
+  return clearDim(f, key)
+}
+
+/**
+ * Linear's `⇧F` — "Clear last issue filter". Uses the recorded insertion order
+ * when there is one, and falls back to render order for filters saved before
+ * `order` existed.
+ */
+function clearLastFilter(f: FilterState): FilterState {
+  const order = (f.order ?? activeChipKeys(f)).filter((k): k is ChipKey =>
+    activeChipKeys(f).includes(k as ChipKey),
+  )
+  const last = order[order.length - 1]
+  if (!last) return f
+  // A dates chip only leaves the order once its final entry is gone.
+  const cleared = clearChip(f, last)
+  return { ...cleared, order: order.filter((k) => activeChipKeys(cleared).includes(k)) }
 }
 
 /** Stable identity for "no options" so {@link useDimCounts}'s memo holds. */
@@ -1322,7 +1375,7 @@ function TextChip({
 
 export function FilterBar({
   filters,
-  onChange,
+  onChange: rawChange,
   onSave,
   scope,
 }: {
@@ -1333,6 +1386,9 @@ export function FilterBar({
   /** The view's pre-filter issue set — powers the per-option counts. */
   scope?: Issue[]
 }) {
+  // Every chip and menu below routes through here, so `order` stays honest
+  // wherever the change came from.
+  const onChange = (next: FilterState) => rawChange(withFilterOrder(filters, next))
   const active = hasActiveFilters(filters)
   const [custom, setCustom] = useState<CustomReq | null>(null)
 
@@ -1420,7 +1476,7 @@ export function FilterBar({
  */
 export function FilterTrigger({
   filters,
-  onChange,
+  onChange: rawChange,
   scope,
 }: {
   filters: FilterState
@@ -1429,6 +1485,8 @@ export function FilterTrigger({
   scope?: Issue[]
 }) {
   const [custom, setCustom] = useState<CustomReq | null>(null)
+  const onChange = (next: FilterState) => rawChange(withFilterOrder(filters, next))
+  const funnelRef = useRef<HTMLButtonElement>(null)
   // JS pixels, so CSS's `--font-scale` never reaches them: at the larger steps
   // the popover kept its 200px while its contents grew, and the panel overflowed.
   const panelW = Math.round(BASE_FILTER_W * useFontScale())
@@ -1438,12 +1496,46 @@ export function FilterTrigger({
     setCustom(null)
   }
 
+  // Linear's Filters section: `F` opens this menu, `⇧F` drops the filter added
+  // last, `⌥⇧F` clears them all. The funnel is the only filter affordance every
+  // issue view renders, so owning the keys here reaches all of them at once
+  // without a store round-trip.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey) return
+      // Option rewrites `e.key` on macOS (⌥F → "ƒ", ⌥⇧F → "Ï"), so the physical
+      // key is the reliable test — but keep the `e.key` path for the events
+      // synthesised by automation, which carry no `code` at all.
+      if (e.code !== 'KeyF' && !['f', 'F', 'ƒ', 'Ï'].includes(e.key)) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      // A menu, modal or command palette already owns the keyboard.
+      if (document.querySelector('[data-overlay]')) return
+      if (e.altKey && e.shiftKey) {
+        e.preventDefault()
+        rawChange(emptyFilters())
+        return
+      }
+      if (e.altKey) return
+      if (e.shiftKey) {
+        e.preventDefault()
+        rawChange(clearLastFilter(filters))
+        return
+      }
+      e.preventDefault()
+      funnelRef.current?.click()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [filters, rawChange])
+
   return (
     <>
       <Popover
         align="end"
         width={panelW}
         label="Add filter"
+        triggerRef={funnelRef}
         trigger={
           <span
             title="Filter"
