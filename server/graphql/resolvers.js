@@ -3,7 +3,8 @@
 // resolver bodies so the wire format stays Linear's.
 import { randomUUID } from 'node:crypto'
 import { GraphQLScalarType, GraphQLError } from 'graphql'
-import { getWorkspace, saveWorkspace, getMeta } from '../workspace.js'
+import { getWorkspace, saveWorkspace, getMeta as getDocMeta } from '../workspace.js'
+import { currentWorkspaceId } from '../tenantContext.js'
 import { fireEvent } from '../webhooks.js'
 import { connect, sortRows, matchFilter } from './pagination.js'
 import { createFileRecord, fileIdFromUrl, getFileRecord, MAX_UPLOAD_BYTES } from '../files.js'
@@ -35,16 +36,26 @@ const COLLECTIONS = [
   'comments', 'milestones', 'relations', 'attachments',
 ]
 
-/** The workspace document with every collection guaranteed to be an array. */
+/**
+ * The document of the workspace this request resolved to, with every
+ * collection guaranteed to be an array. The id comes from the request scope
+ * (tenantContext.js) rather than an argument, so no resolver can read another
+ * tenant's data by forgetting to pass it.
+ */
 function doc() {
-  const w = getWorkspace() || {}
+  const w = getWorkspace(currentWorkspaceId()) || {}
   for (const k of COLLECTIONS) if (!Array.isArray(w[k])) w[k] = []
   return w
 }
 
 /** Persist and notify webhook subscribers. Returns the new document version. */
 function commit(w, writer) {
-  return saveWorkspace(w, writer || 'graphql')
+  return saveWorkspace(currentWorkspaceId(), w, writer || 'graphql')
+}
+
+/** Sync metadata for the workspace in scope. */
+function getMeta() {
+  return getDocMeta(currentWorkspaceId())
 }
 
 const now = () => new Date().toISOString()

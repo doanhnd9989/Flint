@@ -5,24 +5,37 @@
 import { WebSocketServer } from 'ws'
 import { verifyToken } from './auth.js'
 import { onWorkspaceSave } from './workspace.js'
+import { resolveMembership } from './tenancy.js'
 
 export function setupWebsocket(server) {
   const wss = new WebSocketServer({ server, path: '/api/ws' })
 
   wss.on('connection', (ws, req) => {
     let token = null
+    let requested = null
     try {
-      token = new URL(req.url, 'http://localhost').searchParams.get('token')
+      const params = new URL(req.url, 'http://localhost').searchParams
+      token = params.get('token')
+      requested = params.get('workspaceId')
     } catch {
       /* ignore */
     }
-    if (!verifyToken(token)) {
+    const user = verifyToken(token)
+    if (!user) {
       ws.close(4001, 'unauthorized')
       return
     }
+    // A socket only ever hears about the workspace it subscribed to, so a
+    // version bump can't tell one tenant that another tenant changed.
+    const member = resolveMembership(user, requested)
+    if (!member) {
+      ws.close(4003, 'forbidden')
+      return
+    }
+    ws.workspaceId = member.workspace_id
     ws.isAlive = true
     ws.on('pong', () => { ws.isAlive = true })
-    ws.send(JSON.stringify({ type: 'hello' }))
+    ws.send(JSON.stringify({ type: 'hello', workspaceId: ws.workspaceId }))
   })
 
   // Heartbeat: drop sockets that stop responding.
@@ -35,10 +48,10 @@ export function setupWebsocket(server) {
   }, 30000)
   wss.on('close', () => clearInterval(heartbeat))
 
-  onWorkspaceSave(({ version, writer }) => {
-    const msg = JSON.stringify({ type: 'workspace', version, lastWriter: writer })
+  onWorkspaceSave(({ workspaceId, version, writer }) => {
+    const msg = JSON.stringify({ type: 'workspace', workspaceId, version, lastWriter: writer })
     wss.clients.forEach((ws) => {
-      if (ws.readyState === ws.OPEN) {
+      if (ws.readyState === ws.OPEN && ws.workspaceId === workspaceId) {
         try { ws.send(msg) } catch { /* ignore */ }
       }
     })

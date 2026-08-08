@@ -82,7 +82,7 @@ import { AdminView } from '@/views/AdminView'
 import { ApiKeysView } from '@/views/ApiKeysView'
 import { RequireAuth, RequireAdmin } from '@/components/RequireAuth'
 import { useAuth } from '@/lib/auth'
-import { hydrateWorkspace, startWorkspaceSync } from '@/lib/sync'
+import { hydrateWorkspace, startWorkspaceSync, resetSyncState } from '@/lib/sync'
 
 function Shell() {
   useThemeEffect()
@@ -173,7 +173,10 @@ export default function App() {
   const ready = useAuth((s) => s.ready)
   const user = useAuth((s) => s.user)
   const bootstrap = useAuth((s) => s.bootstrap)
-  const [hydrated, setHydrated] = useState(false)
+  // Which account the loaded workspace belongs to. Keyed by id rather than a
+  // boolean so signing in as somebody else re-hydrates instead of leaving the
+  // previous account's data on screen.
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null)
   useEffect(() => {
     void bootstrap()
   }, [bootstrap])
@@ -181,19 +184,20 @@ export default function App() {
   // Once authenticated, hydrate the workspace from the server (source of truth)
   // and start persisting changes back. Gate the app behind a splash until done.
   useEffect(() => {
-    if (!ready || !user || hydrated) return
+    if (!ready || !user || hydratedFor === user.id) return
     let cancelled = false
+    resetSyncState()
     void hydrateWorkspace().then(() => {
       if (cancelled) return
       startWorkspaceSync()
-      setHydrated(true)
+      setHydratedFor(user.id)
     })
     return () => {
       cancelled = true
     }
-  }, [ready, user, hydrated])
+  }, [ready, user, hydratedFor])
 
-  const wsReady = !user || hydrated
+  const wsReady = !user || hydratedFor === user.id
   if (!ready || !wsReady) return <BootSplash />
 
   return (

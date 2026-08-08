@@ -3,6 +3,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { api, setApiToken } from './api'
+import { resetWorkspaceStore } from './resetWorkspace'
 
 // During SSR/prerender there is no localStorage — fall back to a no-op store so
 // the persist middleware can initialise without throwing in Node.
@@ -182,6 +183,9 @@ export const useAuth = create<AuthState>()(
       logout: () => {
         setApiToken(null)
         set({ token: null, user: null })
+        // Drop the workspace data too — it belongs to the account that just
+        // left, not to this browser.
+        resetWorkspaceStore()
       },
 
       applyFlag: (key, enabled) => set((s) => ({ flags: { ...s.flags, [key]: enabled } })),

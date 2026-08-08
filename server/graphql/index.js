@@ -9,6 +9,8 @@ import { makeExecutableSchema } from './makeSchema.js'
 import { typeDefs } from './schema.js'
 import { resolvers } from './resolvers.js'
 import { verifyToken } from '../auth.js'
+import { resolveMembership, viewerId } from '../tenancy.js'
+import { runInWorkspace } from '../tenantContext.js'
 
 export const schema = makeExecutableSchema(typeDefs, resolvers)
 
@@ -39,25 +41,36 @@ graphqlRouter.post('/', async (req, res) => {
     })
   }
 
+  // Which tenant this key/token may act on. `workspaceId` (header or variable)
+  // must be one the account belongs to; without it we use their first.
+  const requested = req.get('x-workspace-id') || variables?.workspaceId || null
+  const member = resolveMembership(user, requested)
+  if (!member) {
+    return res.status(403).json({
+      errors: [{ message: 'You do not have access to that workspace', extensions: { code: 'FORBIDDEN' } }],
+    })
+  }
+
   const contextValue = {
     user,
+    workspaceId: member.workspace_id,
+    workspaceRole: member.role,
     clientId: req.get('x-client-id') || 'graphql',
     /** The workspace member matching the authenticated account, for authorship. */
-    viewerId: (w) =>
-      w.users.find((u) => u.email?.toLowerCase() === user.email?.toLowerCase())?.id ||
-      w.currentUserId ||
-      user.id,
+    viewerId: (w) => viewerId(w, user),
   }
 
   try {
-    const result = await graphql({
-      schema,
-      source: query,
-      rootValue: {},
-      contextValue,
-      variableValues: variables || undefined,
-      operationName: operationName || undefined,
-    })
+    const result = await runInWorkspace(member.workspace_id, () =>
+      graphql({
+        schema,
+        source: query,
+        rootValue: {},
+        contextValue,
+        variableValues: variables || undefined,
+        operationName: operationName || undefined,
+      }),
+    )
     res.json(result)
   } catch (err) {
     res.status(500).json({ errors: [{ message: String(err?.message || err) }] })

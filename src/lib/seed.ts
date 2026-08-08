@@ -527,3 +527,38 @@ export function buildSeed(): WorkspaceData {
     pullRequests,
   }
 }
+
+/**
+ * A workspace with nothing in it. Used when a session ends: signing out has to
+ * leave no trace of the previous account's data behind in this browser, and
+ * re-seeding the demo workspace would put a stranger's issues back on screen.
+ */
+export function emptyWorkspace(): WorkspaceData {
+  return {
+    workspaceName: 'Workspace',
+    users: [],
+    currentUserId: '',
+    teams: [],
+    states: [],
+    labels: [],
+    initiatives: [],
+    projects: [],
+    milestones: [],
+    cycles: [],
+    issues: [],
+    issueLinks: [],
+    relations: [],
+    templates: [],
+    projectUpdates: [],
+    initiativeUpdates: [],
+    comments: [],
+    activities: [],
+    notifications: [],
+    savedViews: [],
+    documents: [],
+    customers: [],
+    releases: [],
+    attachments: [],
+    pullRequests: [],
+  }
+}

@@ -6,6 +6,7 @@ import { randomUUID, randomBytes, randomInt, createHash } from 'node:crypto'
 import { db, seed } from './db.js'
 import { signToken, publicUser, requireAuth, requireAdmin, hashApiKey, API_KEY_PREFIX } from './auth.js'
 import { apiRouter } from './api.js'
+import { createWorkspace, membersOf, removeMember } from './tenancy.js'
 import { graphqlRouter } from './graphql/index.js'
 import { filesRouter, MAX_UPLOAD_BYTES } from './files.js'
 import { setupWebsocket } from './realtime.js'
@@ -68,7 +69,14 @@ app.post('/api/auth/register', (req, res) => {
      VALUES (?, ?, ?, ?, ?, 'member', 'active', ?)`,
   ).run(id, name, email, bcrypt.hashSync(password, 10), AVATAR_COLORS[name.length % AVATAR_COLORS.length], new Date().toISOString())
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
-  res.status(201).json({ token: signToken(user), user: publicUser(user) })
+  // Their own empty workspace. A new account must never land inside somebody
+  // else's data, which is exactly what the single shared document used to do.
+  const ws = createWorkspace(user, String(req.body?.workspaceName || '').trim() || undefined)
+  res.status(201).json({
+    token: signToken(user),
+    user: publicUser(user),
+    workspace: { id: ws.id, name: ws.name, slug: ws.slug },
+  })
 })
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
@@ -241,6 +249,7 @@ app.post('/api/auth/otp/verify', (req, res) => {
       AVATAR_COLORS[nm.length % AVATAR_COLORS.length], nowIso,
     )
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
+    createWorkspace(user)
   }
   res.json({ token: signToken(user, { remember }), user: publicUser(user) })
 })
@@ -448,6 +457,47 @@ app.delete('/api/admin/users/:id', requireAuth, requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'Cannot delete the last active admin' })
   }
   db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id)
+  db.prepare('DELETE FROM workspace_members WHERE user_id = ?').run(req.params.id)
+  res.json({ ok: true })
+})
+
+// ---- admin: workspaces (tenants) ----
+// Every tenant on this server, so an admin can see who owns what and who was
+// carried into the workspace that used to be shared by everyone.
+app.get('/api/admin/workspaces', requireAuth, requireAdmin, (_req, res) => {
+  const rows = db
+    .prepare(
+      `SELECT w.id, w.name, w.slug, w.created_at, u.email AS owner_email,
+              (SELECT COUNT(*) FROM workspace_members m WHERE m.workspace_id = w.id) AS member_count
+       FROM workspaces w LEFT JOIN users u ON u.id = w.owner_id
+       ORDER BY w.created_at`,
+    )
+    .all()
+  res.json({
+    workspaces: rows.map((r) => ({
+      id: r.id, name: r.name, slug: r.slug, createdAt: r.created_at,
+      ownerEmail: r.owner_email, memberCount: r.member_count,
+    })),
+  })
+})
+
+app.get('/api/admin/workspaces/:id/members', requireAuth, requireAdmin, (req, res) => {
+  res.json({
+    members: membersOf(req.params.id).map((u) => ({
+      ...publicUser(u), workspaceRole: u.workspace_role, joinedAt: u.joined_at,
+    })),
+  })
+})
+
+app.delete('/api/admin/workspaces/:id/members/:userId', requireAuth, requireAdmin, (req, res) => {
+  const ws = db.prepare('SELECT owner_id FROM workspaces WHERE id = ?').get(req.params.id)
+  if (!ws) return res.status(404).json({ error: 'Workspace not found' })
+  if (ws.owner_id === req.params.userId) {
+    return res.status(400).json({ error: 'The workspace owner cannot be removed' })
+  }
+  if (!removeMember(req.params.id, req.params.userId)) {
+    return res.status(404).json({ error: 'Not a member of this workspace' })
+  }
   res.json({ ok: true })
 })
 
