@@ -68,4 +68,8 @@ export const copyToast = {
   url: () => 'Issue URL copied to clipboard',
   branch: () =>
     'Branch name copied to clipboard. Paste it into your favorite git client.',
+  title: () => 'Issue title copied to clipboard',
+  link: () => 'Issue link copied to clipboard',
+  description: () => 'Issue description copied to clipboard',
+  content: () => 'Issue content copied to clipboard',
 } as const

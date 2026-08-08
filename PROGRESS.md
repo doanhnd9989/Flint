@@ -4829,3 +4829,93 @@ five "overflow" hits are `truncate` elements whose `scrollWidth` exceeds
 1280`, i.e. the page never scrolls sideways · board keyboard model re-verified
 end to end after the fix: ring renders and scrolls into view, `⇧`-click selects,
 `⇧↓` ranges, `Esc` clears, `⌘A` takes all 306 · lint 105, unchanged`
+
+---
+
+## 2026-08-08 — `command-menu`, second lap: the palette forgot what you were looking at
+
+Rotation area #6, second visit. `collect.sh` came back green (typecheck PASS,
+api UP, lint 105 — the documented baseline, unchanged by this run). Vite was
+DOWN and was started with the preview tool, never from Bash. `seed-bulk.mjs`
+added 24 issues, 6 sub-issues, 18 comments and 8 real attachments (3496 KB) on
+top of the existing 250.
+
+The first lap on this area rebuilt the **root** palette and closed with an
+honest list of what it could not verify: the contextual commands, the sub-page
+drill-ins, and every menu behind them. This lap went after exactly that, with an
+issue open (`/issue/CLA-322`) so the palette had something to be contextual
+about.
+
+**What was red.** Four things, three of them regressions or bugs the first lap
+left behind or introduced.
+
+*The issue commands were at the bottom.* Linear opens ⌘K on the thing you are
+looking at: with `VC-784` open, its 37 issue commands are rows 1–37, directly
+under the input. Ours listed them **last**, after every navigation row, under an
+`Issue actions` header — 44 rows of scrolling to reach "Change status". The
+cause was the first lap's own fix: it added `ROOT_SECTIONS` ordering, and
+`Issue actions` was never a member, so `rank()` swept it into the unranked
+bucket at the end. The section ordering that made the root palette right made
+the contextual palette useless. `ctx-` (and `bulk-`) now sort ahead of every
+section, and print no header — Linear prints none either, because the issue chip
+above the input already names the context.
+
+*`Set estimate…` advertised a shortcut that does nothing.* The row printed `E`;
+`useShortcuts` binds the picker to `⇧E`, and plain `E` falls through to
+nothing. A hint for a chord that isn't bound is worse than no hint. Now `⇧ E`.
+
+*The due-date menu offered a date in the past.* "End of this week" is the Friday
+of the current week — which has already gone by once it is the weekend. Today is
+Saturday 8 Aug, and the row read "Fri, 7 Aug". Setting a due date to yesterday
+is never what the row means, so it now drops out once its Friday has passed.
+
+*`Make sub-issue of…` rendered 789 buttons.* One per workspace issue, into a
+320px listbox, every time the page opened — the only picker in the palette with
+no bound at all. Capped at 50, sorted newest-touched-first; typing still
+fuzzy-searches the whole workspace, because the cap is on the landing list, not
+on the search.
+
+**What the side-by-side turned up.** Nine wording differences, one ordering
+difference and five missing commands, all fixed: `Set priority…` →
+`Change priority…`, `Add to project…` → `Move to project…`, `Add labels…` →
+`Change or add labels…`, `Move to team…` → `Move to a different team…`,
+`Subscribe` → `Subscribe to issue`, `Add to favorites` → `Favorite issue`,
+`Duplicate issue` → `Make a copy as new issue…`, `Delete issue…` →
+`Delete issue`; the property block reordered to Linear's
+assign → status → priority → project → labels → estimate → cycle → team → due
+date; and the copy family filled in — `Copy issue title`, `Copy title as link`,
+`Copy issue description as Markdown`, `Copy issue content as Markdown`. Each new
+command was verified by capturing the actual clipboard payload, not by trusting
+the toast. `Add link…` was wired too: the modal already existed and simply had
+no way in from ⌘K.
+
+Hints are printed only for chords we actually bind — `⌘⇧,` and `⌘⇧.` gained
+theirs (both were already live in `useShortcuts` and silently undocumented);
+Linear's `⌘⇧'`, `⌘C`, `⌘⌥C` and `⌘⇧M` are filed rather than faked.
+
+Linear still has 37 contextual commands to our 24, plus a whole `Project · <name>`
+group below them. The nine that map onto surfaces we already own (subscribers,
+relations, similar issues, description history, reminders, customer requests)
+are filed 🟡 as wiring, not features.
+
+**Linear stayed read-only.** The palette was opened with ⌘K, scrolled with real
+scroll ticks, read, and closed with Escape. Nothing was selected, typed or
+submitted — which means Linear's fuzzy ranking, its `is:`/`in:` scope tokens and
+its bulk-selection set remain **unverified**, since all three are only reachable
+by typing into a field on the user's real workspace. They are recorded as
+unverified rather than assumed to match.
+
+One harness note worth keeping: adding a *new* named import from a pre-bundled
+dependency (`Type`, `Link` from `lucide-react`) mid-session throws
+`ReferenceError: Type is not defined` and crashes the component, because Vite's
+optimized dep bundle predates the import. It is not a code error and it does not
+survive `rm -rf node_modules/.vite` + a dev-server restart — but it does read
+exactly like a real crash in the console, so verify against a fresh optimize
+before chasing it.
+
+`tsc -b ✅ · build ✅ · 37-route sweep console-clean, zero empty renders, the
+handful of "overflow" hits all `truncate` elements behaving as designed with
+`documentElement.scrollWidth === innerWidth === 1280` · palette re-verified at
+dark + `--font-scale: 1.4` + a 420px viewport (panel 386px, rows 43px, nothing
+clipped, `document.scrollWidth` 420) · every sub-page drill-in opened and
+counted, no dead controls · lint 105, unchanged baseline`

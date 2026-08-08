@@ -66,6 +66,8 @@ import {
   Filter,
   PenSquare,
   SlidersHorizontal,
+  Type,
+  Link,
 } from 'lucide-react'
 import { useStore, useDisplayName } from '@/lib/store'
 import { useAuth } from '@/lib/auth'
@@ -234,7 +236,9 @@ function parseScope(raw: string): {
  * header is purely presentational — keyboard traversal stays flat (below).
  */
 function groupOf(id: string): string {
-  if (id.startsWith('ctx-')) return 'Issue actions'
+  // Linear prints no header above the contextual issue commands — the issue
+  // chip sitting above the input is what names the context. They lead the list.
+  if (id.startsWith('ctx-')) return ''
   if (id.startsWith('bulk-')) return 'Selection'
   if (id.startsWith('scope-')) return 'Filter issues'
   if (id.startsWith('recent-')) return 'Recently viewed'
@@ -818,14 +822,21 @@ export function CommandMenu() {
             keywords: 'tomorrow',
             run: () => set(tomorrow),
           },
-          {
-            id: 'due-endweek',
-            label: 'End of this week',
-            icon: <CalendarDays size={15} />,
-            meta: format(endOfThisWeek, 'EEE, d MMM'),
-            keywords: 'end of this week friday',
-            run: () => set(endOfThisWeek),
-          },
+          // "End of this week" is the Friday of the current week — which has
+          // already gone by once it's the weekend. A due-date suggestion in the
+          // past is never useful, so the row drops out on Sat/Sun.
+          ...(isBefore(startOfDay(today), endOfThisWeek)
+            ? [
+                {
+                  id: 'due-endweek',
+                  label: 'End of this week',
+                  icon: <CalendarDays size={15} />,
+                  meta: format(endOfThisWeek, 'EEE, d MMM'),
+                  keywords: 'end of this week friday',
+                  run: () => set(endOfThisWeek),
+                },
+              ]
+            : []),
           {
             id: 'due-inweek',
             label: 'In one week',
@@ -864,6 +875,10 @@ export function CommandMenu() {
         }
         return store.issues
           .filter((i) => !blocked.has(i.id) && !i.archivedAt)
+          // Most-recently-touched first, so the (capped) landing list is the one
+          // you'd actually reach for; typing still searches the whole workspace.
+          .slice()
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
           .map((i) => {
             const st = store.states.find((s) => s.id === i.stateId)!
             return {
@@ -1021,36 +1036,42 @@ export function CommandMenu() {
             },
             {
               id: 'ctx-priority',
-              label: 'Set priority…',
+              label: 'Change priority…',
               icon: <PriorityIcon priority={issue.priority} />,
               hint: 'P',
-              keywords: 'priority',
+              keywords: 'priority set change',
               goPage: 'priority' as Page,
             },
             {
               id: 'ctx-project',
-              label: 'Add to project…',
+              label: 'Move to project…',
               icon: <FolderPlus size={15} />,
               hint: '⇧ P',
-              keywords: 'project add to',
+              keywords: 'project add to move',
               goPage: 'project' as Page,
             },
             {
               id: 'ctx-label',
-              label: 'Add labels…',
+              label: 'Change or add labels…',
               icon: <Tag size={15} />,
               hint: 'L',
-              keywords: 'label labels add',
+              keywords: 'label labels add change',
               goPage: 'label' as Page,
             },
-            {
-              id: 'ctx-duedate',
-              label: 'Set due date…',
-              icon: <CalendarDays size={15} />,
-              hint: '⇧ D',
-              keywords: 'due date deadline set',
-              goPage: 'dueDate' as Page,
-            },
+            ...(usesEstimates
+              ? [
+                  {
+                    id: 'ctx-estimate',
+                    label: 'Set estimate…',
+                    icon: <Hash size={15} />,
+                    // Bound as ⇧E in `useShortcuts` — the plain `E` this used to
+                    // print did nothing.
+                    hint: '⇧ E',
+                    keywords: 'estimate points effort size',
+                    goPage: 'estimate' as Page,
+                  },
+                ]
+              : []),
             ...(hasTeamCycles
               ? [
                   {
@@ -1075,18 +1096,27 @@ export function CommandMenu() {
                   },
                 ]
               : []),
-            ...(usesEstimates
+            ...(store.teams.length > 1
               ? [
                   {
-                    id: 'ctx-estimate',
-                    label: 'Set estimate…',
-                    icon: <Hash size={15} />,
-                    hint: 'E',
-                    keywords: 'estimate points effort size',
-                    goPage: 'estimate' as Page,
+                    id: 'ctx-move-team',
+                    label: 'Move to a different team…',
+                    icon: <ArrowRightLeft size={15} />,
+                    keywords: 'move team transfer change different',
+                    goPage: 'moveTeam' as Page,
                   },
                 ]
               : []),
+            {
+              id: 'ctx-duedate',
+              label: 'Set due date…',
+              icon: <CalendarDays size={15} />,
+              hint: '⇧ D',
+              keywords: 'due date deadline set',
+              goPage: 'dueDate' as Page,
+            },
+            // —— Copy block, in Linear's order. Only the three chords we actually
+            // bind in `useShortcuts` print a hint.
             {
               id: 'ctx-copy-id',
               label: 'Copy issue ID',
@@ -1099,13 +1129,52 @@ export function CommandMenu() {
               id: 'ctx-copy-url',
               label: 'Copy issue URL',
               icon: <Link2 size={15} />,
+              hint: '⌘ ⇧ ,',
               keywords: 'copy url link',
               run: () => copyToClipboard(issueUrl(issue.identifier), copyToast.url()),
+            },
+            {
+              id: 'ctx-copy-title',
+              label: 'Copy issue title',
+              icon: <Type size={15} />,
+              keywords: 'copy title name text',
+              run: () => copyToClipboard(issue.title, copyToast.title()),
+            },
+            {
+              id: 'ctx-copy-title-link',
+              label: 'Copy title as link',
+              icon: <Link size={15} />,
+              keywords: 'copy title as link markdown anchor',
+              run: () =>
+                copyToClipboard(
+                  `[${issue.identifier} ${issue.title}](${issueUrl(issue.identifier)})`,
+                  copyToast.link(),
+                ),
+            },
+            {
+              id: 'ctx-copy-description',
+              label: 'Copy issue description as Markdown',
+              icon: <FileText size={15} />,
+              keywords: 'copy description body markdown md',
+              run: () =>
+                copyToClipboard(issue.description, copyToast.description()),
+            },
+            {
+              id: 'ctx-copy-content',
+              label: 'Copy issue content as Markdown',
+              icon: <FileText size={15} />,
+              keywords: 'copy content issue markdown md title description',
+              run: () =>
+                copyToClipboard(
+                  `# ${issue.title}\n\n${issue.description}`.trimEnd(),
+                  copyToast.content(),
+                ),
             },
             {
               id: 'ctx-copy-branch',
               label: 'Copy git branch name',
               icon: <GitBranch size={15} />,
+              hint: '⌘ ⇧ .',
               keywords: 'copy git branch name',
               run: () =>
                 copyToClipboard(
@@ -1114,8 +1183,16 @@ export function CommandMenu() {
                 ),
             },
             {
+              id: 'ctx-subscribe',
+              label: subscribed ? 'Unsubscribe from issue' : 'Subscribe to issue',
+              icon: subscribed ? <BellOff size={15} /> : <Bell size={15} />,
+              keywords: 'subscribe unsubscribe notifications follow watch',
+              run: () =>
+                store.toggleIssueSubscriber(issue.id, store.currentUserId),
+            },
+            {
               id: 'ctx-favorite',
-              label: starred ? 'Remove from favorites' : 'Add to favorites',
+              label: starred ? 'Unfavorite issue' : 'Favorite issue',
               icon: (
                 <Star
                   size={15}
@@ -1127,22 +1204,11 @@ export function CommandMenu() {
               run: () => store.toggleFavorite('issue', issue.id),
             },
             {
-              id: 'ctx-subscribe',
-              label: subscribed ? 'Unsubscribe' : 'Subscribe',
-              icon: subscribed ? <BellOff size={15} /> : <Bell size={15} />,
-              keywords: 'subscribe unsubscribe notifications follow watch',
-              run: () =>
-                store.toggleIssueSubscriber(issue.id, store.currentUserId),
-            },
-            {
-              id: 'ctx-duplicate',
-              label: 'Duplicate issue',
-              icon: <CopyPlus size={15} />,
-              keywords: 'duplicate copy clone',
-              run: () => {
-                const dupe = store.duplicateIssue(issue.id)
-                if (dupe) navigate(`/issue/${dupe.identifier}`)
-              },
+              id: 'ctx-add-link',
+              label: 'Add link…',
+              icon: <Link2 size={15} />,
+              keywords: 'add link url attachment reference',
+              run: () => store.openLinkModal(issue.id),
             },
             {
               id: 'ctx-parent',
@@ -1162,17 +1228,16 @@ export function CommandMenu() {
                   },
                 ]
               : []),
-            ...(store.teams.length > 1
-              ? [
-                  {
-                    id: 'ctx-move-team',
-                    label: 'Move to team…',
-                    icon: <ArrowRightLeft size={15} />,
-                    keywords: 'move team transfer change',
-                    goPage: 'moveTeam' as Page,
-                  },
-                ]
-              : []),
+            {
+              id: 'ctx-duplicate',
+              label: 'Make a copy as new issue…',
+              icon: <CopyPlus size={15} />,
+              keywords: 'duplicate copy clone new issue',
+              run: () => {
+                const dupe = store.duplicateIssue(issue.id)
+                if (dupe) navigate(`/issue/${dupe.identifier}`)
+              },
+            },
             {
               id: 'ctx-archive',
               label: archived ? 'Unarchive issue' : 'Archive issue',
@@ -1192,7 +1257,7 @@ export function CommandMenu() {
             },
             {
               id: 'ctx-delete',
-              label: 'Delete issue…',
+              label: 'Delete issue',
               icon: <Trash2 size={15} />,
               keywords: 'delete remove trash',
               run: () => store.deleteIssue(issue.id),
@@ -1677,7 +1742,11 @@ export function CommandMenu() {
       // way (~80 rows across 21 sections) rather than a teaser slice — the
       // long entity-nav / per-issue / view / display lists still only surface
       // once you type, because those are workspace data, not commands.
-      if (page) return commands
+      // A sub-page shows every option — except the entity pickers backed by the
+      // whole workspace ("Make sub-issue of…" is one row per issue). Rendering
+      // 800 buttons into a 320px listbox is all cost and no use; typing still
+      // fuzzy-searches the full set below.
+      if (page) return commands.slice(0, 50)
       const recent = commands.filter((c) => c.id.startsWith('recent-'))
       const roots = commands.filter(
         (c) =>
@@ -1690,7 +1759,13 @@ export function CommandMenu() {
           !c.id.startsWith('disp-'),
       )
       // Stable-sort into Linear's section order so each header prints once.
+      // The contextual issue commands and the bulk-selection commands sort
+      // *ahead* of every section: Linear opens ⌘K on the thing you're looking
+      // at, so its actions come first. (They carry no section name of their own,
+      // which is why they'd otherwise land in the unranked bucket at the end.)
       const rank = (c: Command) => {
+        if (c.id.startsWith('ctx-')) return -2
+        if (c.id.startsWith('bulk-')) return -1
         const i = ROOT_SECTIONS.indexOf(groupOf(c.id))
         return i === -1 ? ROOT_SECTIONS.length : i
       }

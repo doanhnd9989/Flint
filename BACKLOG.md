@@ -616,6 +616,49 @@ live workspace too.
 
 ## 🔍 Noticed while comparing, not yet built
 
+### From the `command-menu` pass, second lap (the issue-context commands)
+
+The palette with an issue in context, read side by side against Linear's on
+`linear.app/thehumaninc/issue/VC-784` (opened, scrolled, Escaped — nothing
+selected). Linear lists **37** contextual commands before its first section
+break; we now list 24. Wording, order and the copy family were fixed in that
+run — full table in `.audit/controls/command-menu.md`. What is left:
+
+- [ ] 🟡 **Nine issue commands Linear has and we don't.** In Linear's order:
+      `Change subscribers…` (⌘⇧S), `Remove all subscribers`, `Mark issue as…`,
+      `Show similar issues…`, `Open issue link…`, `Create new document for
+      issue…`, `Add customer request to issue…` (Ctrl R), `Remind me about this
+      issue…` (⇧H), `Issue description history`. Six of the nine already have a
+      working surface elsewhere in the app (the subscriber rail, the relation
+      picker, the Similar issues block, `descriptionHistory`, the reminder row,
+      the Customers block) — this is wiring, not new features. Medium.
+- [ ] 🟡 **`Apply template…` (⌘⌥T), `Rename issue` (⇧R), `Convert to project…`
+      and `Convert into recurring issue…` are absent from the palette.**
+      `ApplyTemplateMenu.tsx` exists and `setIssueTitle` is a store action, so
+      the first two are small; the last two need new store actions. Medium.
+- [ ] 🟢 **`Open sub-issue…` (⌘⇧↓) has no counterpart.** We offer `Make
+      sub-issue of…` (a parent picker) but no way to jump *down* into a
+      sub-issue from the palette. Small.
+- [ ] 🟢 **`Copy as prompt` (⌘⌥P) not built.** Linear's is an AI affordance;
+      copying the issue as an LLM-ready prompt is a self-contained string
+      builder. Small.
+- [ ] 🟢 **Four copy commands print no shortcut because we bind none.** Linear
+      binds `Copy issue title` ⌘⇧', `Copy title as link` ⌘C, `Copy issue
+      content as Markdown` ⌘⌥C, `Move to a different team…` ⌘⇧M. The commands
+      work from the palette; only the chords are missing, and hints are
+      deliberately not printed for chords we don't bind. Small (⌘C needs care —
+      it must not steal a real text selection).
+- [ ] 🟢 **Linear's palette groups a second entity below the issue.** After the
+      issue commands it prints a `Project · <name>` header followed by ~14
+      project commands (`Edit project…`, `Change project status…` P-then-S,
+      `Set project target date…`, `Change project dependencies…`, …), i.e. the
+      *issue's* project is in context too. We surface none of these. Medium.
+- [ ] ⚪ **Unverified against Linear, and not verifiable read-only:** our fuzzy
+      match ranking, the `is:` / `in:` scope tokens, and the bulk-selection
+      commands. Reaching any of them means typing into Linear's palette on the
+      user's real workspace, which the audit protocol forbids. Also unverified:
+      whether Linear's contextual set changes for an archived issue.
+
 ### From the `board-and-layouts` pass, second lap (the board keyboard model)
 
 The invisible highlight, the Shift-click that peeked, and the dead `⇧↑`/`⇧↓`
