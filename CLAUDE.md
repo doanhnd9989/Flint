@@ -60,6 +60,22 @@ src/
 - `npm run dev`    — dev server (already running on a local port; check the log)
 - `npx tsc -b`     — typecheck (MUST pass, exit 0)
 - `npm run build`  — full production build (MUST succeed)
+- `bash scripts/deploy.sh` — ship to production
+
+## Deployment
+
+See **`DEPLOY.md`** — read it *before* concluding you can't reach the server.
+
+The short version: production is `103.38.237.217` behind Cloudflare, and **there
+is no deploy key and no CI**. Past deploys drove `ssh` from an `expect` wrapper
+fed the root password by hand, which is why nothing survives a session. One
+command fixes that for good:
+
+```
+ssh-copy-id -i ~/.ssh/id_ed25519.pub root@103.38.237.217
+```
+
+Never handle that password yourself — ask, then use the key from then on.
 
 ## Definition of done for any change
 
